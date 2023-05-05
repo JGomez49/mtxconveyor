@@ -25,7 +25,7 @@ router.get('/notes/job/:id', isAuthenticated, renderJob);
 
 //Get all notes
 router.get('/notes', isAuthenticated, renderNotes);
-router.get('/notes/:guest', renderNotes);
+// router.get('/notes/:guest', renderNotes);
 // router.get('/orders', isAuthenticated, renderOrders);
 
 //Edit notes

@@ -66,7 +66,7 @@ notesCrtl.createNewNote = async(req,res)=>{
         // size: req.file.size,
     });
     newNote.user = req.user.id;
-    if (req.file.path){await unlink(req.file.path)}; 
+    // if (req.file.path){await unlink(req.file.path)}; 
     await newNote.save();
     const job = await Job.find().sort({createdAt: 'desc'});
     let jnID = job[0]._id;
@@ -86,6 +86,7 @@ notesCrtl.renderNotes = async (req,res)=>{
         user.name = 'Guest'
     }else{
         user.id = req.session.passport.user
+        console.log('>>user:' + user.id)
         let usuario = await User.findById(user.id);
         user.name = usuario.name
         user.email = usuario.email
