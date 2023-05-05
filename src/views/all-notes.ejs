@@ -148,7 +148,7 @@
 
 
 
-        <h4 style="color: orange;">Cancelled</h4>
+        <h4 style="color: orange;">QA/QC</h4>
         <table class="table table-hover table-striped table-warning" style="color: black;">
             <thead>
                 <tr>
@@ -161,7 +161,7 @@
             </thead>
             <tbody>
                 <% notes.forEach(note => { %>
-                    <% if (note.status == 'Cancelled') { %>
+                    <% if (note.status == 'QA/QC') { %>
                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                             <th scope="row"><%= note.mtxJobId %></th>
                             <td><%= note.title %></td>
