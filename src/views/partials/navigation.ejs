@@ -1,0 +1,53 @@
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">    
+
+    <div class="container-fluid">
+
+      <a class="p-2"><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373762/Logo_Metacortex_fzh4by.png" alt="" height="50"></a> 
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <ul class="navbar-nav">
+                <li class="nav-item active_">
+                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/about">About</a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav (x)ml-auto">
+                <% if (user) { %>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            Jobs
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                            <!-- <a class="dropdown-item" href="/clients">All Jobs</a> -->
+                            <% if (user == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+                                <a class="dropdown-item" href="/notes/add">New Note</a>
+                                <div class="dropdown-divider"></div>
+                            <% } %>
+                            <a class="dropdown-item" href="/users/signup">Register</a>
+                            <a class="dropdown-item" href="/users/logout">Logout</a>
+                        </div>
+                    </li>  
+                <% } %>
+
+                <% if (!user) { %>
+                    <li class="nav-item">
+                        <a href="/users/signin" class="nav-link">Login</a>
+                    </li>
+                <% } %>
+            </ul>
+        </div>
+    </div>
+</nav>
+

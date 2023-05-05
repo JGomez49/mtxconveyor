@@ -1,0 +1,31 @@
+{{!-- https://www.youtube.com/watch?v=PQL_iwLKnRg --}}
+
+{{!-- note es enviado desde note.controller.js -> "res.render('notes/edit-note', {note:note});" --}}
+
+<div class="col -md-4 mx-auto">
+    <div class="card">
+        <div class="card-header">
+            <h2>Edit Note</h2>
+        </div>
+        <div class="card-body">
+            <form action="/notes/edit/{{note.id}}?_method=put" method="post">
+            <input type="hidden" name="_method" value="put">
+
+                <div class="form-group">
+                    <input type="text" name="title" class="form-control" value="{{note.title}}">
+                </div>
+
+                <div class="form-group">
+                    <textarea name="description" class="form-control">{{note.description}}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <button class="btn btn-primary btn-block" type="submit">
+                        Save
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>

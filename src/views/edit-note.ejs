@@ -1,0 +1,103 @@
+
+<%- include ('partials/header.ejs') %>
+
+
+<div id="navbar" class="p-2">   
+    <% if (user.name != 'Guest') { %>
+        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+            <%- include ('partials/navigation_Admin.ejs') %>
+        <% } else { %>
+            <%- include ('partials/navigation_Member.ejs') %>
+        <% } %>
+    <% } %>
+</div>
+
+<div class="col-md-4 mx-auto my-4">
+
+    <!-- <% if (user == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+        <pre>user: <%= user %> </pre>
+        <pre><%= note %></pre>
+    <% } %> -->
+
+    <div class="col -md-6 mx-auto">
+
+        <div class="card">
+
+            <div class="card-header bg-dark">
+                <h2>Edit Note</h2>
+            </div>
+
+            <div class="card-body bg-primary">
+
+                <form action="/note/edit/<%=note._id%>?_method=put" method="post">
+                                        
+                    <input type="hidden" name="_method" value="put">
+
+
+                    <div class="form-group mb-2">
+                        <input type="text" name="title" class="form-control bg-dark text-white" value="<%=note.title%>">
+                    </div>
+
+
+                    <div>
+                        <input class="form-control my-2 bg-dark text-white" 
+                        list="datalistOptions1" 
+                        id="DataList1" 
+                        placeholder="Priority"
+                        name="priority"
+                        value="<%=note.priority%>"
+                        >
+                        <datalist id="datalistOptions1">
+                            <option value="Extreme"></option>
+                            <option value="High"></option>
+                            <option value="Medium"></option>
+                            <option value="Low"></option>
+                        </datalist>
+                    </div>
+
+
+
+                    <input 
+                        type="text" 
+                        name="responsible"
+                        class="form-control my-2 bg-dark text-white"
+                        placeholder="Responsible"
+                        value="<%=note.responsible%>"
+                    >
+                    
+                    
+
+                    <div>
+                        <input class="form-control my-2 bg-dark text-white" 
+                        list="datalistOptions3" 
+                        id="DataList3" 
+                        placeholder="Status"
+                        name="status"
+                        value="<%=note.status%>"
+                    >
+                        <datalist id="datalistOptions3">
+                            <option value="Not Started">
+                            <option value="In Progress">
+                            <option value="Completed">
+                            <option value="On Hold">
+                            <option value="Cancelled">
+                        </datalist>
+                    </div>
+
+
+                    <div class="form-group mb-2">
+                        <textarea name="description" class="form-control bg-dark text-white" style="height: 500px;"><%=note.description%></textarea>
+                    </div>
+                    
+
+                    <div class="form-group my-2">
+                        <button class="btn btn-success btn-block" type="submit">Save</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include ('partials/footer.ejs') %>

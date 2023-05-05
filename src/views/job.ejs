@@ -1,0 +1,56 @@
+
+
+<%- include ('partials/header.ejs') %>
+
+
+<div id="navbar" class="p-2">   
+    <% if (user.name != 'Guest') { %>
+        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+            <%- include ('partials/navigation_Admin.ejs') %>
+        <% } else { %>
+            <%- include ('partials/navigation_Member.ejs') %>
+        <% } %>
+    <% } %>
+</div>
+
+
+<!-- <pre><%= note %></pre> -->
+
+        <div class="container p-4">
+
+            <div class="card text-white bg-dark mb-3">
+                
+                <div class="card-header bg-dark"><%= note.title %>
+
+                    <div class="text-body-secondary">DBID: <%= note._id %></div>
+                    <div class="text-body-secondary">MTXID: <%= note.mtxJobId %></div>
+                    <div class="text-body-secondary">Priority: <%= note.priority %></div>
+                    <div class="text-body-secondary">Invoice: <%= note.invoice %></div>
+                    <div class="text-body-secondary">Responsible: <%= note.responsible %></div>
+                    <div class="text-body-secondary">Created: <%= note.createdAt %></div>
+
+                </div>             
+                
+                <div class="form-group mb-2">
+                    <textarea name="description" class="form-control bg-dark text-white" style="height: 500px;" disabled><%=note.description%></textarea>
+                </div>
+
+                <div class="card-foote bg-dark">Due Date: <%= note.dueDate %>
+                    <div>
+
+                        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+                            <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+                                <input type="hidden" name="_method" value="delete">
+                                <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
+                            </form>
+                        <% } %>                        
+
+                        <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+
+                    </div>
+                </div>            
+            </div>        
+        </div>
+
+
+<%- include ('partials/footer.ejs') %>

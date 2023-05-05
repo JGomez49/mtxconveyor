@@ -1,0 +1,43 @@
+{
+  "name": "notes-app-mongodb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@handlebars/allow-prototype-access": "^1.0.5",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.30.0",
+    "connect-flash": "^0.1.1",
+    "connect-mongo": "^4.6.0",
+    "connect-mongodb-session": "^3.1.1",
+    "cookie-session": "^2.0.0",
+    "dotenv": "^16.0.1",
+    "ejs": "^3.1.8",
+    "express": "^4.17.1",
+    "express-handlebars": "^5.3.2",
+    "express-session": "^1.17.2",
+    "fs-extra": "^10.1.0",
+    "handlebars": "^4.7.7",
+    "method-override": "^3.0.0",
+    "moment": "^2.29.3",
+    "mongoose": "^5.12.11",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.7.7",
+    "passport": "^0.6.0",
+    "passport-local": "^1.0.0",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7",
+    "npm-check-updates": "^15.3.4"
+  }
+}

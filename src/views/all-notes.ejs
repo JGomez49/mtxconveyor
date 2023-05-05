@@ -1,0 +1,214 @@
+
+<%- include ('partials/header.ejs') %>
+
+
+<div id="navbar" class="p-2">   
+    <% if (user.name != 'Guest') { %>
+        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+            <%- include ('partials/navigation_Admin.ejs') %>
+        <% } else { %>
+            <%- include ('partials/navigation_Member.ejs') %>
+        <% } %>
+    <% } %>
+</div>
+
+
+
+<div class="container p-2">
+
+    <h3 id="greeting"><%=user.name%></h3>
+    <!-- <p> ID: <%=user.id%></p> -->
+
+    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+        <h1>MTX Jobs</h1>
+        <a class="btn btn-warning btn-block my-2" href="/notes/add">New Note</a>
+        <!-- <pre><%= notes %></pre> -->
+    <% } %>
+
+
+    <div class="row">
+
+
+        <!-- <h3 style="color: white;">All</h3>
+        <table class="table table-hover table-striped table-active">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == note.status) { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table> -->
+
+
+
+
+        <h4 style="color: white;">Not Started</h4>
+        <table class="table table-hover table-striped table-dark">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == 'Not Started') { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table>
+
+
+
+
+
+        <h4 style="color:aqua;">In Progress</h4>
+        <table class="table table-hover table-striped table-primary" style="color: black;">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == 'In Progress') { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table>
+
+
+
+
+
+        <h4 style="color: red;">On Hold</h4>
+        <table class="table table-hover table-striped table-danger" style="color: black;">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == 'On Hold') { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table>
+
+
+
+
+
+        <h4 style="color: orange;">Cancelled</h4>
+        <table class="table table-hover table-striped table-warning" style="color: black;">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == 'Cancelled') { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table>
+
+
+
+
+
+        <h4 style="color:chartreuse;">Completed</h4>
+        <table class="table table-hover table-striped table-success" style="color: black;">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Responsible</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => { %>
+                    <% if (note.status == 'Completed') { %>
+                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                            <th scope="row"><%= note.mtxJobId %></th>
+                            <td><%= note.title %></td>
+                            <td><%= note.priority %></td>
+                            <td><%= note.responsible %></td>
+                            <td><%= note.status %></td>
+                        </tr>
+                    <% } %>                    
+                <% }) %> 
+            </tbody>
+        </table>
+
+
+
+
+
+    </div>
+</div>
+
+<%- include ('partials/footer.ejs') %>
