@@ -12,7 +12,7 @@ const NoteConveyorSchema = new Schema({
     invoice: {type: String},
     user: {type: String},
     status: {type: String},
-    dueDate: {type: Date},
+    dueDate: {type: String},
 
 },{timestamps: true})
 

@@ -23,76 +23,144 @@
 
         <div class="card">
 
-            <div class="card-header bg-dark">
-                <h2>Edit Note</h2>
-            </div>
+            <div class="card-header bg-dark"><h2>Edit Note</h2></div>
 
             <div class="card-body bg-primary">
 
                 <form action="/note/edit/<%=note._id%>?_method=put" method="post">
-                                        
-                    <input type="hidden" name="_method" value="put">
 
 
-                    <div class="form-group mb-2">
-                        <input type="text" name="title" class="form-control bg-dark text-white" value="<%=note.title%>">
-                    </div>
+                    <div class="form-group">
 
-
-                    <div>
-                        <input class="form-control my-2 bg-dark text-white" 
-                        list="datalistOptions1" 
-                        id="DataList1" 
-                        placeholder="Priority"
-                        name="priority"
-                        value="<%=note.priority%>"
+                        <input 
+                            type="text" 
+                            name="mtxJobId"
+                            class="form-control mb-2 bg-dark text-white"
+                            placeholder="MTX Job ID"
+                            id="MTXjobNumber"
+                            value="<%= note.mtxJobId %>"
+                            readonly
                         >
-                        <datalist id="datalistOptions1">
-                            <option value="Extreme"></option>
-                            <option value="High"></option>
-                            <option value="Medium"></option>
-                            <option value="Low"></option>
-                        </datalist>
-                    </div>
+    
+    
+                        <input 
+                            type="text" 
+                            name="title"
+                            class="form-control mb-2 bg-dark text-white"
+                            placeholder="Title"
+                            autofocus
+                            value="<%= note.title %>"
+                        >
+    
+    
+    
+                        <div class="form-group mb-2">
+                            <div class="form-group mb-2">
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-dark text-white">Responsible</span>
+                                    <select class="form-select bg-dark text-white" 
+                                            id="responsible" 
+                                            fdprocessedid="5cv5ue"
+                                            name="responsible"
+                                        > 
+                                        <option><%= note.responsible %></option>
+                                        <option>Polita</option>
+                                        <option>John</option>
+                                        <option>Ricardo</option>
+                                        <option>Efrain</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+    
+    
+    
+                        <textarea 
+                            name="description" 
+                            id="description" 
+                            placeholder="Description"
+                            class="form-control mb-2 bg-dark text-white"
+                            style="height: 500px;"
+                        ><%= note.description %></textarea>
+    
+    
+    
+                        <div class="form-group mb-2">
+                            <div class="form-group mb-2">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-dark text-white">Priority</span>
+                                    <select class="form-select bg-dark text-white" 
+                                            id="priority" 
+                                            fdprocessedid="5cv5ue"
+                                            name="priority"
+                                        >
+                                        <option><%= note.priority %></option>
+                                        <option>Extreme</option>
+                                        <option>High</option>
+                                        <option>Medium</option>
+                                        <option>Low</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+    
+    
+    
+                        <div class="input-group mb-2 bg-dark text-white">
+                            <span class="input-group-text bg-dark text-white" id="basic-addon1">Due Date</span>
+                            <input type="date"
+                                id="dueDate" 
+                                name="dueDate"
+                                class="form-control bg-dark text-white"
+                                value="<%= note.dueDate %>"
+                            >
+                        </div>
+    
+                        
+    
+                        <div class="form-group mb-2">
+                            <div class="form-group mb-2">
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-dark text-white">Invoice</span>
+                                    <select class="form-select bg-dark text-white" 
+                                            id="invoice" 
+                                            fdprocessedid="5cv5ue"
+                                            name="invoice"
+                                        >
+                                        <option><%= note.invoice %></option>
+                                        <option>Yes</option>
+                                        <option>No</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+    
+    
+    
+                        <div class="form-group">
+                            <div class="form-group">
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-dark text-white">Status</span>
+                                    <select class="form-select bg-dark text-white" 
+                                            id="status" 
+                                            fdprocessedid="5cv5ue"
+                                            name="status"
+                                        >
+                                        <option><%= note.status %></option>
+                                        <option>Not Started</option>
+                                        <option>In Progress</option>
+                                        <option>Completed</option>
+                                        <option>On Hold</option>
+                                        <option>QA/QC</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>    
+    
+                    </div>                 
+         
 
-
-
-                    <input 
-                        type="text" 
-                        name="responsible"
-                        class="form-control my-2 bg-dark text-white"
-                        placeholder="Responsible"
-                        value="<%=note.responsible%>"
-                    >
-                    
-                    
-
-                    <div>
-                        <input class="form-control my-2 bg-dark text-white" 
-                        list="datalistOptions3" 
-                        id="DataList3" 
-                        placeholder="Status"
-                        name="status"
-                        value="<%=note.status%>"
-                    >
-                        <datalist id="datalistOptions3">
-                            <option value="Not Started">
-                            <option value="In Progress">
-                            <option value="Completed">
-                            <option value="On Hold">
-                            <option value="QA/QC">
-                        </datalist>
-                    </div>
-
-
-                    <div class="form-group mb-2">
-                        <textarea name="description" class="form-control bg-dark text-white" style="height: 500px;"><%=note.description%></textarea>
-                    </div>
-                    
-
-                    <div class="form-group my-2">
-                        <button class="btn btn-success btn-block" type="submit">Save</button>
-                    </div>
+                    <div class="form-group mb-2"><button class="btn btn-success btn-block" type="submit">Save</button></div> 
 
                 </form>
             </div>

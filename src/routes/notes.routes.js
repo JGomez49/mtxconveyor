@@ -9,7 +9,6 @@ const {
     updateNote,
     deleteNote,
     renderJob,
-
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -25,8 +24,6 @@ router.get('/notes/job/:id', isAuthenticated, renderJob);
 
 //Get all notes
 router.get('/notes', isAuthenticated, renderNotes);
-// router.get('/notes/:guest', renderNotes);
-// router.get('/orders', isAuthenticated, renderOrders);
 
 //Edit notes
     //Mostrar el formulario para editar
@@ -37,11 +34,6 @@ router.get('/notes', isAuthenticated, renderNotes);
 
 //Delete note
 router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
-
-
-// Send Order
-// router.get('/notes/order/:id', isAuthenticated, renderOrder);
-// router.post('/notes/order/:id', isAuthenticated, postOrder);
 
 
 module.exports = router;

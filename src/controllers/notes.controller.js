@@ -116,12 +116,15 @@ notesCrtl.renderEditForm = async(req,res)=>{
 notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
-    const {title, description, priority, status, responsible} = req.body;
-    await Note.findByIdAndUpdate(req.params.id, {title, description, priority, status, responsible});
+    const {
+        title, description, priority, status, responsible, dueDate, invoice
+    } = req.body;
+    await Note.findByIdAndUpdate(req.params.id, {
+        title, description, priority, status, responsible, dueDate, invoice
+    });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
 }
-
 
 
 
@@ -137,67 +140,12 @@ notesCrtl.deleteNote = async (req,res)=>{
 
 
 
-// notesCrtl.renderOrders = async (req,res)=>{
-//     let user = {}
-//         user.id = req.session.passport.user
-//         let usuario = await User.findById(user.id);
-//         console.log('>> obj usuario (orders):')
-//         console.log(usuario)
-//         user.name = usuario.name
-//         user.email = usuario.email
-//     const notes = await Note.find({title: 'Order'}).sort({createdAt: 'desc'});
-//         console.log('>>> Notes (Orders):')
-//         console.log(notes)
-//     res.render('all-orders.ejs', {notes, user});
-// };
-
-
-
-// notesCrtl.renderOrder = async (req,res)=>{
-//     let id = req.params.id
-//     let user = await User.findById(id);
-//     console.log('>>> user: ');
-//     console.log(user);
-//     res.render('order.ejs', {user})
-// }
-
-
-
-
-
-
 // Para el programa: Conveyor
 notesCrtl.renderJob = async (req,res)=>{
     let id = req.params.id
     let note = await Note.findById(id);
     res.render('job.ejs', {note})
 }
-
-
-
-
-
-
-// notesCrtl.postOrder = async (req,res)=>{
-//     let id = req.params.id
-//     let user = await User.findById(id);
-//     console.log('>>> Order from user:')
-//     console.log(user)
-//     console.log('>>> Order Text:')
-//     console.log(req.body.ordertext)
-
-//     const newNote = new Note({
-//         title: req.body.title,
-//         description: req.body.ordertext,
-//         user: user,
-//     });
-//     await newNote.save();
-//     req.flash('success_msg','Note (job) added successfully');
-//     console.log('>> newNote (job):');
-//     console.log(newNote);
-//     res.redirect('/notes');
-// }
-
 
 
 module.exports = notesCrtl;
