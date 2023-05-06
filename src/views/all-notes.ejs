@@ -14,19 +14,271 @@
 
 
 
-<div class="container p-2">
+<div class="container">
 
     <h3 id="greeting"><%=user.name%></h3>
-    <p> ID: <%=user.id%></p>
+    <p style="color: black;"> ID: <%=user.id%></p>
+    <h1 style="color: black;">MTX Jobs</h1>
 
     <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
-        <h1>MTX Jobs</h1>
-        <a class="btn btn-warning btn-block my-2" href="/notes/add">New Note</a>
+        <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
         <!-- <pre><%= notes %></pre> -->
     <% } %>
 
 
     <div class="row">
+
+        <div class="accordion accordion-flush my-4" id="accordionExample">
+
+            <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        <h4 style="color: white;">Not Started</h4>
+                        <!-- Not Started -->
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark">
+                        <table class="table table-hover table-striped table-dark table-sm">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Priority</th>
+                                    <th scope="col">Responsible</th>
+                                    <th scope="col">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% notes.forEach(note => { %>
+                                    <% if (note.status == 'Not Started') { %>
+                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            <th scope="row"><%= note.mtxJobId %></th>
+                                            <td><%= note.title %></td>
+                                            <td><%= note.priority %></td>
+                                            <td><%= note.responsible %></td>
+                                            <td><%= note.dueDate %></td>
+                                        </tr>
+                                    <% } %>                    
+                                <% }) %> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                        <h4 style="color:aqua;">In Progress</h4>
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark">
+                        <table class="table table-hover table-striped table-primary table-sm" style="color: black;">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Priority</th>
+                                    <th scope="col">Responsible</th>
+                                    <th scope="col">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% notes.forEach(note => { %>
+                                    <% if (note.status == 'In Progress') { %>
+                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            <th scope="row"><%= note.mtxJobId %></th>
+                                            <td><%= note.title %></td>
+                                            <td><%= note.priority %></td>
+                                            <td><%= note.responsible %></td>
+                                            <td><%= note.dueDate %></td>
+                                        </tr>
+                                    <% } %>                    
+                                <% }) %> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="true" aria-controls="collapseThree">
+                        <h4 style="color: red;">On Hold</h4>
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark">
+                        <table class="table table-hover table-striped table-danger table-sm" style="color: black;">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Priority</th>
+                                    <th scope="col">Responsible</th>
+                                    <th scope="col">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% notes.forEach(note => { %>
+                                    <% if (note.status == 'On Hold') { %>
+                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            <th scope="row"><%= note.mtxJobId %></th>
+                                            <td><%= note.title %></td>
+                                            <td><%= note.priority %></td>
+                                            <td><%= note.responsible %></td>
+                                            <td><%= note.dueDate %></td>
+                                        </tr>
+                                    <% } %>                    
+                                <% }) %> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="true" aria-controls="collapseFour">
+                        <h4 style="color: orange;">QA/QC</h4>
+                    </button>
+                </h2>
+                <div id="collapseFour" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark table-sm">
+                        <table class="table table-hover table-striped table-warning" style="color: black;">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Priority</th>
+                                    <th scope="col">Responsible</th>
+                                    <th scope="col">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% notes.forEach(note => { %>
+                                    <% if (note.status == 'QA/QC') { %>
+                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            <th scope="row"><%= note.mtxJobId %></th>
+                                            <td><%= note.title %></td>
+                                            <td><%= note.priority %></td>
+                                            <td><%= note.responsible %></td>
+                                            <td><%= note.dueDate %></td>
+                                        </tr>
+                                    <% } %>                    
+                                <% }) %> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
+            <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="true" aria-controls="collapseFive">
+                        <h4 style="color:chartreuse;">Completed</h4>
+                    </button>
+                </h2>
+                <div id="collapseFive" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark table-sm">
+                        <table class="table table-hover table-striped table-success" style="color: black;">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Priority</th>
+                                    <th scope="col">Responsible</th>
+                                    <th scope="col">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% notes.forEach(note => { %>
+                                    <% if (note.status == 'Completed') { %>
+                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            <th scope="row"><%= note.mtxJobId %></th>
+                                            <td><%= note.title %></td>
+                                            <td><%= note.priority %></td>
+                                            <td><%= note.responsible %></td>
+                                            <td><%= note.dueDate %></td>
+                                        </tr>
+                                    <% } %>                    
+                                <% }) %> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+            <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
+                <div class="accordion-item">
+                    <h2 class="accordion-header bg-dark">
+                        <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="true" aria-controls="collapseSix">
+                            <h4 style="color: black;">Archived</h4>
+                        </button>
+                    </h2>
+                    <div id="collapseSix" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                        <div class="accordion-body bg-dark">
+                            <table class="table table-hover table-striped table-dark table-sm">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">ID</th>
+                                        <th scope="col">Title</th>
+                                        <th scope="col">Responsible</th>
+                                        <th scope="col">Due Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% notes.forEach(note => { %>
+                                        <% if (note.status == 'Billed' || note.status == 'Archived') { %>
+                                            <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <th scope="row"><%= note.mtxJobId %></th>
+                                                <td><%= note.title %></td>
+                                                <td><%= note.responsible %></td>
+                                                <td><%= note.dueDate %></td>
+                                            </tr>
+                                        <% } %>                    
+                                    <% }) %> 
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+            
+            
+
+
+
+            <!-- <div class="accordion-item">
+                <h2 class="accordion-header bg-dark">
+                    <button class="accordion-button collapsed bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        Accordion Item #2
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body bg-dark">
+                        This is the second item's accordion body
+                    </div>
+                </div>
+            </div> -->
+
+
+        </div>
 
 
         <!-- <h3 style="color: white;">All</h3>
@@ -58,7 +310,7 @@
 
 
 
-        <h4 style="color: white;">Not Started</h4>
+        <!-- <h4 style="color: white;">Not Started</h4>
         <table class="table table-hover table-striped table-dark">
             <thead>
                 <tr>
@@ -82,14 +334,14 @@
                     <% } %>                    
                 <% }) %> 
             </tbody>
-        </table>
+        </table> -->
 
 
 
 
 
-        <h4 style="color:aqua;">In Progress</h4>
-        <table class="table table-hover table-striped table-primary" style="color: black;">
+        <!-- <h4 style="color:aqua;">In Progress</h4> -->
+        <!-- <table class="table table-hover table-striped table-primary" style="color: black;">
             <thead>
                 <tr>
                     <th scope="col">ID</th>
@@ -112,14 +364,14 @@
                     <% } %>                    
                 <% }) %> 
             </tbody>
-        </table>
+        </table> -->
 
 
 
 
 
-        <h4 style="color: red;">On Hold</h4>
-        <table class="table table-hover table-striped table-danger" style="color: black;">
+        <!-- <h4 style="color: red;">On Hold</h4> -->
+        <!-- <table class="table table-hover table-striped table-danger" style="color: black;">
             <thead>
                 <tr>
                     <th scope="col">ID</th>
@@ -142,14 +394,14 @@
                     <% } %>                    
                 <% }) %> 
             </tbody>
-        </table>
+        </table> -->
 
 
 
 
 
-        <h4 style="color: orange;">QA/QC</h4>
-        <table class="table table-hover table-striped table-warning" style="color: black;">
+        <!-- <h4 style="color: orange;">QA/QC</h4> -->
+        <!-- <table class="table table-hover table-striped table-warning" style="color: black;">
             <thead>
                 <tr>
                     <th scope="col">ID</th>
@@ -172,14 +424,14 @@
                     <% } %>                    
                 <% }) %> 
             </tbody>
-        </table>
+        </table> -->
 
 
 
 
 
-        <h4 style="color:chartreuse;">Completed</h4>
-        <table class="table table-hover table-striped table-success" style="color: black;">
+        <!-- <h4 style="color:chartreuse;">Completed</h4> -->
+        <!-- <table class="table table-hover table-striped table-success" style="color: black;">
             <thead>
                 <tr>
                     <th scope="col">ID</th>
@@ -202,7 +454,7 @@
                     <% } %>                    
                 <% }) %> 
             </tbody>
-        </table>
+        </table> -->
 
 
 
