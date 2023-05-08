@@ -22,7 +22,6 @@ let nodemailer = require('nodemailer');
 
 
 
-// Para el programa: Conveyor
 notesCrtl.renderNoteForm = async(req,res)=>{
     // res.send('Add a note...');
     const job = await Job.find().sort({createdAt: 'desc'});
@@ -40,7 +39,7 @@ notesCrtl.renderNoteForm = async(req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.createNewNote = async(req,res)=>{
     //console.log(req.body);
     //const{title, description}=req.body;
@@ -78,7 +77,7 @@ notesCrtl.createNewNote = async(req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.renderNotes = async (req,res)=>{
     let user = {}
     user.id = req.params.guest
@@ -90,6 +89,8 @@ notesCrtl.renderNotes = async (req,res)=>{
         let usuario = await User.findById(user.id);
         user.name = usuario.name
         user.email = usuario.email
+        // console.log(usuario)
+        // console.log(user)
     }
     const notes = await Note.find().sort({createdAt: 'desc'});
     res.render('all-notes.ejs', {notes, user});
@@ -98,7 +99,7 @@ notesCrtl.renderNotes = async (req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.renderEditForm = async(req,res)=>{
     // res.send('Edit note...');
     const note = await Note.findById(req.params.id);
@@ -112,7 +113,7 @@ notesCrtl.renderEditForm = async(req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
@@ -128,7 +129,7 @@ notesCrtl.updateNote = async (req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.deleteNote = async (req,res)=>{
     let id = req.params.id
     const note = await Note.findById(id)    
@@ -140,7 +141,7 @@ notesCrtl.deleteNote = async (req,res)=>{
 
 
 
-// Para el programa: Conveyor
+
 notesCrtl.renderJob = async (req,res)=>{
     let id = req.params.id
     let note = await Note.findById(id);

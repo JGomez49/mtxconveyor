@@ -1,0 +1,54 @@
+
+<%- include ('partials/header.ejs') %>
+
+<div class="row">
+
+    <div class="col-md-4 mx-auto my-4">
+
+        <div class="card">
+
+            <div class="card-header bg-dark"><h4>Edit Member</h4></div>
+
+            <!-- <pre><%= user %></pre> -->
+
+            
+
+            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373762/Logo_Metacortex_fzh4by.png"
+                        class="mx-auto d-block m-4" width="70%">
+
+            <div class="card-body bg-dark">
+
+                <form action="/users/edit/<%= user.id %>?_method=put" method="post">
+
+
+                    <div class="form-group mb-2">
+                        <input type="text" class="form-control" name="name" placeholder="Name" value="<%= user.name %>" readonly>
+                    </div>
+                    
+                    <div class="form-group  mb-2">
+                        <input type="email" class="form-control" name="email" placeholder="Email" value="<%= user.email %>" readonly>
+                    </div>
+                    
+                    <div class="form-group  mb-2">
+                        <input type="password" class="form-control" name="password" placeholder="New Password">
+                    </div>
+                    
+                    <div class="form-group  mb-2">
+                        <input type="password" class="form-control" name="confirm_password" placeholder="Confirm New Password">
+                    </div>
+                    
+                    <!-- <button class="btn btn-success btn-block mb-2" type="submit">Save</button> -->
+                    <div class="form-group mb-2"><button class="btn btn-success btn-block" type="submit">Save</button></div> 
+
+                    <a href="/notes" class="btn btn-danger btn-block  mb-2">Cancel</a>
+
+
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include ('partials/footer.ejs') %>

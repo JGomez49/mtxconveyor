@@ -12,7 +12,6 @@ const {
 //views/partial/navigation para redireccionar la URL...
 // router.get('/', renderIndex);
 router.get('/', renderSignIn);
-
-router.get('/about', renderAbout);
+// router.get('/about', renderAbout);
 
 module.exports = router;

@@ -5,7 +5,6 @@ const NoteConveyorSchema = new Schema({
 
     title: {type: String, required: true},
     description: {type: String, required: true},
-
     mtxJobId: {type: String, required: true},
     responsible: {type: String},
     priority: {type: String},

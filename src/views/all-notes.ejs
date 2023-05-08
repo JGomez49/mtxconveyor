@@ -16,8 +16,8 @@
 
 <div class="container">
 
-    <h3 id="greeting"><%=user.name%></h3>
-    <p style="color: black;"> ID: <%=user.id%></p>
+    <h3 id="greeting"><%= user.name %></h3>
+    <p style="color: black;"> ID: <%= user.id %></p>
     <h1 style="color: black;">MTX Jobs</h1>
 
     <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
@@ -51,6 +51,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
+                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>                               
                                     <% if (note.status == 'Not Started') { %>
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
@@ -59,7 +60,8 @@
                                             <td><%= note.responsible %></td>
                                             <td><%= note.dueDate %></td>
                                         </tr>
-                                    <% } %>                    
+                                    <% } %>                             
+                                    <% } %>
                                 <% }) %> 
                             </tbody>
                         </table>
@@ -89,6 +91,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
+                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>
                                     <% if (note.status == 'In Progress') { %>
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
@@ -97,7 +100,8 @@
                                             <td><%= note.responsible %></td>
                                             <td><%= note.dueDate %></td>
                                         </tr>
-                                    <% } %>                    
+                                    <% } %>  
+                                    <% } %>                   
                                 <% }) %> 
                             </tbody>
                         </table>
@@ -127,6 +131,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
+                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>
                                     <% if (note.status == 'On Hold') { %>
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
@@ -135,6 +140,7 @@
                                             <td><%= note.responsible %></td>
                                             <td><%= note.dueDate %></td>
                                         </tr>
+                                    <% } %> 
                                     <% } %>                    
                                 <% }) %> 
                             </tbody>
@@ -165,6 +171,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
+                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>
                                     <% if (note.status == 'QA/QC') { %>
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
@@ -173,7 +180,8 @@
                                             <td><%= note.responsible %></td>
                                             <td><%= note.dueDate %></td>
                                         </tr>
-                                    <% } %>                    
+                                    <% } %>  
+                                    <% } %>                   
                                 <% }) %> 
                             </tbody>
                         </table>
@@ -205,6 +213,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
+                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>
                                     <% if (note.status == 'Completed') { %>
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
@@ -213,7 +222,8 @@
                                             <td><%= note.responsible %></td>
                                             <td><%= note.dueDate %></td>
                                         </tr>
-                                    <% } %>                    
+                                    <% } %> 
+                                    <% } %>                   
                                 <% }) %> 
                             </tbody>
                         </table>
@@ -244,6 +254,7 @@
                                 </thead>
                                 <tbody>
                                     <% notes.forEach(note => { %>
+                                        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75' || user.name == note.responsible) { %>
                                         <% if (note.status == 'Billed' || note.status == 'Archived') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><%= note.mtxJobId %></th>
@@ -251,6 +262,7 @@
                                                 <td><%= note.responsible %></td>
                                                 <td><%= note.dueDate %></td>
                                             </tr>
+                                        <% } %> 
                                         <% } %>                    
                                     <% }) %> 
                                 </tbody>
