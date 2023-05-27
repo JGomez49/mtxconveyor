@@ -9,6 +9,7 @@ const {
     updateNote,
     deleteNote,
     renderJob,
+    renderQueryNotes,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -24,6 +25,11 @@ router.get('/notes/job/:id', isAuthenticated, renderJob);
 
 //Get all notes
 router.get('/notes', isAuthenticated, renderNotes);
+
+
+//Get query notes
+router.get('/notes/query', isAuthenticated, renderQueryNotes);
+
 
 //Edit notes
     //Mostrar el formulario para editar

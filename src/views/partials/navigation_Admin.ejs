@@ -13,7 +13,35 @@
             <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="collapse navbar-collapse" id="navbarNav">                        
+
+            <div class="input-group">
+
+                <form action="/notes/query" method="GET" enctype="multipart/form-data"> 
+
+                    <div class="input-group">
+
+                        <span class="input-group-text bg-dark sm" style="color: grey;">Search by:</span>
+                        <select class="form-select bg-dark" style="color: grey;" 
+                                id="where" 
+                                name="where"
+                            >
+                            <option>Choose...</option>
+                            <option>Customer</option>
+                            <option>Customer Job Number</option>
+                            <option>Operator</option>
+                            <option>Responsible</option>
+                        </select>
+
+                        <input class="form-control me-2 bg-dark" type="search" placeholder="Search" aria-label="Search" name="search">
+                        <button class="btn btn-outline-success" type="submit">Search</button>
+
+                    </div>
+
+                </form>
+                    
+            </div>  
+
 
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item dropdown">
@@ -27,8 +55,8 @@
                 </li>
             </ul>
 
-        </div>
-        
+
+        </div>        
     </div>
 </nav>
 

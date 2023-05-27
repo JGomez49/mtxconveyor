@@ -4,7 +4,7 @@
 
 <div id="navbar" class="p-2">   
     <% if (user.name != 'Guest') { %>
-        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
             <%- include ('partials/navigation_Admin.ejs') %>
         <% } else { %>
             <%- include ('partials/navigation_Member.ejs') %>

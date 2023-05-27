@@ -4,7 +4,7 @@
 
 <div id="navbar" class="p-2">   
     <% if (user.name != 'Guest') { %>
-        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38') { %>
+        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
             <%- include ('partials/navigation_Admin.ejs') %>
         <% } else { %>
             <%- include ('partials/navigation_Member.ejs') %>
@@ -46,15 +46,14 @@
                         autofocus
                     >
 
-
+                    
 
                     <div class="form-group mb-2">
                         <div class="form-group mb-2">
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Responsible</span>
                                 <select class="form-select bg-dark text-white" 
-                                        id="responsible" 
-                                        fdprocessedid="5cv5ue"
+                                        id="responsible"
                                         name="responsible"
                                     >
                                     <option>Choose...</option>
@@ -66,6 +65,67 @@
                             </div>
                         </div>
                     </div>
+
+
+
+
+                    <div class="form-group mb-2">
+                        <div class="form-group mb-2">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Customer</span>
+                                <select class="form-select bg-dark text-white" 
+                                        id="customer" 
+                                        name="customer"
+                                    >
+                                    <option>Choose...</option>
+                                    <option>Phoenix</option>
+                                    <option>Mostar</option>
+                                    <option>Optimax</option>
+                                    <option>Schlumberger</option>
+                                    <option>Pacesetter</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+                    <input 
+                        type="text" 
+                        name="customerJobNumber"
+                        class="form-control mb-2 bg-dark text-white"
+                        placeholder="Customer Job Number"
+                    >
+
+
+
+
+                    <div class="form-group mb-2">
+                        <div class="form-group mb-2">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Operator</span>
+                                <select class="form-select bg-dark text-white" 
+                                        id="operator" 
+                                        name="operator"
+                                    >
+                                    <option>Choose...</option>
+                                    <option>Tourmaline</option>
+                                    <option>Vermilion</option>
+                                    <option>Rockeast</option>
+                                    <option>CNRL</option>
+                                    <option>CrecentPoint</option>
+                                    <option>Whitecap</option>
+                                    <option>Waytt</option>
+                                    <option>Gear</option>
+                                    <option>Saturn</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
 
 
 

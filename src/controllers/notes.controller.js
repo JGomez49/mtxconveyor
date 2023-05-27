@@ -52,6 +52,9 @@ notesCrtl.createNewNote = async(req,res)=>{
         description: req.body.description,
         mtxJobId: mtxjob,
         responsible: req.body.responsible,
+        customer: req.body.customer,
+        customerJobNumber: req.body.customerJobNumber,
+        operator: req.body.operator,
         priority: req.body.priority,
         invoice: req.body.invoice,
         user: req.user.id,
@@ -100,6 +103,31 @@ notesCrtl.renderNotes = async (req,res)=>{
 
 
 
+
+notesCrtl.renderQueryNotes = async (req,res)=>{
+    let user = {}
+    user.id = req.params.guest
+    let donde = req.query.where
+    let buscar = req.query.search
+    if(user.id != null){
+        user.name = 'Guest'
+    }else{
+        user.id = req.session.passport.user
+        console.log('>>Query user:' + user.id)
+        let usuario = await User.findById(user.id);
+        user.name = usuario.name
+        user.email = usuario.email        
+    }
+    const notes = await Note.find({}).sort({createdAt: 'desc'});
+    res.render('query.ejs', {notes, user, donde, buscar});
+};
+
+
+
+
+
+
+
 notesCrtl.renderEditForm = async(req,res)=>{
     // res.send('Edit note...');
     const note = await Note.findById(req.params.id);
@@ -118,10 +146,10 @@ notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
     const {
-        title, description, priority, status, responsible, dueDate, invoice
+        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
-        title, description, priority, status, responsible, dueDate, invoice
+        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
