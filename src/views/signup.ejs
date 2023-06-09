@@ -17,21 +17,38 @@
                 <form action="/users/signup" method="post">
 
                     <div class="form-group">
-                        <input type="text" class="form-control" name="name" placeholder="Name">
+                        <input type="text" class="form-control bg-dark text-white" name="name" placeholder="Name" autofocus>
                     </div>
-                    <br>
+                    
                     <div class="form-group">
-                        <input type="email" class="form-control" name="email" placeholder="Email">
+                        <input type="email" class="form-control bg-dark text-white" name="email" placeholder="Email">
                     </div>
-                    <br>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Role</span>
+                        <select class="form-select bg-dark text-white" 
+                                id="role"
+                                name="role"
+                            >
+                            <option>Choose...</option>
+                            <option>viewer</option>
+                            <option>user</option>
+                            <option>admin</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
-                        <input type="password" class="form-control" name="password" placeholder="Password">
+                        <input type="text" class="form-control bg-dark text-white" name="list" placeholder="List">
                     </div>
-                    <br>
+                    
                     <div class="form-group">
-                        <input type="password" class="form-control" name="confirm_password" placeholder="Confirm Password">
+                        <input type="password" class="form-control bg-dark text-white" name="password" placeholder="Password">
                     </div>
-                    <br>
+                    
+                    <div class="form-group">
+                        <input type="password" class="form-control bg-dark text-white" name="confirm_password" placeholder="Confirm Password">
+                    </div>
+                    
                     <button class="btn btn-success btn-block">Sign Up</button>
 
                     <a href="/notes" class="btn btn-danger btn-block">Cancel</a>

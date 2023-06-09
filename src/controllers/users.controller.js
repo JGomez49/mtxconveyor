@@ -12,7 +12,7 @@ usersCtrl.renderSignUpForm = (req, res) => {res.render('signup.ejs')};
 
 usersCtrl.signup = async (req, res) => {
     const errors = [];
-    const { name, email, password, confirm_password } = req.body
+    const { name, email, role, list, password, confirm_password } = req.body
 
     if (password != confirm_password) {
         errors.push({ text: '   Passwords do not match' });
@@ -30,7 +30,7 @@ usersCtrl.signup = async (req, res) => {
             req.flash('error_msg', '    The email is already in use.');
             res.redirect('/users/signup');
         } else {
-            const newUser = new User({name, email, password});
+            const newUser = new User({name, email, role, list, password});
             newUser.password = await newUser.encryptPassword(password);
             req.flash('success_msg', '  Congratulations, You are now registred!');
             await newUser.save();
@@ -44,13 +44,13 @@ usersCtrl.signup = async (req, res) => {
 
 
 
-// ---------------------------------Edit User------------------------------- No esta funcionando
+// ---------------------------------Edit User------------------------------- No esta funcionando el cambio de clave de usuario
 usersCtrl.renderEditUserForm = (req, res) => {res.render('edit-user.ejs')};
 
 usersCtrl.editUser = async (req, res) => {
     const errors = [];
     // console.log(req.body);
-    const { name, email, password, confirm_password } = req.body;
+    const { name, email, role, password, confirm_password } = req.body;
     // console.log(req.params);
     // let userID = req.params.id;
     // console.log('>>>>>>>>>>>>>>>>>');
@@ -82,7 +82,7 @@ usersCtrl.editUser = async (req, res) => {
             // let clave = await user.encryptPassword(password);
             // console.log(clave);
             // password = await user.encryptPassword(password);
-            await User.findByIdAndUpdate(req.params.id, {name, email, password});
+            await User.findByIdAndUpdate(req.params.id, {name, email, role, list, password});
             req.flash('success_msg', '  User has been updated!');
             res.redirect('/users/signin');
         }

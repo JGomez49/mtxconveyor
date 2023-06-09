@@ -1,20 +1,5 @@
 
-
 <%- include ('partials/header.ejs') %>
-
-
-<div id="navbar" class="p-2">   
-    <% if (user.name != 'Guest') { %>
-        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
-            <%- include ('partials/navigation_Admin.ejs') %>
-        <% } else { %>
-            <%- include ('partials/navigation_Member.ejs') %>
-        <% } %>
-    <% } %>
-</div>
-
-
-<!-- <pre><%= note %></pre> -->
 
         <div class="container p-4">
 
@@ -30,7 +15,7 @@
                     <div class="text-body-secondary">Created: <%= note.createdAt %></div>
                     <div class="text-body-secondary">Customer: <%= note.customer %></div>
                     <div class="text-body-secondary">Customer Job Number: <%= note.customerJobNumber %></div>
-                    <div class="text-body-secondary">Customer: <%= note.operator %></div>
+                    <div class="text-body-secondary">Operator: <%= note.operator %></div>
 
                 </div>             
                 
@@ -46,14 +31,21 @@
                                 <input type="hidden" name="_method" value="delete">
                                 <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
                             </form>
-                        <% } %>                        
+                        <% } %> 
 
-                        <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                        <% if (user.role == 'admin' || user.role == 'user') { %>
+                            <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                        <% } %>
+                        
+                        <% if (user.role == 'viewer') { %>
+                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                        <% } %>
+
+                        
 
                     </div>
                 </div>            
             </div>        
         </div>
-
 
 <%- include ('partials/footer.ejs') %>

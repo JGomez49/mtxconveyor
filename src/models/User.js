@@ -18,7 +18,16 @@ const UserSchema = new Schema({
     password: {
         type: String,
         required: true
-    }
+    },
+    role: {
+        type: String,
+        required: false, 
+        default: 'viewer'
+    },
+    list: {
+        type: String,
+        required: false
+    },
 },{timestamps: true});
 
 UserSchema.methods.encryptPassword = async password => {

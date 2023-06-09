@@ -1,34 +1,15 @@
 <%- include ('partials/header.ejs') %>
 
-    <div id="navbar" class="p-2">
-        <% if (user.name !='Guest' ) { %>
-            <% if (user.id=='62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
-                <%- include ('partials/navigation_Admin.ejs') %>
-            <% } else { %>
-                    <%- include ('partials/navigation_Member.ejs') %>
-            <% } %>
-        <% } %>
-    </div>
-
     <div class="container">
 
-        <h3 id="greeting"><%= user.name %></h3>
-        <p style="color: black;"> ID: <%= user.id %></p>
         <h1 style="color: black;">MTX Query Jobs</h1>
 
-        <% if (user.id=='62ac0c8d2cbdfe3c9c4b4f38' || user.id=='62f2aa034552be31b8c7ae75' ) { %>
-            <!-- <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a> -->
-            <!-- <pre><%= notes %></pre> -->
-            <!-- <pre><%= donde %></pre> -->
-            <!-- <pre><%= buscar %></pre> -->
-        <% } %>
-
-        <!-- <a class="btn btn-danger me-md-2" href="/notes">Cancel</a> -->
         <a class="btn btn-danger btn-block my-2" href="/notes">Cancel</a>
 
         <div class="row">
 
             <table class="table table-hover table-striped table-dark table-sm">
+                
                 <thead>
                     <tr>
                         <th scope="col">ID</th>
@@ -36,9 +17,11 @@
                         <th scope="col">Responsible</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     <% notes.forEach(note=> { %>
-                        <% if (user.id=='62ac0c8d2cbdfe3c9c4b4f38' || user.id=='62f2aa034552be31b8c7ae75' || user.name==note.responsible) { %>
+
+                        <% if (user.role == 'admin' || user.name==note.responsible) { %>
 
                             <% if (donde == "Customer" ) { %>
                                 <% if (note.customer == buscar ) { %>
@@ -81,11 +64,15 @@
                             <% } %>
 
                         <% } %>
+
                     <% }) %>
+
                 </tbody>
+
             </table>
 
         </div>
+
     </div>
 
     <%- include ('partials/footer.ejs') %>

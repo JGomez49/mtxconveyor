@@ -92,6 +92,8 @@ notesCrtl.renderNotes = async (req,res)=>{
         let usuario = await User.findById(user.id);
         user.name = usuario.name
         user.email = usuario.email
+        user.role = usuario.role
+        user.list = usuario.list
         // console.log(usuario)
         // console.log(user)
     }
@@ -116,7 +118,8 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
         console.log('>>Query user:' + user.id)
         let usuario = await User.findById(user.id);
         user.name = usuario.name
-        user.email = usuario.email        
+        user.email = usuario.email
+        user.role = usuario.role    
     }
     const notes = await Note.find({}).sort({createdAt: 'desc'});
     res.render('query.ejs', {notes, user, donde, buscar});
@@ -171,9 +174,15 @@ notesCrtl.deleteNote = async (req,res)=>{
 
 
 notesCrtl.renderJob = async (req,res)=>{
-    let id = req.params.id
+    let user = {}
+    user.id = req.session.passport.user;
+    // console.log('>>Render Job user:' + user.id)
+    let usuario = await User.findById(user.id);
+    // console.log(usuario)
+    user.role = usuario.role;
+    let id = req.params.id;
     let note = await Note.findById(id);
-    res.render('job.ejs', {note})
+    res.render('job.ejs', {note, user})
 }
 
 
