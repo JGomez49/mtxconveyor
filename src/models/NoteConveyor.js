@@ -15,6 +15,9 @@ const NoteConveyorSchema = new Schema({
     user: {type: String},
     status: {type: String},
     dueDate: {type: String},
+    rig: {type: String},
+    project: {type: String},
+    poc: {type: String},
 
 },{timestamps: true})
 

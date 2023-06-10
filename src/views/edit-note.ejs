@@ -1,23 +1,26 @@
 
 <%- include ('partials/header.ejs') %>
 
-
-<div id="navbar" class="p-2">   
+<div id="navbar" class="p-2">
     <% if (user.name != 'Guest') { %>
-        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
+
+        <% if (user.role == 'admin') { %>
             <%- include ('partials/navigation_Admin.ejs') %>
-        <% } else { %>
+        <% } %>
+
+        <% if (user.role == 'user') { %>
             <%- include ('partials/navigation_Member.ejs') %>
         <% } %>
+
+        <% if (user.role == 'viewer') { %>
+            <%- include ('partials/navigation_Member.ejs') %>
+        <% } %>
+
     <% } %>
 </div>
 
-<div class="col-md-4 mx-auto my-4">
 
-    <!-- <% if (user == '62ac0c8d2cbdfe3c9c4b4f38') { %>
-        <pre>user: <%= user %> </pre>
-        <pre><%= note %></pre>
-    <% } %> -->
+<div class="col-md-4 mx-auto my-4">
 
     <div class="col -md-6 mx-auto">
 
@@ -102,7 +105,50 @@
                         name="operator"
                         class="form-control mb-2 bg-dark text-white"
                         placeholder="Operator"
-                        >    
+                        >
+                        
+                        
+
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-dark text-white">Rig</span>
+                            <input
+                                value="<%= note.rig %>"
+                                type="text" 
+                                name="rig"
+                                class="form-control bg-dark text-white"
+                                placeholder="Rig"
+                            >
+                        </div>
+    
+    
+    
+    
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-dark text-white">Project</span>
+                            <input 
+                                value="<%= note.project %>"
+                                type="text" 
+                                name="project"
+                                class="form-control bg-dark text-white"
+                                placeholder="Project"
+                            >
+                        </div>
+    
+    
+    
+    
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-dark text-white">P.O.C</span>
+                            <input 
+                                value="<%= note.poc %>"
+                                type="text" 
+                                name="poc"
+                                class="form-control bg-dark text-white"
+                                placeholder="Point of Contact"
+                            >
+                        </div>
+
+
     
 
     
@@ -183,7 +229,7 @@
                                         <option>Completed</option>
                                         <option>On Hold</option>
                                         <option>QA/QC</option>
-                                        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
+                                        <% if (user.role == 'admin') { %>
                                             <option>Billed</option>
                                             <option>Archived</option>
                                         <% } %>
@@ -195,7 +241,10 @@
                     </div>                 
          
 
-                    <div class="form-group mb-2"><button class="btn btn-success btn-block" type="submit">Save</button></div> 
+                    <div class="form-group mb-2">
+                        <button class="btn btn-success btn-block" type="submit">Save</button>
+                        <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                    </div> 
 
                 </form>
             </div>

@@ -21,7 +21,7 @@
                 <tbody>
                     <% notes.forEach(note=> { %>
 
-                        <% if (user.role == 'admin' || user.name==note.responsible) { %>
+                        <% if (user.role == 'admin') { %>
 
                             <% if (donde == "Customer" ) { %>
                                 <% if (note.customer == buscar ) { %>
@@ -54,7 +54,37 @@
                             <% } %>
 
                             <% if (donde == "Responsible" ) { %>
-                                <% if (note.operator == buscar ) { %>
+                                <% if (note.responsible == buscar ) { %>
+                                    <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                        <th scope="row"><%= note.mtxJobId %></th>
+                                        <td><%= note.title %></td>
+                                        <td><%= note.responsible %></td>
+                                    </tr>
+                                <% } %>
+                            <% } %>
+
+                            <% if (donde == "Rig" ) { %>
+                                <% if (note.rig == buscar ) { %>
+                                    <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                        <th scope="row"><%= note.mtxJobId %></th>
+                                        <td><%= note.title %></td>
+                                        <td><%= note.responsible %></td>
+                                    </tr>
+                                <% } %>
+                            <% } %>
+
+                            <% if (donde == "Project" ) { %>
+                                <% if (note.project == buscar ) { %>
+                                    <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                        <th scope="row"><%= note.mtxJobId %></th>
+                                        <td><%= note.title %></td>
+                                        <td><%= note.responsible %></td>
+                                    </tr>
+                                <% } %>
+                            <% } %>
+
+                            <% if (donde == "P.O.C" ) { %>
+                                <% if (note.poc == buscar ) { %>
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><%= note.mtxJobId %></th>
                                         <td><%= note.title %></td>

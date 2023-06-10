@@ -16,6 +16,9 @@
                     <div class="text-body-secondary">Customer: <%= note.customer %></div>
                     <div class="text-body-secondary">Customer Job Number: <%= note.customerJobNumber %></div>
                     <div class="text-body-secondary">Operator: <%= note.operator %></div>
+                    <div class="text-body-secondary">Rig: <%= note.rig %></div>
+                    <div class="text-body-secondary">Project: <%= note.project %></div>
+                    <div class="text-body-secondary">Point of Contact: <%= note.poc %></div>
 
                 </div>             
                 
@@ -26,15 +29,18 @@
                 <div class="card-foote bg-dark">Due Date: <%= note.dueDate %>
                     <div>
 
-                        <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
+                        <% if (user.role == 'admin') { %>
                             <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
                                 <input type="hidden" name="_method" value="delete">
                                 <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
                             </form>
+                            <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                         <% } %> 
 
-                        <% if (user.role == 'admin' || user.role == 'user') { %>
+                        <% if (user.role == 'user') { %>
                             <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                         <% } %>
                         
                         <% if (user.role == 'viewer') { %>

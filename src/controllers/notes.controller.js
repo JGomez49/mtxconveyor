@@ -24,6 +24,7 @@ let nodemailer = require('nodemailer');
 
 notesCrtl.renderNoteForm = async(req,res)=>{
     // res.send('Add a note...');
+    let user = await User.findById(req.session.passport.user);
     const job = await Job.find().sort({createdAt: 'desc'});
     let jn = Number(job[0].jobNumber);
     let jnID = job[0]._id;
@@ -33,7 +34,7 @@ notesCrtl.renderNoteForm = async(req,res)=>{
         jn = 100;
     };
     jn = String(jn)
-    res.render('new-note.ejs', {jn, jnID});
+    res.render('new-note.ejs', {jn, jnID, user});
 }
 
 
@@ -46,36 +47,43 @@ notesCrtl.createNewNote = async(req,res)=>{
     // const result = await cloudinary.v2.uploader.upload(req.file.path);
     // console.log('>> result:')
     // console.log(result)
-    let mtxjob = req.body.mtxJobId;
-    const newNote = new Note({
-        title: req.body.title,
-        description: req.body.description,
-        mtxJobId: mtxjob,
-        responsible: req.body.responsible,
-        customer: req.body.customer,
-        customerJobNumber: req.body.customerJobNumber,
-        operator: req.body.operator,
-        priority: req.body.priority,
-        invoice: req.body.invoice,
-        user: req.user.id,
-        dueDate: req.body.dueDate,
-        status: req.body.status,
-        // filename: req.file.filename,
-        // path: result.url,
-        // public_id: result.public_id,
-        // originalname: req.file.originalname,
-        // mimetype: req.file.mimetype,
-        // size: req.file.size,
-    });
-    newNote.user = req.user.id;
-    // if (req.file.path){await unlink(req.file.path)}; 
-    await newNote.save();
-    const job = await Job.find().sort({createdAt: 'desc'});
-    let jnID = job[0]._id;
-    await Job.findByIdAndUpdate(jnID, {jobNumber: mtxjob});
-    req.flash('success_msg','Note added successfully');
-    res.redirect('/notes');
-}
+    let mtxjob = Number(req.body.mtxJobId);
+    let batch = req.body.batch;
+        for (let i = 0; i < batch; i++) {
+            mtxjob = mtxjob + i;
+            let newNote = new Note({
+                title: req.body.title,
+                description: req.body.description,
+                mtxJobId: mtxjob,
+                responsible: req.body.responsible,
+                customer: req.body.customer,
+                customerJobNumber: req.body.customerJobNumber,
+                operator: req.body.operator,
+                priority: req.body.priority,
+                invoice: req.body.invoice,
+                user: req.user.id,
+                dueDate: req.body.dueDate,
+                status: req.body.status,
+                rig: req.body.rig,
+                project: req.body.project,
+                poc: req.body.poc,
+                // filename: req.file.filename,
+                // path: result.url,
+                // public_id: result.public_id,
+                // originalname: req.file.originalname,
+                // mimetype: req.file.mimetype,
+                // size: req.file.size,
+            });
+            newNote.user = req.user.id;
+            // if (req.file.path){await unlink(req.file.path)}; 
+            await newNote.save();
+            let job = await Job.find().sort({createdAt: 'desc'});
+            let jnID = job[0]._id;
+            await Job.findByIdAndUpdate(jnID, {jobNumber: mtxjob});
+        }
+        req.flash('success_msg','Note added successfully');
+        res.redirect('/notes');
+    }
 
 
 
@@ -115,7 +123,7 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
         user.name = 'Guest'
     }else{
         user.id = req.session.passport.user
-        console.log('>>Query user:' + user.id)
+        // console.log('>>Query user:' + user.id)
         let usuario = await User.findById(user.id);
         user.name = usuario.name
         user.email = usuario.email
@@ -133,12 +141,9 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
 
 notesCrtl.renderEditForm = async(req,res)=>{
     // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
     const note = await Note.findById(req.params.id);
-    // if(note.user != req.user.id){
-    //     req.flash('error_msg','Not authorized user for the URL');
-    //     return res.redirect('/notes');
-    // }
-    res.render('edit-note.ejs', {note});
+    res.render('edit-note.ejs', {note, user});
 }
 
 
@@ -149,10 +154,10 @@ notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
     const {
-        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator
+        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator, rig, project, poc
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
-        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator
+        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator, rig, project, poc
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');

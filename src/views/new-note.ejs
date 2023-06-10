@@ -24,6 +24,20 @@
                     >
 
 
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Batch</span>
+                        <input 
+                            type="number" 
+                            min="1" max="100"
+                            name="batch"
+                            class="form-control bg-dark text-white"
+                            placeholder="Batch"
+                            value="1"
+                        >
+                    </div>
+                    
+
+
                     <input 
                         type="text" 
                         name="title"
@@ -117,13 +131,65 @@
 
 
 
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Rig</span>
+                        <input 
+                            type="text" 
+                            name="rig"
+                            class="form-control bg-dark text-white"
+                            placeholder="Rig"
+                        >
+                    </div>
+
+
+
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Project</span>
+                        <input 
+                            type="text" 
+                            name="project"
+                            class="form-control bg-dark text-white"
+                            placeholder="Project"
+                        >
+                    </div>
+
+
+
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">P.O.C</span>
+                        <input 
+                            type="text" 
+                            name="poc"
+                            class="form-control bg-dark text-white"
+                            placeholder="Point of Contact"
+                        >
+                    </div>
+
+
+
+
+
                     <textarea 
                         name="description" 
                         id="description" 
                         placeholder="Description"
                         class="form-control mb-2 bg-dark text-white"
                         style="height: 500px;"
-                    ></textarea>
+                        >
+---New Project Set up---
+
+Type of well:  
+Datum:
+Zone:
+Field:
+Site:
+Plan Version to create:
+Well name:               
+                    </textarea>
+
+
 
 
 
@@ -145,6 +211,8 @@
                             </div>
                         </div>
                     <!-- </div> -->
+
+
 
 
 
@@ -178,6 +246,8 @@
 
 
 
+                    
+
                     <!-- <div class="form-group"> -->
                         <div class="form-group">
                             <div class="input-group mb-2">
@@ -193,7 +263,7 @@
                                     <option>Completed</option>
                                     <option>On Hold</option>
                                     <option>QA/QC</option>
-                                    <% if (user.id == '62ac0c8d2cbdfe3c9c4b4f38' || user.id == '62f2aa034552be31b8c7ae75') { %>
+                                    <% if (user.role == 'admin') { %>
                                         <option>Billed</option>
                                         <option>Archived</option>
                                     <% } %>
