@@ -1,177 +1,120 @@
 
 <%- include ('partials/header.ejs') %>
 
-<div id="navbar" class="p-2">
-    <% if (user.name != 'Guest') { %>
+    <div id="navbar" class="p-2">
 
-        <% if (user.role == 'admin') { %>
-            <%- include ('partials/navigation_Admin.ejs') %>
+        <% if (user.name !='Guest' ) { %>
+
+            <% if (user.role=='admin' ) { %>
+                <%- include ('partials/navigation_Admin.ejs') %>
+            <% } %>
+
+            <% if (user.role=='user' ) { %>
+                <%- include ('partials/navigation_Member.ejs') %>
+            <% } %>
+
+            <% if (user.role=='viewer' ) { %>
+                <%- include ('partials/navigation_Member.ejs') %>
+            <% } %>
+
         <% } %>
-
-        <% if (user.role == 'user') { %>
-            <%- include ('partials/navigation_Member.ejs') %>
-        <% } %>
-
-        <% if (user.role == 'viewer') { %>
-            <%- include ('partials/navigation_Member.ejs') %>
-        <% } %>
-
-    <% } %>
-</div>
+    </div>
 
 
-<div class="col-md-4 mx-auto my-4">
+    <div class="col-md-4 mx-auto my-4">
 
-    <div class="col -md-6 mx-auto">
+        <div class="col -md-6 mx-auto">
 
-        <div class="card">
+            <div class="card">
 
-            <div class="card-header bg-dark"><h2>Edit Note</h2></div>
+                <div class="card-header bg-dark">
+                    <h2>Edit Note</h2>
+                </div>
 
-            <div class="card-body bg-primary">
+                <div class="card-body bg-primary">
+                    
 
-                <form action="/note/edit/<%=note._id%>?_method=put" method="post">
+                    <form action="/note/edit/<%=note._id%>?_method=put" method="post">
 
 
-                    <div class="form-group">
+                        <div class="form-group">
 
-                        <input 
-                            type="text" 
-                            name="mtxJobId"
-                            class="form-control mb-2 bg-dark text-white"
-                            placeholder="MTX Job ID"
-                            id="MTXjobNumber"
-                            value="<%= note.mtxJobId %>"
-                            readonly
-                        >
-    
-    
-                        <input 
-                            type="text" 
-                            name="title"
-                            class="form-control mb-2 bg-dark text-white"
-                            placeholder="Title"
-                            autofocus
-                            value="<%= note.title %>"
-                        >
-    
-    
-    
-                        <!-- <div class="form-group mb-2"> -->
-                            <!-- <div class="form-group mb-2"> -->
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text bg-dark text-white">Responsible</span>
-                                    <select class="form-select bg-dark text-white" 
-                                            id="responsible" 
-                                            fdprocessedid="5cv5ue"
-                                            name="responsible"
-                                        > 
-                                        <option><%= note.responsible %></option>
-                                        <option>Polita</option>
-                                        <option>John</option>
-                                        <option>Ricardo</option>
-                                        <option>Sammy</option>
-                                        <option>Efrain</option>
-                                    </select>
-                                </div>
-                            <!-- </div> -->
-                        <!-- </div> -->
+                            <input type="text" name="mtxJobId" class="form-control mb-2 bg-dark text-white"
+                                placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>
+
+
+                            <input type="text" name="title" class="form-control mb-2 bg-dark text-white"
+                                placeholder="Title" autofocus value="<%= note.title %>">
 
 
 
-                        <input 
-                        value="<%= note.customer %>"
-                        type="text" 
-                        name="customer"
-                        class="form-control mb-2 bg-dark text-white"
-                        placeholder="Customer"
-                        >
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Responsible</span>
+                                <select class="form-select bg-dark text-white" id="responsible" fdprocessedid="5cv5ue"
+                                    name="responsible">
+                                    <option>
+                                        <%= note.responsible %>
+                                    </option>
+                                    <option>Polita</option>
+                                    <option>John</option>
+                                    <option>Ricardo</option>
+                                    <option>Sammy</option>
+                                    <option>Efrain</option>
+                                </select>
+                            </div>
 
 
 
-                        <input 
-                        value="<%= note.customerJobNumber %>"
-                        type="text" 
-                        name="customerJobNumber"
-                        class="form-control mb-2 bg-dark text-white"
-                        placeholder="Customer Job Number"
-                        >
+
+                            <input value="<%= note.customer %>" type="text" name="customer"
+                                class="form-control mb-2 bg-dark text-white" placeholder="Customer">
 
 
 
-                        <input 
-                        value="<%= note.operator %>"
-                        type="text" 
-                        name="operator"
-                        class="form-control mb-2 bg-dark text-white"
-                        placeholder="Operator"
-                        >
-                        
-                        
-
-                        <div class="input-group mb-2">
-                            <span class="input-group-text bg-dark text-white">Rig</span>
-                            <input
-                                value="<%= note.rig %>"
-                                type="text" 
-                                name="rig"
-                                class="form-control bg-dark text-white"
-                                placeholder="Rig"
-                            >
-                        </div>
-    
-    
-    
-    
-                        <div class="input-group mb-2">
-                            <span class="input-group-text bg-dark text-white">Project</span>
-                            <input 
-                                value="<%= note.project %>"
-                                type="text" 
-                                name="project"
-                                class="form-control bg-dark text-white"
-                                placeholder="Project"
-                            >
-                        </div>
-    
-    
-    
-    
-                        <div class="input-group mb-2">
-                            <span class="input-group-text bg-dark text-white">P.O.C</span>
-                            <input 
-                                value="<%= note.poc %>"
-                                type="text" 
-                                name="poc"
-                                class="form-control bg-dark text-white"
-                                placeholder="Point of Contact"
-                            >
-                        </div>
+                            <input value="<%= note.customerJobNumber %>" type="text" name="customerJobNumber"
+                                class="form-control mb-2 bg-dark text-white" placeholder="Customer Job Number">
 
 
-    
 
-    
-                        <textarea 
-                            name="description" 
-                            id="description" 
-                            placeholder="Description"
-                            class="form-control mb-2 bg-dark text-white"
-                            style="height: 500px;"
-                        ><%= note.description %></textarea>
-    
-    
-    
-                        <!-- <div class="form-group mb-2"> -->
+                            <input value="<%= note.operator %>" type="text" name="operator"
+                                class="form-control mb-2 bg-dark text-white" placeholder="Operator">
+
+
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Rig</span>
+                                <input value="<%= note.rig %>" type="text" name="rig"
+                                    class="form-control bg-dark text-white" placeholder="Rig">
+                            </div>
+
+
+
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Project</span>
+                                <input value="<%= note.project %>" type="text" name="project"
+                                    class="form-control bg-dark text-white" placeholder="Project">
+                            </div>
+
+
+
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">P.O.C</span>
+                                <input value="<%= note.poc %>" type="text" name="poc"
+                                    class="form-control bg-dark text-white" placeholder="Point of Contact">
+                            </div>
+
+
                             <div class="form-group mb-2">
                                 <div class="input-group">
                                     <span class="input-group-text bg-dark text-white">Priority</span>
-                                    <select class="form-select bg-dark text-white" 
-                                            id="priority" 
-                                            fdprocessedid="5cv5ue"
-                                            name="priority"
-                                        >
-                                        <option><%= note.priority %></option>
+                                    <select class="form-select bg-dark text-white" id="priority" fdprocessedid="5cv5ue"
+                                        name="priority">
+                                        <option>
+                                            <%= note.priority %>
+                                        </option>
                                         <option>Extreme</option>
                                         <option>High</option>
                                         <option>Medium</option>
@@ -179,77 +122,81 @@
                                     </select>
                                 </div>
                             </div>
-                        <!-- </div> -->
-    
-    
-    
-                        <div class="input-group mb-2 bg-dark text-white">
-                            <span class="input-group-text bg-dark text-white" id="basic-addon1">Due Date</span>
-                            <input type="date"
-                                id="dueDate" 
-                                name="dueDate"
-                                class="form-control bg-dark text-white"
-                                value="<%= note.dueDate %>"
-                            >
-                        </div>
-    
-                        
-    
-                        <!-- <div class="form-group mb-2"> -->
+
+
+
+                            <div class="input-group mb-2 bg-dark text-white">
+                                <span class="input-group-text bg-dark text-white" id="basic-addon1">Due Date</span>
+                                <input type="date" id="dueDate" name="dueDate" class="form-control bg-dark text-white"
+                                    value="<%= note.dueDate %>">
+                            </div>
+
+
+
+
                             <div class="form-group mb-2">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Invoice</span>
-                                    <select class="form-select bg-dark text-white" 
-                                            id="invoice" 
-                                            fdprocessedid="5cv5ue"
-                                            name="invoice"
-                                        >
-                                        <option><%= note.invoice %></option>
+                                    <select class="form-select bg-dark text-white" id="invoice" fdprocessedid="5cv5ue"
+                                        name="invoice">
+                                        <option>
+                                            <%= note.invoice %>
+                                        </option>
                                         <option>Yes</option>
                                         <option>No</option>
                                     </select>
                                 </div>
                             </div>
-                        <!-- </div> -->
-    
-    
-    
-                        <!-- <div class="form-group"> -->
+
+
+
+
+
                             <div class="form-group">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Status</span>
-                                    <select class="form-select bg-dark text-white" 
-                                            id="status" 
-                                            fdprocessedid="5cv5ue"
-                                            name="status"
-                                        >
-                                        <option><%= note.status %></option>
+                                    <select class="form-select bg-dark text-white" id="status" fdprocessedid="5cv5ue"
+                                        name="status">
+                                        <option>
+                                            <%= note.status %>
+                                        </option>
                                         <option>Not Started</option>
                                         <option>In Progress</option>
                                         <option>Completed</option>
                                         <option>On Hold</option>
                                         <option>QA/QC</option>
-                                        <% if (user.role == 'admin') { %>
+                                        <% if (user.role=='admin' ) { %>
                                             <option>Billed</option>
                                             <option>Archived</option>
-                                        <% } %>
+                                            <% } %>
                                     </select>
                                 </div>
                             </div>
-                        <!-- </div>     -->
-    
-                    </div>                 
-         
 
-                    <div class="form-group mb-2">
-                        <button class="btn btn-success btn-block" type="submit">Save</button>
-                        <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                    </div> 
 
-                </form>
+
+
+
+                            <textarea name="description" id="description" placeholder="Description"
+                                class="form-control mb-2 bg-dark text-white"
+                                style="height: 500px;"><%= note.description %></textarea>
+
+
+
+
+
+                        </div>
+
+
+                        <div class="form-group mb-2">
+                            <button class="btn btn-success btn-block" type="submit">Save</button>
+                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                        </div>
+
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<%- include ('partials/footer.ejs') %>
+    <%- include ('partials/footer.ejs') %>

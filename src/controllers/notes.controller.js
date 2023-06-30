@@ -6,6 +6,7 @@ const notesCrtl = {};
 const Note = require('../models/NoteConveyor');
 const User = require('../models/User');
 const Job = require('../models/MTXjobNumber');
+const Log = require('../models/LogConveyor');
 
 const path = require('path');
 const {unlink} = require('fs-extra');
@@ -83,7 +84,7 @@ notesCrtl.createNewNote = async(req,res)=>{
         }
         req.flash('success_msg','Note added successfully');
         res.redirect('/notes');
-    }
+};
 
 
 
@@ -185,10 +186,31 @@ notesCrtl.renderJob = async (req,res)=>{
     let usuario = await User.findById(user.id);
     // console.log(usuario)
     user.role = usuario.role;
-    let id = req.params.id;
-    let note = await Note.findById(id);
-    res.render('job.ejs', {note, user})
+    let noteid = req.params.id;
+    console.log(noteid);
+    let note = await Note.findById(noteid);
+    let log = await Log.find({noteid});
+    console.log(log);
+    res.render('job.ejs', {note, user, usuario, log})
 }
+
+
+
+
+notesCrtl.createNewLog = async(req,res)=>{
+    //console.log(req.body);
+    //const{title, description}=req.body;
+    let noteid = req.params.id;
+    let newLog = new Log({
+        log: req.body.newlog,
+        noteid: noteid,
+        user: req.user.id,
+    });
+    await newLog.save();
+    req.flash('success_msg','Log added successfully');
+    res.redirect(`/notes/job/${noteid}`);
+};
+
 
 
 module.exports = notesCrtl;

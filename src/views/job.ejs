@@ -3,55 +3,280 @@
 
         <div class="container p-4">
 
-            <div class="card text-white bg-dark mb-3">
-                
-                <div class="card-header bg-dark"><%= note.title %>
+            <div class="card text-white bg-dark mb-3 border-0">
 
-                    <div class="text-body-secondary">DBID: <%= note._id %></div>
-                    <div class="text-body-secondary">MTXID: <%= note.mtxJobId %></div>
-                    <div class="text-body-secondary">Priority: <%= note.priority %></div>
-                    <div class="text-body-secondary">Invoice: <%= note.invoice %></div>
-                    <div class="text-body-secondary">Responsible: <%= note.responsible %></div>
-                    <div class="text-body-secondary">Created: <%= note.createdAt %></div>
-                    <div class="text-body-secondary">Customer: <%= note.customer %></div>
-                    <div class="text-body-secondary">Customer Job Number: <%= note.customerJobNumber %></div>
-                    <div class="text-body-secondary">Operator: <%= note.operator %></div>
-                    <div class="text-body-secondary">Rig: <%= note.rig %></div>
-                    <div class="text-body-secondary">Project: <%= note.project %></div>
-                    <div class="text-body-secondary">Point of Contact: <%= note.poc %></div>
-
-                </div>             
-                
-                <div class="form-group mb-2">
-                    <textarea name="description" class="form-control bg-dark text-white" style="height: 500px;" disabled><%= note.description %></textarea>
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Task</span>
+                    <input 
+                        value="<%= note.title %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
                 </div>
 
-                <div class="card-foote bg-dark">Due Date: <%= note.dueDate %>
-                    <div>
 
-                        <% if (user.role == 'admin') { %>
-                            <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
-                                <input type="hidden" name="_method" value="delete">
-                                <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
-                            </form>
-                            <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                        <% } %> 
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">MTX_ID</span>
+                    <input 
+                        value="<%= note.mtxJobId %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
 
-                        <% if (user.role == 'user') { %>
-                            <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                        <% } %>
-                        
-                        <% if (user.role == 'viewer') { %>
-                            <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                        <% } %>
 
-                        
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Priority</span>
+                    <input 
+                        value="<%= note.priority %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
 
+
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Invoice</span>
+                    <input 
+                        value="<%= note.invoice %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
+
+
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Responsible</span>
+                    <input 
+                        value="<%= note.responsible %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
+
+
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Created</span>
+                    <input 
+                        value="<%= note.createdAt %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
+
+
+
+
+                <% if (note.customer && note.customer != "Other") { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Customer</span>
+                        <input 
+                            value="<%= note.customer %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
                     </div>
-                </div>            
-            </div>        
-        </div>
+                <% } %>
+
+
+
+
+                <% if (note.customerJobNumber) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">CustomerJN</span>
+                        <input 
+                            value="<%= note.customerJobNumber %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+                
+
+
+                <% if (note.operator && note.operator != "Choose...") { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Operator</span>
+                        <input 
+                            value="<%= note.operator %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+                <% if (note.rig) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Rig</span>
+                        <input 
+                            value="<%= note.rig %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+
+                <% if (note.project) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Project</span>
+                        <input 
+                            value="<%= note.project %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+
+                <% if (note.poc) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">P.O.C.</span>
+                        <input 
+                            value="<%= note.poc %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-dark text-white">Status</span>
+                    <input 
+                        value="<%= note.status %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark _text-white"
+
+                        <% if (note.status == "Not Started") { %>
+                            style="color: white;"
+                        <% } %>
+
+                        <% if (note.status == "In Progress") { %>
+                            style="color: aqua;"
+                        <% } %>
+
+                        <% if (note.status == "On Hold") { %>
+                            style="color: red;"
+                        <% } %>
+
+                        <% if (note.status == "QA/QC") { %>
+                            style="color: orange;"
+                        <% } %>
+
+                        <% if (note.status == "Completed") { %>
+                            style="color: chartreuse;"
+                        <% } %>
+
+                        <% if (note.status == "Billed") { %>
+                            style="color: green;"
+                        <% } %>
+                    >
+                </div>
+
+                <% if (note.dueDate) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Due Date</span>
+                        <input 
+                            value="<%= note.dueDate %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>                  
+
+            </div>  
+            
+    
+            <!-- <div class="form-group mb-2">
+                <textarea name="description" class="form-control bg-dark text-white" style="height: 300px;" disabled><%= note.description %></textarea>
+            </div> -->
+
+            <h5>Log</h5>
+
+
+            <% log.forEach(e => { %>
+                <div class="card my-2">
+                    <div class="card-body">
+                        <small> <cite title="Source Title"><%= e.log %></cite> </small>
+                    </div>
+                    <div class="card-footer"><small>-<%= usuario.name %> @ <%= e.createdAt %></small></div>
+                </div>
+            <% }) %>
+
+            <% if (user.role == 'admin' || user.role == 'user') { %>
+                <div class="accordion" id="accordionExample">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                New Log Entry
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample" style="background-color: black;">
+                            <div class="accordion-body">
+                                <% if (user.role == 'admin') { %>
+                                    <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                                    </form>
+                                <% } %> 
+                                <% if (user.role == 'user') { %>
+                                    <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                                    </form>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>  
+                </div>
+            <% } %> 
+
+            <div>
+                <% if (user.role == 'admin') { %>
+                    <!-- <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                    </form> -->
+                    <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+                        <input type="hidden" name="_method" value="delete">
+                        <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
+                    </form>
+                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %> 
+
+                <% if (user.role == 'user') { %>
+                    <!-- <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                    </form> -->
+                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %>
+                        
+                <% if (user.role == 'viewer') { %>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %>
+            </div>
+        </div>            
+
 
 <%- include ('partials/footer.ejs') %>
