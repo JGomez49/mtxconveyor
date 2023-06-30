@@ -187,11 +187,11 @@ notesCrtl.renderJob = async (req,res)=>{
     // console.log(usuario)
     user.role = usuario.role;
     let noteid = req.params.id;
-    console.log(noteid);
     let note = await Note.findById(noteid);
-    let log = await Log.find({noteid});
-    console.log(log);
-    res.render('job.ejs', {note, user, usuario, log})
+    let log = await Log.find({noteid}).sort({createdAt: 'desc'});
+    // let uzuario = await User.findById(user.id);
+    // console.log(uzuario);
+    res.render('job.ejs', {note, user, log})
 }
 
 
@@ -201,10 +201,12 @@ notesCrtl.createNewLog = async(req,res)=>{
     //console.log(req.body);
     //const{title, description}=req.body;
     let noteid = req.params.id;
+    let userid = req.user.id;
+    let user = await User.findById(userid);
     let newLog = new Log({
         log: req.body.newlog,
         noteid: noteid,
-        user: req.user.id,
+        user: user.name,
     });
     await newLog.save();
     req.flash('success_msg','Log added successfully');

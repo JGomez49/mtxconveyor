@@ -212,14 +212,18 @@
             <h5>Log</h5>
 
 
+
             <% log.forEach(e => { %>
                 <div class="card my-2">
                     <div class="card-body">
                         <small> <cite title="Source Title"><%= e.log %></cite> </small>
                     </div>
-                    <div class="card-footer"><small>-<%= usuario.name %> @ <%= e.createdAt %></small></div>
+                    <div class="card-footer"><small>-<%= e.user %> @ <%= e.createdAt %></small></div>
                 </div>
             <% }) %>
+
+
+
 
             <% if (user.role == 'admin' || user.role == 'user') { %>
                 <div class="accordion" id="accordionExample">
