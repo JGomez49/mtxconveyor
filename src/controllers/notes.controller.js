@@ -154,6 +154,30 @@ notesCrtl.renderEditForm = async(req,res)=>{
 notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
+    let cambios = "";    
+    if(req.body.title_cambio != ""){cambios = cambios + "Title changed. "};
+    if(req.body.responsible_cambio != ""){cambios = cambios + "Responsible changed. "};
+    if(req.body.customer_cambio != ""){cambios = cambios + "Customer changed. "};
+    if(req.body.customerJobNumber_cambio != ""){cambios = cambios + "Customer Job Number changed. "};
+    if(req.body.operator_cambio != ""){cambios = cambios + "Operator changed. "};
+    if(req.body.rig_cambio != ""){cambios = cambios + "Rig changed. "};
+    if(req.body.project_cambio != ""){cambios = cambios + "Project changed. "};
+    if(req.body.poc_cambio != ""){cambios = cambios + "Point of Contact changed. "};
+    if(req.body.priority_cambio != ""){cambios = cambios + "Priority changed. "};
+    if(req.body.dueDate_cambio != ""){cambios = cambios + "Due Date changed. "};
+    if(req.body.invoice_cambio != ""){cambios = cambios + "Invoice changed. "};
+    if(req.body.status_cambio != ""){cambios = cambios + "Status changed. "};
+    if(cambios != ""){
+        let noteid = req.params.id;
+        let userid = req.user.id;
+        let user = await User.findById(userid);
+        let newLog = new Log({
+            log: cambios,
+            noteid: noteid,
+            user: user.name,
+        });
+        await newLog.save();
+    }
     const {
         title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator, rig, project, poc
     } = req.body;

@@ -27,12 +27,9 @@
 
             <div class="card">
 
-                <div class="card-header bg-dark">
-                    <h2>Edit Note</h2>
-                </div>
+                <div class="card-header bg-dark"><h2>Edit Note</h2></div>
 
-                <div class="card-body bg-primary">
-                    
+                <div class="card-body bg-primary">                    
 
                     <form action="/note/edit/<%=note._id%>?_method=put" method="post">
 
@@ -44,15 +41,14 @@
 
 
                             <input type="text" name="title" class="form-control mb-2 bg-dark text-white"
-                                placeholder="Title" autofocus value="<%= note.title %>">
+                                placeholder="Title" autofocus value="<%= note.title %>" onchange=cambio_title()>
 
 
 
-
+                            <!-- fdprocessedid="5cv5ue -->
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Responsible</span>
-                                <select class="form-select bg-dark text-white" id="responsible" fdprocessedid="5cv5ue"
-                                    name="responsible">
+                                <select class="form-select bg-dark text-white" id="responsible" name="responsible" onchange=cambio_responsible()>
                                     <option>
                                         <%= note.responsible %>
                                     </option>
@@ -68,24 +64,24 @@
 
 
                             <input value="<%= note.customer %>" type="text" name="customer"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Customer">
+                                class="form-control mb-2 bg-dark text-white" placeholder="Customer" onchange=cambio_customer()>
 
 
 
                             <input value="<%= note.customerJobNumber %>" type="text" name="customerJobNumber"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Customer Job Number">
+                                class="form-control mb-2 bg-dark text-white" placeholder="Customer Job Number" onchange=cambio_customerJobNumber()>
 
 
 
                             <input value="<%= note.operator %>" type="text" name="operator"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Operator">
+                                class="form-control mb-2 bg-dark text-white" placeholder="Operator" onchange=cambio_operator()>
 
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Rig</span>
                                 <input value="<%= note.rig %>" type="text" name="rig"
-                                    class="form-control bg-dark text-white" placeholder="Rig">
+                                    class="form-control bg-dark text-white" placeholder="Rig" onchange=cambio_rig()>
                             </div>
 
 
@@ -94,7 +90,7 @@
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Project</span>
                                 <input value="<%= note.project %>" type="text" name="project"
-                                    class="form-control bg-dark text-white" placeholder="Project">
+                                    class="form-control bg-dark text-white" placeholder="Project" onchange=cambio_project()>
                             </div>
 
 
@@ -103,14 +99,15 @@
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">P.O.C</span>
                                 <input value="<%= note.poc %>" type="text" name="poc"
-                                    class="form-control bg-dark text-white" placeholder="Point of Contact">
+                                    class="form-control bg-dark text-white" placeholder="Point of Contact" onchange=cambio_poc()>
                             </div>
 
 
                             <div class="form-group mb-2">
                                 <div class="input-group">
                                     <span class="input-group-text bg-dark text-white">Priority</span>
-                                    <select class="form-select bg-dark text-white" id="priority" fdprocessedid="5cv5ue"
+                                    <!-- fdprocessedid="5cv5ue" -->
+                                    <select class="form-select bg-dark text-white" id="priority" onchange=cambio_priority()
                                         name="priority">
                                         <option>
                                             <%= note.priority %>
@@ -137,11 +134,9 @@
                             <div class="form-group mb-2">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Invoice</span>
-                                    <select class="form-select bg-dark text-white" id="invoice" fdprocessedid="5cv5ue"
-                                        name="invoice">
-                                        <option>
-                                            <%= note.invoice %>
-                                        </option>
+                                    <!-- fdprocessedid="5cv5ue" -->
+                                    <select class="form-select bg-dark text-white" id="invoice" name="invoice" onchange=cambio_invoice()>
+                                        <option><%= note.invoice %></option>
                                         <option>Yes</option>
                                         <option>No</option>
                                     </select>
@@ -155,11 +150,9 @@
                             <div class="form-group">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Status</span>
-                                    <select class="form-select bg-dark text-white" id="status" fdprocessedid="5cv5ue"
-                                        name="status">
-                                        <option>
-                                            <%= note.status %>
-                                        </option>
+                                    <!-- fdprocessedid="5cv5ue" -->
+                                    <select class="form-select bg-dark text-white" id="status" name="status" onchange=cambio_status()>
+                                        <option><%= note.status %></option>
                                         <option>Not Started</option>
                                         <option>In Progress</option>
                                         <option>Completed</option>
@@ -179,10 +172,8 @@
 
                             <textarea name="description" id="description" placeholder="Description"
                                 class="form-control mb-2 bg-dark text-white"
-                                style="height: 500px;"><%= note.description %></textarea>
-
-
-
+                                style="height: 500px;"><%= note.description %>
+                            </textarea>
 
 
                         </div>
@@ -193,10 +184,44 @@
                             <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                         </div>
 
+
+                        <div class="mt-4" hidden>
+                            <input type="text" name="title_cambio" id="title_cambio" placeholder="title_cambio" readonly>
+                            <input type="text" name="responsible_cambio" id="responsible_cambio" placeholder="responsible_cambio" readonly>
+                            <input type="text" name="customer_cambio" id="customer_cambio" placeholder="customer_cambio" readonly>
+                            <input type="text" name="customerJobNumber_cambio" id="customerJobNumber_cambio" placeholder="customerJobNumber_cambio" readonly>
+                            <input type="text" name="operator_cambio" id="operator_cambio" placeholder="operator_cambio" readonly>
+                            <input type="text" name="rig_cambio" id="rig_cambio" placeholder="rig_cambio" readonly>
+                            <input type="text" name="project_cambio" id="project_cambio" placeholder="project_cambio" readonly>
+                            <input type="text" name="poc_cambio" id="poc_cambio" placeholder="poc_cambio" readonly>
+                            <input type="text" name="priority_cambio" id="priority_cambio" placeholder="priority_cambio" readonly>
+                            <input type="text" name="dueDate_cambio" id="dueDate_cambio" placeholder="dueDate_cambio" readonly>
+                            <input type="text" name="invoice_cambio" id="invoice_cambio" placeholder="invoice_cambio" readonly>
+                            <input type="text" name="status_cambio" id="status_cambio" placeholder="status_cambio" readonly>
+                        </div>
+
                     </form>
+
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- ----------------------------------------------------------------------------------------------- -->
+    <script>
+        function cambio_title() {document.getElementById("title_cambio").value = "Title changed."}
+        function cambio_responsible() {document.getElementById("responsible_cambio").value = "Responsible changed."}
+        function cambio_customer() {document.getElementById("customer_cambio").value = "Customer changed."}
+        function cambio_customerJobNumber() {document.getElementById("customerJobNumber_cambio").value = "Customer Job Number changed."}
+        function cambio_operator() {document.getElementById("operator_cambio").value = "operator changed."}
+        function cambio_rig() {document.getElementById("rig_cambio").value = "Rig changed."}
+        function cambio_project() {document.getElementById("project_cambio").value = "Project changed."}
+        function cambio_poc() {document.getElementById("poc_cambio").value = "Point of Contact changed."}
+        function cambio_priority() {document.getElementById("priority_cambio").value = "Priority changed."}
+        function cambio_dueDate() {document.getElementById("dueDate_cambio").value = "Due Date changed."}
+        function cambio_invoice() {document.getElementById("invoice_cambio").value = "Invoice changed."}
+        function cambio_status() {document.getElementById("status_cambio").value = "Status changed."}
+    </script>
+    <!-- ----------------------------------------------------------------------------------------------- -->
 
     <%- include ('partials/footer.ejs') %>
