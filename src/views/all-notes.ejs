@@ -24,6 +24,31 @@
 
 <div class="container">
 
+    <% if (user.name == "John") { %>
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472811/army-general-_jjalty.png" class="img-fluid" alt="avatar" style="max-width:40px;">
+    <% } %>
+
+    <% if (user.name == "Polita") { %>
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472811/army-general-_jjalty.png" class="img-fluid" alt="avatar" style="max-width:40px;">
+    <% } %>
+
+    <% if (user.name == "Sammy") { %>
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472345/army-private-basic_saighz.png" class="img-fluid" alt="avatar" style="max-width:40px;">
+    <% } %>
+
+    <% if (user.name == "Ricardo") { %>
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472347/army-private_qfcxcg.png" class="img-fluid" alt="avatar" style="max-width:40px;">
+    <% } %>
+
+    <% if (user.name == "Efrain") { %>
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472345/army-private-basic_saighz.png" class="img-fluid" alt="avatar" style="max-width:40px;">
+    <% } %>
+
     <h3 id="greeting"><%= user.name %></h3>
     <!-- <p style="color: black;"> ID: <%= user.id %></p> -->
     <p style="color: black;"> Role: <%= user.role %></p>
@@ -58,10 +83,11 @@
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Responsible</th>
-                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Task</th>
+                                    <th scope="col">Cust.</th>
+                                    <th scope="col">Prio.</th>
+                                    <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -71,9 +97,10 @@
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
                                             <td><%= note.title %></td>
+                                            <td><%= note.customer %></td>
                                             <td><%= note.priority %></td>
                                             <td><%= note.responsible %></td>
-                                            <td><%= note.dueDate %></td>
+                                            <td><small><%= note.dueDate %></small></td>
                                         </tr>
                                     <% } %>                             
                                     <% } %>
@@ -103,10 +130,11 @@
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Responsible</th>
-                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Task</th>
+                                    <th scope="col">Cust.</th>
+                                    <th scope="col">Prio.</th>
+                                    <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,9 +144,10 @@
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
                                             <td><%= note.title %></td>
+                                            <td><%= note.customer %></td>
                                             <td><%= note.priority %></td>
                                             <td><%= note.responsible %></td>
-                                            <td><%= note.dueDate %></td>
+                                            <td><small><%= note.dueDate %></small></td>
                                         </tr>
                                     <% } %>  
                                     <% } %>                   
@@ -148,10 +177,11 @@
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Responsible</th>
-                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Task</th>
+                                    <th scope="col">Cust.</th>
+                                    <th scope="col">Prio.</th>
+                                    <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -161,9 +191,10 @@
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
                                             <td><%= note.title %></td>
+                                            <td><%= note.customer %></td>
                                             <td><%= note.priority %></td>
                                             <td><%= note.responsible %></td>
-                                            <td><%= note.dueDate %></td>
+                                            <td><small><%= note.dueDate %></small></td>
                                         </tr>
                                     <% } %> 
                                     <% } %>                    
@@ -193,10 +224,11 @@
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Responsible</th>
-                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Task</th>
+                                    <th scope="col">Cust.</th>
+                                    <th scope="col">Prio.</th>
+                                    <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -206,9 +238,10 @@
                                         <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                             <th scope="row"><%= note.mtxJobId %></th>
                                             <td><%= note.title %></td>
+                                            <td><%= note.customer %></td>
                                             <td><%= note.priority %></td>
                                             <td><%= note.responsible %></td>
-                                            <td><%= note.dueDate %></td>
+                                            <td><small><%= note.dueDate %></small></td>
                                         </tr>
                                     <% } %>  
                                     <% } %>                   
@@ -238,24 +271,26 @@
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Responsible</th>
-                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Task</th>
+                                    <th scope="col">Cust.</th>
+                                    <th scope="col">Prio.</th>
+                                    <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
                                     <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
-                                    <% if (note.status == 'Completed') { %>
-                                        <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                            <th scope="row"><%= note.mtxJobId %></th>
-                                            <td><%= note.title %></td>
-                                            <td><%= note.priority %></td>
-                                            <td><%= note.responsible %></td>
-                                            <td><%= note.dueDate %></td>
-                                        </tr>
-                                    <% } %> 
+                                        <% if (note.status == 'Completed') { %>
+                                            <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <th scope="row"><%= note.mtxJobId %></th>
+                                                <td><%= note.title %></td>
+                                                <td><%= note.customer %></td>
+                                                <td><%= note.priority %></td>
+                                                <td><%= note.responsible %></td>
+                                                <td><small><%= note.dueDate %></small></td>
+                                            </tr>
+                                        <% } %> 
                                     <% } %>                   
                                 <% }) %> 
                             </tbody>
@@ -285,9 +320,10 @@
                                 <thead>
                                     <tr>
                                         <th scope="col">ID</th>
-                                        <th scope="col">Title</th>
-                                        <th scope="col">Responsible</th>
-                                        <th scope="col">Due Date</th>
+                                        <th scope="col">Task</th>
+                                        <th scope="col">Cust.</th>
+                                        <th scope="col">Resp.</th>
+                                        <th scope="col">Due</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -297,6 +333,7 @@
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><%= note.mtxJobId %></th>
                                                 <td><%= note.title %></td>
+                                                <td><%= note.customer %></td>
                                                 <td><%= note.responsible %></td>
                                                 <td><%= note.dueDate %></td>
                                             </tr>

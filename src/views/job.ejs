@@ -232,6 +232,7 @@
                     <div class="card-body">
                             <div class="container">
                                 <div class="row">
+
                                     <div class="col-1">
                                         <% if (e.user == 'John') { %>
                                             <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
@@ -257,6 +258,7 @@
                                     <div class="col-10">
                                         <textarea name="description" class="form-control bg-dark _text-white" style="height: 90px; font-size: smaller;color:gray;margin-left: 50px;" disabled><%= e.log %></textarea>
                                     </div>
+
                                 </div>
                             </div>
                         <div style="font-size: xx-small;">-<%= e.user %></div>
@@ -297,25 +299,40 @@
                 </div>
             <% } %> 
 
+
+
             <div>
                 <% if (user.role == 'admin') { %>
-                    <!-- <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
-                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
-                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
-                    </form> -->
-                    <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+
+
+                    <div class="accordion accordion-flush border border-2" id="accordionFlushExample">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button btn-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne" style="color: red;">
+                                    Delete
+                                </button>
+                            </h2>
+                            <div id="flush-collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionFlushExample" style="background-color: black;">
+                                <div class="accordion-body">
+                                    <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+                                        <input type="hidden" name="_method" value="delete">
+                                        <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>                          
+                    </div>
+
+                    <!-- <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
                         <input type="hidden" name="_method" value="delete">
                         <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
-                    </form>
+                    </form> -->
+
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %> 
 
                 <% if (user.role == 'user') { %>
-                    <!-- <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
-                        <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
-                        <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
-                    </form> -->
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %>
@@ -324,6 +341,7 @@
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %>
             </div>
+
         </div>            
 
 
