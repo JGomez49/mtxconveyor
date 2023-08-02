@@ -27,7 +27,7 @@
 
             <div class="card">
 
-                <div class="card-header bg-dark"><h2>Edit Note</h2></div>
+                <div class="card-header bg-dark"><h2>Edit</h2></div>
 
                 <div class="card-body bg-primary">                    
 
@@ -40,8 +40,33 @@
                                 placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>
 
 
-                            <input type="text" name="title" class="form-control mb-2 bg-dark text-white"
-                                placeholder="Title" autofocus value="<%= note.title %>" onchange=cambio_title()>
+                            <!-- <input type="text" name="title" class="form-control mb-2 bg-dark text-white"
+                                placeholder="Title" autofocus value="<%= note.title %>" onchange=cambio_title()> -->
+
+
+
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-dark text-white">Task</span>
+                                    <select class="form-select bg-dark text-white" 
+                                            id="title"
+                                            name="title"
+                                            value=<%= note.title %>
+                                            onchange=cambio_title()
+                                        >
+                                        <option><%= note.title %></option>
+                                        <option>New</option>
+                                        <option>Planning</option>
+                                        <option>Revision</option>
+                                        <option>Offsets</option>
+                                        <option>Reports</option>
+                                        <option>T&D</option>
+                                        <option>Hydra</option>
+                                        <option>SurveyMng</option>
+                                        <option>Meeting</option>
+                                        <option>Training</option>
+                                        <option>Others</option>
+                                    </select>
+                                </div>
 
 
 
