@@ -9,7 +9,11 @@
             <%- include ('partials/navigation_Admin.ejs') %>
         <% } %>
 
-        <% if (user.role == 'user' || user.role == 'leader') { %>
+        <% if (user.role == 'leader') { %>
+            <%- include ('partials/navigation_Admin.ejs') %>
+        <% } %>
+
+        <% if (user.role == 'user') { %>
             <%- include ('partials/navigation_Member.ejs') %>
         <% } %>
 
@@ -98,7 +102,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
-                                    <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>                               
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>                               
                                         <% if (note.status == 'Not Started') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
@@ -147,7 +151,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
-                                    <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'In Progress') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
@@ -196,7 +200,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
-                                    <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'On Hold') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
@@ -245,7 +249,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
-                                    <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'QA/QC') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
@@ -294,7 +298,7 @@
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
-                                    <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'Completed') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>

@@ -9,6 +9,10 @@
                 <%- include ('partials/navigation_Admin.ejs') %>
             <% } %>
 
+            <% if (user.role=='leader' ) { %>
+                <%- include ('partials/navigation_Admin.ejs') %>
+            <% } %>
+
             <% if (user.role=='user' ) { %>
                 <%- include ('partials/navigation_Member.ejs') %>
             <% } %>

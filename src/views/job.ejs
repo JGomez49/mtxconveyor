@@ -275,7 +275,7 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'user') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
                 <div class="accordion" id="accordionExample">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
@@ -285,7 +285,7 @@
                         </h2>
                         <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample" style="background-color: black;">
                             <div class="accordion-body">
-                                <% if (user.role == 'admin') { %>
+                                <% if (user.role == 'admin' || user.role == 'leader') { %>
                                     <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
                                         <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
                                         <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
@@ -307,7 +307,6 @@
 
             <div>
                 <% if (user.role == 'admin') { %>
-
 
                     <div class="accordion accordion-flush border border-2" id="accordionFlushExample">
                         <div class="accordion-item">
@@ -336,7 +335,7 @@
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %> 
 
-                <% if (user.role == 'user') { %>
+                <% if (user.role == 'user' || user.role == 'leader') { %>
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %>
