@@ -1,7 +1,7 @@
 
 <%- include ('partials/header.ejs') %>
 
-        <div class="container p-4">
+        <div class="container_ p-4">
 
             <div class="card text-white bg-dark mb-3 border-0">
 
@@ -217,7 +217,12 @@
             
     
             <div class="form-group mb-2">
-                <textarea name="description" class="form-control bg-dark text-white" style="height: 300px;font-size: smaller;" disabled><%= note.description %></textarea>
+                <textarea name="description" 
+                    class="form-control bg-dark text-white" 
+                    style="height: 300px;font-size: smaller;"
+                    onmousemove='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                    disabled><%= note.description %>
+                </textarea>
             </div>
 
 
@@ -230,7 +235,8 @@
             <% log.forEach(e => { %>
                 <div class="card my-2">
                     <div class="card-body">
-                            <div class="container">
+                            <div class="container_">
+
                                 <div class="row">
 
                                     <div class="col-1">
@@ -260,7 +266,12 @@
                                     </div>
 
                                     <div class="col-10">
-                                        <textarea name="description" class="form-control bg-dark _text-white" style="height: 90px; font-size: smaller;color:gray;margin-left: 50px;" disabled><%= e.log %></textarea>
+                                        <textarea name="description"
+                                            class="form-control bg-dark" 
+                                            style="height: 90px; font-size: smaller;color:gray;margin-left: 50px;" 
+                                            onmousemove='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                                            disabled.><%= e.log %>
+                                        </textarea>    
                                     </div>
 
                                 </div>

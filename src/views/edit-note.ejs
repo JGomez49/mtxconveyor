@@ -25,7 +25,7 @@
     </div>
 
 
-    <div class="col-md-8 mx-auto my-4">
+    <div class="col-md-12 mx-auto my-4">
 
         <div class="col -md-6 mx-auto">
 
@@ -42,12 +42,6 @@
 
                             <input type="text" name="mtxJobId" class="form-control mb-2 bg-dark text-white"
                                 placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>
-
-
-                            <!-- <input type="text" name="title" class="form-control mb-2 bg-dark text-white"
-                                placeholder="Title" autofocus value="<%= note.title %>" onchange=cambio_title()> -->
-
-
 
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Task</span>
@@ -203,7 +197,9 @@
 
                             <textarea name="description" id="description" placeholder="Description"
                                 class="form-control mb-2 bg-dark text-white"
-                                style="height: 500px;"><%= note.description %>
+                                style="height: 500px;"
+                                ondblclick='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                                ><%= note.description %>
                             </textarea>
 
 
