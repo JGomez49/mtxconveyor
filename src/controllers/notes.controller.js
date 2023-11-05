@@ -68,6 +68,14 @@ notesCrtl.createNewNote = async(req,res)=>{
                 rig: req.body.rig,
                 project: req.body.project,
                 poc: req.body.poc,
+                checkInitialInfo: req.body.checkInitialInfo,
+                checkFoldersSetup: req.body.checkFoldersSetup,
+                checkOffsetWellsInfo: req.body.checkOffsetWellsInfo,
+                checkCompassOffsets: req.body.checkCompassOffsets,
+                checkCompassSubject: req.body.checkCompassSubject,
+                checkPlanning: req.body.checkPlanning,
+                checkReports: req.body.checkReports,
+                checkSent: req.body.checkSent,
                 // filename: req.file.filename,
                 // path: result.url,
                 // public_id: result.public_id,
@@ -179,10 +187,16 @@ notesCrtl.updateNote = async (req,res)=>{
         await newLog.save();
     }
     const {
-        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator, rig, project, poc
+        title, description, priority, status, responsible, dueDate, invoice, 
+        customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
+        checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
+        checkPlanning, checkReports, checkSent
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
-        title, description, priority, status, responsible, dueDate, invoice, customer, customerJobNumber, operator, rig, project, poc
+        title, description, priority, status, responsible, dueDate, invoice, 
+        customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
+        checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
+        checkPlanning, checkReports, checkSent
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');

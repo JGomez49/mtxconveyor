@@ -18,6 +18,15 @@ const NoteConveyorSchema = new Schema({
     rig: {type: String},
     project: {type: String},
     poc: {type: String},
+    checkInitialInfo: {type: String},
+    checkFoldersSetup: {type: String},
+    checkOffsetWellsInfo: {type: String},
+    checkCompassOffsets: {type: String},
+    checkCompassSubject: {type: String},
+    checkPlanning: {type: String},
+    checkReports: {type: String},
+    checkSent: {type: String}
+
 
 },{timestamps: true})
 

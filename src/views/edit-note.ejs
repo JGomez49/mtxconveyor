@@ -195,6 +195,109 @@
 
 
 
+                            <div class="card mb-3">
+                                <div class="card-body" style="background-color: blue;">
+                                    <h5 class="card-title">Tasks Flow</h5>              
+                
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Initial Information</span>
+                                        <select class="form-select bg-dark text-white" id="checkInitialInfo" name="checkInitialInfo">
+                                            <option>
+                                                <%= note.checkInitialInfo %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Folders Setup</span>
+                                        <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup">
+                                            <option>
+                                                <%= note.checkFoldersSetup %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Offset Wells Information</span>
+                                        <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo">
+                                            <option>
+                                                <%= note.checkOffsetWellsInfo %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Compass Offsets Setup</span>
+                                        <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets">
+                                            <option>
+                                                <%= note.checkCompassOffsets %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Compass Subject Setup</span>
+                                        <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject">
+                                            <option>
+                                                <%= note.checkCompassSubject %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Planning</span>
+                                        <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning">
+                                            <option>
+                                                <%= note.checkPlanning %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Reports</span>
+                                        <select class="form-select bg-dark text-white" id="checkReports" name="checkReports">
+                                            <option>
+                                                <%= note.checkReports %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Sent</span>
+                                        <select class="form-select bg-dark text-white" id="checkSent" name="checkSent">
+                                            <option>
+                                                <%= note.checkSent %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
+
+
+
+
+                
+                                </div>
+                            </div>
+
+
+
+
+
                             <textarea name="description" id="description" placeholder="Description"
                                 class="form-control mb-2 bg-dark text-white"
                                 style="height: 500px;"

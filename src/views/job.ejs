@@ -229,7 +229,207 @@
 
 
 
-            <h5>Log</h5>
+
+
+
+
+
+
+            <div class="card mb-3">
+                <div class="card-body" style="background-color: blue;">
+                    <h5 class="card-title">Tasks Flow</h5>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Initial Information</span>
+                        <input 
+                            value="<%= note.checkInitialInfo %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Folders Setup</span>
+                        <input 
+                            value="<%= note.checkFoldersSetup %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Offset Wells Information</span>
+                        <input 
+                            value="<%= note.checkOffsetWellsInfo %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Compass Offset Wells Setup</span>
+                        <input 
+                            value="<%= note.checkCompassOffsets %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Compass Subject Setup</span>
+                        <input 
+                            value="<%= note.checkCompassSubject %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Planning</span>
+                        <input 
+                            value="<%= note.checkPlanning %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Reports</span>
+                        <input 
+                            value="<%= note.checkReports %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Sent</span>
+                        <input 
+                            value="<%= note.checkSent %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+
+
+
+                </div>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            <div>
+                <% if (user.role == 'admin') { %>
+
+                    <div class="accordion accordion-flush border border-2" id="accordionFlushExample">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button btn-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne" style="color: red;">
+                                    Delete
+                                </button>
+                            </h2>
+                            <div id="flush-collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionFlushExample" style="background-color: black;">
+                                <div class="accordion-body">
+                                    <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+                                        <input type="hidden" name="_method" value="delete">
+                                        <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>                          
+                    </div>
+
+                    <!-- <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
+                        <input type="hidden" name="_method" value="delete">
+                        <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
+                    </form> -->
+
+                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %> 
+
+                <% if (user.role == 'user' || user.role == 'leader') { %>
+                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %>
+                        
+                <% if (user.role == 'viewer') { %>
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                <% } %>
+            </div>
+
+        <!-- </div> -->
+
+
+
+
+
+
+
+
+
+        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+            <div class="accordion" id="accordionExample">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                            New Log Entry
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample" style="background-color: black;">
+                        <div class="accordion-body">
+                            <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                                    <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                                    <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                                </form>
+                            <% } %> 
+                            <% if (user.role == 'user') { %>
+                                <form action="/notes/new-log/<%=note._id%>" method="post" class="my-2">
+                                    <textarea name="newlog" id="newlog" rows="5" class="form-control bg-dark text-white"></textarea>
+                                    <button type="submit" class="btn btn-info btn-block btn-sm_">New Log</button>
+                                </form>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>  
+            </div>
+        <% } %>
+
+
+
+
+
+            
+
+
+
+
+
+
+
+        <div style="background-color: darkslategray;">
+
+            <h5 class="mt-4 p-4">Log</h5>
 
 
             <% log.forEach(e => { %>
@@ -286,7 +486,7 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+            <!-- <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
                 <div class="accordion" id="accordionExample">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
@@ -312,11 +512,11 @@
                         </div>
                     </div>  
                 </div>
-            <% } %> 
+            <% } %>  -->
 
 
 
-            <div>
+            <!-- <div>
                 <% if (user.role == 'admin') { %>
 
                     <div class="accordion accordion-flush border border-2" id="accordionFlushExample">
@@ -337,11 +537,6 @@
                         </div>                          
                     </div>
 
-                    <!-- <form action="/notes/delete/<%=note._id%>?_method=delete" method="post" class="my-2">
-                        <input type="hidden" name="_method" value="delete">
-                        <button type="submit" class="btn btn-danger btn-block btn-sm_">Delete</button>
-                    </form> -->
-
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %> 
@@ -354,9 +549,18 @@
                 <% if (user.role == 'viewer') { %>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %>
-            </div>
+            </div> -->  
 
-        </div>            
+
+
+        </div>
+
+
+
+
+
+
+        </div>          
 
 
 <%- include ('partials/footer.ejs') %>
