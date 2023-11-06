@@ -190,13 +190,20 @@ notesCrtl.updateNote = async (req,res)=>{
         title, description, priority, status, responsible, dueDate, invoice, 
         customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
-        checkPlanning, checkReports, checkSent
+        checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
+        foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
+        compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, planningDoneAt, reportsDoneBy,
+        reportsDoneAt, sentBy, sentAt
+
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
         title, description, priority, status, responsible, dueDate, invoice, 
         customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
-        checkPlanning, checkReports, checkSent
+        checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
+        foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
+        compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, planningDoneAt, reportsDoneBy,
+        reportsDoneAt, sentBy, sentAt
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
@@ -224,6 +231,7 @@ notesCrtl.renderJob = async (req,res)=>{
     let usuario = await User.findById(user.id);
     // console.log(usuario)
     user.role = usuario.role;
+    user.name = usuario.name;
     let noteid = req.params.id;
     let note = await Note.findById(noteid);
     let log = await Log.find({noteid}).sort({createdAt: 'desc'});

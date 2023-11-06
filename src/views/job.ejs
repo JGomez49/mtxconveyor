@@ -1,6 +1,7 @@
 
 <%- include ('partials/header.ejs') %>
 
+
         <div class="container_ p-4">
 
             <div class="card text-white bg-dark mb-3 border-0">
@@ -207,11 +208,13 @@
 
             
             <% if (note.user == '62f2aa034552be31b8c7ae75') { %>
-                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" 
+                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
             <% } %>
 
             <% if (note.user == '62ac0c8d2cbdfe3c9c4b4f38') { %>
-                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" 
+                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
             <% } %>
 
             
@@ -235,89 +238,122 @@
 
 
 
-            <div class="card mb-3">
+
+
+            <div class="card mb-3 border-0">
                 <div class="card-body" style="background-color: blue;">
-                    <h5 class="card-title">Tasks Flow</h5>
+                    <h4 class="card-title mb-4">Work Flow</h4>
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Initial Information</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;" >Initial Info</span>
                         <input 
                             value="<%= note.checkInitialInfo %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white" 
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.initialInfoDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.initialInfoDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Folders Setup</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
                         <input 
                             value="<%= note.checkFoldersSetup %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.foldersDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.foldersDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Offset Wells Information</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
                         <input 
                             value="<%= note.checkOffsetWellsInfo %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.offsetsInfoDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.offsetsInfoDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Compass Offset Wells Setup</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
                         <input 
                             value="<%= note.checkCompassOffsets %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.compassOffsetsDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassOffsetsDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Compass Subject Setup</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
                         <input 
                             value="<%= note.checkCompassSubject %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.compassSubjectDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassSubjectDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Planning</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
                         <input 
                             value="<%= note.checkPlanning %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.planningDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.planningDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Reports</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Reports</span>
                         <input 
                             value="<%= note.checkReports %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.reportsDoneBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.reportsDoneAt %></div>
+
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Sent</span>
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Sent</span>
                         <input 
                             value="<%= note.checkSent %>" 
                             readonly
                             type="text" 
-                            class="form-control bg-dark text-white" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
                         >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.sentBy %></span>
                     </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.sentAt %></div>
 
 
 
@@ -391,7 +427,8 @@
             <div class="accordion" id="accordionExample">
                 <div class="accordion-item">
                     <h2 class="accordion-header">
-                        <button class="accordion-button btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        <button class="accordion-button btn-primary" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
                             New Log Entry
                         </button>
                     </h2>
@@ -429,7 +466,7 @@
 
         <div style="background-color: darkslategray;">
 
-            <h5 class="mt-4 p-4">Log</h5>
+            <h4 class="mt-4 p-4">Log</h4>
 
 
             <% log.forEach(e => { %>
@@ -441,27 +478,33 @@
 
                                     <div class="col-1">
                                         <% if (e.user == 'John') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
                                         <% } %>
 
                                         <% if (e.user == 'Polita') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
                                         <% } %>
 
                                         <% if (e.user == 'Sammy') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
                                         <% } %>
 
                                         <% if (e.user == 'Ricardo') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
                                         <% } %>
 
                                         <% if (e.user == 'Norma') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1692300758/Norma2-cartoon-02_ihxmth.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:60px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1692300758/Norma2-cartoon-02_ihxmth.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:60px;">
                                         <% } %>
 
                                         <% if (e.user == 'Efrain') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" 
+                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
                                         <% } %>
                                     </div>
 

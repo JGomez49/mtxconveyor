@@ -1,7 +1,7 @@
 
 <%- include ('partials/header.ejs') %>
 
-<div class="col-md-4 mx-auto">
+<div class="col-md-8 mx-auto">
 
     <div class="card text-center my-4">
 
@@ -190,21 +190,12 @@
 
                     <textarea 
                         name="description" 
-                        id="description" 
-                        placeholder="Description"
+                        id="description"
                         class="form-control mb-2 bg-dark text-white"
                         style="height: 500px;"
-                        >
----New Project Set up---
-
-Type of well:  
-Datum:
-Zone:
-Field:
-Site:
-Plan Version to create:
-Well name:               
-                    </textarea>
+                        onmousemove='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                        oninput ='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                    ></textarea>
 
 
 
@@ -214,7 +205,6 @@ Well name:
                             <span class="input-group-text bg-dark text-white">Priority</span>
                             <select class="form-select bg-dark text-white" 
                                     id="priority" 
-                                    fdprocessedid="5cv5ue"
                                     name="priority"
                                 >
                                 <option>Choose...</option>

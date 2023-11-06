@@ -1,6 +1,7 @@
 
 <%- include ('partials/header.ejs') %>
 
+
     <div id="navbar" class="p-2">
 
         <% if (user.name !='Guest' ) { %>
@@ -195,107 +196,314 @@
 
 
 
-                            <div class="card mb-3">
+
+
+
+
+
+
+                            <!------------- WORK FLOW ------------------>
+
+                            <div class="card mb-3 border-0">
                                 <div class="card-body" style="background-color: blue;">
-                                    <h5 class="card-title">Tasks Flow</h5>              
+                                    <h5 class="card-title">Work Flow</h5>              
                 
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Initial Information</span>
-                                        <select class="form-select bg-dark text-white" id="checkInitialInfo" name="checkInitialInfo">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Initial Info</span>
+                                        <select class="form-select bg-dark text-white" id="checkInitialInfo" name="checkInitialInfo" style="width: 30%;">
                                             <option>
                                                 <%= note.checkInitialInfo %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="initialInfoDoneBy" name="initialInfoDoneBy" 
+                                            style="width: 30%;" onchange=cambio_initialInfo()>
+                                            <option>
+                                                <%= note.initialInfoDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="initialInfoDoneAt"
+                                            name="initialInfoDoneAt"
+                                            value="<%= note.initialInfoDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
+                                         
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Folders Setup</span>
-                                        <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
+                                        <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup" style="width: 30%;">
                                             <option>
                                                 <%= note.checkFoldersSetup %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="foldersDoneBy" name="foldersDoneBy" 
+                                            style="width: 30%;" onchange=cambio_folders()>
+                                            <option>
+                                                <%= note.foldersDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="foldersDoneAt"
+                                            name="foldersDoneAt"
+                                            value="<%= note.foldersDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+                                    
+                                     
+
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Offset Wells Information</span>
-                                        <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
+                                        <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo" style="width: 30%;">
                                             <option>
                                                 <%= note.checkOffsetWellsInfo %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="offsetsInfoDoneBy" name="offsetsInfoDoneBy" 
+                                            style="width: 30%;" onchange=cambio_offsetsInfo()>
+                                            <option>
+                                                <%= note.offsetsInfoDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="offsetsInfoDoneAt"
+                                            name="offsetsInfoDoneAt"
+                                            value= "<%= note.offsetsInfoDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Compass Offsets Setup</span>
-                                        <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
+                                        <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets" style="width: 30%;">
                                             <option>
                                                 <%= note.checkCompassOffsets %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="compassOffsetsDoneBy" name="compassOffsetsDoneBy" 
+                                            style="width: 30%;" onchange=cambio_compassOffsets()>
+                                            <option>
+                                                <%= note.compassOffsetsDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="compassOffsetsDoneAt"
+                                            name="compassOffsetsDoneAt"
+                                            value= "<%= note.compassOffsetsDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Compass Subject Setup</span>
-                                        <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
+                                        <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject" style="width: 30%;">
                                             <option>
                                                 <%= note.checkCompassSubject %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="compassSubjectDoneBy" name="compassSubjectDoneBy" 
+                                            style="width: 30%;" onchange=cambio_compassSubject()>
+                                            <option>
+                                                <%= note.compassSubjectDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="compassSubjectDoneAt"
+                                            name="compassSubjectDoneAt"
+                                            value="<%= note.compassSubjectDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Planning</span>
-                                        <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
+                                        <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning" style="width: 30%;">
                                             <option>
                                                 <%= note.checkPlanning %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="planningDoneBy" name="planningDoneBy" 
+                                            style="width: 30%;" onchange=cambio_planning()>
+                                            <option>
+                                                <%= note.planningDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="planningDoneAt"
+                                            name="planningDoneAt"
+                                            value="<%= note.planningDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Reports</span>
-                                        <select class="form-select bg-dark text-white" id="checkReports" name="checkReports">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Reports</span>
+                                        <select class="form-select bg-dark text-white" id="checkReports" name="checkReports" style="width: 30%;">
                                             <option>
                                                 <%= note.checkReports %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="reportsDoneBy" name="reportsDoneBy" 
+                                            style="width: 30%;" onchange=cambio_reports()>
+                                            <option>
+                                                <%= note.reportsDoneBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="reportsDoneAt"
+                                            name="reportsDoneAt"
+                                            value="<%= note.reportsDoneAt %>"
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
+
+
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white">Sent</span>
-                                        <select class="form-select bg-dark text-white" id="checkSent" name="checkSent">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Sent</span>
+                                        <select class="form-select bg-dark text-white" id="checkSent" name="checkSent" style="width: 30%;">
                                             <option>
                                                 <%= note.checkSent %>
                                             </option>
                                             <option>Yes</option>
                                             <option>No</option>
                                         </select>
+
+                                        <select class="form-select bg-dark text-white" id="sentBy" name="sentBy" 
+                                            style="width: 30%;" onchange=cambio_sent()>
+                                            <option>
+                                                <%= note.sentBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="sentAt"
+                                            name="sentAt"  
+                                            value="<%= note.sentAt%>"   
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
                                     </div>
 
 
-
-
-                
                                 </div>
                             </div>
 
 
-
+                            <!-- ---------------END OF WORK FLOW ---------------------- -->
 
 
                             <textarea name="description" id="description" placeholder="Description"
@@ -351,6 +559,16 @@
         function cambio_dueDate() {document.getElementById("dueDate_cambio").value = "Due Date changed."}
         function cambio_invoice() {document.getElementById("invoice_cambio").value = "Invoice changed."}
         function cambio_status() {document.getElementById("status_cambio").value = "Status changed."}
+
+        function cambio_initialInfo() {document.getElementById('initialInfoDoneAt').value = new Date();}
+        function cambio_folders() {document.getElementById('foldersDoneAt').value = new Date();}
+        function cambio_offsetsInfo() {document.getElementById('offsetsInfoDoneAt').value = new Date();}
+        function cambio_compassOffsets() {document.getElementById('compassOffsetsDoneAt').value = new Date();}
+        function cambio_compassSubject() {document.getElementById('compassSubjectDoneAt').value = new Date();}
+        function cambio_planning() {document.getElementById('planningDoneAt').value = new Date();}
+        function cambio_reports() {document.getElementById('reportsDoneAt').value = new Date();}
+        function cambio_sent() {document.getElementById('sentAt').value = new Date();}
+
     </script>
     <!-- ----------------------------------------------------------------------------------------------- -->
 
