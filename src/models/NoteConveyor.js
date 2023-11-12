@@ -18,6 +18,7 @@ const NoteConveyorSchema = new Schema({
     rig: {type: String},
     project: {type: String},
     poc: {type: String},
+
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
     checkOffsetWellsInfo: {type: String, defaultValue: "No"},
@@ -26,6 +27,8 @@ const NoteConveyorSchema = new Schema({
     checkPlanning: {type: String, defaultValue: "No"},
     checkReports: {type: String, defaultValue: "No"},
     checkSent: {type: String, defaultValue: "No"},
+    checkETSUpdate: {type: String, defaultValue: "No"},
+    
     initialInfoDoneBy: {type: String},
     initialInfoDoneAt: {type: String},
     foldersDoneBy: {type: String},
@@ -41,7 +44,9 @@ const NoteConveyorSchema = new Schema({
     reportsDoneBy: {type: String},
     reportsDoneAt: {type: String},
     sentBy: {type: String},
-    sentAt: {type: String}
+    sentAt: {type: String},
+    ETSUpdateBy: {type: String},
+    ETSUpdateAt: {type: String}
 
 
 

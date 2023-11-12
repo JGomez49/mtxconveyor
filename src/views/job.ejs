@@ -356,6 +356,20 @@
                     <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.sentAt %></div>
 
 
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white" style="width: 40%;">ETS Update</span>
+                        <input 
+                            value="<%= note.checkETSUpdate %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white"
+                            style="width: 30%;"
+                        >
+                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.ETSUpdateBy %></span>
+                    </div>
+                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.ETSUpdateAt %></div>
+
+
 
                 </div>
             </div>

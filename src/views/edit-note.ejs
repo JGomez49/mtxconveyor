@@ -499,6 +499,42 @@
                                     </div>
 
 
+
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">ETS Update</span>
+                                        <select class="form-select bg-dark text-white" id="checkETSUpdate" name="checkETSUpdate" style="width: 30%;">
+                                            <option>
+                                                <%= note.checkETSUpdate %>
+                                            </option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+
+                                        <select class="form-select bg-dark text-white" id="ETSUpdateBy" name="ETSUpdateBy" 
+                                            style="width: 30%;" onchange=cambio_ETSUpdate()>
+                                            <option>
+                                                <%= note.ETSUpdateBy %>
+                                            </option>
+                                            <option>Polita</option>
+                                            <option>John</option>
+                                            <option>Ricardo</option>
+                                            <option>Norma</option>
+                                            <option>Sammy</option>
+                                            <option>Efrain</option>
+                                        </select>
+
+                                        <input 
+                                            id="ETSUpdateAt"
+                                            name="ETSUpdateAt"  
+                                            value="<%= note.ETSUpdateAt%>"   
+                                            readonly
+                                            type="text" 
+                                            class="form-control bg-dark text-white"
+                                            hidden
+                                        >
+                                    </div>
+
+
                                 </div>
                             </div>
 
@@ -568,6 +604,7 @@
         function cambio_planning() {document.getElementById('planningDoneAt').value = new Date();}
         function cambio_reports() {document.getElementById('reportsDoneAt').value = new Date();}
         function cambio_sent() {document.getElementById('sentAt').value = new Date();}
+        function cambio_ETSUpdate() {document.getElementById('ETSUpdateAt').value = new Date();}
 
     </script>
     <!-- ----------------------------------------------------------------------------------------------- -->

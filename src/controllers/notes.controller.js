@@ -193,7 +193,7 @@ notesCrtl.updateNote = async (req,res)=>{
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
         compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, planningDoneAt, reportsDoneBy,
-        reportsDoneAt, sentBy, sentAt
+        reportsDoneAt, sentBy, sentAt, checkETSUpdate , ETSUpdateBy, ETSUpdateAt
 
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
@@ -203,7 +203,7 @@ notesCrtl.updateNote = async (req,res)=>{
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
         compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, planningDoneAt, reportsDoneBy,
-        reportsDoneAt, sentBy, sentAt
+        reportsDoneAt, sentBy, sentAt, checkETSUpdate, ETSUpdateBy, ETSUpdateAt
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
