@@ -43,4 +43,7 @@ router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
 router.post('/notes/new-log/:id', isAuthenticated, createNewLog);
 
 
+
+
+
 module.exports = router;
