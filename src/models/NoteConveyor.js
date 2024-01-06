@@ -4,7 +4,7 @@ const {Schema, model} = require('mongoose');
 const NoteConveyorSchema = new Schema({
 
     title: {type: String, required: true},
-    description: {type: String, required: true},
+    description: {type: String},
     mtxJobId: {type: String, required: true},
     responsible: {type: String},
     customer: {type: String},
