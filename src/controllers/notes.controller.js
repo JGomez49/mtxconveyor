@@ -114,7 +114,8 @@ notesCrtl.renderNotes = async (req,res)=>{
         // console.log(usuario)
         // console.log(user)
     }
-    const notes = await Note.find().sort({createdAt: 'desc'});
+    // const notes = await Note.find().sort({createdAt: 'desc'});
+    const notes = await Note.find().sort({dueDate: 'desc'});
     res.render('all-notes.ejs', {notes, user});
 };
 
@@ -138,7 +139,8 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
         user.email = usuario.email
         user.role = usuario.role    
     }
-    const notes = await Note.find({}).sort({createdAt: 'desc'});
+    // const notes = await Note.find({}).sort({createdAt: 'desc'});
+    const notes = await Note.find().sort({dueDate: 'desc'});
     res.render('query.ejs', {notes, user, donde, buscar});
 };
 

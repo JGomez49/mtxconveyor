@@ -28,41 +28,6 @@
 
 <div class="container_ p-4">
 
-    <!-- <% if (user.name == "John") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472811/army-general-_jjalty.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Polita") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472811/army-general-_jjalty.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Sammy") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472347/army-private_qfcxcg.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Ricardo") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472347/army-private_qfcxcg.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Pablo") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1703868299/Pablo_cartoon-02_noBG_yyq0hf.png" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472354/army-corporal_fqws5b.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Norma") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1692300758/Norma2-cartoon-02_ihxmth.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472347/army-private_qfcxcg.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %>
-
-    <% if (user.name == "Efrain") { %>
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-        <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1689472345/army-private-basic_saighz.png" class="img-fluid" alt="avatar" style="max-width:40px;">
-    <% } %> -->
-
     <%- include ('avatar.ejs') %>
 
     <h3 id="greeting"><%= user.name %></h3>
@@ -106,6 +71,7 @@
                                     <th scope="col">P.O.C.</th>
                                     <th scope="col">Rig</th>
                                     <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -126,7 +92,7 @@
                                                 <td><%= note.poc %></td>
                                                 <td><%= note.rig %></td>
                                                 <td><%= note.responsible %></td>
-                                                <!-- <td><small><%= note.dueDate %></small></td> -->
+                                                <td><small><%= note.dueDate %></small></td>
                                             </tr>
                                         <% } %>                             
                                     <% } %>
@@ -163,6 +129,7 @@
                                     <th scope="col">P.O.C.</th>
                                     <th scope="col">Rig</th>
                                     <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -183,7 +150,7 @@
                                                 <td><%= note.poc %></td>
                                                 <td><%= note.rig %></td>
                                                 <td><%= note.responsible %></td>
-                                                <!-- <td><small><%= note.dueDate %></small></td> -->
+                                                <td><small><%= note.dueDate %></small></td>
                                             </tr>
                                         <% } %>  
                                     <% } %>                   
@@ -220,6 +187,7 @@
                                     <th scope="col">P.O.C.</th>
                                     <th scope="col">Rig</th>
                                     <th scope="col">Resp.</th>
+                                    <!-- <th scope="col">Due</th> -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -277,6 +245,7 @@
                                     <th scope="col">P.O.C.</th>
                                     <th scope="col">Rig</th>
                                     <th scope="col">Resp.</th>
+                                    <th scope="col">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -297,7 +266,7 @@
                                                 <td><%= note.poc %></td>
                                                 <td><%= note.rig %></td>
                                                 <td><%= note.responsible %></td>
-                                                <!-- <td><small><%= note.dueDate %></small></td> -->
+                                                <td><small><%= note.dueDate %></small></td>
                                             </tr>
                                         <% } %>  
                                     <% } %>                   
