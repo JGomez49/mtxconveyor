@@ -115,7 +115,7 @@ notesCrtl.renderNotes = async (req,res)=>{
         // console.log(user)
     }
     // const notes = await Note.find().sort({createdAt: 'desc'});
-    const notes = await Note.find().sort({dueDate: 'desc'});
+    const notes = await Note.find().sort({dueDate: 'asc'});
     res.render('all-notes.ejs', {notes, user});
 };
 
@@ -140,7 +140,7 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
         user.role = usuario.role    
     }
     // const notes = await Note.find({}).sort({createdAt: 'desc'});
-    const notes = await Note.find().sort({dueDate: 'desc'});
+    const notes = await Note.find().sort({dueDate: 'asc'});
     res.render('query.ejs', {notes, user, donde, buscar});
 };
 
