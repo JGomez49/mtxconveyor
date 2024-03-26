@@ -12,7 +12,7 @@ usersCtrl.renderSignUpForm = (req, res) => {res.render('signup.ejs')};
 
 usersCtrl.signup = async (req, res) => {
     const errors = [];
-    const { name, email, role, list, password, confirm_password } = req.body
+    const { name, email, role, list, password, confirm_password, rank } = req.body
 
     if (password != confirm_password) {
         errors.push({ text: '   Passwords do not match' });
@@ -30,7 +30,7 @@ usersCtrl.signup = async (req, res) => {
             req.flash('error_msg', '    The email is already in use.');
             res.redirect('/users/signup');
         } else {
-            const newUser = new User({name, email, role, list, password});
+            const newUser = new User({name, email, role, list, password, rank});
             newUser.password = await newUser.encryptPassword(password);
             req.flash('success_msg', '  Congratulations, You are now registred!');
             await newUser.save();

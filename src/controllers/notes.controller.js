@@ -111,6 +111,7 @@ notesCrtl.renderNotes = async (req,res)=>{
         user.email = usuario.email
         user.role = usuario.role
         user.list = usuario.list
+        user.rank = usuario.rank
         // console.log(usuario)
         // console.log(user)
     }
@@ -137,7 +138,8 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
         let usuario = await User.findById(user.id);
         user.name = usuario.name
         user.email = usuario.email
-        user.role = usuario.role    
+        user.role = usuario.role
+        user.rank = usuario.rank
     }
     // const notes = await Note.find({}).sort({createdAt: 'desc'});
     const notes = await Note.find().sort({dueDate: 'asc'});
@@ -233,6 +235,7 @@ notesCrtl.renderJob = async (req,res)=>{
     let usuario = await User.findById(user.id);
     // console.log(usuario)
     user.role = usuario.role;
+    user.rank = usuario.rank;
     user.name = usuario.name;
     let noteid = req.params.id;
     let note = await Note.findById(noteid);
