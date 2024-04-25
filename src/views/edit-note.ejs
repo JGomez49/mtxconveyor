@@ -122,6 +122,28 @@
 
 
                             <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Area</span>
+                                <input value="<%= note.area %>" type="text" name="area"
+                                    class="form-control bg-dark text-white" placeholder="Area">
+                            </div>
+
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Wells</span>
+                                <input value="<%= note.wells %>" type="text" name="wells"
+                                    class="form-control bg-dark text-white" placeholder="Wells #">
+                            </div>
+
+                            
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Budget</span>
+                                <input value="<%= note.budget %>" type="text" name="budget"
+                                    class="form-control bg-dark text-white" placeholder="Budget">
+                            </div>
+
+
+
+                            <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">P.O.C</span>
                                 <input value="<%= note.poc %>" type="text" name="poc"
                                     class="form-control bg-dark text-white" placeholder="Point of Contact" onchange=cambio_poc()>

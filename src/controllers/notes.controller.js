@@ -68,6 +68,9 @@ notesCrtl.createNewNote = async(req,res)=>{
                 rig: req.body.rig,
                 project: req.body.project,
                 poc: req.body.poc,
+                wells: req.body.wells,
+                area: req.body.area,
+                budget: req.body.budget,
                 checkInitialInfo: req.body.checkInitialInfo,
                 checkFoldersSetup: req.body.checkFoldersSetup,
                 checkOffsetWellsInfo: req.body.checkOffsetWellsInfo,
@@ -192,7 +195,7 @@ notesCrtl.updateNote = async (req,res)=>{
     }
     const {
         title, description, priority, status, responsible, dueDate, invoice, 
-        customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
+        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
@@ -202,7 +205,7 @@ notesCrtl.updateNote = async (req,res)=>{
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
         title, description, priority, status, responsible, dueDate, invoice, 
-        customer, customerJobNumber, operator, rig, project, poc, checkInitialInfo,
+        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,

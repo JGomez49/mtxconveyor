@@ -144,6 +144,47 @@
 
 
 
+
+                <% if (note.area) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Area</span>
+                        <input 
+                            value="<%= note.area %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+                <% if (note.wells) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Wells</span>
+                        <input 
+                            value="<%= note.wells %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+                <% if (note.budget) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Budget</span>
+                        <input 
+                            value="<%= note.budget %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+
+
+
                 <% if (note.poc) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">P.O.C.</span>
