@@ -14,14 +14,18 @@
                     <tr>
                         <th scope="col">ID</th>
                         <th scope="col">Task</th>
-                        <th scope="col">Cust.</th>
+                        <!-- <th scope="col">Cust.</th> -->
                         <th scope="col">C.ID</th>
                         <th scope="col">Project</th>
+                        <th scope="col">Wells</th>
+                        <th scope="col">Area</th>
+                        <th scope="col">Budget</th>
                         <th scope="col">Rig</th>
                         <th scope="col">P.O.C</th>
-                        <th scope="col">Operator</th>
+                        <!-- <th scope="col">Operator</th> -->
                         <th scope="col">Resp.</th>
                         <th scope="col">Prio.</th>
+                        <th scope="col">Created</th>
                         <th scope="col">Due</th>
                         <th scope="col">Status</th>
                     </tr>
@@ -35,17 +39,24 @@
 
                             <% if (donde == "Customer" ) { %>
                                 <% if ( note.customer == buscar ) { %>
+
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
+
+                                        <td><small><%= note.created %></small></td>
+
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
@@ -57,12 +68,15 @@
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
@@ -76,12 +90,15 @@
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
@@ -92,106 +109,111 @@
 
                             <% if (donde == "Operator" ) { %>
                                 <% if (note.operator == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Responsible" ) { %>
                                 <% if (note.responsible == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Rig" ) { %>
                                 <% if (note.rig == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Project" ) { %>
                                 <% if (note.project == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "P.O.C" ) { %>
                                 <% if (note.poc == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
@@ -207,12 +229,15 @@
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
@@ -226,12 +251,15 @@
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
@@ -245,12 +273,15 @@
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
@@ -261,106 +292,111 @@
 
                             <% if (donde == "Operator" ) { %>
                                 <% if (note.operator == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Responsible" ) { %>
                                 <% if (note.responsible == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Rig" ) { %>
                                 <% if (note.rig == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "Project" ) { %>
                                 <% if (note.project == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
                             <% if (donde == "P.O.C" ) { %>
                                 <% if (note.poc == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>
-                                        <td><%= note.customer %></td>
+                                        <!-- <td><%= note.customer %></td> -->
                                         <td><%= note.customerJobNumber %></td>
                                         <td><%= note.project %></td>
+                                        <td><%= note.wells %></td>
+                                        <td><%= note.area %></td>
+                                        <td><%= note.budget %></td>
                                         <td><%= note.rig %></td>
                                         <td><%= note.poc %></td>
-                                        <td><%= note.operator %></td>
+                                        <!-- <td><%= note.operator %></td> -->
                                         <td><%= note.responsible %></td>
                                         <td><%= note.priority %></td>
                                         <td><small><%= note.dueDate %></small></td>
                                         <td><%= note.status %></td>
                                     </tr>
-
                                 <% } %>
                             <% } %>
 
@@ -377,9 +413,6 @@
         </div>
 
     </div>
-
-
-
 
 
 

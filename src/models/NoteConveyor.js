@@ -18,10 +18,10 @@ const NoteConveyorSchema = new Schema({
     rig: {type: String},
     project: {type: String},
     poc: {type: String},
-
     wells: {type: String},
     area: {type: String},
     budget: {type: String},
+    created: {type: String},
 
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},

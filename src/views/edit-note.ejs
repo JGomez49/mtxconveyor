@@ -25,6 +25,8 @@
         <% } %>
     </div>
 
+    <!-- <pre><%= note.createdAt %></pre> -->
+
 
     <div class="col-md-12 mx-auto my-4">
 
@@ -53,18 +55,19 @@
                                             onchange=cambio_title()
                                         >
                                         <option><%= note.title %></option>
-                                        <option>Subject Setup</option>
-                                        <option>Req.Info</option>
-                                        <option>Planning</option>
-                                        <option>Revision</option>
-                                        <option>Offsets</option>
-                                        <option>Reports</option>
-                                        <option>T&D</option>
-                                        <option>Hydra</option>
-                                        <option>SurveyMng</option>
+                                        <option>Execution</option>
+                                        <option>Hydraulics</option>
                                         <option>Meeting</option>
-                                        <option>Training</option>
+                                        <option>Offsets</option>
                                         <option>Others</option>
+                                        <option>Planning</option>
+                                        <option>Reports</option>
+                                        <option>Req.Info</option>
+                                        <option>Revision</option>
+                                        <option>Subject</option>
+                                        <option>SurveyMng</option>
+                                        <option>T&D</option>
+                                        <option>Training</option>
                                     </select>
                                 </div>
 
@@ -169,11 +172,25 @@
 
 
 
+
+
+
+ 
                             <div class="input-group mb-2 bg-dark text-white">
-                                <span class="input-group-text bg-dark text-white" id="basic-addon1">Due Date</span>
+                                <span class="input-group-text bg-dark text-white">Created</span>
+                                <input type="date" id="created" name="created" class="form-control bg-dark text-white"
+                                    value="<%= note.created %>">
+                            </div>
+
+
+
+                            <div class="input-group mb-2 bg-dark text-white">
+                                <span class="input-group-text bg-dark text-white">Due Date</span>
                                 <input type="date" id="dueDate" name="dueDate" class="form-control bg-dark text-white"
                                     value="<%= note.dueDate %>">
                             </div>
+
+
 
 
 
@@ -189,7 +206,6 @@
                                     </select>
                                 </div>
                             </div>
-
 
 
 
@@ -217,6 +233,10 @@
 
 
 
+                            <div class="form-group mb-2">
+                                <button class="btn btn-success btn-block" type="submit">Save</button>
+                                <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                            </div>
 
 
 
