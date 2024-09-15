@@ -60,12 +60,11 @@
                 </h2>
                 <div id="collapseOne" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                     <div class="accordion-body bg-dark">
-                        <table class="table table-hover table-striped table-dark table-sm">
+                        <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;">
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Task</th>
-                                    <!-- <th scope="col">Cust.</th> -->
                                     <th scope="col">C.ID</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Area</th>
@@ -83,17 +82,31 @@
                                 <% notes.forEach(note => { %>
                                     <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>                               
                                         <% if (note.status == 'Not Started') { %>
+
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+
+                                                <% if (note.title == "Execution") { %>
+                                                    <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>  
+                                                <% if (note.responsible == "Orphan") { %>
+                                                    <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>   
+                                                <% if (user.name == note.responsible) { %>
+                                                    <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %> 
+
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                 <td><%= note.title %></td>                                                
-                                                <!-- <td><%= note.customer %></td> -->
                                                 <td><%= note.customerJobNumber %></td>
-                                                <% if (user.name == note.responsible) { %>
+                                                <td><%= note.project %></td>
+
+                                                <!-- <% if (user.name == note.responsible) { %>
                                                     <td style="color: red;"><%= note.project%></td>
                                                 <% } %>
                                                 <% if (user.name != note.responsible) { %>
                                                     <td><%= note.project %></td>
-                                                <% } %>                                                
+                                                <% } %>  -->
+
                                                 <td><%= note.area %></td>
                                                 <td><%= note.wells %></td>
                                                 <td><%= note.budget %></td>
@@ -128,12 +141,11 @@
                 </h2>
                 <div id="collapseTwo" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
                     <div class="accordion-body bg-dark">
-                        <table class="table table-hover table-striped table-primary table-sm" style="color: black;">
+                        <table class="table table-hover _table-striped table-dark _table-primary table-sm" style="color: gray;">
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Task</th>
-                                    <!-- <th scope="col">Cust.</th> -->
                                     <th scope="col">C.ID</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Area</th>
@@ -151,21 +163,23 @@
                                 <% notes.forEach(note => { %>
                                     <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'In Progress') { %>
-                                            <% if (note.title != "Execution") { %>
-                                                <tr  onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                            <% } %>
-                                            <% if (note.title == "Execution") { %>
-                                                <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                            <% } %>                                                
+
+                                            <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                            
+                                                <% if (note.title == "Execution") { %>
+                                                    <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>  
+                                                <% if (note.responsible == "Orphan") { %>
+                                                    <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>   
+                                                <% if (user.name == note.responsible) { %>
+                                                    <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>   
+                                                                                       
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th> 
                                                 <td><%= note.title %></td>
                                                 <td><%= note.customerJobNumber %></td>
-                                                <% if (user.name == note.responsible) { %>
-                                                    <td style="color: red;"><%= note.project%></td>
-                                                <% } %>
-                                                <% if (user.name != note.responsible) { %>
-                                                    <td><%= note.project %></td>
-                                                <% } %>
+                                                <td><%= note.project %></td>
                                                 <td><%= note.area %></td>
                                                 <td><%= note.wells %></td>
                                                 <td><%= note.budget %></td>
@@ -200,12 +214,11 @@
                 </h2>
                 <div id="collapseThree" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                     <div class="accordion-body bg-dark">
-                        <table class="table table-hover table-striped table-danger table-sm" style="color: black;">
+                        <table class="table table-hover _table-striped _table-danger table-dark table-sm" style="color: gray;">
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Task</th>
-                                    <!-- <th scope="col">Cust.</th> -->
                                     <th scope="col">C.ID</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Area</th>
@@ -216,24 +229,29 @@
                                     <th scope="col">Rig</th>
                                     <th scope="col">Resp.</th>
                                     <th scope="col">Created</th>
-                                    <!-- <th scope="col">Due</th> -->
                                 </tr>
                             </thead>
                             <tbody>
                                 <% notes.forEach(note => { %>
                                     <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'On Hold') { %>
+
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+
+                                                <% if (note.title == "Execution") { %>
+                                                    <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>  
+                                                <% if (note.responsible == "Orphan") { %>
+                                                    <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>   
+                                                <% if (user.name == note.responsible) { %>
+                                                    <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %> 
+
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                 <td><%= note.title %></td>
-                                                <!-- <td><%= note.customer %></td> -->
                                                 <td><%= note.customerJobNumber %></td>
-                                                <% if (user.name == note.responsible) { %>
-                                                    <td style="color: red;"><%= note.project%></td>
-                                                <% } %>
-                                                <% if (user.name != note.responsible) { %>
-                                                    <td><%= note.project %></td>
-                                                <% } %>
+                                                <td><%= note.project %></td>
                                                 <td><%= note.area %></td>
                                                 <td><%= note.wells %></td>
                                                 <td><%= note.budget %></td>
@@ -242,7 +260,6 @@
                                                 <td><%= note.rig %></td>
                                                 <td><%= note.responsible %></td>
                                                 <td><small><%= note.created %></small></td>
-                                                <!-- <td><small><%= note.dueDate %></small></td> -->
                                             </tr>
                                         <% } %> 
                                     <% } %>                    
@@ -268,12 +285,11 @@
                 </h2>
                 <div id="collapseFour" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                     <div class="accordion-body bg-dark table-sm">
-                        <table class="table table-hover table-striped table-warning" style="color: black;">
+                        <table class="table table-hover _table-striped _table-warning table-dark" style="color: gray;">
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Task</th>
-                                    <!-- <th scope="col">Cust.</th> -->
                                     <th scope="col">C.ID</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Area</th>
@@ -292,16 +308,21 @@
                                     <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'QA/QC') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+
+                                                <% if (note.title == "Execution") { %>
+                                                    <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>  
+                                                <% if (note.responsible == "Orphan") { %>
+                                                    <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %>   
+                                                <% if (user.name == note.responsible) { %>
+                                                    <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %> 
+
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                 <td><%= note.title %></td>
-                                                <!-- <td><%= note.customer %></td> -->
                                                 <td><%= note.customerJobNumber %></td>
-                                                <% if (user.name == note.responsible) { %>
-                                                    <td style="color: red;"><%= note.project%></td>
-                                                <% } %>
-                                                <% if (user.name != note.responsible) { %>
-                                                    <td><%= note.project %></td>
-                                                <% } %>
+                                                <td><%= note.project %></td>
                                                 <td><%= note.area %></td>
                                                 <td><%= note.wells %></td>
                                                 <td><%= note.budget %></td>
@@ -336,12 +357,11 @@
                 </h2>
                 <div id="collapseFive" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                     <div class="accordion-body bg-dark table-sm">
-                        <table class="table table-hover table-striped table-success" style="color: black;">
+                        <table class="table table-hover _table-striped table-success" style="color: black;">
                             <thead>
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Task</th>
-                                    <!-- <th scope="col">Cust.</th> -->
                                     <th scope="col">C.ID</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Area</th>
@@ -359,16 +379,15 @@
                                     <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                         <% if (note.status == 'Completed') { %>
                                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+
+                                                <% if (user.name == note.responsible) { %>
+                                                    <tr style="color: blue;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                <% } %> 
+
                                                 <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                 <td><%= note.title %></td>
-                                                <!-- <td><%= note.customer %></td> -->
                                                 <td><%= note.customerJobNumber %></td>
-                                                <% if (user.name == note.responsible) { %>
-                                                    <td style="color: blue"><%= note.project%></td>
-                                                <% } %>
-                                                <% if (user.name != note.responsible) { %>
-                                                    <td><%= note.project %></td>
-                                                <% } %>
+                                                <td><%= note.project %></td>
                                                 <td><%= note.area %></td>
                                                 <td><%= note.wells %></td>
                                                 <td><%= note.budget %></td>
