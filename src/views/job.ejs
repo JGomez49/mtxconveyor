@@ -147,7 +147,7 @@
 
                 <% if (note.project) { %>
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Project</span>
+                        <span class="input-group-text bg-dark text-white">Project / Site</span>
                         <input 
                             value="<%= note.project %>" 
                             readonly
@@ -202,7 +202,7 @@
 
                 <% if (note.poc) { %>
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">P.O.C.</span>
+                        <span class="input-group-text bg-dark text-white">D.E</span>
                         <input 
                             value="<%= note.poc %>" 
                             readonly
@@ -211,6 +211,20 @@
                         >
                     </div>
                 <% } %>
+
+
+                <!-- <% if (note.geologist) { %> -->
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Geo</span>
+                        <input 
+                            value="<%= note.geologist %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <!-- <% } %> -->
+
 
 
                 <div class="input-group mb-2">

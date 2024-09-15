@@ -80,11 +80,12 @@
                                 name="responsible"
                             >
                             <option>Choose...</option>
-                            <option>Polita</option>
+                            <%- include ('partials/optionsPeople.ejs') %>
+                            <!-- <option>Polita</option>
                             <option>John</option>
                             <option>Pablo</option>
                             <option>Daniel</option>
-                            <option>Sammy</option>
+                            <option>Sammy</option> -->
                         </select>
                     </div>
 
@@ -111,14 +112,23 @@
                     </div>
 
 
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">C.Job# / Plan V.</span>
+                        <input 
+                            type="text" 
+                            name="customerJobNumber"
+                            class="form-control bg-dark text-white"
+                            placeholder="Customer Job Number"
+                        >
+                    </div>
 
 
-                    <input 
+                    <!-- <input 
                         type="text" 
                         name="customerJobNumber"
                         class="form-control mb-2 bg-dark text-white"
                         placeholder="Customer Job Number"
-                    >
+                    > -->
 
 
 
@@ -162,12 +172,12 @@
 
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Project</span>
+                        <span class="input-group-text bg-dark text-white">Project / Site</span>
                         <input 
                             type="text" 
                             name="project"
                             class="form-control bg-dark text-white"
-                            placeholder="Project"
+                            placeholder="Project or Site"
                         >
                     </div>
 
@@ -175,12 +185,23 @@
 
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">P.O.C</span>
+                        <span class="input-group-text bg-dark text-white">D.E</span>
                         <input 
                             type="text" 
                             name="poc"
                             class="form-control bg-dark text-white"
-                            placeholder="Point of Contact"
+                            placeholder="Drilling Engineer"
+                        >
+                    </div>
+
+                    
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Geo</span>
+                        <input 
+                            type="text" 
+                            name="geologist"
+                            class="form-control bg-dark text-white"
+                            placeholder="Geologist"
                         >
                     </div>
 

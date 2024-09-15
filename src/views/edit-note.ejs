@@ -36,6 +36,8 @@
 
                 <div class="card-header bg-dark"><h2>Edit</h2></div>
 
+                <!-- <pre><%= note %></pre> -->
+
                 <div class="card-body bg-primary">                    
 
                     <form action="/note/edit/<%=note._id%>?_method=put" method="post">
@@ -80,11 +82,14 @@
                                     <option>
                                         <%= note.responsible %>
                                     </option>
-                                    <option>Polita</option>
+                                    <%- include ('partials/optionsPeople.ejs') %>
+                                    <!-- <option>Polita</option>
                                     <option>John</option>
                                     <option>Pablo</option>
                                     <option>Daniel</option>
                                     <option>Sammy</option>
+                                    <option>Orphan</option>
+                                    <option>CNRL_Tech</option> -->
                                 </select>
                             </div>
 
@@ -116,9 +121,9 @@
 
 
                             <div class="input-group mb-2">
-                                <span class="input-group-text bg-dark text-white">Project</span>
+                                <span class="input-group-text bg-dark text-white">Project / Ste</span>
                                 <input value="<%= note.project %>" type="text" name="project"
-                                    class="form-control bg-dark text-white" placeholder="Project" onchange=cambio_project()>
+                                    class="form-control bg-dark text-white" placeholder="Project / Site" onchange=cambio_project()>
                             </div>
 
 
@@ -147,9 +152,15 @@
 
 
                             <div class="input-group mb-2">
-                                <span class="input-group-text bg-dark text-white">P.O.C</span>
+                                <span class="input-group-text bg-dark text-white">D.E</span>
                                 <input value="<%= note.poc %>" type="text" name="poc"
-                                    class="form-control bg-dark text-white" placeholder="Point of Contact" onchange=cambio_poc()>
+                                    class="form-control bg-dark text-white" placeholder="Drilling Engineer" onchange=cambio_poc()>
+                            </div>
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Geo</span>
+                                <input value="<%= note.geologist %>" type="text" name="geologist"
+                                    class="form-control bg-dark text-white" placeholder="Geologist">
                             </div>
 
 
@@ -264,11 +275,12 @@
                                             <option>
                                                 <%= note.initialInfoDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -300,11 +312,12 @@
                                             <option>
                                                 <%= note.foldersDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -338,11 +351,12 @@
                                             <option>
                                                 <%= note.offsetsInfoDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -373,11 +387,12 @@
                                             <option>
                                                 <%= note.compassOffsetsDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -408,11 +423,12 @@
                                             <option>
                                                 <%= note.compassSubjectDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -443,11 +459,12 @@
                                             <option>
                                                 <%= note.planningDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -478,11 +495,12 @@
                                             <option>
                                                 <%= note.reportsDoneBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -513,11 +531,12 @@
                                             <option>
                                                 <%= note.sentBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 
@@ -548,11 +567,12 @@
                                             <option>
                                                 <%= note.ETSUpdateBy %>
                                             </option>
-                                            <option>Polita</option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                            <!-- <option>Polita</option>
                                             <option>John</option>
                                             <option>Pablo</option>
                                             <option>Daniel</option>
-                                            <option>Sammy</option>
+                                            <option>Sammy</option> -->
                                         </select>
 
                                         <input 

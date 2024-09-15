@@ -18,6 +18,7 @@ const NoteConveyorSchema = new Schema({
     rig: {type: String},
     project: {type: String},
     poc: {type: String},
+    geologist: {type: String},
     wells: {type: String},
     area: {type: String},
     budget: {type: String},

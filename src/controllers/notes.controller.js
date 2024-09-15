@@ -43,7 +43,7 @@ notesCrtl.renderNoteForm = async(req,res)=>{
 
 
 notesCrtl.createNewNote = async(req,res)=>{
-    //console.log(req.body);
+    // console.log(req.body);
     //const{title, description}=req.body;
     // const result = await cloudinary.v2.uploader.upload(req.file.path);
     // console.log('>> result:')
@@ -69,6 +69,7 @@ notesCrtl.createNewNote = async(req,res)=>{
                 rig: req.body.rig,
                 project: req.body.project,
                 poc: req.body.poc,
+                geologist: req.body.geologist,
                 wells: req.body.wells,
                 area: req.body.area,
                 budget: req.body.budget,
@@ -196,7 +197,7 @@ notesCrtl.updateNote = async (req,res)=>{
     }
     const {
         title, description, priority, status, responsible, dueDate, invoice, 
-        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, checkInitialInfo,
+        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, geologist, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
@@ -206,7 +207,7 @@ notesCrtl.updateNote = async (req,res)=>{
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
         title, description, priority, status, responsible, dueDate, invoice, 
-        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, checkInitialInfo,
+        customer, customerJobNumber, operator, rig, project, area, wells, budget, poc, geologist, checkInitialInfo,
         checkFoldersSetup, checkOffsetWellsInfo, checkCompassOffsets, checkCompassSubject,
         checkPlanning, checkReports, checkSent, initialInfoDoneBy, initialInfoDoneAt,
         foldersDoneBy, foldersDoneAt, offsetsInfoDoneBy, offsetsInfoDoneAt, compassOffsetsDoneBy, compassOffsetsDoneAt,
