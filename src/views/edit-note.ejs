@@ -14,7 +14,7 @@
                 <%- include ('partials/navigation_Admin.ejs') %>
             <% } %>
 
-            <% if (user.role=='user' ) { %>
+            <% if (user.role=='_user' ) { %>
                 <%- include ('partials/navigation_Member.ejs') %>
             <% } %>
 
@@ -75,58 +75,88 @@
 
 
 
-                            <!-- fdprocessedid="5cv5ue -->
+                            <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-dark text-white">Responsible</span>
+                                    <select class="form-select bg-dark text-white" id="responsible" 
+                                        name="responsible" onchange=cambio_responsible()>
+                                            <option>
+                                                <%= note.responsible %>
+                                            </option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                                <!-- <option>Orphan</option>
+                                                <option>Polita</option>
+                                                <option>John</option> -->
+                                                <!-- <option>Polita</option>
+                                                <option>John</option>
+                                                <option>Pablo</option>
+                                                <option>Daniel</option>
+                                                <option>Sammy</option>
+                                                <option>Orphan</option>
+                                                <option>CNRL_Tech</option> -->
+                                    </select>
+                                </div>
+                            <% } %>
+                            <% if (user.role == 'user') { %>
+                                <div class="input-group mb-2" hidden="True">
+                                    <span class="input-group-text bg-dark text-white">Responsible</span>
+                                    <select class="form-select bg-dark text-white" id="responsible" 
+                                        name="responsible" onchange=cambio_responsible()>
+                                            <option>
+                                                <%= note.responsible %>
+                                            </option>
+                                            <%- include ('partials/optionsPeople.ejs') %>
+                                    </select>
+                                </div>
+                            <% } %>
+
+
+
+                            
                             <div class="input-group mb-2">
-                                <span class="input-group-text bg-dark text-white">Responsible</span>
-                                <select class="form-select bg-dark text-white" id="responsible" name="responsible" onchange=cambio_responsible()>
-                                    <option>
-                                        <%= note.responsible %>
-                                    </option>
-                                    <%- include ('partials/optionsPeople.ejs') %>
-                                    <!-- <option>Polita</option>
-                                    <option>John</option>
-                                    <option>Pablo</option>
-                                    <option>Daniel</option>
-                                    <option>Sammy</option>
-                                    <option>Orphan</option>
-                                    <option>CNRL_Tech</option> -->
-                                </select>
+                                <span class="input-group-text bg-dark text-white">Customer</span>
+                                <input value="<%= note.customer %>" type="text" name="customer"
+                                    class="form-control _mb-2 bg-dark text-white" placeholder="Customer" 
+                                    onchange=cambio_customer()>
+                            </div>
+                            
+
+
+                            
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Job # / Plan Version</span>
+                                <input value="<%= note.customerJobNumber %>" type="text" name="customerJobNumber"
+                                    class="form-control _mb-2 bg-dark text-white" placeholder="Customer Job Number" 
+                                    onchange=cambio_customerJobNumber()>
                             </div>
 
 
 
-
-                            <input value="<%= note.customer %>" type="text" name="customer"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Customer" onchange=cambio_customer()>
-
-
-
-                            <input value="<%= note.customerJobNumber %>" type="text" name="customerJobNumber"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Customer Job Number" onchange=cambio_customerJobNumber()>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Operator</span>
+                                <input value="<%= note.operator %>" type="text" name="operator"
+                                class="form-control _mb-2 bg-dark text-white" placeholder="Operator" 
+                                onchange=cambio_operator()>
+                            </div>
 
 
-
-                            <input value="<%= note.operator %>" type="text" name="operator"
-                                class="form-control mb-2 bg-dark text-white" placeholder="Operator" onchange=cambio_operator()>
-
-
-
+                            
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Rig</span>
                                 <input value="<%= note.rig %>" type="text" name="rig"
-                                    class="form-control bg-dark text-white" placeholder="Rig" onchange=cambio_rig()>
+                                    class="form-control bg-dark text-white" placeholder="Rig" 
+                                    onchange=cambio_rig()>
                             </div>
+                            
 
-
-
-
+                            
                             <div class="input-group mb-2">
-                                <span class="input-group-text bg-dark text-white">Project / Ste</span>
+                                <span class="input-group-text bg-dark text-white">Project / Site</span>
                                 <input value="<%= note.project %>" type="text" name="project"
-                                    class="form-control bg-dark text-white" placeholder="Project / Site" onchange=cambio_project()>
+                                    class="form-control bg-dark text-white" placeholder="Project / Site" 
+                                    onchange=cambio_project()>
                             </div>
-
-
+                            
 
 
                             <div class="input-group mb-2">
@@ -136,6 +166,7 @@
                             </div>
 
 
+
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Wells</span>
                                 <input value="<%= note.wells %>" type="text" name="wells"
@@ -143,6 +174,7 @@
                             </div>
 
                             
+
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Budget</span>
                                 <input value="<%= note.budget %>" type="text" name="budget"
@@ -154,8 +186,11 @@
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">D.E</span>
                                 <input value="<%= note.poc %>" type="text" name="poc"
-                                    class="form-control bg-dark text-white" placeholder="Drilling Engineer" onchange=cambio_poc()>
+                                    class="form-control bg-dark text-white" placeholder="Drilling Engineer" 
+                                    onchange=cambio_poc()>
                             </div>
+
+
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Geo</span>
@@ -164,11 +199,12 @@
                             </div>
 
 
+
                             <div class="form-group mb-2">
                                 <div class="input-group">
                                     <span class="input-group-text bg-dark text-white">Priority</span>
-                                    <!-- fdprocessedid="5cv5ue" -->
-                                    <select class="form-select bg-dark text-white" id="priority" onchange=cambio_priority()
+                                    <select class="form-select bg-dark text-white" id="priority" 
+                                        onchange=cambio_priority()
                                         name="priority">
                                         <option>
                                             <%= note.priority %>
@@ -182,16 +218,13 @@
                             </div>
 
 
-
-
-
-
- 
-                            <div class="input-group mb-2 bg-dark text-white">
-                                <span class="input-group-text bg-dark text-white">Created</span>
-                                <input type="date" id="created" name="created" class="form-control bg-dark text-white"
-                                    value="<%= note.created %>">
-                            </div>
+                            
+                                <div class="input-group mb-2 bg-dark text-white">
+                                    <span class="input-group-text bg-dark text-white">Created</span>
+                                    <input type="date" id="created" name="created" class="form-control bg-dark text-white"
+                                        value="<%= note.created %>">
+                                </div>
+                            
 
 
 
@@ -203,29 +236,27 @@
 
 
 
-
-
-
-                            <div class="form-group mb-2">
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text bg-dark text-white">Invoice</span>
-                                    <!-- fdprocessedid="5cv5ue" -->
-                                    <select class="form-select bg-dark text-white" id="invoice" name="invoice" onchange=cambio_invoice()>
-                                        <option><%= note.invoice %></option>
-                                        <option>Yes</option>
-                                        <option>No</option>
-                                    </select>
+                            
+                                <div class="form-group mb-2">
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark text-white">Invoice</span>
+                                        <select class="form-select bg-dark text-white" id="invoice" name="invoice" 
+                                        onchange=cambio_invoice()>
+                                            <option><%= note.invoice %></option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
-
+                            
 
 
 
                             <div class="form-group">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Status</span>
-                                    <!-- fdprocessedid="5cv5ue" -->
-                                    <select class="form-select bg-dark text-white" id="status" name="status" onchange=cambio_status()>
+                                    <select class="form-select bg-dark text-white" id="status" name="status" 
+                                    onchange=cambio_status()>
                                         <option><%= note.status %></option>
                                         <option>Not Started</option>
                                         <option>In Progress</option>
@@ -254,344 +285,793 @@
 
 
 
-                            <!------------- WORK FLOW ------------------>
-
-                            <div class="card mb-3 border-0">
-                                <div class="card-body" style="background-color: blue;">
-                                    <h5 class="card-title">Work Flow</h5>              
-                
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Initial Info</span>
-                                        <select class="form-select bg-dark text-white" id="checkInitialInfo" name="checkInitialInfo" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkInitialInfo %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="initialInfoDoneBy" name="initialInfoDoneBy" 
-                                            style="width: 30%;" onchange=cambio_initialInfo()>
-                                            <option>
-                                                <%= note.initialInfoDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="initialInfoDoneAt"
-                                            name="initialInfoDoneAt"
-                                            value="<%= note.initialInfoDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                         
-                                    </div>
 
 
 
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
-                                        <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkFoldersSetup %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
 
-                                        <select class="form-select bg-dark text-white" id="foldersDoneBy" name="foldersDoneBy" 
-                                            style="width: 30%;" onchange=cambio_folders()>
-                                            <option>
-                                                <%= note.foldersDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
 
-                                        <input 
-                                            id="foldersDoneAt"
-                                            name="foldersDoneAt"
-                                            value="<%= note.foldersDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
 
+                            <!---------------------------- WORK FLOW ----------------------------->
+
+
+                            <!----------------- ADMIN and LIDER ---------------->
+
+
+                            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' ) { %>
+
+
+                                <div class="card mb-3 border-0">
+
+                                    <div class="card-body" style="background-color: blue;">
+
+
+
+                                        <h5 class="card-title">Work Flow</h5>   
+                                        
                                     
-                                     
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.initialInfoDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Initial Info</span>
+                                                <select class="form-select bg-dark text-white" id="checkInitialInfo" 
+                                                    name="checkInitialInfo" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkInitialInfo %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="initialInfoDoneBy" 
+                                                    name="initialInfoDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_initialInfo()>
+                                                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                        <option>
+                                                            <%= note.initialInfoDoneBy %>
+                                                        </option>
+                                                    <% } %>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.initialInfoDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="initialInfoDoneAt"
+                                                    name="initialInfoDoneAt"
+                                                    value="<%= note.initialInfoDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >                                         
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.initialInfoDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Initial Info</span>
+                                                <select class="form-select bg-dark text-white" id="checkInitialInfo" 
+                                                    name="checkInitialInfo" style="width: 30%;">
+                                                    <option><%= note.checkInitialInfo %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="initialInfoDoneBy" 
+                                                    name="initialInfoDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_initialInfo()>
+                                                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                        <option><%= note.initialInfoDoneBy %></option>
+                                                    <% } %>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.initialInfoDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="initialInfoDoneAt"
+                                                    name="initialInfoDoneAt"
+                                                    value="<%= note.initialInfoDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >                                         
+                                            </div>
+                                        <% } %>
 
 
 
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
-                                        <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkOffsetWellsInfo %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
 
-                                        <select class="form-select bg-dark text-white" id="offsetsInfoDoneBy" name="offsetsInfoDoneBy" 
-                                            style="width: 30%;" onchange=cambio_offsetsInfo()>
-                                            <option>
-                                                <%= note.offsetsInfoDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
 
-                                        <input 
-                                            id="offsetsInfoDoneAt"
-                                            name="offsetsInfoDoneAt"
-                                            value= "<%= note.offsetsInfoDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.foldersDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
+                                                <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkFoldersSetup %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="foldersDoneBy" name="foldersDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_folders()>
+                                                    <option><%= note.foldersDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.foldersDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="foldersDoneAt"
+                                                    name="foldersDoneAt"
+                                                    value="<%= note.foldersDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.foldersDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
+                                                <select class="form-select bg-dark text-white" id="checkFoldersSetup" name="checkFoldersSetup" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkFoldersSetup %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="foldersDoneBy" name="foldersDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_folders()>
+                                                    <option><%= note.foldersDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.foldersDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="foldersDoneAt"
+                                                    name="foldersDoneAt"
+                                                    value="<%= note.foldersDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+                                        
+
+
+
+                                        
+                                        
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.offsetsInfoDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
+                                                <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkOffsetWellsInfo %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="offsetsInfoDoneBy" name="offsetsInfoDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_offsetsInfo()>
+                                                    <option><%= note.offsetsInfoDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.offsetsInfoDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="offsetsInfoDoneAt"
+                                                    name="offsetsInfoDoneAt"
+                                                    value= "<%= note.offsetsInfoDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.offsetsInfoDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
+                                                <select class="form-select bg-dark text-white" id="checkOffsetWellsInfo" name="checkOffsetWellsInfo" style="width: 30%;">
+                                                    <option><%= note.checkOffsetWellsInfo %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="offsetsInfoDoneBy" name="offsetsInfoDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_offsetsInfo()>
+                                                    <option><%= note.offsetsInfoDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.offsetsInfoDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="offsetsInfoDoneAt"
+                                                    name="offsetsInfoDoneAt"
+                                                    value= "<%= note.offsetsInfoDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.compassOffsetsDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
+                                                <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets" style="width: 30%;">
+                                                    <option><%= note.checkCompassOffsets %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="compassOffsetsDoneBy" name="compassOffsetsDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_compassOffsets()>
+                                                    <option><%= note.compassOffsetsDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.compassOffsetsDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="compassOffsetsDoneAt"
+                                                    name="compassOffsetsDoneAt"
+                                                    value= "<%= note.compassOffsetsDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.compassOffsetsDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
+                                                <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkCompassOffsets %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="compassOffsetsDoneBy" name="compassOffsetsDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_compassOffsets()>
+                                                    <option><%= note.compassOffsetsDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.compassOffsetsDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="compassOffsetsDoneAt"
+                                                    name="compassOffsetsDoneAt"
+                                                    value= "<%= note.compassOffsetsDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.compassSubjectDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
+                                                <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkCompassSubject %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="compassSubjectDoneBy" name="compassSubjectDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_compassSubject()>
+                                                    <option><%= note.compassSubjectDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.compassSubjectDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="compassSubjectDoneAt"
+                                                    name="compassSubjectDoneAt"
+                                                    value="<%= note.compassSubjectDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.compassSubjectDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
+                                                <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject" style="width: 30%;">
+                                                    <option><%= note.checkCompassSubject %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="compassSubjectDoneBy" name="compassSubjectDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_compassSubject()>
+                                                    <option><%= note.compassSubjectDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.compassSubjectDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="compassSubjectDoneAt"
+                                                    name="compassSubjectDoneAt"
+                                                    value="<%= note.compassSubjectDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.planningDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
+                                                <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkPlanning %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="planningDoneBy" name="planningDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_planning()>
+                                                    <option><%= note.planningDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.planningDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="planningDoneAt"
+                                                    name="planningDoneAt"
+                                                    value="<%= note.planningDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.planningDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
+                                                <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning" style="width: 30%;">
+                                                    <option><%= note.checkPlanning %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="planningDoneBy" name="planningDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_planning()>
+                                                    <option><%= note.planningDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.planningDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="planningDoneAt"
+                                                    name="planningDoneAt"
+                                                    value="<%= note.planningDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.reportsDoneBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Reports</span>
+                                                <select class="form-select bg-dark text-white" id="checkReports" name="checkReports" style="width: 30%;">
+                                                    <option><%= note.checkReports %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="reportsDoneBy" name="reportsDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_reports()>
+                                                    <option><%= note.reportsDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.reportsDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="reportsDoneAt"
+                                                    name="reportsDoneAt"
+                                                    value="<%= note.reportsDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.reportsDoneBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Reports</span>
+                                                <select class="form-select bg-dark text-white" id="checkReports" name="checkReports" style="width: 30%;">
+                                                    <option><%= note.checkReports %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="reportsDoneBy" name="reportsDoneBy" 
+                                                    style="width: 30%;" onchange=cambio_reports()>
+                                                    <option><%= note.reportsDoneBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.reportsDoneBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="reportsDoneAt"
+                                                    name="reportsDoneAt"
+                                                    value="<%= note.reportsDoneAt %>"
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.sentBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Sent</span>
+                                                <select class="form-select bg-dark text-white" id="checkSent" name="checkSent" style="width: 30%;">
+                                                    <option>
+                                                        <%= note.checkSent %>
+                                                    </option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="sentBy" name="sentBy" 
+                                                    style="width: 30%;" onchange=cambio_sent()>
+                                                    <option><%= note.sentBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.sentBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="sentAt"
+                                                    name="sentAt"  
+                                                    value="<%= note.sentAt%>"   
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.sentBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">Sent</span>
+                                                <select class="form-select bg-dark text-white" id="checkSent" name="checkSent" style="width: 30%;">
+                                                    <option><%= note.checkSent %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="sentBy" name="sentBy" 
+                                                    style="width: 30%;" onchange=cambio_sent()>
+                                                    <option><%= note.sentBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.sentBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="sentAt"
+                                                    name="sentAt"  
+                                                    value="<%= note.sentAt%>"   
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        <% if ((user.role == 'admin' || user.role == 'leader') || (user.role == 'user' && note.ETSUpdateBy == 'CNRL_Tech')) { %>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">ETS Update</span>
+                                                <select class="form-select bg-dark text-white" id="checkETSUpdate" name="checkETSUpdate" style="width: 30%;">
+                                                    <option><%= note.checkETSUpdate %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="ETSUpdateBy" name="ETSUpdateBy" 
+                                                    style="width: 30%;" onchange=cambio_ETSUpdate()>
+                                                    <option><%= note.ETSUpdateBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.ETSUpdateBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+                                                </select>
+
+                                                <input 
+                                                    id="ETSUpdateAt"
+                                                    name="ETSUpdateAt"  
+                                                    value="<%= note.ETSUpdateAt%>"   
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+                                        <% if (user.role == 'user' && note.ETSUpdateBy != 'CNRL_Tech') { %>
+                                            <div class="input-group mb-2" hidden>
+                                                <span class="input-group-text bg-dark text-white" style="width: 40%;">ETS Update</span>
+                                                <select class="form-select bg-dark text-white" id="checkETSUpdate" name="checkETSUpdate" style="width: 30%;">
+                                                    <option><%= note.checkETSUpdate %></option>
+                                                    <option>Yes</option>
+                                                    <option>No</option>
+                                                </select>
+
+                                                <select class="form-select bg-dark text-white" id="ETSUpdateBy" name="ETSUpdateBy" 
+                                                    style="width: 30%;" onchange=cambio_ETSUpdate()>
+                                                    <option><%= note.ETSUpdateBy %></option>
+                                                    <% if (user.role != 'user') { %>
+                                                        <%- include ('partials/optionsPeople.ejs') %>
+                                                    <% } %>
+                                                    <% if (user.role == 'user') { %>
+                                                        <option><%= note.ETSUpdateBy %></option>
+                                                        <option>Orphan</option>
+                                                        <option>Polita</option>
+                                                        <option>John</option>
+                                                    <% } %>
+
+                                                <input 
+                                                    id="ETSUpdateAt"
+                                                    name="ETSUpdateAt"  
+                                                    value="<%= note.ETSUpdateAt%>"   
+                                                    readonly
+                                                    type="text" 
+                                                    class="form-control bg-dark text-white"
+                                                    hidden
+                                                >
+                                            </div>
+                                        <% } %>
+
+
+
+
                                     </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
-                                        <select class="form-select bg-dark text-white" id="checkCompassOffsets" name="checkCompassOffsets" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkCompassOffsets %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="compassOffsetsDoneBy" name="compassOffsetsDoneBy" 
-                                            style="width: 30%;" onchange=cambio_compassOffsets()>
-                                            <option>
-                                                <%= note.compassOffsetsDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="compassOffsetsDoneAt"
-                                            name="compassOffsetsDoneAt"
-                                            value= "<%= note.compassOffsetsDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
-                                        <select class="form-select bg-dark text-white" id="checkCompassSubject" name="checkCompassSubject" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkCompassSubject %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="compassSubjectDoneBy" name="compassSubjectDoneBy" 
-                                            style="width: 30%;" onchange=cambio_compassSubject()>
-                                            <option>
-                                                <%= note.compassSubjectDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="compassSubjectDoneAt"
-                                            name="compassSubjectDoneAt"
-                                            value="<%= note.compassSubjectDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
-                                        <select class="form-select bg-dark text-white" id="checkPlanning" name="checkPlanning" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkPlanning %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="planningDoneBy" name="planningDoneBy" 
-                                            style="width: 30%;" onchange=cambio_planning()>
-                                            <option>
-                                                <%= note.planningDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="planningDoneAt"
-                                            name="planningDoneAt"
-                                            value="<%= note.planningDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Reports</span>
-                                        <select class="form-select bg-dark text-white" id="checkReports" name="checkReports" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkReports %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="reportsDoneBy" name="reportsDoneBy" 
-                                            style="width: 30%;" onchange=cambio_reports()>
-                                            <option>
-                                                <%= note.reportsDoneBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="reportsDoneAt"
-                                            name="reportsDoneAt"
-                                            value="<%= note.reportsDoneAt %>"
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">Sent</span>
-                                        <select class="form-select bg-dark text-white" id="checkSent" name="checkSent" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkSent %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="sentBy" name="sentBy" 
-                                            style="width: 30%;" onchange=cambio_sent()>
-                                            <option>
-                                                <%= note.sentBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="sentAt"
-                                            name="sentAt"  
-                                            value="<%= note.sentAt%>"   
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
-
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text bg-dark text-white" style="width: 40%;">ETS Update</span>
-                                        <select class="form-select bg-dark text-white" id="checkETSUpdate" name="checkETSUpdate" style="width: 30%;">
-                                            <option>
-                                                <%= note.checkETSUpdate %>
-                                            </option>
-                                            <option>Yes</option>
-                                            <option>No</option>
-                                        </select>
-
-                                        <select class="form-select bg-dark text-white" id="ETSUpdateBy" name="ETSUpdateBy" 
-                                            style="width: 30%;" onchange=cambio_ETSUpdate()>
-                                            <option>
-                                                <%= note.ETSUpdateBy %>
-                                            </option>
-                                            <%- include ('partials/optionsPeople.ejs') %>
-                                            <!-- <option>Polita</option>
-                                            <option>John</option>
-                                            <option>Pablo</option>
-                                            <option>Daniel</option>
-                                            <option>Sammy</option> -->
-                                        </select>
-
-                                        <input 
-                                            id="ETSUpdateAt"
-                                            name="ETSUpdateAt"  
-                                            value="<%= note.ETSUpdateAt%>"   
-                                            readonly
-                                            type="text" 
-                                            class="form-control bg-dark text-white"
-                                            hidden
-                                        >
-                                    </div>
-
-
                                 </div>
-                            </div>
+
+                            <% } %>
 
 
                             <!-- ---------------END OF WORK FLOW ---------------------- -->
+
+
+
+
+
+
+
+
+
 
 
                             <textarea name="description" id="description" placeholder="Description"

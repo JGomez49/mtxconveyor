@@ -2,14 +2,20 @@
 <%- include ('partials/header.ejs') %>
 
 
-        <div class="container_ p-4">
+    <div class="container_ p-4">
 
             <div class="card text-white bg-dark mb-3 border-0">
+
+
+
 
                 <% if (user.role == 'admin' || user.role == 'leader') { %>
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %>
+
+
+
 
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Task</span>
@@ -20,6 +26,8 @@
                         class="form-control bg-dark text-white" 
                     >
                 </div>
+
+
 
 
                 <div class="input-group mb-2">
@@ -33,6 +41,8 @@
                 </div>
 
 
+
+
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Priority</span>
                     <input 
@@ -44,37 +54,51 @@
                 </div>
 
 
-                <div class="input-group mb-2">
-                    <span class="input-group-text bg-dark text-white">Invoice</span>
-                    <input 
-                        value="<%= note.invoice %>" 
-                        readonly
-                        type="text" 
-                        class="form-control bg-dark text-white" 
-                    >
-                </div>
+
+                <% if (user.role == 'admin' || user.role == 'leader') { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Invoice</span>
+                        <input 
+                            value="<%= note.invoice %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
 
 
-                <div class="input-group mb-2">
-                    <span class="input-group-text bg-dark text-white">Responsible</span>
-                    <input 
-                        value="<%= note.responsible %>" 
-                        readonly
-                        type="text" 
-                        class="form-control bg-dark text-white" 
-                    >
-                </div>
 
 
-                <div class="input-group mb-2">
-                    <span class="input-group-text bg-dark text-white">Created</span>
-                    <input 
-                        value="<%= note.createdAt %>" 
-                        readonly
-                        type="text" 
-                        class="form-control bg-dark text-white" 
-                    >
-                </div>
+                <% if (user.role == 'admin' || user.role == 'leader') { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Responsible</span>
+                        <input 
+                            value="<%= note.responsible %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+
+
+                <% if (user.role == 'admin' || user.role == 'leader') { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Created</span>
+                        <input 
+                            value="<%= note.createdAt %>" 
+                            readonly
+                            type="text" 
+                            class="form-control bg-dark text-white" 
+                        >
+                    </div>
+                <% } %>
+
+
+
 
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Created</span>
@@ -106,7 +130,7 @@
 
                 <% if (note.customerJobNumber) { %>
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">CustomerJN</span>
+                        <span class="input-group-text bg-dark text-white">C.Job# / Plan Version</span>
                         <input 
                             value="<%= note.customerJobNumber %>" 
                             readonly
@@ -116,6 +140,7 @@
                     </div>
                 <% } %>
                 
+
 
 
                 <% if (note.operator && note.operator != "Choose...") { %>
@@ -131,6 +156,8 @@
                 <% } %>
 
 
+
+
                 <% if (note.rig) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Rig</span>
@@ -142,6 +169,8 @@
                         >
                     </div>
                 <% } %>
+
+
 
 
 
@@ -160,6 +189,8 @@
 
 
 
+
+
                 <% if (note.area) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Area</span>
@@ -172,6 +203,10 @@
                     </div>
                 <% } %>
 
+
+
+
+
                 <% if (note.wells) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Wells</span>
@@ -183,6 +218,10 @@
                         >
                     </div>
                 <% } %>
+
+
+
+
 
                 <% if (note.budget) { %>
                     <div class="input-group mb-2">
@@ -211,6 +250,9 @@
                         >
                     </div>
                 <% } %>
+
+
+
 
 
                 <!-- <% if (note.geologist) { %> -->
@@ -261,6 +303,10 @@
                     >
                 </div>
 
+
+
+
+
                 <% if (note.dueDate) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Due Date</span>
@@ -272,6 +318,9 @@
                         >
                     </div>
                 <% } %> 
+
+
+
 
 
                 
@@ -290,14 +339,13 @@
 
 
 
-
-
-
             
             <% if (note.user == '62f2aa034552be31b8c7ae75') { %>
                 <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" 
                 class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
             <% } %>
+
+
 
             <% if (note.user == '62ac0c8d2cbdfe3c9c4b4f38') { %>
                 <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" 
@@ -324,12 +372,19 @@
 
 
 
+            <!--------------- WORK FLOW --------------->
 
 
 
             <div class="card mb-3 border-0">
+
                 <div class="card-body" style="background-color: blue;">
+
+
+
                     <h4 class="card-title mb-4">Work Flow</h4>
+
+
 
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;" >Initial Info</span>
@@ -340,9 +395,15 @@
                             class="form-control bg-dark text-white" 
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.initialInfoDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.initialInfoDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.initialInfoDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.initialInfoDoneAt %></div>
+                    <% } %>
+
 
 
                     <div class="input-group mb-2">
@@ -354,9 +415,15 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.foldersDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.foldersDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.foldersDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.foldersDoneAt %></div>
+                    <% } %>
+
 
 
                     <div class="input-group mb-2">
@@ -368,9 +435,16 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.offsetsInfoDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.offsetsInfoDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.offsetsInfoDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.offsetsInfoDoneAt %></div>
+                    <% } %>
+
+
 
 
                     <div class="input-group mb-2">
@@ -382,9 +456,16 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.compassOffsetsDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.compassOffsetsDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassOffsetsDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassOffsetsDoneAt %></div>
+                    <% } %>
+
+
 
 
                     <div class="input-group mb-2">
@@ -396,9 +477,15 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.compassSubjectDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.compassSubjectDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassSubjectDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassSubjectDoneAt %></div>
+                    <% } %>
+
 
 
                     <div class="input-group mb-2">
@@ -410,9 +497,16 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.planningDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.planningDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.planningDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.planningDoneAt %></div>
+                    <% } %>
+
+
 
 
                     <div class="input-group mb-2">
@@ -424,9 +518,16 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.reportsDoneBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.reportsDoneBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.reportsDoneAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.reportsDoneAt %></div>
+                    <% } %>
+
+
 
 
                     <div class="input-group mb-2">
@@ -438,9 +539,16 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.sentBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.sentBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.sentAt %></div>
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.sentAt %></div>
+                    <% } %>
+
+
 
 
                     <div class="input-group mb-2">
@@ -452,10 +560,14 @@
                             class="form-control bg-dark text-white"
                             style="width: 30%;"
                         >
-                        <span class="input-group-text bg-dark text-white" style="width: 30%;"><%= note.ETSUpdateBy %></span>
+                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                            <span class="input-group-text bg-dark text-white" 
+                            style="width: 30%;"><%= note.ETSUpdateBy %></span>
+                        <% } %>
                     </div>
-                    <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.ETSUpdateAt %></div>
-
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.ETSUpdateAt %></div>
+                    <% } %>
 
 
                 </div>
@@ -519,7 +631,12 @@
 
 
 
-        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+
+        <!----------------- NEW LOG ------------------>
+
+
+
+        <% if (user.role == 'admin' || user.role == 'leader' || user.role == '_user') { %>
             <div class="accordion" id="accordionExample">
                 <div class="accordion-item">
                     <h2 class="accordion-header">
@@ -548,6 +665,8 @@
             </div>
         <% } %>
 
+        
+
 
 
 
@@ -556,100 +675,110 @@
 
 
 
+        <!----------------- LOG ------------------>
+
+
+        <% if (user.role == 'admin' || user.role == 'leader') { %>
+
+
+            <div style="background-color: darkslategray;">
+
+
+                <h4 class="mt-4 p-4">Log</h4>
+
+
+                <% log.forEach(e => { %>
+                    <div class="card my-2">
+                        <div class="card-body">
+                                <div class="container_">
+
+                                    <div class="row">
+
+                                        <div class="col-1">
+                                            
+
+                                            <% if (e.user == 'John') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
 
 
+                                            <% if (e.user == 'Polita') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-        <div style="background-color: darkslategray;">
-
-            <h4 class="mt-4 p-4">Log</h4>
 
 
-            <% log.forEach(e => { %>
-                <div class="card my-2">
-                    <div class="card-body">
-                            <div class="container_">
+                                            <% if (e.user == 'Sammy') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-                                <div class="row">
 
-                                    <div class="col-1">
 
-                                        
+                                            <% if (e.user == 'Pablo') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1703868299/Pablo_cartoon-02_noBG_yyq0hf.png" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-                                        <% if (e.user == 'John') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420535/cartoon-john-02_r8nq1f.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
 
-                                        <% if (e.user == 'Polita') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420541/Polita-cartoon_z5zbap.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
 
-                                        <% if (e.user == 'Sammy') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420550/Sammy-cartoon-02_primlc.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
+                                            <% if (e.user == 'Daniel') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1709080584/MTX_Daniel_osga7g.png" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-                                        <% if (e.user == 'Pablo') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1703868299/Pablo_cartoon-02_noBG_yyq0hf.png" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
 
-                                        <% if (e.user == 'Daniel') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1709080584/MTX_Daniel_osga7g.png" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
 
-                                        <% if (e.user == 'Efrain') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
+                                            <% if (e.user == 'Efrain') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688420546/Efrain-Cartoon-01_xlttwu.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-                                        
+                                            
 
-                                        <% if (e.user == 'Ricardo') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
-                                        <% } %>
+                                            <% if (e.user == 'Ricardo') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1688421224/ricardo-cartoon-2_uqmkrp.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:80px;">
+                                            <% } %>
 
-                                        <% if (e.user == 'Norma') { %>
-                                            <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1692300758/Norma2-cartoon-02_ihxmth.jpg" 
-                                            class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:60px;">
-                                        <% } %>
 
-                                        
+
+                                            <% if (e.user == 'Norma') { %>
+                                                <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1692300758/Norma2-cartoon-02_ihxmth.jpg" 
+                                                class="img-fluid" alt="avatar" style="border-radius: 50%;max-width:60px;">
+                                            <% } %>
+
+                                            
+
+                                        </div>
+
+                                        <div class="col-10">
+                                            <textarea name="description"
+                                                class="form-control bg-dark" 
+                                                style="height: 90px; font-size: smaller;color:gray;margin-left: 50px;" 
+                                                onmousemove='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                                                disabled.><%= e.log %>
+                                            </textarea>    
+                                        </div>
 
                                     </div>
-
-                                    <div class="col-10">
-                                        <textarea name="description"
-                                            class="form-control bg-dark" 
-                                            style="height: 90px; font-size: smaller;color:gray;margin-left: 50px;" 
-                                            onmousemove='this.style.height = "";this.style.height = this.scrollHeight + "px"'
-                                            disabled.><%= e.log %>
-                                        </textarea>    
-                                    </div>
-
                                 </div>
-                            </div>
-                        <div style="font-size: xx-small;">-<%= e.user %></div>
-                        <div style="font-size: xx-small;">@ <%= e.createdAt %></div>
+                            <div style="font-size: xx-small;">-<%= e.user %></div>
+                            <div style="font-size: xx-small;">@ <%= e.createdAt %></div>
+                        </div>
                     </div>
-                </div>
-            <% }) %>
+                <% }) %>
+
+            </div>
+
+        <% } %>
 
 
 
-
-        </div>
-
-
-
-
-
-
-        </div>          
+    </div>          
 
 
 <%- include ('partials/footer.ejs') %>
