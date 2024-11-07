@@ -33,9 +33,9 @@
     <h3 id="greeting"><%= user.name %></h3>
     <!-- <p style="color: black;"> ID: <%= user.id %></p> -->
     <!-- <p style="color: gray;"> Role: <%= user.role %> <br> Rank: <%= user.rank %> <br><%= user.list %></p> -->
-    <p style="color: gray;"> <%= user.rank %> <br><%= user.list %></p>
+    <!-- <p style="color: gray;"> <%= user.rank %> <br><%= user.list %></p> -->
 
-    <h1 style="color: whitesmoke;">MTX Jobs</h1>
+    <h1 style="color: whitesmoke;">Jobs</h1>
 
     <% if (user.role == 'admin' || user.role == 'leader') { %>
         <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
