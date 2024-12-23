@@ -42,8 +42,12 @@
 
                     <form action="/note/edit/<%=note._id%>?_method=put" method="post">
 
-
                         <div class="form-group">
+
+                            <div class="form-group mb-2">
+                                <button class="btn btn-success btn-block" type="submit">Save</button>
+                                <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                            </div>
 
                             <input type="text" name="mtxJobId" class="form-control mb-2 bg-dark text-white"
                                 placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>

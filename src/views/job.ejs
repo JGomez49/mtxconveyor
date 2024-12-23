@@ -2,6 +2,9 @@
 <%- include ('partials/header.ejs') %>
 
 
+<!-- <%= note.mtxJobId %> -->
+
+
     <div class="container_ p-4">
 
             <div class="card text-white bg-dark mb-3 border-0">
@@ -365,7 +368,9 @@
 
 
 
-
+            <script>
+                document.title = 'MTX Conveyor <%= note.mtxJobId %>';
+            </script>
 
 
 
@@ -778,7 +783,22 @@
 
 
 
-    </div>          
+    </div>  
+    
+    <script>
+        // window.onblur = function() {
+        //     document.title = 'Please come back!';
+        // };
+
+        // window.onfocus = function() {
+        //     document.title = 'You have 6 items';
+        // };
+
+        // function idintab(id) {
+        //     document.title = id;
+        // }
+
+    </script>
 
 
 <%- include ('partials/footer.ejs') %>
