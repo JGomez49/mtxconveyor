@@ -37,14 +37,55 @@
                             <option>Project</option>
                             <option>D.E</option>
                             <option>Geologist</option>
+                            <!-- <option>Partial</option> -->
                         </select>
 
-                        <input class="form-control me-2 bg-dark_" type="search" placeholder="Search" aria-label="Search" name="search" style="background-color: black;">
+                        <input class="form-control me-2_ bg-dark_" type="search" placeholder="Search" aria-label="Search" name="search" style="background-color: black;">
                         <button class="btn btn-outline-success" type="submit" style="border-color: white;">Search</button>
 
                     </div>
 
                 </form>
+
+
+
+
+
+
+                <form action="/notes/querypartial" method="GET" enctype="multipart/form-data"> 
+
+                    <div class="input-group">
+
+                        <!-- <span class="input-group-text bg-dark sm" style="color: grey;">Search by:</span> -->
+
+                        <!-- <select class="form-select bg-dark" style="color: grey;" 
+                                id="where" 
+                                name="where"
+                            >
+                            <option>MTX_ID</option>
+                            <option>Customer</option>
+                            <option>C.Job#/Plan</option>
+                            <option>Operator</option>
+                            <option>Responsible</option>
+                            <option>Rig</option>
+                            <option>Project</option>
+                            <option>D.E</option>
+                            <option>Geologist</option>
+                            <option>Partial</option>
+                        </select> -->
+
+                        <input class="form-control me-2_ ml-4 bg-dark_" type="search" placeholder="Partial Search" aria-label="Search" name="search" style="background-color: black;">
+                        <button class="btn btn-outline-success" type="submit" style="border-color: white;">Search</button>
+
+                    </div>
+
+                </form>
+
+
+
+
+
+
                     
             </div>  
 

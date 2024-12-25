@@ -156,6 +156,36 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
 
 
 
+notesCrtl.renderQueryNotesPartial = async (req,res)=>{
+    let user = {}
+    user.id = req.params.guest
+    let donde = req.query.where
+    let buscar = req.query.search
+    user.id = req.session.passport.user
+    let usuario = await User.findById(user.id);
+        user.name = usuario.name
+        user.email = usuario.email
+        user.role = usuario.role
+        user.rank = usuario.rank
+
+    console.log("Partial...");
+
+    const notes = await Note.find({ "$or": [
+        { "title": { $regex: buscar, $options: "i" } },
+        { "mtxJobId": { $regex: buscar, $options: "i" } },
+        { "responsible": { $regex: buscar, $options: "i" } },
+        { "area": { $regex: buscar, $options: "i" } }
+        // Add more fields as necessary
+    ]});
+    console.log(notes);
+    res.render('queryPartial.ejs', {notes, user, donde, buscar});
+};
+
+
+
+
+
+
 
 notesCrtl.renderEditForm = async(req,res)=>{
     // res.send('Edit note...');

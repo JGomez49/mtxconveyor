@@ -38,9 +38,10 @@
 
                         <% if (user.role == 'admin') { %>
 
+
+
                             <% if (donde == "Customer" ) { %>
                                 <% if ( note.customer == buscar ) { %>
-
                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                         <th scope="row"><small><%= note.mtxJobId %></small></th>
                                         <td><%= note.title %></td>

@@ -9,6 +9,7 @@ const {
     deleteNote,
     renderJob,
     renderQueryNotes,
+    renderQueryNotesPartial,
     createNewLog,
 } = require('../controllers/notes.controller');
 
@@ -28,6 +29,9 @@ router.get('/notes', isAuthenticated, renderNotes);
 
 //Get query notes
 router.get('/notes/query', isAuthenticated, renderQueryNotes);
+
+//Get query partial notes
+router.get('/notes/querypartial', isAuthenticated, renderQueryNotesPartial);
 
 //Edit notes
     //Mostrar el formulario para editar

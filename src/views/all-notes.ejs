@@ -181,9 +181,10 @@
                                                         <tr style="color: yellow;" onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                     <% } %> -->
                                                 
-                                                    <% if (note.title == "Execution") { %>
+                                                    <!-- <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>   -->
+
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
                                                     <% } %>   
@@ -192,25 +193,27 @@
                                                     <% } %>   
                                                                                         
                                                     <th scope="row">
-                                                        <small><%= note.mtxJobId %></small>
+                                                        <!-- <small><%= note.mtxJobId %></small> -->
                                                         <% if (note.responsible == "Johanna") { %>
-                                                            <span class="dotYellow"></span>
+                                                            <span class="dotJohanna"></span>
                                                         <% } %>
                                                         <% if (note.responsible == "Daniel") { %>
-                                                            <span class="dotPink"></span>
+                                                            <span class="dotDaniel"></span>
                                                         <% } %>
                                                         <% if (note.responsible == "Pablo") { %>
-                                                            <span class="dotGreen"></span>
+                                                            <span class="dotPablo"></span>
                                                         <% } %>
                                                         <% if (note.responsible == "Sammy") { %>
-                                                            <span class="dotGrey"></span>
+                                                            <span class="dotSammy"></span>
                                                         <% } %>
                                                         <% if (note.responsible == "Polita") { %>
-                                                            <span class="dotWhite"></span>
+                                                            <span class="dotPolita"></span>
                                                         <% } %>
                                                         <% if (note.responsible == "John") { %>
-                                                            <span class="dotBlack"></span>
+                                                            <span class="dotJohn"></span>
                                                         <% } %>
+
+                                                        <small><%= note.mtxJobId %></small>
                                                     </th>
                                                      
                                                     <td><%= note.title %></td>
@@ -408,7 +411,7 @@
                     </h2>
                     <div id="collapseFive" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark table-sm">
-                            <table class="table table-hover _table-striped table-success" style="color: black;">
+                            <table class="table table-hover _table-striped table-dark" style="color: greenyellow;">
                                 <thead>
                                     <tr>
                                         <th scope="col">ID</th>
@@ -431,9 +434,9 @@
                                             <% if (note.status == 'Completed') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
-                                                    <% if (user.name == note.responsible) { %>
+                                                    <!-- <% if (user.name == note.responsible) { %>
                                                         <tr style="color: blue;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %> 
+                                                    <% } %> -->
 
                                                     <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                     <td><%= note.title %></td>
