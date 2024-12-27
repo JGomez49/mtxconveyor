@@ -1,12 +1,16 @@
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark m-2_ border-0">    
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark m-2_ border-0">
 
     <div class="container-fluid">
 
-      <a><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png" alt="" height="40"></a> 
+        <a><img class="me-4"
+            src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png" 
+            alt="" height="40"
+            >
+        </a> 
 
-      <a class="mx-3" href="/">Admin</a>
-      <!-- <a class="mx-3" href="/users/edit/<%= user.id %>">Admin</a> -->
+        <!-- <a class="mx-3" href="/">Admin</a> -->
+        <!-- <a class="mx-3" href="/users/edit/<%= user.id %>">Admin</a> -->
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
             aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -17,17 +21,16 @@
 
             <div class="input-group">
 
-                <form action="/notes/query" method="GET" enctype="multipart/form-data"> 
+                <!-- <form action="/notes/query" method="GET" enctype="multipart/form-data"> 
 
                     <div class="input-group">
 
                         <span class="input-group-text bg-dark sm" style="color: grey;">Search by:</span>
+
                         <select class="form-select bg-dark" style="color: grey;" 
                                 id="where" 
                                 name="where"
                             >
-                            <!-- <option>Choose...</option> -->
-                            <!-- <option>Customer</option> -->
                             <option>MTX_ID</option>
                             <option>Customer</option>
                             <option>C.Job#/Plan</option>
@@ -37,15 +40,20 @@
                             <option>Project</option>
                             <option>D.E</option>
                             <option>Geologist</option>
-                            <!-- <option>Partial</option> -->
                         </select>
 
-                        <input class="form-control me-2_ bg-dark_" type="search" placeholder="Search" aria-label="Search" name="search" style="background-color: black;">
-                        <button class="btn btn-outline-success" type="submit" style="border-color: white;">Search</button>
+                        <input class="form-control me-2_ bg-dark_" type="search" 
+                            placeholder="Search" aria-label="Search" name="search" 
+                            style="background-color: black;"
+                        >
+
+                        <button class="btn btn-outline-success" 
+                            type="submit" style="border-color: white;">Search
+                        </button>
 
                     </div>
 
-                </form>
+                </form> -->
 
 
 
@@ -56,36 +64,20 @@
 
                     <div class="input-group">
 
-                        <!-- <span class="input-group-text bg-dark sm" style="color: grey;">Search by:</span> -->
+                        <span class="input-group-text ml-4 bg-dark sm" style="color: grey;">Search:</span>
 
-                        <!-- <select class="form-select bg-dark" style="color: grey;" 
-                                id="where" 
-                                name="where"
-                            >
-                            <option>MTX_ID</option>
-                            <option>Customer</option>
-                            <option>C.Job#/Plan</option>
-                            <option>Operator</option>
-                            <option>Responsible</option>
-                            <option>Rig</option>
-                            <option>Project</option>
-                            <option>D.E</option>
-                            <option>Geologist</option>
-                            <option>Partial</option>
-                        </select> -->
+                        <input class="form-control me-2_ ml-4_ bg-dark_" 
+                            type="search" placeholder="Partial Search" aria-label="Search" 
+                            name="search" style="background-color: black;"
+                        >
 
-                        <input class="form-control me-2_ ml-4 bg-dark_" type="search" placeholder="Partial Search" aria-label="Search" name="search" style="background-color: black;">
-                        <button class="btn btn-outline-success" type="submit" style="border-color: white;">Search</button>
+                        <button class="btn btn-outline-success" type="submit" 
+                            style="border-color: white;">Search
+                        </button>
 
                     </div>
 
                 </form>
-
-
-
-
-
-
                     
             </div>  
 
@@ -93,7 +85,7 @@
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMember" role="button"
-                        data-bs-toggle="dropdown" aria-expanded="false" style="border-color: white;">Member
+                        data-bs-toggle="dropdown" aria-expanded="false" _style="border-color: white;">Member
                     </a>
                     <div class="dropdown-menu" aria-labelledby="navbarDropdownMember">
                         <a class="dropdown-item" href="/users/signup">Register</a>

@@ -172,10 +172,25 @@ notesCrtl.renderQueryNotesPartial = async (req,res)=>{
 
     const notes = await Note.find({ "$or": [
         { "title": { $regex: buscar, $options: "i" } },
+        { "description": { $regex: buscar, $options: "i" } },
         { "mtxJobId": { $regex: buscar, $options: "i" } },
         { "responsible": { $regex: buscar, $options: "i" } },
-        { "area": { $regex: buscar, $options: "i" } }
-        // Add more fields as necessary
+        { "customer": { $regex: buscar, $options: "i" } },
+        { "customerJobNumber": { $regex: buscar, $options: "i" } },
+        { "operator": { $regex: buscar, $options: "i" } },
+        { "priority": { $regex: buscar, $options: "i" } },
+        { "invoice": { $regex: buscar, $options: "i" } },
+        { "user": { $regex: buscar, $options: "i" } },
+        { "status": { $regex: buscar, $options: "i" } },
+        { "dueDate": { $regex: buscar, $options: "i" } },
+        { "rig": { $regex: buscar, $options: "i" } },
+        { "project": { $regex: buscar, $options: "i" } },
+        { "poc": { $regex: buscar, $options: "i" } },
+        { "geologist": { $regex: buscar, $options: "i" } },
+        { "wells": { $regex: buscar, $options: "i" } },
+        { "area": { $regex: buscar, $options: "i" } },
+        { "budget": { $regex: buscar, $options: "i" } },
+        { "created": { $regex: buscar, $options: "i" } },
     ]});
     console.log(notes);
     res.render('queryPartial.ejs', {notes, user, donde, buscar});
