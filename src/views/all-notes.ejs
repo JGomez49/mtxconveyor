@@ -52,7 +52,7 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -319,7 +319,7 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 

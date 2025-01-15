@@ -641,7 +641,7 @@
 
 
 
-        <% if (user.role == 'admin' || user.role == 'leader' || user.role == '_user') { %>
+        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
             <div class="accordion" id="accordionExample">
                 <div class="accordion-item">
                     <h2 class="accordion-header">
@@ -683,7 +683,7 @@
         <!----------------- LOG ------------------>
 
 
-        <% if (user.role == 'admin' || user.role == 'leader') { %>
+        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
 
 
             <div style="background-color: darkslategray;">
@@ -771,8 +771,29 @@
 
                                     </div>
                                 </div>
-                            <div style="font-size: xx-small;"><%= e.user %></div>
-                            <div style="font-size: xx-small;"><%= e.createdAt %></div>
+                            <!-- <div style="font-size: xx-small;"><%= e.user %></div> -->
+                            <!-- <div style="font-size: xx-small;"><%= e.createdAt %></div> -->
+                            <div style="font-size: xx-small;">
+                                <% if (e.user == "Johanna") { %>
+                                    <span class="dotJohanna"></span>
+                                <% } %>
+                                <% if (e.user == "Daniel") { %>
+                                    <span class="dotDaniel"></span>
+                                <% } %>
+                                <% if (e.user == "Pablo") { %>
+                                    <span class="dotPablo"></span>
+                                <% } %>
+                                <% if (e.user == "Sammy") { %>
+                                    <span class="dotSammy"></span>
+                                <% } %>
+                                <% if (e.user == "Polita") { %>
+                                    <span class="dotPolita"></span>
+                                <% } %>
+                                <% if (e.user == "John") { %>
+                                    <span class="dotJohn"></span>
+                                <% } %>
+                                <%= e.createdAt %>
+                            </div>
                             <div style="font-size: xx-small;"><%= e.id %></div>
                         </div>
                     </div>
