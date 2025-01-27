@@ -18,6 +18,26 @@
                 <% } %>
 
 
+                <div _style="font-size: xx-small;">
+                    <% if (note.responsible == "Johanna") { %>
+                        <span class="dotJohanna"></span>
+                    <% } %>
+                    <% if (note.responsible == "Daniel") { %>
+                        <span class="dotDaniel"></span>
+                    <% } %>
+                    <% if (note.responsible == "Pablo") { %>
+                        <span class="dotPablo"></span>
+                    <% } %>
+                    <% if (note.responsible == "Sammy") { %>
+                        <span class="dotSammy"></span>
+                    <% } %>
+                    <% if (note.responsible == "Polita") { %>
+                        <span class="dotPolita"></span>
+                    <% } %>
+                    <% if (note.responsible == "John") { %>
+                        <span class="dotJohn"></span>
+                    <% } %>
+                </div>
 
 
                 <div class="input-group mb-2">
@@ -73,7 +93,7 @@
 
 
 
-                <% if (user.role == 'admin' || user.role == 'leader') { %>
+                <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Responsible</span>
                         <input 
@@ -83,7 +103,7 @@
                             class="form-control bg-dark text-white" 
                         >
                     </div>
-                <% } %>
+                <% } %> -->
 
 
 
@@ -377,7 +397,7 @@
 
 
 
-            <!--------------- WORK FLOW --------------->
+            <!-------------------------------------- WORK FLOW --------------------------------->
 
 
 
@@ -391,109 +411,213 @@
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;" >Initial Info</span>
                         <input 
                             value="<%= note.checkInitialInfo %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white" 
-                            style="width: 30%;"
+                            _style="width: 30%;"
                         >
                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                             <span class="input-group-text bg-dark text-white" 
                             style="width: 30%;"><%= note.initialInfoDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.initialInfoDoneAt %></div>
-                    <% } %>
+
+
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            
+                                <% if (note.initialInfoDoneBy == "Johanna") { %>
+                                    <span class="dotJohanna"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "Daniel") { %>
+                                    <span class="dotDaniel"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "Pablo") { %>
+                                    <span class="dotPablo"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "Sammy") { %>
+                                    <span class="dotSammy"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "Polita") { %>
+                                    <span class="dotPolita"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "John") { %>
+                                    <span class="dotJohn"></span>
+                                <% } %>
+
+                            <%= note.initialInfoDoneAt %>
+                        </div>
+                    
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;">Folders</span>
                         <input 
                             value="<%= note.checkFoldersSetup %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white"
-                            style="width: 30%;"
+                            _style="width: 30%;"
                         >
                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                             <span class="input-group-text bg-dark text-white" 
                             style="width: 30%;"><%= note.foldersDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.foldersDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.foldersDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.foldersDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.foldersDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.foldersDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.foldersDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.foldersDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.foldersDoneAt %>
+                        </div>
+                    
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;">Offsets Info</span>
                         <input 
                             value="<%= note.checkOffsetWellsInfo %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white"
-                            style="width: 30%;"
+                            _style="width: 30%;"
                         >
                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                             <span class="input-group-text bg-dark text-white" 
                             style="width: 30%;"><%= note.offsetsInfoDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.offsetsInfoDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.offsetsInfoDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.offsetsInfoDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.offsetsInfoDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.offsetsInfoDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.offsetsInfoDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.offsetsInfoDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.offsetsInfoDoneAt %>
+                        </div>
+                    
 
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Offsets</span>
                         <input 
                             value="<%= note.checkCompassOffsets %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white"
-                            style="width: 30%;"
+                            _style="width: 30%;"
                         >
                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                             <span class="input-group-text bg-dark text-white" 
                             style="width: 30%;"><%= note.compassOffsetsDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassOffsetsDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.compassOffsetsDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.compassOffsetsDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.compassOffsetsDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.compassOffsetsDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.compassOffsetsDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.compassOffsetsDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.compassOffsetsDoneAt %>
+                        </div>
+                    
 
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;">Compass Subject</span>
                         <input 
                             value="<%= note.checkCompassSubject %>" 
                             readonly
                             type="text" 
                             class="form-control bg-dark text-white"
-                            style="width: 30%;"
+                            _style="width: 30%;"
                         >
                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                             <span class="input-group-text bg-dark text-white" 
                             style="width: 30%;"><%= note.compassSubjectDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.compassSubjectDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.compassSubjectDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.compassSubjectDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.compassSubjectDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.compassSubjectDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.compassSubjectDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.compassSubjectDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.compassSubjectDoneAt %>
+                        </div>
+                        
 
 
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;">Planning</span>
                         <input 
                             value="<%= note.checkPlanning %>" 
@@ -507,9 +631,29 @@
                             style="width: 30%;"><%= note.planningDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.planningDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.planningDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.planningDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.planningDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.planningDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.planningDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.planningDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.planningDoneAt %>
+                        </div>
+                    
 
 
 
@@ -528,9 +672,29 @@
                             style="width: 30%;"><%= note.reportsDoneBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.reportsDoneAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.reportsDoneBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.reportsDoneBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.reportsDoneBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.reportsDoneBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.reportsDoneBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.reportsDoneBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.reportsDoneAt %>
+                        </div>
+                    
 
 
 
@@ -549,9 +713,29 @@
                             style="width: 30%;"><%= note.sentBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.sentAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.sentBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.sentBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.sentBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.sentBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.sentBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.sentBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.sentAt %>
+                        </div>
+                    
 
 
 
@@ -570,9 +754,29 @@
                             style="width: 30%;"><%= note.ETSUpdateBy %></span>
                         <% } %> -->
                     </div>
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
-                        <div class="mb-4 ml-4" style="font-size: xx-small;"><%= note.ETSUpdateAt %></div>
-                    <% } %>
+                    
+                        <div class="mb-4 ml-4" style="font-size: xx-small;">
+                            <% if (note.ETSUpdateBy == "Johanna") { %>
+                                <span class="dotJohanna"></span>
+                            <% } %>
+                            <% if (note.ETSUpdateBy == "Daniel") { %>
+                                <span class="dotDaniel"></span>
+                            <% } %>
+                            <% if (note.ETSUpdateBy == "Pablo") { %>
+                                <span class="dotPablo"></span>
+                            <% } %>
+                            <% if (note.ETSUpdateBy == "Sammy") { %>
+                                <span class="dotSammy"></span>
+                            <% } %>
+                            <% if (note.ETSUpdateBy == "Polita") { %>
+                                <span class="dotPolita"></span>
+                            <% } %>
+                            <% if (note.ETSUpdateBy == "John") { %>
+                                <span class="dotJohn"></span>
+                            <% } %>
+                            <%= note.ETSUpdateAt %>
+                        </div>
+                    
 
 
                 </div>
