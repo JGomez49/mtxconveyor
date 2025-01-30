@@ -43,23 +43,23 @@
                         <% if (user.role == 'admin') { %>
                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                 <th scope="row"><small>
-                                    
-                                        <% if (user.name == "Johanna") { %>
+
+                                        <% if (note.responsible == "Johanna") { %>
                                             <span class="dotJohanna"></span>
                                         <% } %>
-                                        <% if (user.name == "Daniel") { %>
+                                        <% if (note.responsible == "Daniel") { %>
                                             <span class="dotDaniel"></span>
                                         <% } %>
-                                        <% if (user.name == "Pablo") { %>
+                                        <% if (note.responsible == "Pablo") { %>
                                             <span class="dotPablo"></span>
                                         <% } %>
-                                        <% if (user.name == "Sammy") { %>
+                                        <% if (note.responsible == "Sammy") { %>
                                             <span class="dotSammy"></span>
                                         <% } %>
-                                        <% if (user.name == "Polita") { %>
+                                        <% if (note.responsible == "Polita") { %>
                                             <span class="dotPolita"></span>
                                         <% } %>
-                                        <% if (user.name == "John") { %>
+                                        <% if (note.responsible == "John") { %>
                                             <span class="dotJohn"></span>
                                         <% } %>
                                     
