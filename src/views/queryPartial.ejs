@@ -44,6 +44,9 @@
                             <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                 <th scope="row"><small>
 
+                                        <% if (note.responsible == "Camilo") { %>
+                                            <span class="dotCamilo"></span>
+                                        <% } %>
                                         <% if (note.responsible == "Johanna") { %>
                                             <span class="dotJohanna"></span>
                                         <% } %>
@@ -61,6 +64,9 @@
                                         <% } %>
                                         <% if (note.responsible == "John") { %>
                                             <span class="dotJohn"></span>
+                                        <% } %>
+                                        <% if (note.responsible == "Orphan") { %>
+                                            <span class="dotOrphan"></span>
                                         <% } %>
                                     
                                     <%= note.mtxJobId %></small>
@@ -96,8 +102,8 @@
                                     <td><%= note.rig %></td>
                                     <td><%= note.poc %></td>
                                     <td><%= note.geologist %></td>
-                                    <td><%= note.responsible %></td>
-                                    <td><%= note.priority %></td>
+                                    <!-- <td><%= note.responsible %></td> -->
+                                    <!-- <td><%= note.priority %></td> -->
                                     <td><small><%= note.created %></small></td>
                                     <td><small><%= note.dueDate %></small></td>
                                     <td><%= note.status %></td>
