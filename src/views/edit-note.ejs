@@ -80,7 +80,7 @@
                                         id="title"
                                         name="title"
                                         value=<%= note.title %>
-                                        onchange=cambio_title()
+                                        _onchange=cambio_title()
                                     >
                                     <option><%= note.title %></option>
                                     <option>ETS</option>
@@ -109,8 +109,10 @@
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Responsible</span>
-                                <select class="form-select bg-dark text-white" id="responsible" 
-                                    name="responsible" onchange=cambio_responsible()>
+                                <select class="form-select bg-dark text-white" 
+                                    id="responsible" 
+                                    name="responsible" 
+                                    _onchange=cambio_responsible()>
                                     <% if (user.role == 'admin' || user.role == 'leader') { %>   
                                         <option><%= note.responsible %></option>
                                         <%- include ('partials/optionsPeople.ejs') %>  
@@ -133,9 +135,11 @@
                             
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Customer</span>
-                                <input value="<%= note.customer %>" type="text" name="customer"
-                                    class="form-control _mb-2 bg-dark text-white" placeholder="Customer" 
-                                    onchange=cambio_customer()>
+                                <input value="<%= note.customer %>" 
+                                    type="text" name="customer"
+                                    class="form-control _mb-2 bg-dark text-white" 
+                                    placeholder="Customer" 
+                                    _onchange=cambio_customer()>
                             </div>
                             
 
@@ -143,77 +147,100 @@
                             
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Job # / Plan Version</span>
-                                <input value="<%= note.customerJobNumber %>" type="text" name="customerJobNumber"
-                                    class="form-control _mb-2 bg-dark text-white" placeholder="Customer Job Number" 
-                                    onchange=cambio_customerJobNumber()>
+                                <input value="<%= note.customerJobNumber %>" 
+                                    type="text" 
+                                    name="customerJobNumber"
+                                    class="form-control _mb-2 bg-dark text-white" 
+                                    placeholder="Customer Job Number" 
+                                    _onchange=cambio_customerJobNumber()>
                             </div>
 
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Operator</span>
-                                <input value="<%= note.operator %>" type="text" name="operator"
-                                class="form-control _mb-2 bg-dark text-white" placeholder="Operator" 
-                                onchange=cambio_operator()>
+                                <input value="<%= note.operator %>" 
+                                    type="text" 
+                                    name="operator"
+                                    class="form-control _mb-2 bg-dark text-white" 
+                                    placeholder="Operator" 
+                                    _onchange=cambio_operator()>
                             </div>
 
 
                             
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Rig</span>
-                                <input value="<%= note.rig %>" type="text" name="rig"
-                                    class="form-control bg-dark text-white" placeholder="Rig" 
-                                    onchange=cambio_rig()>
+                                <input value="<%= note.rig %>" 
+                                    type="text" 
+                                    name="rig"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Rig" 
+                                    _onchange=cambio_rig()>
                             </div>
                             
 
                             
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Project / Site</span>
-                                <input value="<%= note.project %>" type="text" name="project"
-                                    class="form-control bg-dark text-white" placeholder="Project / Site" 
-                                    onchange=cambio_project()>
+                                <input value="<%= note.project %>" 
+                                    type="text" name="project"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Project / Site" 
+                                    _onchange=cambio_project()>
                             </div>
                             
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Area</span>
-                                <input value="<%= note.area %>" type="text" name="area"
-                                    class="form-control bg-dark text-white" placeholder="Area">
+                                <input value="<%= note.area %>" 
+                                    type="text" name="area"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Area">
                             </div>
 
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Wells</span>
-                                <input value="<%= note.wells %>" type="text" name="wells"
-                                    class="form-control bg-dark text-white" placeholder="Wells #">
+                                <input value="<%= note.wells %>" 
+                                    type="text" name="wells"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Wells #">
                             </div>
 
                             
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Budget</span>
-                                <input value="<%= note.budget %>" type="text" name="budget"
-                                    class="form-control bg-dark text-white" placeholder="Budget">
+                                <input value="<%= note.budget %>" 
+                                    type="text" 
+                                    name="budget"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Budget">
                             </div>
 
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">D.E</span>
-                                <input value="<%= note.poc %>" type="text" name="poc"
-                                    class="form-control bg-dark text-white" placeholder="Drilling Engineer" 
-                                    onchange=cambio_poc()>
+                                <input value="<%= note.poc %>" 
+                                    type="text" name="poc"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Drilling Engineer" 
+                                    _onchange=cambio_poc()>
                             </div>
 
 
 
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-dark text-white">Geo</span>
-                                <input value="<%= note.geologist %>" type="text" name="geologist"
-                                    class="form-control bg-dark text-white" placeholder="Geologist">
+                                <input value="<%= note.geologist %>" 
+                                    type="text" 
+                                    name="geologist"
+                                    class="form-control bg-dark text-white" 
+                                    placeholder="Geologist">
                             </div>
 
 
@@ -222,7 +249,7 @@
                                 <div class="input-group">
                                     <span class="input-group-text bg-dark text-white">Priority</span>
                                     <select class="form-select bg-dark text-white" id="priority" 
-                                        onchange=cambio_priority()
+                                        _onchange=cambio_priority()
                                         name="priority">
                                         <option>
                                             <%= note.priority %>
@@ -239,7 +266,10 @@
                             
                                 <div class="input-group mb-2 bg-dark text-white">
                                     <span class="input-group-text bg-dark text-white">Created</span>
-                                    <input type="date" id="created" name="created" class="form-control bg-dark text-white"
+                                    <input type="date" 
+                                        id="created" 
+                                        name="created" 
+                                        class="form-control bg-dark text-white"
                                         value="<%= note.created %>">
                                 </div>
                             
@@ -248,7 +278,10 @@
 
                             <div class="input-group mb-2 bg-dark text-white">
                                 <span class="input-group-text bg-dark text-white">Due Date</span>
-                                <input type="date" id="dueDate" name="dueDate" class="form-control bg-dark text-white"
+                                <input type="date" 
+                                    id="dueDate" 
+                                    name="dueDate" 
+                                    class="form-control bg-dark text-white"
                                     value="<%= note.dueDate %>">
                             </div>
 
@@ -258,8 +291,10 @@
                                 <div class="form-group mb-2">
                                     <div class="input-group mb-2">
                                         <span class="input-group-text bg-dark text-white">Invoice</span>
-                                        <select class="form-select bg-dark text-white" id="invoice" name="invoice" 
-                                        onchange=cambio_invoice()>
+                                        <select class="form-select bg-dark text-white" 
+                                            id="invoice" 
+                                            name="invoice" 
+                                            _onchange=cambio_invoice()>
                                             <option><%= note.invoice %></option>
                                             <option>Yes</option>
                                             <option>No</option>
@@ -273,8 +308,10 @@
                             <div class="form-group">
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-dark text-white">Status</span>
-                                    <select class="form-select bg-dark text-white" id="status" name="status" 
-                                    onchange=cambio_status()>
+                                    <select class="form-select bg-dark text-white" 
+                                        id="status" 
+                                        name="status" 
+                                        _onchange=cambio_status()>
                                         <option><%= note.status %></option>
                                         <option>Not Started</option>
                                         <option>In Progress</option>
