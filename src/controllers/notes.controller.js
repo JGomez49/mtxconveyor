@@ -121,8 +121,9 @@ notesCrtl.renderNotes = async (req,res)=>{
         // console.log(user)
     }
     // const notes = await Note.find().sort({createdAt: 'desc'});
+    let count_InProgress = 0;
     const notes = await Note.find().sort({dueDate: 'asc'});
-    res.render('all-notes.ejs', {notes, user});
+    res.render('all-notes.ejs', {notes, user, count_InProgress});
 };
 
 

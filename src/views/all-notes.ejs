@@ -98,30 +98,32 @@
                                                     <% } %>
 
                                                     <th scope="row">
-                                                        <% if (note.responsible == "Camilo") { %>
-                                                            <span class="dotCamilo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Johanna") { %>
-                                                            <span class="dotJohanna"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Daniel") { %>
-                                                            <span class="dotDaniel"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Pablo") { %>
-                                                            <span class="dotPablo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Sammy") { %>
-                                                            <span class="dotSammy"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Polita") { %>
-                                                            <span class="dotPolita"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "John") { %>
-                                                            <span class="dotJohn"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Orphan") { %>
-                                                            <span class="dotOrphan"></span>
-                                                        <% } %>
+                                                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                            <% if (note.responsible == "Camilo") { %>
+                                                                <span class="dotCamilo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Johanna") { %>
+                                                                <span class="dotJohanna"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Daniel") { %>
+                                                                <span class="dotDaniel"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Pablo") { %>
+                                                                <span class="dotPablo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Sammy") { %>
+                                                                <span class="dotSammy"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Polita") { %>
+                                                                <span class="dotPolita"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "John") { %>
+                                                                <span class="dotJohn"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Orphan") { %>
+                                                                <span class="dotOrphan"></span>
+                                                            <% } %>
+                                                        <% } %> 
 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
@@ -169,7 +171,7 @@
                                 data-bs-target="#collapseTwo" 
                                 aria-expanded="true" 
                                 aria-controls="collapseTwo">
-                            <h4 style="color:aqua;">In Progress</h4>
+                            <h4 id="ID_InProgress" style="color:aqua;">In Progress</h4>
                         </button>
                     </h2>
                     <div id="collapseTwo" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
@@ -205,6 +207,11 @@
                                                 && note.title != 'Exe-QC' 
                                                 && note.title != 'Exe-Vendor') { %>
 
+                                                    <!-- <%= count_InProgress = count_InProgress + 1 %> -->
+                                                    <!-- <script>
+                                                        document.getElementById("ID_InProgress").value = count_InProgress;
+                                                    </script> -->
+
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
                                                     <% if (note.responsible == "Orphan") { %>
@@ -215,31 +222,32 @@
                                                     <% } %>   
                                                                                         
                                                     <th scope="row">
-                                                        <% if (note.responsible == "Camilo") { %>
-                                                            <span class="dotCamilo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Johanna") { %>
-                                                            <span class="dotJohanna"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Daniel") { %>
-                                                            <span class="dotDaniel"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Pablo") { %>
-                                                            <span class="dotPablo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Sammy") { %>
-                                                            <span class="dotSammy"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Polita") { %>
-                                                            <span class="dotPolita"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "John") { %>
-                                                            <span class="dotJohn"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Orphan") { %>
-                                                            <span class="dotOrphan"></span>
-                                                        <% } %>
-
+                                                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                            <% if (note.responsible == "Camilo") { %>
+                                                                <span class="dotCamilo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Johanna") { %>
+                                                                <span class="dotJohanna"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Daniel") { %>
+                                                                <span class="dotDaniel"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Pablo") { %>
+                                                                <span class="dotPablo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Sammy") { %>
+                                                                <span class="dotSammy"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Polita") { %>
+                                                                <span class="dotPolita"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "John") { %>
+                                                                <span class="dotJohn"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Orphan") { %>
+                                                                <span class="dotOrphan"></span>
+                                                            <% } %>
+                                                        <% } %> 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
                                                      
@@ -259,7 +267,10 @@
                                                     <td><small><%= note.dueDate %></small></td>
                                                 </tr>
                                             <% } %>  
-                                        <% } %>                   
+                                        <% } %> 
+                                        
+                                        
+                                        
                                     <% }) %> 
                                 </tbody>
                             </table>
@@ -324,30 +335,32 @@
                                                     <% } %>   
                                                                                         
                                                     <th scope="row">
-                                                        <% if (note.responsible == "Camilo") { %>
-                                                            <span class="dotCamilo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Johanna") { %>
-                                                            <span class="dotJohanna"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Daniel") { %>
-                                                            <span class="dotDaniel"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Pablo") { %>
-                                                            <span class="dotPablo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Sammy") { %>
-                                                            <span class="dotSammy"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Polita") { %>
-                                                            <span class="dotPolita"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "John") { %>
-                                                            <span class="dotJohn"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Orphan") { %>
-                                                            <span class="dotOrphan"></span>
-                                                        <% } %>
+                                                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                            <% if (note.responsible == "Camilo") { %>
+                                                                <span class="dotCamilo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Johanna") { %>
+                                                                <span class="dotJohanna"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Daniel") { %>
+                                                                <span class="dotDaniel"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Pablo") { %>
+                                                                <span class="dotPablo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Sammy") { %>
+                                                                <span class="dotSammy"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Polita") { %>
+                                                                <span class="dotPolita"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "John") { %>
+                                                                <span class="dotJohn"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Orphan") { %>
+                                                                <span class="dotOrphan"></span>
+                                                            <% } %>
+                                                        <% } %> 
 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
@@ -508,30 +521,32 @@
 
                                                     <th scope="row">
 
-                                                        <% if (note.responsible == "Johanna") { %>
-                                                            <span class="dotJohanna"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Camilo") { %>
-                                                            <span class="dotCamilo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Daniel") { %>
-                                                            <span class="dotDaniel"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Pablo") { %>
-                                                            <span class="dotPablo"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Sammy") { %>
-                                                            <span class="dotSammy"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Polita") { %>
-                                                            <span class="dotPolita"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "John") { %>
-                                                            <span class="dotJohn"></span>
-                                                        <% } %>
-                                                        <% if (note.responsible == "Orphan") { %>
-                                                            <span class="dotOrphan"></span>
-                                                        <% } %>
+                                                        <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                                            <% if (note.responsible == "Camilo") { %>
+                                                                <span class="dotCamilo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Johanna") { %>
+                                                                <span class="dotJohanna"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Daniel") { %>
+                                                                <span class="dotDaniel"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Pablo") { %>
+                                                                <span class="dotPablo"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Sammy") { %>
+                                                                <span class="dotSammy"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Polita") { %>
+                                                                <span class="dotPolita"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "John") { %>
+                                                                <span class="dotJohn"></span>
+                                                            <% } %>
+                                                            <% if (note.responsible == "Orphan") { %>
+                                                                <span class="dotOrphan"></span>
+                                                            <% } %>
+                                                        <% } %> 
                                                         
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
@@ -702,6 +717,10 @@
     </div>
 
 </div>
+
+<!-- <script>
+    document.getElementById("ID_InProgress").innerHTML = count_InProgress;
+</script> -->
 
 
 <%- include ('partials/footer.ejs') %>
