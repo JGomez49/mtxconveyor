@@ -119,7 +119,7 @@
 
                         
                         <% if (user.role == 'user') { %>
-                            <% if ((note.status != 'Archived') && (note.status != 'Billed') && (note.status != 'QA/QC')) { %>
+                            <% if ((note.status != '_Archived') && (note.status != 'Billed') && (note.status != 'QA/QC')) { %>
                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                                     <th scope="row"><small><%= note.mtxJobId %></small></th>
                                     <td><%= note.title %></td>
