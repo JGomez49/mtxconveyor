@@ -1,6 +1,10 @@
 
 <%- include ('partials/header.ejs') %>
 
+<script>
+    document.title =  'ID<%= note.mtxJobId %> - <%= note.customerJobNumber %>';
+</script>
+
 
 <!-- <%= note.mtxJobId %> -->
 
@@ -12,12 +16,13 @@
 
 
 
+                
+                <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                
+
+
                 <% if (user.role == 'admin' || user.role == 'leader') { %>
-                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                <% } %>
-
-
                 <div _style="font-size: xx-small;">
                     <% if (note.responsible == "Johanna") { %>
                         <span class="dotJohanna"></span>
@@ -38,6 +43,7 @@
                         <span class="dotJohn"></span>
                     <% } %>
                 </div>
+                <% } %>
 
 
                 <div class="input-group mb-2">
@@ -388,10 +394,6 @@
 
 
 
-            <script>
-                document.title = 'MTX Conveyor <%= note.mtxJobId %>';
-            </script>
-
 
 
 
@@ -429,6 +431,7 @@
 
                     
                         <div class="mb-4 ml-4" style="font-size: xx-small;">
+
                             
                                 <% if (note.initialInfoDoneBy == "Johanna") { %>
                                     <span class="dotJohanna"></span>
@@ -448,6 +451,7 @@
                                 <% if (note.initialInfoDoneBy == "John") { %>
                                     <span class="dotJohn"></span>
                                 <% } %>
+
 
                             <%= note.initialInfoDoneAt %>
                         </div>
@@ -977,25 +981,33 @@
                                 </div>
                             <!-- <div style="font-size: xx-small;"><%= e.user %></div> -->
                             <!-- <div style="font-size: xx-small;"><%= e.createdAt %></div> -->
+
+
                             <div style="font-size: xx-small;">
-                                <% if (e.user == "Johanna") { %>
-                                    <span class="dotJohanna"></span>
+
+                                <% if (user.role == 'admin' || user.role == 'leader') { %>
+
+                                    <% if (e.user == "Johanna") { %>
+                                        <span class="dotJohanna"></span>
+                                    <% } %>
+                                    <% if (e.user == "Daniel") { %>
+                                        <span class="dotDaniel"></span>
+                                    <% } %>
+                                    <% if (e.user == "Pablo") { %>
+                                        <span class="dotPablo"></span>
+                                    <% } %>
+                                    <% if (e.user == "Sammy") { %>
+                                        <span class="dotSammy"></span>
+                                    <% } %>
+                                    <% if (e.user == "Polita") { %>
+                                        <span class="dotPolita"></span>
+                                    <% } %>
+                                    <% if (e.user == "John") { %>
+                                        <span class="dotJohn"></span>
+                                    <% } %>
+
                                 <% } %>
-                                <% if (e.user == "Daniel") { %>
-                                    <span class="dotDaniel"></span>
-                                <% } %>
-                                <% if (e.user == "Pablo") { %>
-                                    <span class="dotPablo"></span>
-                                <% } %>
-                                <% if (e.user == "Sammy") { %>
-                                    <span class="dotSammy"></span>
-                                <% } %>
-                                <% if (e.user == "Polita") { %>
-                                    <span class="dotPolita"></span>
-                                <% } %>
-                                <% if (e.user == "John") { %>
-                                    <span class="dotJohn"></span>
-                                <% } %>
+
                                 <%= e.createdAt %>
                             </div>
                             <div style="font-size: xx-small;"><%= e.id %></div>

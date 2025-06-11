@@ -1,6 +1,10 @@
 
 <%- include ('partials/header.ejs') %>
 
+<script>
+    document.title =  'ID<%= note.mtxJobId %> - <%= note.customerJobNumber %>';
+</script>
+
 
     <div id="navbar" class="p-2">
 
@@ -49,26 +53,30 @@
                                 <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                             </div>
 
-                            <div _style="font-size: xx-small;">
-                                <% if (note.responsible == "Johanna") { %>
-                                    <span class="dotJohanna"></span>
-                                <% } %>
-                                <% if (note.responsible == "Daniel") { %>
-                                    <span class="dotDaniel"></span>
-                                <% } %>
-                                <% if (note.responsible == "Pablo") { %>
-                                    <span class="dotPablo"></span>
-                                <% } %>
-                                <% if (note.responsible == "Sammy") { %>
-                                    <span class="dotSammy"></span>
-                                <% } %>
-                                <% if (note.responsible == "Polita") { %>
-                                    <span class="dotPolita"></span>
-                                <% } %>
-                                <% if (note.responsible == "John") { %>
-                                    <span class="dotJohn"></span>
-                                <% } %>
-                            </div>
+                            <% if (user.role == 'admin' || user.role == 'leader') { %>
+
+                                <div _style="font-size: xx-small;">
+                                    <% if (note.responsible == "Johanna") { %>
+                                        <span class="dotJohanna"></span>
+                                    <% } %>
+                                    <% if (note.responsible == "Daniel") { %>
+                                        <span class="dotDaniel"></span>
+                                    <% } %>
+                                    <% if (note.responsible == "Pablo") { %>
+                                        <span class="dotPablo"></span>
+                                    <% } %>
+                                    <% if (note.responsible == "Sammy") { %>
+                                        <span class="dotSammy"></span>
+                                    <% } %>
+                                    <% if (note.responsible == "Polita") { %>
+                                        <span class="dotPolita"></span>
+                                    <% } %>
+                                    <% if (note.responsible == "John") { %>
+                                        <span class="dotJohn"></span>
+                                    <% } %>
+                                </div>
+
+                            <% } %>
 
                             <input type="text" name="mtxJobId" class="form-control mb-2 bg-dark text-white"
                                 placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>
