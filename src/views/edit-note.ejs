@@ -295,7 +295,7 @@
 
 
 
-                            
+                            <% if (user.role == 'admin' || user.role == 'leader') { %>
                                 <div class="form-group mb-2">
                                     <div class="input-group mb-2">
                                         <span class="input-group-text bg-dark text-white">Invoice</span>
@@ -309,7 +309,7 @@
                                         </select>
                                     </div>
                                 </div>
-                            
+                            <% } %>
 
 
 
