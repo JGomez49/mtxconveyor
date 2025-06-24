@@ -98,12 +98,11 @@
                                 name="responsible"
                             >
                             <option>Orphan</option>
-                            <%- include ('partials/optionsPeople.ejs') %>
-                            <!-- <option>Polita</option>
-                            <option>John</option>
-                            <option>Pablo</option>
-                            <option>Daniel</option>
-                            <option>Sammy</option> -->
+                            <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                <%- include ('partials/optionsPeople.ejs') %>
+                            <% } %>
+                            <option>Johanna</option>
+                            <option>Camilo</option>
                         </select>
                     </div>
 
@@ -116,16 +115,17 @@
                                 id="customer" 
                                 name="customer"
                             >
-                            <!-- <option>Choose...</option> -->
-                            <option>CNRL</option>
-                            <option>PHX</option>
-                            <option>MSTR</option>
-                            <option>OTMX</option>
-                            <option>STND</option>
-                            <option>SLB</option>
-                            <option>PSTR</option>
-                            <option>MTX</option>
-                            <option>Other</option>
+                             <option>CNRL</option>
+                             <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                <option>PHX</option>
+                                <option>MSTR</option>
+                                <option>OTMX</option>
+                                <option>STND</option>
+                                <option>SLB</option>
+                                <option>PSTR</option>
+                                <option>MTX</option>
+                                <option>Other</option>
+                            <% } %>
                         </select>
                     </div>
 
@@ -157,19 +157,20 @@
                                 id="operator" 
                                 name="operator"
                             >
-                            <!-- <option>Choose...</option> -->
                             <option>CNRL</option>
-                            <option>Tourmaline</option>
-                            <option>Vermilion</option>
-                            <option>Spur</option>
-                            <option>Rockeast</option>
-                            <option>CrecentPoint</option>
-                            <option>Whitecap</option>
-                            <option>Wyatt</option>
-                            <option>Gear</option>
-                            <option>Saturn</option>
-                            <option>Touchstone</option>
-                            <option>Other</option>
+                             <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                <option>Tourmaline</option>
+                                <option>Vermilion</option>
+                                <option>Spur</option>
+                                <option>Rockeast</option>
+                                <option>CrecentPoint</option>
+                                <option>Whitecap</option>
+                                <option>Wyatt</option>
+                                <option>Gear</option>
+                                <option>Saturn</option>
+                                <option>Touchstone</option>
+                                <option>Other</option>
+                            <% } %>
                         </select>
                     </div>
 
@@ -333,20 +334,18 @@
 
 
                     
-
-                    <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Invoice</span>
-                        <select class="form-select bg-dark text-white" 
-                                id="invoice" 
-                                fdprocessedid="5cv5ue"
-                                name="invoice"
-                            >
-                            <!-- <option>Choose...</option> -->
-                            <option>Yes</option>
-                            <option>No</option>
-                        </select>
-                    </div>
-
+                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-dark text-white">Invoice</span>
+                            <select class="form-select bg-dark text-white" 
+                                    id="invoice" 
+                                    name="invoice"
+                                >
+                                <option>Yes</option>
+                                <option>No</option>
+                            </select>
+                        </div>
+                    <% } %>
 
 
 
@@ -362,7 +361,9 @@
                                 <option>In Progress</option>
                                 <option>Completed</option>
                                 <option>On Hold</option>
-                                <option>QA/QC</option>
+                                <% if (user.role == 'admin' || user.role == 'leader') { %>
+                                    <option>QA/QC</option>
+                                <% } %>
                                 <% if (user.role == 'admin') { %>
                                     <option>Billed</option>
                                     <option>Archived</option>

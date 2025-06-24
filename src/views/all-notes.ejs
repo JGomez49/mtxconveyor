@@ -34,7 +34,7 @@
 
     <!-- <h1 style="color: whitesmoke;">Jobs</h1> -->
 
-    <% if (user.role == 'admin' || user.role == 'leader') { %>
+    <% if (user.role == 'admin' || user.role == 'leader' || user.name == 'Camilo' || user.name == 'Johanna') { %>
         <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
         <!-- <pre><%= notes %></pre> -->
     <% } %>
