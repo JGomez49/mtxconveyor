@@ -413,6 +413,8 @@
 
 
 
+
+
                     <div class="input-group mb-2" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;" >Initial Info</span>
                         <input 
@@ -428,13 +430,17 @@
                         <% } %> -->
                     </div>
 
-
                     
-                        <div class="mb-4 ml-4" style="font-size: xx-small;">
 
+                        <% if (user.role == 'admin' || user.role == 'leader') {  %>          
+                    
+                                <div class="mb-2 ml-2" style="font-size: xx-small;">
                             
                                 <% if (note.initialInfoDoneBy == "Johanna") { %>
                                     <span class="dotJohanna"></span>
+                                <% } %>
+                                <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
                                 <% } %>
                                 <% if (note.initialInfoDoneBy == "Daniel") { %>
                                     <span class="dotDaniel"></span>
@@ -452,10 +458,13 @@
                                     <span class="dotJohn"></span>
                                 <% } %>
 
+                                <%= note.initialInfoDoneAt %>
 
-                            <%= note.initialInfoDoneAt %>
-                        </div>
+                            </div>
                     
+                        <% } %>
+
+
 
 
 
@@ -478,6 +487,9 @@
                             <% if (note.foldersDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.foldersDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -518,6 +530,9 @@
                             <% if (note.offsetsInfoDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.offsetsInfoDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -559,6 +574,9 @@
                             <% if (note.compassOffsetsDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.compassOffsetsDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -600,6 +618,9 @@
                             <% if (note.compassSubjectDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.compassSubjectDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -640,6 +661,9 @@
                             <% if (note.planningDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.planningDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -681,6 +705,9 @@
                             <% if (note.reportsDoneBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.reportsDoneBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -722,6 +749,9 @@
                             <% if (note.sentBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.sentBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -763,6 +793,9 @@
                             <% if (note.ETSUpdateBy == "Johanna") { %>
                                 <span class="dotJohanna"></span>
                             <% } %>
+                            <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                             <% if (note.ETSUpdateBy == "Daniel") { %>
                                 <span class="dotDaniel"></span>
                             <% } %>
@@ -990,6 +1023,9 @@
                                     <% if (e.user == "Johanna") { %>
                                         <span class="dotJohanna"></span>
                                     <% } %>
+                                    <% if (note.initialInfoDoneBy == "Camilo") { %>
+                                    <span class="dotCamilo"></span>
+                                <% } %>
                                     <% if (e.user == "Daniel") { %>
                                         <span class="dotDaniel"></span>
                                     <% } %>

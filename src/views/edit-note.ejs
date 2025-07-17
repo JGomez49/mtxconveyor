@@ -38,7 +38,10 @@
 
             <div class="card">
 
-                <div class="card-header bg-dark"><h2>Edit</h2></div>
+                <div class="card-header bg-dark">
+                    <h2>Edit</h2>
+                    <h4 id="userName"><%= user.name %></h4>
+                </div>
 
                 <!-- <pre><%= note %></pre> -->
 
@@ -373,17 +376,19 @@
                                         <div class="input-group mb-2">
                                             <span class="input-group-text bg-dark text-white" style="width: 40%;">Initial Info</span>
                                             <select class="form-select bg-dark text-white" id="checkInitialInfo" 
-                                                name="checkInitialInfo" style="width: 30%;">
+                                                name="checkInitialInfo" style="width: 30%;" onchange=cambio_initialInfo_Check()>
                                                 <option><%= note.checkInitialInfo %></option>
                                                 <option>Yes</option>
                                                 <option>No</option>
                                             </select>
-                                            <!-- <select class="form-select bg-dark text-white" id="initialInfoDoneBy" 
+
+                                            <select class="form-select bg-dark text-white" id="initialInfoDoneBy" 
                                                 name="initialInfoDoneBy" 
-                                                style="width: 30%;" onchange=cambio_initialInfo()>
+                                                style="width: 30%;" _onchange=cambio_initialInfo() hidden>
                                                     <option><%= note.initialInfoDoneBy %></option>
                                                     <%- include ('partials/optionsPeople.ejs') %>
-                                            </select> -->
+                                            </select>
+
                                             <input 
                                                 id="initialInfoDoneAt"
                                                 name="initialInfoDoneAt"
@@ -730,6 +735,14 @@
         function cambio_dueDate() {document.getElementById("dueDate_cambio").value = "Due Date changed."}
         function cambio_invoice() {document.getElementById("invoice_cambio").value = "Invoice changed."}
         function cambio_status() {document.getElementById("status_cambio").value = "Status changed."}
+
+
+        function cambio_initialInfo_Check() {
+            let userName = document.getElementById('userName').innerText;
+            console.log(userName);
+            document.getElementById('initialInfoDoneBy').value = userName;
+        }
+
 
         function cambio_initialInfo() {document.getElementById('initialInfoDoneAt').value = new Date();}
         function cambio_folders() {document.getElementById('foldersDoneAt').value = new Date();}
