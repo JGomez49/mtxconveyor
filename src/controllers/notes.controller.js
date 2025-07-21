@@ -356,38 +356,44 @@ notesCrtl.renderUploadImage = async(req,res)=>{
 
 notesCrtl.uploadImage = async(req, res) => {
     // Borrar la imagen anterior si existe
-    const note = await Note.findById(req.params.id);
-    if(note.path != "" || note.imageID != null){
-        await cloudinary.v2.uploader.destroy(note.imageID);
-        await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
-        await Note.findByIdAndUpdate(note._id, {
-            path: "",
-            imageID: "",
-            noteImageID: "",
+    try{
+        const note = await Note.findById(req.params.id);
+        if (note && (note.path || note.imageID)) {
+            await cloudinary.v2.uploader.destroy(note.imageID);
+            await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+            await Note.findByIdAndUpdate(note._id, {
+                path: "",
+                imageID: "",
+                noteImageID: "",
+            });
+        }   
+        // Subir la nueva imagen
+        const image = new ImageMirelleDog();
+        const result = await cloudinary.v2.uploader.upload(req.file.path);
+            image.filename = req.file.filename;
+            image.path = result.url;
+            image.public_id = result.public_id;
+            image.originalname = req.file.originalname;
+            image.mimetype = req.file.mimetype;
+            image.size = req.file.size;
+            image.noteId = req.body.noteId;
+        await unlink(req.file.path);
+        await image.save();
+        let noteWhereImageIsSaved = await ImageMirelleDog.findOne({'public_id': image.public_id});
+        await Note.findByIdAndUpdate(image.noteId, {
+            path: image.path,
+            imageID: image.public_id,
+            noteImageID: noteWhereImageIsSaved._id,
         });
-    }   
-    // Subir la nueva imagen
-    const image = new ImageMirelleDog();
-    const result = await cloudinary.v2.uploader.upload(req.file.path);
-        image.filename = req.file.filename;
-        image.path = result.url;
-        image.public_id = result.public_id;
-        image.originalname = req.file.originalname;
-        image.mimetype = req.file.mimetype;
-        image.size = req.file.size;
-        image.noteId = req.body.noteId;
-    await unlink(req.file.path);
-    await image.save();
-    let noteWhereImageIsSaved = await ImageMirelleDog.findOne({'public_id': image.public_id});
-    await Note.findByIdAndUpdate(image.noteId, {
-        path: image.path,
-        imageID: image.public_id,
-        noteImageID: noteWhereImageIsSaved._id,
-    });
-    console.log("<<<< imageURL updated >>>>");
-    req.flash('success_msg','Image uploaded successfully');
-    res.redirect('/notes/job/' + req.params.id);
-}
+        console.log("<<<< imageURL updated >>>>");
+        req.flash('success_msg','Image uploaded successfully');
+        res.redirect('/notes/job/' + req.params.id);
+    } catch (error) {
+        console.error("Error uploading image:", error);
+        req.flash('error_msg','Error uploading image');
+        res.redirect('/notes/job/' + req.params.id);
+  }
+};
 
 
 
