@@ -86,7 +86,8 @@ notesCrtl.createNewNote = async(req,res)=>{
                 checkSent: req.body.checkSent,
 
                 path: "",
-
+                imageID: "",
+                noteImageID: "",
                 // filename: req.file.filename,
                 // path: result.url,
                 // public_id: result.public_id,
@@ -401,17 +402,24 @@ notesCrtl.uploadImage = async(req, res) => {
 
 //Remove Image
 notesCrtl.removeImage = async(req,res)=>{
-    const note = await Note.findById(req.params.id);
-    await cloudinary.v2.uploader.destroy(note.imageID);
-    await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
-    await Note.findByIdAndUpdate(note._id, {
-        path: "",
-        imageID: "",
-        noteImageID: "",
-    });
-    req.flash('success_msg','Image removed successfully');
-    res.redirect('/notes/job/' + req.params.id);
+    try{
+        const note = await Note.findById(req.params.id);
+        await cloudinary.v2.uploader.destroy(note.imageID);
+        await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+        await Note.findByIdAndUpdate(note._id, {
+            path: "",
+            imageID: "",
+            noteImageID: "",
+        });
+        req.flash('success_msg','Image removed successfully');
+        res.redirect('/notes/job/' + req.params.id);
+    } catch (error) {
+        console.error("Error removing image:", error);
+        req.flash('error_msg','Error removing image');
+        res.redirect('/notes/job/' + req.params.id);
+    }
 };
+
 
 
 
