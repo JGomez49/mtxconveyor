@@ -51,9 +51,17 @@ const NoteConveyorSchema = new Schema({
     sentBy: {type: String},
     sentAt: {type: String},
     ETSUpdateBy: {type: String},
-    ETSUpdateAt: {type: String}
+    ETSUpdateAt: {type: String},
 
-
+    //// Image and file uploads
+    // filename: {type: String},
+    path: {type: String},
+    imageID: {type: String},
+    noteImageID: {type: String},
+    // public_id: {type: String},
+    // originalname: {type: String},
+    // mimetype: {type: String},
+    // size: {type: Number},    
 
 },{timestamps: true})
 

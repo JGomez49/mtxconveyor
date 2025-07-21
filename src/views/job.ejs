@@ -14,11 +14,26 @@
             <div class="card text-white bg-dark mb-3 border-0">
 
 
+                <!-- <pre>Note ID: <%= note._id %></pre> -->
+
+                <!-- <a class="nav-link" href="/note/upload/<%= note._id %>">Upload Spider Plot</a> -->
 
 
-                
                 <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                 <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+
+
+
+
+                <% if (note.path) { %>
+                    <div class="card p-2 mb-2" _style="width: 18rem;">
+                        <img 
+                            src="<%= note.path %>" 
+                            class="card-img-top" 
+                            alt=""
+                        >
+                    <% } %>
+                </div>
                 
 
 
@@ -44,6 +59,20 @@
                     <% } %>
                 </div>
                 <% } %>
+
+
+
+
+                <div class="input-group mb-2" hidden>
+                    <span class="input-group-text bg-dark text-white">Image URL</span>
+                    <input 
+                        value="<%= note.path %>" 
+                        readonly
+                        type="text" 
+                        class="form-control bg-dark text-white" 
+                    >
+                </div>
+
 
 
                 <div class="input-group mb-2">

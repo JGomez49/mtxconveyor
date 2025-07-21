@@ -1,5 +1,8 @@
+
 const {Router} = require('express');
+
 const router = Router();
+
 const {
     renderNoteForm, 
     createNewNote, 
@@ -11,6 +14,9 @@ const {
     renderQueryNotes,
     renderQueryNotesPartial,
     createNewLog,
+    uploadImage,
+    renderUploadImage,
+    removeImage,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -47,6 +53,19 @@ router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
 router.post('/notes/new-log/:id', isAuthenticated, createNewLog);
 
 
+
+
+
+
+//Get Upload form
+router.get('/note/upload/:id', isAuthenticated, renderUploadImage);
+
+//Upload Image
+router.post('/upload/:id', isAuthenticated, uploadImage);
+
+
+//Remove Image
+router.get('/image/remove/:id', isAuthenticated, removeImage);
 
 
 

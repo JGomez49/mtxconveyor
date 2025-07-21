@@ -40,10 +40,98 @@
 
                 <div class="card-header bg-dark">
                     <h2>Edit</h2>
-                    <h4 id="userName"><%= user.name %></h4>
                 </div>
 
-                <!-- <pre><%= note %></pre> -->
+                <div class="container" id="mainContainer">
+
+                    <div class="row m-4">
+
+                        <form action="/upload/<%= note._id %>" method="POST" enctype="multipart/form-data">
+
+                            <div class="card mb-3" style="background-color: #483D8B;">
+                                <div class="card-body">
+                                    <p class="card-text">Select a picture for ID: <%= note.mtxJobId %></p>
+                                    <div class="input-group _mb-2">
+                                        <input 
+                                            _style="background-color: black;"
+                                            type="file" 
+                                            name="image" 
+                                            class="form-control mb-2 bg-dark text-white" 
+                                            id="inputGroupFile02"
+                                        >
+                                        <div class="input-group mb-2" hidden>
+                                            <span class="input-group-text bg-dark text-white">Image URL</span>
+                                            <input 
+                                                value="<%= note.path %>" 
+                                                readonly
+                                                type="text"
+                                                id="imageURL"
+                                                class="form-control bg-dark text-white" 
+                                            >
+                                        </div>
+                                        <div class="input-group mb-2" hidden>
+                                            <span class="input-group-text bg-dark text-white">Image Public ID</span>
+                                            <input 
+                                                value="<%= note.imageID %>" 
+                                                readonly
+                                                type="text"
+                                                id="imageID"
+                                                class="form-control bg-dark text-white" 
+                                            >
+                                        </div>
+                                        <div class="input-group mb-2" hidden>
+                                            <span class="input-group-text bg-dark text-white">Note Image ID</span>
+                                            <input 
+                                                value="<%= note.noteImageID %>" 
+                                                readonly
+                                                type="text"
+                                                id="noteImageID"
+                                                class="form-control bg-dark text-white" 
+                                            >
+                                        </div>
+                                        <div class="input-group mb-2" hidden>
+                                            <span class="input-group-text bg-dark text-white">Note ID</span>
+                                            <input 
+                                                value="<%= note._id %>" 
+                                                readonly
+                                                type="text"
+                                                id="noteId" 
+                                                name="noteId" 
+                                                class="form-control bg-dark text-white"
+                                                placeholder="Note ID" 
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+                            <div class="container text-center">
+                                <div class="row row-cols-2">
+                                    <button 
+                                        class="btn btn-success my-2" 
+                                        type="submit" 
+                                        id="uploadButton" 
+                                        hidden
+                                        >Upload
+                                    </button>
+                                    <a 
+                                        href="/image/remove/<%= note._id %>" 
+                                        class="btn btn-danger btn-block my-2" 
+                                        id="removeButton"
+                                        _hidden
+                                        >Remove
+                                    </a>
+                                </div>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+
+
+
 
                 <div class="card-body bg-primary">                    
 
@@ -81,8 +169,29 @@
 
                             <% } %>
 
-                            <input type="text" name="mtxJobId" class="form-control mb-2 bg-dark text-white"
-                                placeholder="MTX Job ID" id="MTXjobNumber" value="<%= note.mtxJobId %>" readonly>
+                            <input 
+                                type="text" 
+                                name="mtxJobId" 
+                                class="form-control mb-2 bg-dark text-white"
+                                placeholder="MTX Job ID" 
+                                id="MTXjobNumber" 
+                                value="<%= note.mtxJobId %>" 
+                                readonly
+                            >
+
+
+
+                            <div class="input-group mb-2" hidden>
+                                <span class="input-group-text bg-dark text-white">Image URL</span>
+                                <input 
+                                    value="<%= note.path %>" 
+                                    readonly
+                                    type="text"
+                                    id="imageURL"
+                                    class="form-control bg-dark text-white" 
+                                >
+                            </div>
+
 
 
                             <div class="input-group mb-2">
@@ -753,6 +862,29 @@
         function cambio_reports() {document.getElementById('reportsDoneAt').value = new Date();}
         function cambio_sent() {document.getElementById('sentAt').value = new Date();}
         function cambio_ETSUpdate() {document.getElementById('ETSUpdateAt').value = new Date();}
+
+
+        document.getElementById("inputGroupFile02").addEventListener("change", showUploadButton);
+
+        function showUploadButton() {
+            let uploadButton = document.getElementById("uploadButton");
+            uploadButton.hidden = false;
+            let removeButton = document.getElementById("removeButton");
+            removeButton.hidden = true;
+        }
+
+
+        document.body.onload = function() {
+            let imageurl = document.getElementById("imageURL").value;
+            if(imageurl == ""){
+                let removeButton = document.getElementById("removeButton");
+                removeButton.hidden = true;
+            } else {
+                let removeButton = document.getElementById("removeButton");
+                removeButton.hidden = false;
+                uploadButton.hidden = true;
+            }
+        };
 
     </script>
     <!-- ----------------------------------------------------------------------------------------------- -->
