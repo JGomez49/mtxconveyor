@@ -27,12 +27,14 @@
 
                 <% if (note.path) { %>
                     <div class="card p-2 mb-2 mx-auto">
-                        <img 
-                            src="<%= note.path %>" 
-                            class="card-img-top" 
-                            alt=""
-                            style="max-width: 800px; max-height: 800px; object-fit: cover;"
-                        >
+                        <a href="<%= note.path %>">
+                            <img 
+                                src="<%= note.path %>" 
+                                class="card-img-top" 
+                                alt=""
+                                style="max-width: 800px; max-height: 800px; object-fit: cover;"
+                            >
+                        </a>
                     <% } %>
                 </div>
                 
