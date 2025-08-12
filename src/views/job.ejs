@@ -19,7 +19,9 @@
                 <!-- <a class="nav-link" href="/note/upload/<%= note._id %>">Upload Spider Plot</a> -->
 
 
-                <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                <% if (user.role == 'admin' || user.role == 'leader'|| user.role == 'user') { %>
+                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
+                <% } %>
                 <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
 
 
@@ -447,7 +449,7 @@
 
 
 
-                    <div class="input-group mb-2" style="width: 100%;">
+                    <div class="input-group mb-4" style="width: 100%;">
                         <span class="input-group-text bg-dark text-white" style="width: 40%;" >Initial Info</span>
                         <input 
                             value="<%= note.checkInitialInfo %>" 
@@ -490,7 +492,7 @@
                                     <span class="dotJohn"></span>
                                 <% } %>
 
-                                <%= note.initialInfoDoneAt %>
+                                <!-- <%= note.initialInfoDoneAt %> -->
 
                             </div>
                     
@@ -537,7 +539,7 @@
                             <% if (note.foldersDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.foldersDoneAt %>
+                            <!-- <%= note.foldersDoneAt %> -->
                         </div>
                     
 
@@ -580,7 +582,7 @@
                             <% if (note.offsetsInfoDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.offsetsInfoDoneAt %>
+                            <!-- <%= note.offsetsInfoDoneAt %> -->
                         </div>
                     
 
@@ -624,7 +626,7 @@
                             <% if (note.compassOffsetsDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.compassOffsetsDoneAt %>
+                            <!-- <%= note.compassOffsetsDoneAt %> -->
                         </div>
                     
 
@@ -668,7 +670,7 @@
                             <% if (note.compassSubjectDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.compassSubjectDoneAt %>
+                            <!-- <%= note.compassSubjectDoneAt %> -->
                         </div>
                         
 
@@ -711,7 +713,7 @@
                             <% if (note.planningDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.planningDoneAt %>
+                            <!-- <%= note.planningDoneAt %> -->
                         </div>
                     
 
@@ -755,7 +757,7 @@
                             <% if (note.reportsDoneBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.reportsDoneAt %>
+                            <!-- <%= note.reportsDoneAt %> -->
                         </div>
                     
 
@@ -799,7 +801,7 @@
                             <% if (note.sentBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.sentAt %>
+                            <!-- <%= note.sentAt %> -->
                         </div>
                     
 
@@ -843,7 +845,7 @@
                             <% if (note.ETSUpdateBy == "John") { %>
                                 <span class="dotJohn"></span>
                             <% } %>
-                            <%= note.ETSUpdateAt %>
+                            <!-- <%= note.ETSUpdateAt %> -->
                         </div>
                     
 

@@ -48,7 +48,7 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -83,7 +83,9 @@
                                 </thead>
                                 <tbody>
                                     <% notes.forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>                               
+
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+
                                             <% if (note.status == 'Not Started') { %>
 
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
@@ -130,7 +132,6 @@
                                                     </th>
 
                                                     <td><%= count_NotStarted = count_NotStarted + 1 %></td>
-
                                                     <td><%= note.title %></td>                                                
                                                     <td><%= note.customerJobNumber %></td>
                                                     <td><%= note.project %></td>
@@ -154,6 +155,8 @@
                                                 </tr>
                                             <% } %>                             
                                         <% } %>
+
+
                                     <% }) %> 
                                 </tbody>
                             </table>
@@ -165,7 +168,11 @@
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader'|| user.role == 'user') { %>
+
+
+
+
+            <% if (user.role == 'admin' || user.role == 'leader'|| user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -272,7 +279,6 @@
                                                     </tr>
                                                 <% } %>  
                                             <% } %> 
-                                        
                                         
                                         
                                     <% }) %> 
