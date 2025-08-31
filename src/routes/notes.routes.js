@@ -17,6 +17,8 @@ const {
     uploadImage,
     renderUploadImage,
     removeImage,
+    renderUploadSchedule,
+    uploadSchedule
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -68,5 +70,14 @@ router.post('/upload/:id', isAuthenticated, uploadImage);
 router.get('/image/remove/:id', isAuthenticated, removeImage);
 
 
+
+
+
+
+//Get Upload form
+router.get('/notes/uploadSchedule', isAuthenticated, renderUploadSchedule);
+
+//Upload Schedule
+router.post('/notes/uploadSchedule', isAuthenticated, uploadSchedule);
 
 module.exports = router;

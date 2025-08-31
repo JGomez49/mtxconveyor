@@ -8,6 +8,7 @@ const User = require('../models/User');
 const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
+const Schedule = require("../models/Schedule");
 
 
 
@@ -112,6 +113,8 @@ notesCrtl.createNewNote = async(req,res)=>{
 
 
 
+
+
 notesCrtl.renderNotes = async (req,res)=>{
     let user = {}
     user.id = req.params.guest
@@ -133,7 +136,8 @@ notesCrtl.renderNotes = async (req,res)=>{
     let count_InProgress = 0;
     let count_NotStarted = 0;
     const notes = await Note.find().sort({dueDate: 'asc'});
-    res.render('all-notes.ejs', {notes, user, count_InProgress, count_NotStarted});
+    const schedule = await Schedule.find();   // 👈 pull schedule data from MongoDB
+    res.render('all-notes.ejs', {notes, user, schedule, count_InProgress, count_NotStarted});
 };
 
 
@@ -418,6 +422,69 @@ notesCrtl.removeImage = async(req,res)=>{
         req.flash('error_msg','Error removing image');
         res.redirect('/notes/job/' + req.params.id);
     }
+};
+
+
+
+
+
+
+
+
+notesCrtl.renderUploadSchedule = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadSchedule.ejs', {note, user});
+}
+
+
+
+
+
+
+notesCrtl.uploadSchedule = async (req, res) => {
+  try {
+    // Clear the entire collection before saving new data
+    await Schedule.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
+
+    const { data } = req.body; // <-- JSON payload from frontend
+
+    if (!data || !Array.isArray(data) || data.length <= 1) {
+      return res.status(400).json({ error: "No schedule data received" });
+    }
+
+    // remove header row
+    const rows = data.slice(1);
+
+    // Map rows into objects
+    const scheduleDocs = rows.map((row) => {
+      return {
+        rig: row[0] || "",
+        //dp: row[1] || "",
+        dp: row[1] ? new Date(row[1]) : null,
+        type: row[2] || "",
+        duration: Number(row[3]) || 0,
+        vp: row[4] || "",
+        start: row[5] ? new Date(row[5]) : null,
+        site: row[6] || "",
+        well: row[7] || "",
+        user: req.user ? req.user._id : null,
+        noteId: req.params.id || null, // if uploaded from job context
+      };
+    });
+
+    // Bulk insert
+    await Schedule.insertMany(scheduleDocs);
+
+    console.log("<<<< Schedule uploaded >>>>");
+    req.flash("success_msg", "Schedule uploaded successfully");
+    //res.redirect("/notes");
+  } catch (error) {
+    console.error("Error uploading schedule:", error);
+    req.flash("error_msg", "Error uploading schedule");
+    res.redirect("/notes");
+  }
 };
 
 
