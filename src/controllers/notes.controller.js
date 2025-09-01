@@ -492,4 +492,41 @@ notesCrtl.uploadSchedule = async (req, res) => {
 
 
 
+
+
+
+// GET /notes/findSite/:site
+notesCrtl.findSite = async (req, res) => {
+  try {
+    // const site = req.query.site;
+    const site = req.params.site;
+    console.log("Searching for site:", site);
+    if (!site) return res.status(400).json({ error: "Site is required" });
+    const projects = await Note.find({
+        project: { $regex: site, $options: 'i' },  // partial/fuzzy match
+    }).lean();
+    //res.json(projects);
+    console.log(`Found ${projects.length} projects for site: ${site}`);
+    const noteid = projects.map(p => p._id);
+    console.log(">>> Note IDs for Site:", noteid);
+    let user = {}
+    user.id = req.session.passport.user;
+    let usuario = await User.findById(user.id);
+    user.role = usuario.role;
+    user.rank = usuario.rank;
+    user.name = usuario.name;
+    let note = await Note.findById(noteid);
+    let log = await Log.find({noteid}).sort({createdAt: 'desc'});
+    res.render('job.ejs', {note, user, log})
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
+
+
 module.exports = notesCrtl;

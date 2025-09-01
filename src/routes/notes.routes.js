@@ -18,7 +18,8 @@ const {
     renderUploadImage,
     removeImage,
     renderUploadSchedule,
-    uploadSchedule
+    uploadSchedule,
+    findSite,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -79,5 +80,17 @@ router.get('/notes/uploadSchedule', isAuthenticated, renderUploadSchedule);
 
 //Upload Schedule
 router.post('/notes/uploadSchedule', isAuthenticated, uploadSchedule);
+
+
+
+
+
+
+//Get note with site (for chart)
+router.get('/notes/findSite/:site', isAuthenticated, findSite);
+
+
+
+
 
 module.exports = router;

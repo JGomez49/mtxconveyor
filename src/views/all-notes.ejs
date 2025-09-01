@@ -821,20 +821,20 @@
 
             const vpMap = {};
             rows.forEach(row => {
-            const cells = row.querySelectorAll("td");
-            const rig = cells[0]?.innerText.trim();
-            const dp = cells[1]?.innerText.trim();
-            const type = cells[2]?.innerText.trim();
-            const duration = Number(cells[3]?.innerText.trim() || 0);
-            const vp = cells[4]?.innerText.trim();
-            const start = parseDate(cells[5]?.innerText.trim());
-            const site = cells[6]?.innerText.trim();
-            const well = cells[7]?.innerText.trim();
+                const cells = row.querySelectorAll("td");
+                const rig = cells[0]?.innerText.trim();
+                const dp = cells[1]?.innerText.trim();
+                const type = cells[2]?.innerText.trim();
+                const duration = Number(cells[3]?.innerText.trim() || 0);
+                const vp = cells[4]?.innerText.trim();
+                const start = parseDate(cells[5]?.innerText.trim());
+                const site = cells[6]?.innerText.trim();
+                const well = cells[7]?.innerText.trim();
 
-            if (!start) return;
-            if (!vpMap[vp]) vpMap[vp] = {};
-            if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
-            vpMap[vp][rig].push({ rig, dp, type, duration, vp, start, site, well });
+                if (!start) return;
+                if (!vpMap[vp]) vpMap[vp] = {};
+                if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
+                vpMap[vp][rig].push({ rig, dp, type, duration, vp, start, site, well });
             });
 
             const today = new Date();
@@ -992,7 +992,20 @@
                         limits: { x: { min: minDate, max: maxDate } }
                     }
                 },
-                barThickness: 18
+                barThickness: 18,
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const elementIndex = elements[0].index;
+                        const datasetIndex = elements[0].datasetIndex;
+                        const clickedBar = chart.data.datasets[datasetIndex].data[elementIndex];
+                        if (clickedBar && clickedBar.details) {
+                            let project = clickedBar.details.Site.slice(0,14);
+                            // alert(`Site: ` + project);
+                            // window.location.href=`/notes/findSite/${project}`;
+                            window.location.href = `/notes/findSite/${encodeURIComponent(project)}`;
+                        }
+                    }
+                }
                 },
                 plugins: [ChartDataLabels]
             });
