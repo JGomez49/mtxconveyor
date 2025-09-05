@@ -496,19 +496,21 @@ notesCrtl.uploadSchedule = async (req, res) => {
 
 
 
-// GET /notes/findSite/:site
+//GET /notes/findSite/:site
 notesCrtl.findSite = async (req, res) => {
   try {
-    // const site = req.query.site;
     const site = req.params.site;
     console.log("Searching for site:", site);
     if (!site) return res.status(400).json({ error: "Site is required" });
     const projects = await Note.find({
         project: { $regex: site, $options: 'i' },  // partial/fuzzy match
     }).lean();
-    //res.json(projects);
     console.log(`Found ${projects.length} projects for site: ${site}`);
-    const noteid = projects.map(p => p._id);
+    if (projects.length === 0) {
+        console.log(`No project found for site: ${site}`);
+        return res.status(404).render("siteNotFound.ejs", {site});
+    } else {
+    const noteid = projects.map(p => p._id); // get array of note IDs
     console.log(">>> Note IDs for Site:", noteid);
     let user = {}
     user.id = req.session.passport.user;
@@ -519,11 +521,12 @@ notesCrtl.findSite = async (req, res) => {
     let note = await Note.findById(noteid);
     let log = await Log.find({noteid}).sort({createdAt: 'desc'});
     res.render('job.ejs', {note, user, log})
-  } catch (err) {
+  }} catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 
 

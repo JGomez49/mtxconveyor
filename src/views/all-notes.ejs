@@ -1102,8 +1102,6 @@
                         const clickedBar = chart.data.datasets[datasetIndex].data[elementIndex];
                         if (clickedBar && clickedBar.details) {
                             let project = clickedBar.details.Site.slice(0,14);
-                            // alert(`Site: ` + project);
-                            // window.location.href=`/notes/findSite/${project}`;
                             window.location.href = `/notes/findSite/${encodeURIComponent(project)}`;
                         }
                     }
