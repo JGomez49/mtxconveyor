@@ -447,8 +447,9 @@ notesCrtl.uploadSchedule = async (req, res) => {
   try {
     // Clear the entire collection before saving new data
     await Schedule.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
-
+    console.log("Cleared existing schedule data.");
     const { data } = req.body; // <-- JSON payload from frontend
+    //console.log("Received schedule data:", data);
 
     if (!data || !Array.isArray(data) || data.length <= 1) {
       return res.status(400).json({ error: "No schedule data received" });

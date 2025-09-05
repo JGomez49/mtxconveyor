@@ -38,7 +38,7 @@
     <% if (user.role == 'admin' || user.role == 'leader' || user.name == 'Camilo' || user.name == 'Johanna') { %>
         <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
         <!-- <pre><%= notes %></pre> -->
-         <!-- <pre><%= schedule[0].createdAt %></pre> -->
+         
     <% } %>
 
 
@@ -893,7 +893,7 @@
     </div>
 
     <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
-        <p id="scheduleUpdateText">Updated on: <%= schedule[0].createdAt %></p>
+        <p id="scheduleUpdateText">Updated on: <%= schedule[1].uploadedDate %></p>
         <div id="chartDiv" class="m-3 bg-dark"></div>
     <% } %>
 

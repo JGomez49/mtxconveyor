@@ -18,6 +18,7 @@ const ScheduleSchema = new Schema(
     // optional: link schedules to a Note if needed
     // noteId: { type: Schema.Types.ObjectId, ref: "Note" },
     user: { type: Schema.Types.ObjectId, ref: "User" },
+    uploadedDate: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

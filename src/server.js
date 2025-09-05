@@ -48,9 +48,10 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ---------------------Middlewares:
 app.use(morgan('dev'));
-app.use(express.urlencoded({ extended: false }));  // <-- handles form data
-app.use(express.json());                           // <-- handles JSON (fix for uploadSchedule)
-// app.use(express.urlencoded({extended: false}));
+//app.use(express.urlencoded({ extended: false }));  // <-- handles form data
+//app.use(express.json());                           // <-- handles JSON (fix for uploadSchedule)
+app.use(express.json({limit: '25mb'}));
+app.use(express.urlencoded({limit: '25mb', extended: true}));
 app.use(methodOverride('_method'));
 
 // ------------------------------------------
