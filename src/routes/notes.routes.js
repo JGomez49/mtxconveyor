@@ -20,6 +20,8 @@ const {
     renderUploadSchedule,
     uploadSchedule,
     findSite,
+    getScheduleAndNotes,
+    syncDueDates,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -84,10 +86,17 @@ router.post('/notes/uploadSchedule', isAuthenticated, uploadSchedule);
 
 
 
-
-
 //Get note with site (for chart)
 router.get('/notes/findSite/:site', isAuthenticated, findSite);
+
+
+
+
+
+// GET /notes/getScheduleAndNotes
+router.get('/notes/getScheduleAndNotes', isAuthenticated, getScheduleAndNotes);
+
+router.get('/notes/syncDueDates', isAuthenticated, syncDueDates);
 
 
 

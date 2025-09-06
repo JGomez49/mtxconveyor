@@ -533,4 +533,71 @@ notesCrtl.findSite = async (req, res) => {
 
 
 
+
+// GET /notes/getScheduleAndNotes
+notesCrtl.getScheduleAndNotes = async (req, res) => {
+  try {
+    // Fetch everything
+    const schedule = await Schedule.find({}).lean();
+    const notes = await Note.find({}).lean();
+
+    res.json({ schedule, notes });
+  } catch (err) {
+    console.error("Error in getScheduleAndNotes:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
+
+
+
+notesCrtl.syncDueDates = async (req, res) => {
+  try {
+    console.log("🔄 Syncing Notes.dueDate with Schedule.start...");
+
+    // Load Notes and Schedule
+    const notes = await Note.find().lean();
+    const schedule = await Schedule.find().lean();
+
+    // Build a map of schedule sites → start dates
+    const scheduleMap = {};
+    schedule.forEach(sch => {
+      if (sch.site && sch.start) {
+        const key = sch.site.slice(0, 14);
+        if (!scheduleMap[key]) {
+          // Ensure ISO YYYY-MM-DD
+          const isoDate = new Date(sch.start).toISOString().split("T")[0];
+          scheduleMap[key] = isoDate;
+        }
+      }
+    });
+
+    // Loop through notes and update dueDate
+    let updatedCount = 0;
+    for (let note of notes) {
+      const key = note.project?.slice(0, 14);
+      if (key && scheduleMap[key]) {
+        const newDue = scheduleMap[key];
+        await Note.findByIdAndUpdate(note._id, { dueDate: newDue });
+        updatedCount++;
+        console.log(`✅ Updated Note ${note._id} → dueDate = ${newDue}`);
+      }
+    }
+
+    res.json({ message: "Sync complete", updated: updatedCount });
+  } catch (err) {
+    console.error("❌ Error in syncDueDates:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
+
+
+
 module.exports = notesCrtl;
