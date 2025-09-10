@@ -849,14 +849,13 @@
                                         </button>
                                     </h2>
 
-                                    <!-- <button class="btn btn-primary my-2" onclick="addNoteIds()">Add Note IDs</button> -->
-                                    <!-- <button class="btn btn-primary my-2" onclick="loadScheduleAndNotes()">Load Schedule & Notes</button> -->
-                                    <!-- <button class="btn btn-primary my-2" onclick="appendNoteIds()">Add Note IDs</button> -->
 
-                                    
-                                    <button class="btn btn-warning my-2" onclick="syncDueDates()">🔄 Sync Due Dates</button>
-
-
+                                    <% if (user.role != 'viewer') { %>
+                                        <!-- <button class="btn btn-primary my-2" onclick="addNoteIds()">Add Note IDs</button> -->
+                                        <!-- <button class="btn btn-primary my-2" onclick="loadScheduleAndNotes()">Load Schedule & Notes</button> -->
+                                        <!-- <button class="btn btn-primary my-2" onclick="appendNoteIds()">Add Note IDs</button> -->
+                                        <button class="btn btn-warning my-2" onclick="syncDueDates()">🔄 Sync Due Dates</button>
+                                    <% } %>
 
                                     <div id="collapseTable" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
                                         <div class="accordion-body">
@@ -985,7 +984,7 @@
                 DP: dpValue,
                 Site: siteObj.site,
                 Well: siteObj.well,
-                type: type
+                type: type,
                 }
             });
 
@@ -1058,21 +1057,21 @@
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                callbacks: {
-                    label: (ctx) => {
-                    const d = ctx.raw.details;
-                    return [
-                        `Rig: ${d.Rig}`,
-                        `VP: ${d.VP}`,
-                        `Start: ${d.Start}`,
-                        `Duration: ${d.Duration} days`,
-                        `DP: ${d.DP}`,
-                        `Site: ${d.Site}`,
-                        `Well: ${d.Well}`,
-                        `Type: ${d.type}`
-                    ];
+                    callbacks: {
+                        label: (ctx) => {
+                        const d = ctx.raw.details;
+                        return [
+                            `Rig: ${d.Rig}`,
+                            `VP: ${d.VP}`,
+                            `Start: ${d.Start}`,
+                            `Duration: ${d.Duration} days`,
+                            `DP: ${d.DP}`,
+                            `Site: ${d.Site}`,
+                            `Well: ${d.Well}`,
+                            `Type: ${d.type}`,
+                        ];
+                        }
                     }
-                }
                 },
                 datalabels: {
                 anchor: "center",
@@ -1231,7 +1230,7 @@
 
 
 
-
+<!-- 
 <script>
     async function appendNoteIds() {
         try {
@@ -1297,7 +1296,103 @@
             console.error("Error appending Note IDs:", err);
         }
     }
+</script> -->
+
+
+
+
+
+
+
+<script>
+    async function appendNoteIds() {
+        try {
+            // Fetch all schedule + notes
+            const res = await fetch("/notes/getScheduleAndNotes");
+            const data = await res.json();
+
+            const notes = data.notes;
+
+            ////Build a lookup map for Note.project → { noteId, mtxJobId }
+            const notesMap = {};
+            notes.forEach(note => {
+                if (note.project) {
+                    const key = note.project.slice(0, 14); // normalize
+                    if (!notesMap[key]) {
+                        notesMap[key] = {
+                            noteId: note._id,
+                            mtxJobId: note.mtxJobId || null
+                        };
+                    }
+                }
+            });            
+
+            // Find the table
+            const table = document.getElementById("csvTable");
+            if (!table) return alert("Table not found!");
+
+            // Add headers if not already present
+            const headerRow = table.querySelector("thead tr");
+            if (!headerRow.querySelector("th.noteid-col")) {
+                const th = document.createElement("th");
+                th.textContent = "NoteID";
+                th.classList.add("noteid-col");
+                headerRow.appendChild(th);
+            }
+            if (!headerRow.querySelector("th.mtxjobid-col")) {
+                const th = document.createElement("th");
+                th.textContent = "mtxJobId";
+                th.classList.add("mtxjobid-col");
+                headerRow.appendChild(th);
+            }
+
+            // Add rows with NoteID + mtxJobId
+            const rows = table.querySelectorAll("tbody tr");
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if (cells.length < 7) return; // skip malformed rows
+
+                const site = cells[6].textContent.trim().slice(0, 14); // schedule site normalized
+                const noteData = notesMap[site];
+
+                // --- NoteID cell ---
+                const tdNote = document.createElement("td");
+                if (noteData?.noteId) {
+                    const link = document.createElement("a");
+                    link.href = `/notes/job/${noteData.noteId}`;
+                    link.textContent = noteData.noteId;
+                    link.style.color = "aqua";
+                    link.style.textDecoration = "none";
+                    tdNote.appendChild(link);
+                } else {
+                    tdNote.textContent = "Not Found";
+                    tdNote.style.color = "red";
+                }
+                row.appendChild(tdNote);
+
+                // --- mtxJobId cell ---
+                const tdMtx = document.createElement("td");
+                if (noteData?.mtxJobId) {
+                    tdMtx.textContent = noteData.mtxJobId;
+                    tdMtx.style.color = "lime";
+                } else {
+                    tdMtx.textContent = "Not Found";
+                    tdMtx.style.color = "orange";
+                }
+                row.appendChild(tdMtx);
+            });
+
+            console.log("✅ Note IDs and mtxJobIds appended to table");
+        } catch (err) {
+            console.error("Error appending Note IDs:", err);
+        }
+    }
 </script>
+
+
+
+
+
 
 
 

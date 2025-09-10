@@ -497,32 +497,80 @@ notesCrtl.uploadSchedule = async (req, res) => {
 
 
 //GET /notes/findSite/:site
+// notesCrtl.findSite = async (req, res) => {
+//   try {
+//     const site = req.params.site;
+//     console.log("Searching for site:", site);
+//     if (!site) return res.status(400).json({ error: "Site is required" });
+//     const projects = await Note.find({
+//         project: { $regex: site, $options: 'i' },  // partial/fuzzy match
+//     }).lean();
+//     console.log(`Found ${projects.length} projects for site: ${site}`);
+//     if (projects.length === 0) {
+//       console.log(`No project found for site: ${site}`);
+//       return res.status(404).render("siteNotFound.ejs", {site});
+//     } else {
+//       const noteid = projects.map(p => p._id); // get array of note IDs
+//       console.log(">>> Note IDs for Site:", noteid);
+//       let user = {}
+//       user.id = req.session.passport.user;
+//       let usuario = await User.findById(user.id);
+//       user.role = usuario.role;
+//       user.rank = usuario.rank;
+//       user.name = usuario.name;
+//       let note = await Note.findById(noteid);
+//       let log = await Log.find({noteid}).sort({createdAt: 'desc'});
+//       res.render('job.ejs', {note, user, log})
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// };
+
+
+// GET /notes/findSite/:site
 notesCrtl.findSite = async (req, res) => {
   try {
     const site = req.params.site;
-    console.log("Searching for site:", site);
+    console.log("Searching for site (prefix):", site);
+
     if (!site) return res.status(400).json({ error: "Site is required" });
-    const projects = await Note.find({
-        project: { $regex: site, $options: 'i' },  // partial/fuzzy match
-    }).lean();
-    console.log(`Found ${projects.length} projects for site: ${site}`);
-    if (projects.length === 0) {
-        console.log(`No project found for site: ${site}`);
-        return res.status(404).render("siteNotFound.ejs", {site});
-    } else {
-    const noteid = projects.map(p => p._id); // get array of note IDs
-    console.log(">>> Note IDs for Site:", noteid);
-    let user = {}
-    user.id = req.session.passport.user;
-    let usuario = await User.findById(user.id);
-    user.role = usuario.role;
-    user.rank = usuario.rank;
-    user.name = usuario.name;
-    let note = await Note.findById(noteid);
-    let log = await Log.find({noteid}).sort({createdAt: 'desc'});
-    res.render('job.ejs', {note, user, log})
-  }} catch (err) {
-    console.error(err);
+
+    // 🔎 Match any project that STARTS WITH the given site
+    const project = await Note.findOne({
+      project: { $regex: `^${site}`, $options: "i" }
+    });
+
+    if (!project) {
+      console.log(`No project found for site: ${site}`);
+      return res.status(404).render("siteNotFound.ejs", { site });
+    }
+
+    console.log(`Found project: ${project._id} for site: ${site}`);
+
+    // Get user info
+    const userId = req.session.passport?.user;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const usuario = await User.findById(userId);
+    if (!usuario) return res.status(404).json({ error: "User not found" });
+
+    const user = {
+      id: usuario._id,
+      role: usuario.role,
+      rank: usuario.rank,
+      name: usuario.name,
+    };
+
+    // Fetch logs for this note
+    const log = await Log.find({ noteid: project._id }).sort({ createdAt: "desc" });
+
+    // Render job page with the single note
+    res.render("job.ejs", { note: project, user, log });
+
+  } catch (err) {
+    console.error("Error in findSite:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -554,36 +602,88 @@ notesCrtl.getScheduleAndNotes = async (req, res) => {
 
 
 
+// notesCrtl.syncDueDates = async (req, res) => {
+//   try {
+//     console.log("🔄 Syncing Notes.dueDate with Schedule.start...");
+
+//     // Load Notes and Schedule
+//     const notes = await Note.find().lean();
+//     const schedule = await Schedule.find().lean();
+
+//     // Build a map of schedule sites → start dates
+//     const scheduleMap = {};
+//     schedule.forEach(sch => {
+//       if (sch.site && sch.start) {
+//         const key = sch.site.slice(0, 14);
+//         if (!scheduleMap[key]) {
+//           // Ensure ISO YYYY-MM-DD
+//           const isoDate = new Date(sch.start).toISOString().split("T")[0];
+//           scheduleMap[key] = isoDate;
+//         }
+//       }
+//     });
+
+//     // Loop through notes and update dueDate
+//     let updatedCount = 0;
+//     for (let note of notes) {
+//       const key = note.project?.slice(0, 14);
+//       if (key && scheduleMap[key]) {
+//         const newDue = scheduleMap[key];
+//         await Note.findByIdAndUpdate(note._id, { dueDate: newDue });
+//         updatedCount++;
+//         console.log(`✅ Updated Note ${note._id} → dueDate = ${newDue}`);
+//       }
+//     }
+
+//     res.json({ message: "Sync complete", updated: updatedCount });
+//   } catch (err) {
+//     console.error("❌ Error in syncDueDates:", err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// };
+
+
+// Sync dueDate and rig from Schedule → Notes
 notesCrtl.syncDueDates = async (req, res) => {
   try {
-    console.log("🔄 Syncing Notes.dueDate with Schedule.start...");
+    console.log("🔄 Syncing Notes.dueDate and Notes.rig with Schedule...");
 
     // Load Notes and Schedule
     const notes = await Note.find().lean();
     const schedule = await Schedule.find().lean();
 
-    // Build a map of schedule sites → start dates
+    // Build a map of schedule sites → { start, rig }
     const scheduleMap = {};
     schedule.forEach(sch => {
       if (sch.site && sch.start) {
-        const key = sch.site.slice(0, 14);
+        const key = sch.site.slice(0, 14); // normalize site
         if (!scheduleMap[key]) {
-          // Ensure ISO YYYY-MM-DD
-          const isoDate = new Date(sch.start).toISOString().split("T")[0];
-          scheduleMap[key] = isoDate;
+          const isoDate = new Date(sch.start).toISOString().split("T")[0]; // YYYY-MM-DD
+          scheduleMap[key] = {
+            start: isoDate,
+            rig: sch.rig || null
+          };
         }
       }
     });
 
-    // Loop through notes and update dueDate
+    // Loop through notes and update dueDate + rig
     let updatedCount = 0;
     for (let note of notes) {
       const key = note.project?.slice(0, 14);
       if (key && scheduleMap[key]) {
-        const newDue = scheduleMap[key];
-        await Note.findByIdAndUpdate(note._id, { dueDate: newDue });
+        const updateFields = {
+          dueDate: scheduleMap[key].start,
+        };
+        if (scheduleMap[key].rig) {
+          updateFields.rig = scheduleMap[key].rig;
+        }
+
+        await Note.findByIdAndUpdate(note._id, updateFields);
         updatedCount++;
-        console.log(`✅ Updated Note ${note._id} → dueDate = ${newDue}`);
+        console.log(
+          `✅ Updated Note ${note._id} → dueDate = ${updateFields.dueDate}, rig = ${updateFields.rig || "unchanged"}`
+        );
       }
     }
 
@@ -593,7 +693,6 @@ notesCrtl.syncDueDates = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
-
 
 
 
