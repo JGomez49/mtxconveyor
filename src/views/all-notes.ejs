@@ -902,7 +902,8 @@
     </div>
 
     <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
-        <p id="scheduleUpdateText">Updated on: <%= schedule[1].uploadedDate %></p>
+        <p id="scheduleUpdateText"></p>
+        <button class="btn btn-info my-2" onclick="renderChartsFromTable()">📊 Show Schedule</button>
         <div id="chartDiv" class="m-3 bg-dark"></div>
     <% } %>
 
@@ -917,6 +918,7 @@
 <!-- Script to generate the Charts -->
 
 <script>
+
     let chartInstances = [];
 
     function parseDate(value) {
@@ -928,6 +930,8 @@
     function renderChartsFromTable() {
 
         appendNoteIds() // Note IDs are added
+
+        document.getElementById("scheduleUpdateText").innerText = "Updated on: <%= schedule.length > 0 ? schedule[1].uploadedDate : 'N/A' %>";
 
         const table = document.getElementById("csvTable");
         const rows = Array.from(table.querySelectorAll("tbody tr"));
@@ -1189,7 +1193,7 @@
         });
     }
 
-    window.addEventListener("DOMContentLoaded", renderChartsFromTable);
+    //// window.addEventListener("DOMContentLoaded", renderChartsFromTable);
 
 </script>
 
@@ -1224,79 +1228,6 @@
     }
 </script>
 
-
-
-
-
-
-
-<!-- 
-<script>
-    async function appendNoteIds() {
-        try {
-            // Fetch all schedule + notes
-            const res = await fetch("/notes/getScheduleAndNotes");
-            const data = await res.json();
-
-            const notes = data.notes;
-
-            // Build a lookup map for Note.project → noteId
-            const notesMap = {};
-            notes.forEach(note => {
-            if (note.project) {
-                const key = note.project.slice(0, 14); // normalize
-                if (!notesMap[key]) {
-                notesMap[key] = note._id; // store first match
-                }
-            }
-            });
-
-            // Find the table
-            const table = document.getElementById("csvTable");
-            if (!table) return alert("Table not found!");
-
-            // Add header if not already present
-            const headerRow = table.querySelector("thead tr");
-            if (!headerRow.querySelector("th.noteid-col")) {
-            const th = document.createElement("th");
-            th.textContent = "NoteID";
-            th.classList.add("noteid-col");
-            headerRow.appendChild(th);
-            }
-
-            // Add rows with NoteID or "Not Found"
-            const rows = table.querySelectorAll("tbody tr");
-            rows.forEach(row => {
-            const cells = row.querySelectorAll("td");
-            if (cells.length < 7) return; // skip malformed rows
-
-            const site = cells[6].textContent.trim().slice(0, 14); // schedule site normalized
-            const noteId = notesMap[site];
-
-            const td = document.createElement("td");
-
-            if (noteId) {
-                // clickable link to job page
-                const link = document.createElement("a");
-                link.href = `/notes/job/${noteId}`;
-                link.textContent = noteId;
-                link.style.color = "aqua"; // highlight
-                link.style.textDecoration = "none";
-                td.appendChild(link);
-            } else {
-                td.textContent = "Not Found";
-                td.style.color = "red";
-            }
-
-            row.appendChild(td);
-            });
-
-            console.log("✅ Note IDs appended to table");
-        } catch (err) {
-            console.error("Error appending Note IDs:", err);
-        }
-    }
-</script> -->
 
 
 
