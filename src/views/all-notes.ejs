@@ -957,6 +957,7 @@
         const today = new Date();
         const twoMonthsLater = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate());
         const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+        const fourMonthsLater = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
         const sixMonthsLater = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
         const oneYearLater = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
 
@@ -1088,8 +1089,8 @@
                 annotations: {
                     futureBox: {
                     type: "box",
-                    xMin: twoMonthsLater,
-                    xMax: threeMonthsLater,
+                    xMin: threeMonthsLater,
+                    xMax: fourMonthsLater,
                     backgroundColor: "rgba(255,0,0,0.15)",
                     borderWidth: 0.5,
                     borderColor: "red"
