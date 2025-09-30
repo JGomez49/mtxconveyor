@@ -64,6 +64,7 @@
 
 
                             <h4>Design</h4>
+
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;">
                                 <thead>
                                     <tr>
@@ -165,6 +166,7 @@
 
 
                             <h4>Set up</h4>
+
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;">
                                 <thead>
                                     <tr>
@@ -234,7 +236,8 @@
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
 
-                                                    <td><%= count_NotStarted = count_NotStarted + 1 %></td>
+                                                    <td><%= count_NotStarted_setup = count_NotStarted_setup + 1 %></td>
+                                                    
                                                     <td><%= note.title %></td>                                                
                                                     <td><%= note.customerJobNumber %></td>
                                                     <td><%= note.project %></td>
@@ -261,9 +264,6 @@
                                     <% }) %> 
                                 </tbody>
                             </table>
-
-
-                            
 
                         </div>
                     </div> 

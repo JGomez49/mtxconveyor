@@ -135,9 +135,10 @@ notesCrtl.renderNotes = async (req,res)=>{
     // const notes = await Note.find().sort({createdAt: 'desc'});
     let count_InProgress = 0;
     let count_NotStarted = 0;
+    let count_NotStarted_setup = 0;
     const notes = await Note.find().sort({dueDate: 'asc'});
     const schedule = await Schedule.find();   // 👈 pull schedule data from MongoDB
-    res.render('all-notes.ejs', {notes, user, schedule, count_InProgress, count_NotStarted});
+    res.render('all-notes.ejs', {notes, user, schedule, count_InProgress, count_NotStarted, count_NotStarted_setup});
 };
 
 
