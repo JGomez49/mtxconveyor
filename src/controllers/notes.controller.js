@@ -449,8 +449,8 @@ notesCrtl.uploadSchedule = async (req, res) => {
     // Clear the entire collection before saving new data
     await Schedule.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
     console.log("Cleared existing schedule data.");
+
     const { data } = req.body; // <-- JSON payload from frontend
-    //console.log("Received schedule data:", data);
 
     if (!data || !Array.isArray(data) || data.length <= 1) {
       return res.status(400).json({ error: "No schedule data received" });
@@ -463,14 +463,15 @@ notesCrtl.uploadSchedule = async (req, res) => {
     const scheduleDocs = rows.map((row) => {
       return {
         rig: row[0] || "",
-        //dp: row[1] || "",
-        dp: row[1] ? new Date(row[1]) : null,
-        type: row[2] || "",
+        drillok: row[1] || "",
+        geook: row[2] || "",
         duration: Number(row[3]) || 0,
-        vp: row[4] || "",
-        start: row[5] ? new Date(row[5]) : null,
-        site: row[6] || "",
-        well: row[7] || "",
+        dp: row[4] || "",
+        type: row[5] || "",
+        vp: row[6] || "",
+        start: row[7] ? new Date(row[7]) : null,
+        site: row[8] || "",
+        well: row[9] || "",
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null, // if uploaded from job context
       };
@@ -481,7 +482,7 @@ notesCrtl.uploadSchedule = async (req, res) => {
 
     console.log("<<<< Schedule uploaded >>>>");
     req.flash("success_msg", "Schedule uploaded successfully");
-    //res.redirect("/notes");
+    res.redirect("/notes");
   } catch (error) {
     console.error("Error uploading schedule:", error);
     req.flash("error_msg", "Error uploading schedule");
@@ -491,43 +492,6 @@ notesCrtl.uploadSchedule = async (req, res) => {
 
 
 
-
-
-
-
-
-
-//GET /notes/findSite/:site
-// notesCrtl.findSite = async (req, res) => {
-//   try {
-//     const site = req.params.site;
-//     console.log("Searching for site:", site);
-//     if (!site) return res.status(400).json({ error: "Site is required" });
-//     const projects = await Note.find({
-//         project: { $regex: site, $options: 'i' },  // partial/fuzzy match
-//     }).lean();
-//     console.log(`Found ${projects.length} projects for site: ${site}`);
-//     if (projects.length === 0) {
-//       console.log(`No project found for site: ${site}`);
-//       return res.status(404).render("siteNotFound.ejs", {site});
-//     } else {
-//       const noteid = projects.map(p => p._id); // get array of note IDs
-//       console.log(">>> Note IDs for Site:", noteid);
-//       let user = {}
-//       user.id = req.session.passport.user;
-//       let usuario = await User.findById(user.id);
-//       user.role = usuario.role;
-//       user.rank = usuario.rank;
-//       user.name = usuario.name;
-//       let note = await Note.findById(noteid);
-//       let log = await Log.find({noteid}).sort({createdAt: 'desc'});
-//       res.render('job.ejs', {note, user, log})
-//     }
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// };
 
 
 // GET /notes/findSite/:site
@@ -600,48 +564,6 @@ notesCrtl.getScheduleAndNotes = async (req, res) => {
 
 
 
-
-
-
-// notesCrtl.syncDueDates = async (req, res) => {
-//   try {
-//     console.log("🔄 Syncing Notes.dueDate with Schedule.start...");
-
-//     // Load Notes and Schedule
-//     const notes = await Note.find().lean();
-//     const schedule = await Schedule.find().lean();
-
-//     // Build a map of schedule sites → start dates
-//     const scheduleMap = {};
-//     schedule.forEach(sch => {
-//       if (sch.site && sch.start) {
-//         const key = sch.site.slice(0, 14);
-//         if (!scheduleMap[key]) {
-//           // Ensure ISO YYYY-MM-DD
-//           const isoDate = new Date(sch.start).toISOString().split("T")[0];
-//           scheduleMap[key] = isoDate;
-//         }
-//       }
-//     });
-
-//     // Loop through notes and update dueDate
-//     let updatedCount = 0;
-//     for (let note of notes) {
-//       const key = note.project?.slice(0, 14);
-//       if (key && scheduleMap[key]) {
-//         const newDue = scheduleMap[key];
-//         await Note.findByIdAndUpdate(note._id, { dueDate: newDue });
-//         updatedCount++;
-//         console.log(`✅ Updated Note ${note._id} → dueDate = ${newDue}`);
-//       }
-//     }
-
-//     res.json({ message: "Sync complete", updated: updatedCount });
-//   } catch (err) {
-//     console.error("❌ Error in syncDueDates:", err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// };
 
 
 // Sync dueDate and rig from Schedule → Notes

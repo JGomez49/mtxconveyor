@@ -29,3 +29,201 @@
         </div>
     </div>
 </div>
+
+
+
+
+<script>
+    
+    document.getElementById('csvFile').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+        complete: function(results) {
+          let data = results.data;
+          data = data.filter(row => row.some(cell => cell.trim() !== ""));
+
+          const deleteCols = [1,2,3,4,5,6,7,8,9,11,12,14,15,
+                              18,19,20,21,22,23,26,27,28];
+
+          // keep columns 0, 10, 13, 16, 17, 24, 25 (Rig(0), DP(1), Type(2), ___(3), VP(4), Start(5), Site(6), Well(7))
+          
+          data = data.map(row => row.filter((_, idx) => !deleteCols.includes(idx)));
+
+          data = data.map((row, rIdx) => {
+            if (rIdx === 0) {
+              row.splice(3, 0, "Duration");
+            } else {
+              let found = "";
+              for (let i = 3; i < row.length; i++) {
+                if (!isNaN(row[i]) && row[i].trim() !== "") {
+                  found = parseFloat(row[i]);
+                  break;
+                }
+              }
+              row.splice(3, 0, found || 0);
+            }
+            return row;
+          });
+
+          data = data.map((row, rIdx) => {
+            if (rIdx === 0) return row;
+            const rig = row[0] ?? "";
+            const drillok = row[1] ?? "";
+            const dp = row[2] ?? "";
+            const type = row[3] ?? "";
+            const duration = row[4] ?? 0;
+            const vp = row[5] ?? "";
+            const start = row[6] ?? "";
+            const site = row[7] ?? "";
+            const well = row[8] ?? "";
+            return [rig, drillok, dp, type, duration, vp, start, site, well];
+          });
+
+          // Keep every 3rd row starting from index 0 (header) and 3rd row onwards
+          data = data.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
+
+          // console.log("Uploading schedule to server...", data);
+          console.log("Uploading schedule to server");
+
+          // 🚀 Upload cleaned schedule to server
+          fetch("/notes/uploadSchedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data }),
+          })
+          .then(res => {
+            if (res.redirected) {
+              window.location.href = res.url; // Follow redirect
+            }
+          })
+          .catch(err => console.error("Upload error:", err));
+          // 🚀 End upload
+
+          let header = ["Rig", "Drill-OK", "DP", "Type", "Duration", "VP", "Start", "Site", "Well"];
+          let finalData = [header, ...data.slice(1)];
+
+          renderTable(finalData);
+          renderGantts(finalData);
+
+          // alert("Schedule processed and uploaded.");
+        }
+      });
+    });
+
+</script>
+
+
+
+
+<script>
+    
+    document.getElementById('csvFile').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+        complete: function(results) {
+          let data = results.data;
+          data = data.filter(row => row.some(cell => cell.trim() !== ""));
+
+          // Delete unwanted columns but KEEP:
+          // 0 (Rig), 10 (DP), 13 (Type), 16 (VP), 17 (Start),
+          // 24 (Site), 25 (Well), 7 (Drill-ok), 8 (Geo-ok)
+          const deleteCols = [
+            1,2,3,4,5,6,9,11,12,14,15,
+            18,19,20,21,22,23,26,27,28
+          ];
+
+          // Keep only desired columns
+          data = data.map(row => row.filter((_, idx) => !deleteCols.includes(idx)));
+
+          // Insert Duration column after Type
+          data = data.map((row, rIdx) => {
+            if (rIdx === 0) {
+              row.splice(3, 0, "Duration");
+            } else {
+              let found = "";
+              for (let i = 3; i < row.length; i++) {
+                if (!isNaN(row[i]) && row[i].trim() !== "") {
+                  found = parseFloat(row[i]);
+                  break;
+                }
+              }
+              row.splice(3, 0, found || 0);
+            }
+            return row;
+          });
+
+          // Build new row structure:
+          // [Rig, DP, Type, Duration, VP, Start, Site, Well, Drill-ok, Geo-ok]
+          data = data.map((row, rIdx) => {
+            if (rIdx === 0) return row;
+            const rig = row[0] ?? "";
+            const dp = row[1] ?? "";
+            const type = row[2] ?? "";
+            const duration = row[3] ?? 0;
+            const vp = row[4] ?? "";
+            const startRaw = row[5] ?? "";
+            const start = parseExcelDate(startRaw);  // ✅ SAFE CONVERSION
+            const site = row[6] ?? "";
+            const well = row[7] ?? "";
+            const drillok = row[8] ?? "";
+            const geook = row[9] ?? "";
+
+            // format start date as ISO string or null
+            const startISO = start ? start.toISOString().split("T")[0] : null;
+
+            return [rig, dp, type, duration, vp, startISO, site, well, drillok, geook];
+          });
+
+          // Keep every 3rd row (same logic)
+          data = data.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
+
+          console.log("Uploading schedule to server...");
+
+
+
+          // --- Add helper functions ---
+          function excelSerialToDate(serial) {
+            const utcDays = Math.floor(serial - 25569);
+            const utcValue = utcDays * 86400; // seconds
+            const dateInfo = new Date(utcValue * 1000);
+            return new Date(dateInfo.getUTCFullYear(), dateInfo.getUTCMonth(), dateInfo.getUTCDate());
+          }
+
+          function parseExcelDate(value) {
+            if (!value) return null;
+            if (typeof value === "number") return excelSerialToDate(value);
+            const parsed = Date.parse(value);
+            if (!isNaN(parsed)) return new Date(parsed);
+            return null;
+          }
+          // --- End helper functions ---
+
+
+
+          // 🚀 Upload cleaned schedule to server
+          fetch("/notes/uploadSchedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data }),
+          })
+          .then(res => {
+            if (res.redirected) window.location.href = res.url;
+          })
+          .catch(err => console.error("Upload error:", err));
+          // 🚀 End upload
+
+          // New header
+          let header = ["Rig", "DP", "Type", "Duration", "VP", "Start", "Site", "Well", "Drill-ok", "Geo-ok"];
+          let finalData = [header, ...data.slice(1)];
+
+          renderTable(finalData);
+          renderGantts(finalData);
+        }
+      });
+    });
+
+</script>

@@ -5,13 +5,15 @@ const { Schema, model } = require("mongoose");
 const ScheduleSchema = new Schema(
   {
     rig: { type: String, default: "" },
-    //dp: { type: String, default: "" },
-    dp: { type: Date }, //optional if store as Date
+    drillok: { type: String, default: ""  },
+    geook: { type: String, default: ""  },
+    dp: { type: String, default: "" },
+    //dp: { type: Date }, //optional if store as Date
     type: { type: String, default: "" },
     duration: { type: Number, default: 0 },
     vp: { type: String, default: "" },
     //start: { type: String, default: ""  },
-    start: { type: Date }, //optional if store as Date
+    start: { type: Date, required: false }, //optional if store as Date
     site: { type: String, default: "" },
     well: { type: String, default: "" },
 

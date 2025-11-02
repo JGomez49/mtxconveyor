@@ -2,11 +2,11 @@
 
 <%- include ('partials/header.ejs') %>
 
-    <div class="container bg-dark">
+    <div class="_container bg-dark">
 
-        <h2 class="pt-4">Upload Schedule</h2>
+        <h2 class="pt-4 m-4">Upload Schedule</h2>
 
-        <p class="mb-4">USER: <%= user.name %></p>
+        <p class="mb-4 m-4">USER: <%= user.name %></p>
         <!-- <pre><%= note %></pre> -->
 
         <div class="row m-4">
@@ -35,24 +35,36 @@
 
 
 
+            <div class="d-grid gap-2 mb-4">
+              <button id="uploadScheduleBtn" class="btn btn-success" type="button">
+                ⬆️ Upload Schedule
+              </button>
+            </div>
+
+
+
+
+
+
             <div class="accordion mb-4" id="accordionExample">
-              <div class="accordion-item _bg-dark border-0">
+              <div class="accordion-item bg-dark border-0">
                 <h2 class="accordion-header" id="headingOne">
                     <button class="accordion-button" type="button" data-bs-toggle="collapse" style="background-color: #1a1a1a; color: #ffffff;" 
-                            data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                    📋 Table
+                            data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                      📋 Table
                     </button>
                 </h2>
-                <div id="collapseOne" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
                     <div class="accordion-body">
-                    <table 
-                      id="csvTable" 
-                      class="table table-dark table-striped table-bordered">
-                    </table>
+                      <table 
+                        id="csvTable" 
+                        class="table table-dark table-striped table-bordered table-sm">
+                      </table>
                     </div>
                 </div>
               </div>
             </div> 
+
         </div> <!-- Class -->
     </div> <!-- Container -->
 
@@ -75,6 +87,7 @@
 
 
   <script>
+
     let chartInstances = [];
 
     function excelSerialToDate(serial) {
@@ -82,6 +95,9 @@
       const d = new Date(Math.round(utcMillis));
       return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     }
+
+
+
     function parseExcelDate(value) {
       if (value instanceof Date && !isNaN(value)) return value;
       if (typeof value === "number") return excelSerialToDate(value);
@@ -90,25 +106,79 @@
       return null;
     }
 
+
+
+
+    // Handle CSV file upload
     document.getElementById('csvFile').addEventListener('change', function(event) {
+
+      console.log("Parsing CSV file...");
+
+      // Get the selected file
       const file = event.target.files[0];
       if (!file) return;
 
+      // Parse CSV using PapaParse
       Papa.parse(file, {
+
         complete: function(results) {
-          let data = results.data;
-          data = data.filter(row => row.some(cell => cell.trim() !== ""));
 
-          const deleteCols = [1,2,3,4,5,6,7,8,9,11,12,14,15,
-                              18,19,20,21,22,23,26,27,28];
+          // console.log("Raw CSV data:", results.data);
+          // let data = results.data;
+          // let data2 = results.data;
+          let data3 = results.data;
 
-          // keep columns 0, 10, 13, 16, 17, 24, 25 (Rig(0), DP(1), Type(2), ___(3), VP(4), Start(5), Site(6), Well(7))
-          
-          data = data.map(row => row.filter((_, idx) => !deleteCols.includes(idx)));
+          // Clean data: remove empty rows
+          // data = data.filter(row => row.some(cell => cell.trim() !== ""));
+          // data2 = data2.filter(row => row.some(cell => cell.trim() !== ""));
+          data3 = data3.filter(row => row.some(cell => cell.trim() !== ""));
 
-          //console.log(data[3]);
+          // Remove unwanted columns
+          // const deleteCols =  [1,2,3,4,5,6,7,8,9,11,12,14,15,18,19,20,21,22,23,26,27,28];
+          // const deleteCols2 = [1,2,3,4,5,6,8,9,11,12,14,15,18,19,20,21,22,23,26,27,28];
+          const deleteCols3 = [1,2,3,4,5,8,9,11,12,14,15,18,19,20,21,22,23,26,27,28];
 
-          data = data.map((row, rIdx) => {
+          // console.log("Deleting columns:", deleteCols);
+          // data = data.map(row => row.filter((_, idx) => !deleteCols.includes(idx)));
+          // data2 = data2.map(row => row.filter((_, idx) => !deleteCols2.includes(idx)));
+          data3 = data3.map(row => row.filter((_, idx) => !deleteCols3.includes(idx)));
+
+          // // Insert Duration column at index 3
+          // data = data.map((row, rIdx) => {
+          //   if (rIdx === 0) {
+          //     row.splice(3, 0, "Duration");
+          //   } else {
+          //     let found = "";
+          //     for (let i = 3; i < row.length; i++) {
+          //       if (!isNaN(row[i]) && row[i].trim() !== "") {
+          //         found = parseFloat(row[i]);
+          //         break;
+          //       }
+          //     }
+          //     row.splice(3, 0, found || 0);
+          //   }
+          //   return row;
+          // });
+
+          // // Insert Duration column at index 3 for data2
+          // data2 = data2.map((row, rIdx) => {
+          //   if (rIdx === 0) {
+          //     row.splice(3, 0, "Duration");
+          //   } else {
+          //     let found = "";
+          //     for (let i = 3; i < row.length; i++) {
+          //       if (!isNaN(row[i]) && row[i].trim() !== "") {
+          //         found = parseFloat(row[i]);
+          //         break;
+          //       }
+          //     }
+          //     row.splice(3, 0, found || 0);
+          //   }
+          //   return row;
+          // });
+
+          // Insert Duration column at index 3 for data3
+          data3 = data3.map((row, rIdx) => {
             if (rIdx === 0) {
               row.splice(3, 0, "Duration");
             } else {
@@ -124,58 +194,229 @@
             return row;
           });
 
-          //console.log(data[3]);
+          // // Standardize rows
+          // data = data.map((row, rIdx) => {
+          //   if (rIdx === 0) return row;
+          //   const rig = row[0] ?? "";
+          //   const dp = row[1] ?? "";
+          //   const type = row[2] ?? "";
+          //   const duration = row[3] ?? 0;
+          //   const vp = row[4] ?? "";
+          //   const start = row[5] ?? "";
+          //   const site = row[6] ?? "";
+          //   const well = row[7] ?? "";
+          //   return [rig, dp, type, duration, vp, start, site, well];
+          // });
 
-          data = data.map((row, rIdx) => {
+          // // Standardize rows for data2
+          // data2 = data2.map((row, rIdx) => {
+          //   if (rIdx === 0) return row;
+          //   const rig = row[0] ?? "";
+          //   const drillok = row[1] ?? "";
+          //   const dp = row[2] ?? "";
+          //   const type = row[3] ?? "";
+          //   const duration = row[4] ?? 0;
+          //   const vp = row[5] ?? "";
+          //   const start = row[6] ?? "";
+          //   const site = row[7] ?? "";
+          //   const well = row[8] ?? "";
+          //   return [rig, drillok, dp, type, duration, vp, start, site, well];
+          // });
+
+          // Standardize rows for data3
+          data3 = data3.map((row, rIdx) => {
             if (rIdx === 0) return row;
+
+            // const rig = row[0] ?? "";
+            // const drillok = row[1] ?? "";
+            // const dp = row[2] ?? "";
+            // const type = row[3] ?? "";
+            // const duration = row[4] ?? 0;
+            // const vp = row[5] ?? "";
+            // const start = row[6] ?? "";
+            // const site = row[7] ?? "";
+            // const well = row[8] ?? "";
+            // return [rig, drillok, dp, type, duration, vp, start, site, well];
+
             const rig = row[0] ?? "";
-            const dp = row[1] ?? "";
-            const type = row[2] ?? "";
+            const drillok = row[1] ?? "";
+            const geook = row[2] ?? "";
             const duration = row[3] ?? 0;
-            const vp = row[4] ?? "";
-            const start = row[5] ?? "";
-            const site = row[6] ?? "";
-            const well = row[7] ?? "";
-            return [rig, dp, type, duration, vp, start, site, well];
+            const dp = row[4] ?? "";
+            const type = row[5] ?? "";
+            const vp = row[6] ?? "";
+            const start = row[7] ?? "";
+            const site = row[8] ?? "";
+            const well = row[9] ?? "";
+            return [rig, drillok, geook, duration, dp, type, vp, start, site, well];
           });
 
-          //console.log(data[2]);
-          data = data.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
+          // Keep every 3rd row starting from index 0 (header) and 3rd row onwards
+          // data = data.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
+          // data2 = data2.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
+          data3 = data3.filter((_, idx) => idx === 0 || (idx - 3) % 3 === 0);
 
-          //console.log(data); // Final cleaned data preview <-------------------------------------
 
-          // console.log("Uploading schedule to server...", data);
-          console.log("Uploading schedule to server");
+          // //
+          // // 🚀 Upload cleaned schedule to server
+          // fetch("/notes/uploadSchedule", {
+          //   method: "POST",
+          //   headers: { "Content-Type": "application/json" },
+          //   body: JSON.stringify({ data }),
+          // })
+          // .then(res => {
+          //   if (res.redirected) {
+          //     window.location.href = res.url; // Follow redirect
+          //   }
+          // })
+          // .catch(err => console.error("Upload error:", err));
+          // // 🚀 End upload
+          // //
 
-          // 🚀 Upload cleaned schedule to server
-          fetch("/notes/uploadSchedule", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data }),
-          })
-          .then(res => {
-            if (res.redirected) {
-              window.location.href = res.url; // Follow redirect
-            }
-          })
-          .catch(err => console.error("Upload error:", err));
-          // 🚀 End upload
 
-          let header = ["Rig", "DP", "Type", "Duration", "VP", "Start", "Site", "Well"];
-          let finalData = [header, ...data.slice(1)];
+          // let header = ["Rig", "DP", "Type", "Duration", "VP", "Start", "Site", "Well"];
+          // let finalData = [header, ...data.slice(1)];
 
-          renderTable(finalData);
-          renderGantts(finalData);
+          // let header2 = ["Rig", "DrillOK", "DP", "Type", "Duration", "VP", "Start", "Site", "Well"];
+          // let finalData2 = [header2, ...data2.slice(1)];
+
+          let header3 = ["Rig", "DrillOK", "GeoOK", "Duration", "DP", "Type", "VP", "Start", "Site", "Well"];
+          let finalData3 = [header3, ...data3.slice(1)];
+
+          console.log("Schedule processed.");
+          console.log("Sample row:", finalData3[25]);
+
+          //renderTable(finalData);
+          //renderTable(finalData2);
+          renderTable(finalData3);
+          //renderGantts(finalData2);
 
           // alert("Schedule processed and uploaded.");
         }
       });
     });
+    // End of CSV upload handler
 
 
 
 
 
+
+    /////////////////////// Handle Upload Schedule button click
+    //
+      document.getElementById("uploadScheduleBtn")?.addEventListener("click", async () => {
+        const table = document.getElementById("csvTable");
+        if (!table) {
+          alert("❌ Table not found!");
+          return;
+        }
+
+        // Extract headers
+        const headers = Array.from(table.querySelectorAll("th")).map(th => th.textContent.trim());
+        console.log("📋 Headers found:", headers);
+
+        // Identify Start column index
+        const drillokIdx = 1; // DrillOK column index
+        const geookIdx = 2; // GeoOK column index
+        const dpIdx = 4; // DP column index
+        const startIdx = 7; //Start column index
+
+        // Extract rows and clean dates
+        const rows = Array.from(table.querySelectorAll("tr")).map(tr => {
+
+          const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+
+          if (cells[startIdx]) {
+            const parsed = cleanAndConvertDate(cells[startIdx]);
+            cells[startIdx] = parsed  || ""; // Ensure valid format or empty
+          }
+
+          if(cells[drillokIdx] != '') { cells[drillokIdx] = "YES-Drill" }
+          if(cells[drillokIdx] == '') { cells[drillokIdx] = "NO-Drill" }
+
+          if(cells[geookIdx] != '') { cells[geookIdx] = "YES-Geo" }
+          if(cells[geookIdx] == '') { cells[geookIdx] = "NO-Geo" }
+          
+          if(cells[dpIdx] != '') { cells[dpIdx] = "YES-DP" }
+
+          return cells;
+        });
+
+        // Combine into one array (header + rows)
+        const data = [headers, ...rows];
+
+        console.log("📦 Ready to upload sample:", data.slice(25, 29));
+
+
+
+
+      //   ////// 🚀 Upload to server
+        try {
+          const res = await fetch("/notes/uploadSchedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data }),
+          });
+
+          if (res.ok) {
+            const msg = await res.text();
+            //console.log("✅ Upload success:", msg);
+            alert("✅ Schedule uploaded successfully!");
+          } else {
+            const errText = await res.text();
+            //console.error("❌ Upload failed:", errText);
+            alert("❌ Upload failed:\n" + errText);
+          }
+        } catch (err) {
+          //console.error("❌ Upload error:", err);
+          alert("❌ Upload error: " + err.message);
+        }
+      });
+
+
+
+      ////// ==============================
+      ////// 🔧 Helper: Date sanitizer
+      ////// ==============================
+      function cleanAndConvertDate(str) {
+        if (!str || str.trim() === "" || str.toLowerCase() === "null") return null;
+
+        // Format like "08-Jul-25"
+        const match = str.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})$/);
+        if (match) {
+          let [_, d, monStr, y] = match;
+          const months = {
+            jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+            jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+          };
+          const m = months[monStr.toLowerCase()];
+          const fullYear = y.length === 2 ? 2000 + parseInt(y) : parseInt(y);
+          const dateObj = new Date(fullYear, m, parseInt(d));
+          return !isNaN(dateObj) ? dateObj.toISOString().split("T")[0] : null; // "YYYY-MM-DD"
+        }
+
+        ////// Try native parse as fallback
+        const parsed = new Date(str);
+        if (!isNaN(parsed)) return parsed.toISOString().split("T")[0];
+
+        // Fallback → null
+        return null;
+      }
+    //
+    ////////////////////////// End of Upload Schedule button handler
+
+
+
+
+
+
+
+
+
+
+
+    //// Render Table
+    ////const start = parseExcelDate(data[i][6]);
     function renderTable(data) {
       const table = document.getElementById('csvTable');
       table.innerHTML = "";
@@ -193,291 +434,305 @@
 
 
 
-    // Render Gantt Charts
-    function renderGantts(data) {
-      chartInstances.forEach(c => c.destroy());
-      chartInstances = [];
-      const container = document.getElementById("chartContainer");
-      container.innerHTML = "";
+    // // Render Gantt Charts
+    // function renderGantts(data) {
+    //   chartInstances.forEach(c => c.destroy());
+    //   chartInstances = [];
+    //   const container = document.getElementById("chartContainer");
+    //   container.innerHTML = "";
 
-      // header = ["Rig", "DP", "Type", "Duration", "VP", "Start", "Site", "Well"];
-      // columns 0, 10, 13, 16, 17, 24, 25 (Rig(0), DP(1), Type(2), ___(3), VP(4), Start(5), Site(6), Well(7))
+    //   console.log("Rendering Gantt charts with data:");
+    //   // console.log(data);
 
-      // Group by VP and then by Rig
-      const vpMap = {};
-      for (let i = 1; i < data.length; i++) {
-        const rig = data[i][0];
-        const dp = data[i][1];
-        const type = data[i][2];
-        const duration = Number(data[i][3]);
-        const vp = data[i][4];
-        const start = parseExcelDate(data[i][5]);
-        const site = data[i][6];
-        const well = data[i][7];
-        if (!start) continue;
-        if (!vpMap[vp]) vpMap[vp] = {};
-        if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
-        vpMap[vp][rig].push({ dp, type, duration, vp, start, site, well });
-      }
+    //   // Group by VP and then by Rig
+    //   const vpMap = {};
+    //   for (let i = 1; i < data.length; i++) {
+    //     const rig = data[i][0];
+    //     const drillok = data[i][1];
+    //     const dp = data[i][2];
+    //     const type = data[i][3];
+    //     const duration = Number(data[i][4]);
+    //     const vp = data[i][5];
+    //     const start = parseExcelDate(data[i][6]);
+    //     const site = data[i][7];
+    //     const well = data[i][8];
+    //     if (!start) continue;
+    //     if (!vpMap[vp]) vpMap[vp] = {};
+    //     if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
+    //     vpMap[vp][rig].push({ drillok, dp, type, duration, vp, start, site, well });
+    //   }
 
-      // Get date boundaries
-      const today = new Date();
-      const twoMonthsLater = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate());
-      const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
-      const sixMonthsLater = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+    //   // Get date boundaries
+    //   const today = new Date();
+    //   const twoMonthsLater = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate());
+    //   const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+    //   const sixMonthsLater = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
 
-      // For each VP, create a chart
-      Object.keys(vpMap).forEach(vp => {
-        const datasets = [];
-        const colors = [];
-        const colorCounts = { blue: 0, red: 0, green: 0, yellow: 0 };
-        const rigs = Object.keys(vpMap[vp]);
+    //   // For each VP, create a chart
+    //   Object.keys(vpMap).forEach(vp => {
+    //     const datasets = [];
+    //     const colors = [];
+    //     const colorCounts = { blue: 0, red: 0, green: 0, yellow: 0 };
+    //     const rigs = Object.keys(vpMap[vp]);
 
+    //     // For each rig in this VP
+    //     rigs.forEach(rig => {
+    //       vpMap[vp][rig].forEach(siteObj => {
+    //         const end = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
+    //         const dpValue = siteObj.dp ? siteObj.dp.toString().trim() : "";
+    //         const isEmptyDP = !dpValue || dpValue === "***";
+    //         const type = siteObj.type;
+    //         const drillok = siteObj.drillok;
 
-        rigs.forEach(rig => {
-          vpMap[vp][rig].forEach(siteObj => {
-            const end = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
-            const dpValue = siteObj.dp ? siteObj.dp.toString().trim() : "";
-            const isEmptyDP = !dpValue || dpValue === "***";
-            const type = siteObj.type;
+    //         // console.log(`
+    //         //             Rig: ${rig}, 
+    //         //             VP: ${vp}, 
+    //         //             Start: ${siteObj.start.toLocaleDateString()}, 
+    //         //             Duration: ${siteObj.duration}, 
+    //         //             DP: ${dpValue}, 
+    //         //             Site: ${siteObj.site}, 
+    //         //             Well: ${siteObj.well}, 
+    //         //             type: ${siteObj.type},
+    //         //             drillok: ${siteObj.drillok},
+    //         //             `);
+    //         alert(`
+    //                     Rig: ${rig}, 
+    //                     VP: ${vp}, 
+    //                     Start: ${siteObj.start.toLocaleDateString()}, 
+    //                     Duration: ${siteObj.duration}, 
+    //                     DP: ${dpValue}, 
+    //                     Site: ${siteObj.site}, 
+    //                     Well: ${siteObj.well}, 
+    //                     type: ${siteObj.type},
+    //                     drillok: ${siteObj.drillok},
+    //                     `);
 
-            // console.log(`Rig: ${rig}, 
-            //             VP: ${vp}, 
-            //             Start: ${siteObj.start.toLocaleDateString()}, 
-            //             Duration: ${siteObj.duration}, 
-            //             DP: ${dpValue}, 
-            //             Site: ${siteObj.site}, 
-            //             Well: ${siteObj.well}, 
-            //             type: ${siteObj.type} `);
-
-            datasets.push({ 
-              y: rig, 
-              x: [siteObj.start, end], 
-              site: siteObj.site.substring(0,5),
-              details: {
-                Rig: rig,
-                VP: vp,
-                Start: siteObj.start.toLocaleDateString(),
-                Duration: siteObj.duration,
-                DP: dpValue,
-                type: siteObj.type,
-                Site: siteObj.site,
-                Well: siteObj.well
-              }
-            });
-
-
-            // Determine color based on DP and Type
-            if (!isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM")) {
-              colors.push("#0084c7"); // Blue
-              datasets[datasets.length - 1].flash = false;
-              colorCounts.blue++;
-            } else if (isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM" || type === "")) {
-              colors.push("#ff4c4c"); // Red
-              datasets[datasets.length - 1].flash = false;
-              colorCounts.red++;
-            } else if (type === "FINAL") {
-              colors.push("#4caf50"); // Green
-              datasets[datasets.length - 1].flash = false;
-              colorCounts.green++;
-            } else {
-              colors.push("#ffff00"); // Yellow fallback
-              datasets[datasets.length - 1].flash = false;
-              colorCounts.yellow++;
-            }
+    //         // Prepare dataset entry
+    //         datasets.push({ 
+    //           y: rig, 
+    //           x: [siteObj.start, end], 
+    //           site: siteObj.site.substring(0,5),
+    //           details: {
+    //             Rig: rig,
+    //             VP: vp,
+    //             Start: siteObj.start.toLocaleDateString(),
+    //             Duration: siteObj.duration,
+    //             DP: dpValue,
+    //             type: siteObj.type,
+    //             Site: siteObj.site,
+    //             Well: siteObj.well,
+    //             drillok: siteObj.drillok
+    //           }
+    //         });
 
 
+    //         // Determine color based on DP and Type
+    //         if (!isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM")) {
+    //           colors.push("#0084c7"); // Blue
+    //           datasets[datasets.length - 1].flash = false;
+    //           colorCounts.blue++;
+    //         } else if ((isEmptyDP) && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM" || type === "")) {
+    //           colors.push("#ff4c4c"); // Red
+    //           datasets[datasets.length - 1].flash = false;
+    //           colorCounts.red++;
+    //         } else if (type === "FINAL") {
+    //           colors.push("#4caf50"); // Green
+    //           datasets[datasets.length - 1].flash = false;
+    //           colorCounts.green++;
+    //         } else {
+    //           colors.push("#ffff00"); // Yellow fallback
+    //           datasets[datasets.length - 1].flash = false;
+    //           colorCounts.yellow++;
+    //         }
+    //       });
+    //     });
 
-          });
-        });
+    //     // Date boundaries
+    //     const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+    //     const maxDate = sixMonthsLater;
 
-        // Date boundaries
-        const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-        const maxDate = sixMonthsLater;
+    //     // Create container for each VP
+    //     const title = document.createElement("h3");
+    //     title.textContent = `VP: ${vp}`;
+    //     container.appendChild(title);
 
-        // Create container for each VP
-        const title = document.createElement("h3");
-        title.textContent = `VP: ${vp}`;
-        container.appendChild(title);
+    //     // Create canvas
+    //     const canvas = document.createElement("canvas");
+    //     canvas.height = Math.max(200, rigs.length * 40);
+    //     container.appendChild(canvas);
 
+    //     // Calculate total bars
+    //       const totalBars = colorCounts.blue + colorCounts.red + colorCounts.green + colorCounts.yellow;
 
-        // Create canvas
-        const canvas = document.createElement("canvas");
-        canvas.height = Math.max(200, rigs.length * 40);
-        container.appendChild(canvas);
+    //     // Create summary table
+    //       const summaryTable = document.createElement("table");
+    //       summaryTable.className = "table table-dark table-sm table-bordered mt-2";
+    //       summaryTable.innerHTML = `
+    //         <thead>
+    //           <tr>
+    //             <th style="background-color:#0084c7">Done</th>
+    //             <th style="background-color:#ff4c4c">In-Progress</th>
+    //             <th style="background-color:#4caf50">Sent</th>
+    //             <th style="color: #1a1a1a; background-color:#ffff00">Need Info.</th>
+    //             <th>Total</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           <tr>
+    //             <td>${colorCounts.blue}</td>
+    //             <td>${colorCounts.red}</td>
+    //             <td>${colorCounts.green}</td>
+    //             <td>${colorCounts.yellow}</td>
+    //             <td><b>${totalBars}</b></td>
+    //           </tr>
+    //         </tbody>
+    //       `;
+    //       container.appendChild(summaryTable);
 
-        // Calculate total bars
-          const totalBars = colorCounts.blue + colorCounts.red + colorCounts.green + colorCounts.yellow;
+    //       // Create pie chart canvas (smaller size)
+    //       const pieCanvas = document.createElement("canvas");
+    //       pieCanvas.style.maxWidth = "300px";   // shrink width
+    //       pieCanvas.style.maxHeight = "300px";  // shrink height
+    //       pieCanvas.className = "mb-4";         // spacing
+    //       container.appendChild(pieCanvas);
 
-          // Create summary table
-          const summaryTable = document.createElement("table");
-          summaryTable.className = "table table-dark table-sm table-bordered mt-2";
-          summaryTable.innerHTML = `
-            <thead>
-              <tr>
-                <th style="background-color:#0084c7">Done</th>
-                <th style="background-color:#ff4c4c">In-Progress</th>
-                <th style="background-color:#4caf50">Sent</th>
-                <th style="color: #1a1a1a; background-color:#ffff00">Need Info.</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${colorCounts.blue}</td>
-                <td>${colorCounts.red}</td>
-                <td>${colorCounts.green}</td>
-                <td>${colorCounts.yellow}</td>
-                <td><b>${totalBars}</b></td>
-              </tr>
-            </tbody>
-          `;
-          container.appendChild(summaryTable);
+    //       // Build pie chart
+    //       new Chart(pieCanvas.getContext("2d"), {
+    //         type: "pie",
+    //         data: {
+    //           // labels: ["Blue", "Red", "Green", "Yellow"],
+    //           labels: ["Done", "In-progress", "Sent", "Need Info."],
+    //           datasets: [{
+    //             data: [
+    //               colorCounts.blue,
+    //               colorCounts.red,
+    //               colorCounts.green,
+    //               colorCounts.yellow
+    //             ],
+    //             backgroundColor: ["#0084c7", "#ff4c4c", "#4caf50", "#ffff00"],
+    //             borderColor: "#222",
+    //             borderWidth: 1
+    //           }]
+    //         },
+    //         options: {
+    //           plugins: {
+    //             legend: {
+    //               position: "bottom",
+    //               labels: { color: "#fff" },
+    //             },
+    //             datalabels: {
+    //               color: "#000",
+    //               font: { weight: "bold" },
+    //               formatter: (value, ctx) => {
+    //                 let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+    //                 let percentage = total > 0 ? (value / total * 100).toFixed(1) + "%" : "0%";
+    //                 return percentage;
+    //               }
+    //             }
+    //           }
+    //         },
+    //         plugins: [ChartDataLabels]
+    //       });
 
-          // Create pie chart canvas (smaller size)
-          const pieCanvas = document.createElement("canvas");
-          pieCanvas.style.maxWidth = "300px";   // shrink width
-          pieCanvas.style.maxHeight = "300px";  // shrink height
-          pieCanvas.className = "mb-4";         // spacing
-          container.appendChild(pieCanvas);
-
-          // Build pie chart
-          new Chart(pieCanvas.getContext("2d"), {
-            type: "pie",
-            data: {
-              // labels: ["Blue", "Red", "Green", "Yellow"],
-              labels: ["Done", "In-progress", "Sent", "Need Info."],
-              datasets: [{
-                data: [
-                  colorCounts.blue,
-                  colorCounts.red,
-                  colorCounts.green,
-                  colorCounts.yellow
-                ],
-                backgroundColor: ["#0084c7", "#ff4c4c", "#4caf50", "#ffff00"],
-                borderColor: "#222",
-                borderWidth: 1
-              }]
-            },
-            options: {
-              plugins: {
-                legend: {
-                  position: "bottom",
-                  labels: { color: "#fff" },
-                },
-                datalabels: {
-                  color: "#000",
-                  font: { weight: "bold" },
-                  formatter: (value, ctx) => {
-                    let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                    let percentage = total > 0 ? (value / total * 100).toFixed(1) + "%" : "0%";
-                    return percentage;
-                  }
-                }
-              }
-            },
-            plugins: [ChartDataLabels]
-          });
-
-
-        // Create Chart
-        const ctx = canvas.getContext("2d");
-        const chart = new Chart(ctx, {
-          type: "bar",
-          data: {
-            datasets: [{
-              label: "Schedule",
-              data: datasets,
-              backgroundColor: colors,   // <-- per-bar colors
-              borderRadius: 6,
-              borderSkipped: false,
-              borderColor: "#000000",
-              borderWidth: 1,
-              parsing: { xAxisKey: "x", yAxisKey: "y" }
-            }]
-          },
-          options: {
-            indexAxis: "y",
-            responsive: false,
-            maintainAspectRatio: false,
-            scales: {
-              x: {
-                type: "time",
-                time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM" } },
-                min: minDate,
-                max: maxDate,
-                ticks: { color: "#ccc" },
-                grid: { color: "#333" }
-              },
-              y: {
-                type: "category",
-                labels: rigs,
-                ticks: { color: "#ccc", font: { weight: "bold" } },
-                grid: { color: "#333" }
-              }
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => {
-                    const d = ctx.raw.details;
-                    return [
-                      `Rig: ${d.Rig}`,
-                      `VP: ${d.VP}`,
-                      `Start: ${d.Start}`,
-                      `Duration: ${d.Duration} days`,
-                      `DP: ${d.DP}`,
-                      `Site: ${d.Site}`,
-                      `Well: ${d.Well}`,
-                      `Type: ${d.type}`
-                    ];
-                  }
-                }
-              },
-              datalabels: {
-                anchor: "center",
-                align: "center",
-                color: "#000",
-                backgroundColor: "rgba(255,255,255,0)",
-                borderRadius: 4,
-                padding: 2,
-                font: { weight: "bold" },
-                formatter: (value) => value.site
-              },
-              annotation: {
-                annotations: {
-                  futureBox: {
-                    type: "box",
-                    xMin: twoMonthsLater,
-                    xMax: threeMonthsLater,
-                    backgroundColor: "rgba(255,0,0,0.15)",
-                    borderWidth: 0.5,
-                    borderColor: "red",
-                  },
-                  todayLine: {
-                    type: "line",
-                    xMin: today, xMax: today,
-                    borderColor: "red", borderWidth: 2,
-                    label: { enabled: true, content: "Today", position: "start", color: "red" }
-                  }
-                }
-              },
-              zoom: {
-                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
-                pan: { enabled: true, mode: "x" },
-                limits: { x: { min: minDate, max: maxDate } }
-              }
-            },
-            barThickness: 18,
-            animation: true,
-            hover: { mode: null}
-          },
-          plugins: [ChartDataLabels]
-        });
-        chartInstances.push(chart);
-      });
-    }
+    //     // Create Chart
+    //     const ctx = canvas.getContext("2d");
+    //     const chart = new Chart(ctx, {
+    //       type: "bar",
+    //       data: {
+    //         datasets: [{
+    //           label: "Schedule",
+    //           data: datasets,
+    //           backgroundColor: colors,   // <-- per-bar colors
+    //           borderRadius: 6,
+    //           borderSkipped: false,
+    //           borderColor: "#000000",
+    //           borderWidth: 1,
+    //           parsing: { xAxisKey: "x", yAxisKey: "y" }
+    //         }]
+    //       },
+    //       options: {
+    //         indexAxis: "y",
+    //         responsive: false,
+    //         maintainAspectRatio: false,
+    //         scales: {
+    //           x: {
+    //             type: "time",
+    //             time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM" } },
+    //             min: minDate,
+    //             max: maxDate,
+    //             ticks: { color: "#ccc" },
+    //             grid: { color: "#333" }
+    //           },
+    //           y: {
+    //             type: "category",
+    //             labels: rigs,
+    //             ticks: { color: "#ccc", font: { weight: "bold" } },
+    //             grid: { color: "#333" }
+    //           }
+    //         },
+    //         plugins: {
+    //           legend: { display: false },
+    //           tooltip: {
+    //             callbacks: {
+    //               label: (ctx) => {
+    //                 const d = ctx.raw.details;
+    //                 return [
+    //                   `Rig: ${d.Rig}`,
+    //                   `VP: ${d.VP}`,
+    //                   `Start: ${d.Start}`,
+    //                   `Duration: ${d.Duration} days`,
+    //                   `DP: ${d.DP}`,
+    //                   `Site: ${d.Site}`,
+    //                   `Well: ${d.Well}`,
+    //                   `Type: ${d.type}`,
+    //                   `DrillOK: ${d.drillok}`
+    //                 ];
+    //               }
+    //             }
+    //           },
+    //           datalabels: {
+    //             anchor: "center",
+    //             align: "center",
+    //             color: "#000",
+    //             backgroundColor: "rgba(255,255,255,0)",
+    //             borderRadius: 4,
+    //             padding: 2,
+    //             font: { weight: "bold" },
+    //             formatter: (value) => value.site
+    //           },
+    //           annotation: {
+    //             annotations: {
+    //               futureBox: {
+    //                 type: "box",
+    //                 xMin: twoMonthsLater,
+    //                 xMax: threeMonthsLater,
+    //                 backgroundColor: "rgba(255,0,0,0.15)",
+    //                 borderWidth: 0.5,
+    //                 borderColor: "red",
+    //               },
+    //               todayLine: {
+    //                 type: "line",
+    //                 xMin: today, xMax: today,
+    //                 borderColor: "red", borderWidth: 2,
+    //                 label: { enabled: true, content: "Today", position: "start", color: "red" }
+    //               }
+    //             }
+    //           },
+    //           zoom: {
+    //             zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
+    //             pan: { enabled: true, mode: "x" },
+    //             limits: { x: { min: minDate, max: maxDate } }
+    //           }
+    //         },
+    //         barThickness: 18,
+    //         animation: true,
+    //         hover: { mode: null}
+    //       },
+    //       plugins: [ChartDataLabels]
+    //     });
+    //     chartInstances.push(chart);
+    //   });
+    // }
 
 
 

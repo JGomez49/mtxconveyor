@@ -872,6 +872,8 @@
                                                 <thead>
                                                     <tr>
                                                         <th>Rig</th>
+                                                        <th>DrillOK</th>
+                                                        <th>GeoOK</th>
                                                         <th>DP</th>
                                                         <th>Type</th>
                                                         <th>Duration</th>
@@ -884,14 +886,16 @@
                                                 <tbody>
                                                     <% schedule.forEach(item => { %>
                                                         <tr>
-                                                        <td><%= item.rig %></td>
-                                                        <td><%= item.dp %></td>
-                                                        <td><%= item.type %></td>
-                                                        <td><%= item.duration %></td>
-                                                        <td><%= item.vp %></td>
-                                                        <td><%= item.start %></td>
-                                                        <td><%= item.site %></td>
-                                                        <td><%= item.well %></td>
+                                                            <td><%= item.rig %></td>
+                                                            <td><%= item.drillok %></td>
+                                                            <td><%= item.geook %></td>
+                                                            <td><%= item.dp %></td>
+                                                            <td><%= item.type %></td>
+                                                            <td><%= item.duration %></td>
+                                                            <td><%= item.vp %></td>
+                                                            <td><%= item.start %></td>
+                                                            <td><%= item.site %></td>
+                                                            <td><%= item.well %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -936,29 +940,31 @@
 
     function renderChartsFromTable() {
 
-        appendNoteIds() // Note IDs are added
+        // appendNoteIds() // Note IDs are added
 
         document.getElementById("scheduleUpdateText").innerText = "Updated on: <%= schedule.length > 0 ? schedule[1].uploadedDate : 'N/A' %>";
 
         const table = document.getElementById("csvTable");
         const rows = Array.from(table.querySelectorAll("tbody tr"));
-
         const vpMap = {};
+
         rows.forEach(row => {
             const cells = row.querySelectorAll("td");
             const rig = cells[0]?.innerText.trim();
-            const dp = cells[1]?.innerText.trim();
-            const type = cells[2]?.innerText.trim();
-            const duration = Number(cells[3]?.innerText.trim() || 0);
-            const vp = cells[4]?.innerText.trim();
-            const start = parseDate(cells[5]?.innerText.trim());
-            const site = cells[6]?.innerText.trim();
-            const well = cells[7]?.innerText.trim();
+            const drillok = cells[1]?.innerText.trim();
+            const geook = cells[2]?.innerText.trim();
+            const dp = cells[3]?.innerText.trim();
+            const type = cells[4]?.innerText.trim();
+            const duration = Number(cells[5]?.innerText.trim() || 0);
+            const vp = cells[6]?.innerText.trim();
+            const start = parseDate(cells[7]?.innerText.trim());
+            const site = cells[8]?.innerText.trim();
+            const well = cells[9]?.innerText.trim();
 
             if (!start) return;
             if (!vpMap[vp]) vpMap[vp] = {};
             if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
-            vpMap[vp][rig].push({ rig, dp, type, duration, vp, start, site, well });
+            vpMap[vp][rig].push({ rig, drillok, geook, dp, type, duration, vp, start, site, well });
         });
 
         const today = new Date();
@@ -966,238 +972,431 @@
         const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
         const fourMonthsLater = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
         const sixMonthsLater = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+        const nineMonthsLater = new Date(today.getFullYear(), today.getMonth() + 9, today.getDate());
         const oneYearLater = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
 
         const chartDiv = document.getElementById("chartDiv");
         chartDiv.innerHTML = "";
 
+
         Object.keys(vpMap).forEach(vp => {
-        const rigs = Object.keys(vpMap[vp]);
-        const datasets = [];
-        const colors = [];
-        const colorCounts = { blue: 0, red: 0, green: 0, yellow: 0 };
 
-        rigs.forEach(rig => {
-            vpMap[vp][rig].forEach(siteObj => {
-            const end = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
-            const dpValue = siteObj.dp || "";
-            const isEmptyDP = !dpValue || dpValue === "***";
-            const type = siteObj.type;
+            const rigs = Object.keys(vpMap[vp]);
+            const datasets = [];
+            const colors = [];
+            const colorCounts = { 
+                blue: 0, 
+                red: 0, 
+                green: 0, 
+                yellow: 0,
+                lightblue: 0,
+                lightgreen: 0,
+                darkblue: 0,
+                purple: 0,
+            };
+            // Define date window for statistics (1 year from today)
+                const today = new Date();
+                const oneYearLater = new Date(today);
+                oneYearLater.setFullYear(today.getFullYear() + 1);
 
-            datasets.push({
-                y: rig,
-                x: [siteObj.start, end],
-                site: siteObj.site.substring(0, 5),
-                details: {
-                Rig: rig,
-                VP: vp,
-                Start: siteObj.start.toLocaleDateString(),
-                Duration: siteObj.duration,
-                DP: dpValue,
-                Site: siteObj.site,
-                Well: siteObj.well,
-                type: type,
-                }
+            rigs.forEach(rig => {
+
+                vpMap[vp][rig].forEach(siteObj => {
+
+                    const start = new Date(siteObj.start);
+                    if (isNaN(start)) return; // skip invalid dates
+                    const end = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
+                    const dpValue = siteObj.dp || "";
+                    const isEmptyDP = !dpValue || dpValue == "";
+                    const type = siteObj.type;
+                    const drillok = siteObj.drillok;
+                    const geook = siteObj.geook;
+                    const rig = siteObj.rig;
+
+                    datasets.push({
+                        y: rig,
+                        x: [siteObj.start, end],
+                        site: siteObj.site.substring(0, 5),
+                        details: {
+                            Rig: rig,
+                            drillok: siteObj.drillok,
+                            geook: siteObj.geook,
+                            VP: vp,
+                            Start: siteObj.start.toLocaleDateString(),
+                            Duration: siteObj.duration,
+                            DP: dpValue,
+                            Site: siteObj.site,
+                            Well: siteObj.well,
+                            type: type,
+                        }
+                    });
+
+                    const rigToAvoid = ["PRECISION 183", "PRECISION183", "PD183", "PD 183"];
+
+
+                    // Old color logic
+
+                    // if (!isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM")) {
+                    //     colors.push("#0084c7"); // Blue
+                    //     colorCounts.blue++;
+                    // } else if (isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM" || type === "")) {
+                    //     colors.push("#ff4c4c"); // Red
+                    //     colorCounts.red++;
+                    // } else if (type === "FINAL") {
+                    //     colors.push("#4caf50"); // Green
+                    //     colorCounts.green++;
+                    // } else {
+                    //     colors.push("#ffff00"); // Yellow fallback
+                    //     colorCounts.yellow++;
+                    // }
+
+
+                    // New color logic. Determine color based on DP and Type
+                    // New detailed logic for PRELIM with DrillOK and GeoOK
+
+                    // Blue: "#0084c7"
+                    // lightBlue: "#1AC2DF"
+                    // DarkBlue: "#005f87"
+                    // Green: "#4caf50"
+                    // LightGreen: "#7EB084"
+                    // DarkGreen: "#356635"
+                    // Red: "#ff4c4c"
+                    // Yellow: "#ffff00"
+                    // purple: "#B11FDF"
+
+                    if(type == "FINAL") {
+                        colors.push("#4caf50"); // Green
+                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                            colorCounts.green++;
+                        }
+                    } 
+                    
+                    else if (type == "PRELIM-IR" || type == "") {
+                        colors.push("#ffff00"); // Yellow
+                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                            colorCounts.yellow++;
+                        }
+                    } 
+                    
+                    else if (isEmptyDP || dpValue == "NO" || dpValue == "NO-DP" || dpValue == "") {
+                        colors.push("#ff4c4c"); // Red
+                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                            colorCounts.red++;
+                        }
+                    }
+
+                    else if ((!isEmptyDP || dpValue == "YES" || dpValue == "YES-DP") && (type == "PRELIM")) {
+
+                        if(drillok == "YES-Drill" && geook == "YES-Geo") {
+                            colors.push("#0084c7"); // Blue
+                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                                colorCounts.blue++;
+                            }
+                        }
+                        else if(drillok == "NO-Drill" && geook == "YES-Geo") {
+                            colors.push("#7EB084"); // LightGreen
+                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                                colorCounts.lightgreen++;
+                            }
+                        }
+                        else if(drillok == "YES-Drill" && geook == "NO-Geo") {
+                            colors.push("#0084c7"); // Blue 
+                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                                colorCounts.blue++;
+                            }
+                        }
+                        else if(drillok == "NO-Drill" && geook == "NO-Geo") {
+                            colors.push("#1AC2DF"); // lightBlue
+                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                                colorCounts.lightblue++;
+                            }
+                        }
+
+                        else {
+                            colors.push("#0084c7"); // Blue fallback
+                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                                colorCounts.blue++;
+                            }
+                        }
+                    } 
+                    
+                    else {
+                        colors.push("#B11FDF"); // Purple fallback
+                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
+                            colorCounts.purple++;
+                        }
+                    }
+
+                });
             });
 
-            if (!isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM")) {
-                colors.push("#0084c7"); // Blue
-                colorCounts.blue++;
-            } else if (isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM" || type === "")) {
-                colors.push("#ff4c4c"); // Red
-                colorCounts.red++;
-            } else if (type === "FINAL") {
-                colors.push("#4caf50"); // Green
-                colorCounts.green++;
-            } else {
-                colors.push("#ffff00"); // Yellow fallback
-                colorCounts.yellow++;
-            }
-            });
-        });
 
-        // VP title
-        const title = document.createElement("h3");
-        title.textContent = `VP: ${vp}`;
-        title.style.color = "white";
-        chartDiv.appendChild(title);
+            // -------------------------
+            // 📊 Gantt Chart
+            // VP title
+            const title = document.createElement("h3");
+            title.textContent = `VP: ${vp}`;
+            title.style.color = "white";
+            chartDiv.appendChild(title);
 
-        // Date boundaries
-        const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-        const maxDate = oneYearLater;
+            // Date boundaries
+            const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+            const maxDate = oneYearLater;
 
-        // Canvas for Gantt
-        const canvas = document.createElement("canvas");
-        canvas.height = Math.max(200, rigs.length * 40);
-        chartDiv.appendChild(canvas);
+            // Canvas for Gantt
+            const canvas = document.createElement("canvas");
+            canvas.height = Math.max(200, rigs.length * 40);
+            chartDiv.appendChild(canvas);
 
-        const ctx = canvas.getContext("2d");
-        const chart = new Chart(ctx, {
-            type: "bar",
-            data: {
-            datasets: [{
-                label: "Schedule",
-                data: datasets,
-                backgroundColor: colors,
-                borderRadius: 6,
-                borderSkipped: false,
-                borderColor: "#000",
-                borderWidth: 1,
-                parsing: { xAxisKey: "x", yAxisKey: "y" }
-            }]
-            },
-            options: {
-            indexAxis: "y",
-            responsive: false,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                type: "time",
-                time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM" } },
-                min: today,
-                max: oneYearLater,
-                ticks: { color: "#ccc" },
-                grid: { color: "#333" }
+            const ctx = canvas.getContext("2d");
+            const chart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    datasets: [{
+                        label: "Schedule",
+                        data: datasets,
+                        backgroundColor: colors,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        borderColor: "#000",
+                        borderWidth: 1,
+                        parsing: { xAxisKey: "x", yAxisKey: "y" }
+                    }]
                 },
-                y: {
-                type: "category",
-                labels: rigs,
-                ticks: { color: "#ccc", font: { weight: "bold" } },
-                grid: { color: "#333" }
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => {
-                        const d = ctx.raw.details;
-                        return [
-                            `Rig: ${d.Rig}`,
-                            `VP: ${d.VP}`,
-                            `Start: ${d.Start}`,
-                            `Duration: ${d.Duration} days`,
-                            `DP: ${d.DP}`,
-                            `Site: ${d.Site}`,
-                            `Well: ${d.Well}`,
-                            `Type: ${d.type}`,
-                        ];
+                options: {
+                    indexAxis: "y",
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: "time",
+                            time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
+                            min: today,
+                            max: oneYearLater,
+                            ticks: { color: "#ccc" },
+                            grid: { color: "#333" }
+                        },
+                        y: {
+                            type: "category",
+                            labels: rigs,
+                            ticks: { color: "#ccc", font: { weight: "bold" } },
+                            grid: { color: "#333" }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                const d = ctx.raw.details;
+                                return [
+                                    `Rig: ${d.Rig}`,
+                                    `VP: ${d.VP}`,
+                                    `Start: ${d.Start}`,
+                                    `Duration: ${d.Duration} days`,
+                                    `DP: ${d.DP}`,
+                                    `Site: ${d.Site}`,
+                                    `Well: ${d.Well}`,
+                                    `Type: ${d.type}`,
+                                    `DrillOK: ${d.drillok}`,
+                                    `GeoOK: ${d.geook}`
+                                ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: "center",
+                            align: "center",
+                            color: "#000",
+                            font: { weight: "bold" },
+                            formatter: (value) => value.site
+                        },
+                        annotation: {
+                            annotations: {
+                                ExeZonefutureBox: {
+                                    type: "box",
+                                    xMin: today,
+                                    xMax: threeMonthsLater,
+                                    backgroundColor: "rgba(255, 0, 0, 0.15)",
+                                    borderWidth: 0.5,
+                                    borderColor: "red"
+                                },
+                                handOverFutureBox: {
+                                    type: "box",
+                                    xMin: threeMonthsLater,
+                                    xMax: fourMonthsLater,
+                                    backgroundColor: "rgba(237, 255, 4, 0.15)",
+                                    borderWidth: 0,
+                                    borderColor: "yellow"
+                                },
+                                approvalsFutureBox: {
+                                    type: "box",
+                                    xMin: fourMonthsLater,
+                                    xMax: sixMonthsLater,
+                                    backgroundColor: "rgba(45, 147, 50, 0.15)",
+                                    borderWidth: 0.5,
+                                    borderColor: "green"
+                                },
+                                todayLine: {
+                                    type: "line",
+                                    xMin: today,
+                                    xMax: today,
+                                    borderColor: "red",
+                                    borderWidth: 2,
+                                    label: { enabled: true, content: "Today", position: "start", color: "red" }
+                                },
+                                OneYearLaterLine: {
+                                    type: "line",
+                                    xMin: oneYearLater,
+                                    xMax: oneYearLater,
+                                    borderColor: "Yellow",
+                                    borderWidth: 2,
+                                    label: { enabled: true, content: "One Year", position: "oneYearLater", color: "yellow" }
+                                }
+                            }
+                        },
+                        zoom: {
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
+                            pan: { enabled: true, mode: "x" },
+                            limits: { x: { min: minDate, max: maxDate } }
+                        }
+                    },
+                    barThickness: 18,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const elementIndex = elements[0].index;
+                            const datasetIndex = elements[0].datasetIndex;
+                            const clickedBar = chart.data.datasets[datasetIndex].data[elementIndex];
+                            if (clickedBar && clickedBar.details) {
+                                let project = clickedBar.details.Site.slice(0,14);
+                                window.location.href = `/notes/findSite/${encodeURIComponent(project)}`;
+                            }
                         }
                     }
                 },
-                datalabels: {
-                anchor: "center",
-                align: "center",
-                color: "#000",
-                font: { weight: "bold" },
-                formatter: (value) => value.site
+                plugins: [ChartDataLabels]
+            });
+
+            chartInstances.push(chart);
+
+
+
+            // -------------------------
+            // 📊 Summary Table + Pie
+            // -------------------------
+
+            const totalBars = 
+                colorCounts.blue +
+                colorCounts.lightblue + 
+                colorCounts.darkblue + 
+                colorCounts.red + 
+                colorCounts.green + 
+                colorCounts.lightgreen + 
+                colorCounts.yellow + 
+                colorCounts.purple;
+
+            // Summary Table
+
+                // blue:        "#0084c7" :        DP-YES + DrillOK-YES + GeoOK-YES      ---> DP/DRILL/GEO
+                // lightBlue:   "#1AC2DF" :        DP-YES + DrillOK-NO + GeoOK-NO        ---> DP
+                // darkBlue:    "#005f87" :        DP-YES + DrillOK-YES + GeoOK-NO       ---> DP/DRILL 
+                // lightGreen:  "#7EB084" :        DP-YES + DrillOK-NO + GeoOK-YES       ---> DP/GEO
+                // green:       "#4caf50" :        FINAL                                 ---> SENT
+                // red:         "#ff4c4c" :        DP-NO                                 ---> IN-PROGRESS
+                // yellow:      "#ffff00" :        PRELIM-IR or empty type               ---> NEED INFO
+                // purple:      "#B11FDF" :        others                                ---> OTHERS
+
+            const summaryTable = document.createElement("table");
+            summaryTable.className = "table table-dark table-sm table-bordered mt-2";
+            summaryTable.innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="color:#020202; background-color:#0084c7"> DRILL:YES / GEO:YES </th>
+                        <th style="color:#020202; background-color:#1AC2DF"> DRILL:NO / GEO:NO </th>
+                        <th style="color:#020202; background-color:#005f87"> DRILL:YES / GEO:NO </th>
+                        <th style="color:#020202; background-color:#7EB084"> DRILL:NO / GEO:YES </th>
+                        <th style="color:#020202; background-color:#4caf50"> SENT </th>
+                        <th style="color:#020202; background-color:#ff4c4c"> IN-PROGRESS </th>
+                        <th style="color:#020202; background-color:#ffff00"> NEED INFO </th>
+                        <th style="color:#1a1a1a; background-color:#B11FDF"> OTHERS </th>
+                        <th style="color:#FFFEFE; background-color:#1a1a1a"> TOTAL </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${colorCounts.blue}</td>
+                        <td>${colorCounts.lightblue}</td>
+                        <td>${colorCounts.darkblue}</td>
+                        <td>${colorCounts.lightgreen}</td>
+                        <td>${colorCounts.green}</td>
+                        <td>${colorCounts.red}</td>
+                        <td>${colorCounts.yellow}</td>
+                        <td>${colorCounts.purple}</td>
+                        <td><b>${totalBars}</b></td>
+                    </tr>
+                </tbody>
+            `;
+            chartDiv.appendChild(summaryTable);
+
+
+            // blue:        "#0084c7" :        DP-YES + DrillOK-YES + GeoOK-YES      ---> DP/DRILL/GEO
+            // lightBlue:   "#1AC2DF" :        DP-YES + DrillOK-NO + GeoOK-NO        ---> DP
+            // darkBlue:    "#005f87" :        DP-YES + DrillOK-YES + GeoOK-NO       ---> DP/DRILL 
+            // lightGreen:  "#7EB084" :        DP-YES + DrillOK-NO + GeoOK-YES       ---> DP/GEO
+            // green:       "#4caf50" :        FINAL                                 ---> SENT
+            // red:         "#ff4c4c" :        DP-NO                                 ---> IN-PROGRESS
+            // yellow:      "#ffff00" :        PRELIM-IR or empty type               ---> NEED INFO
+            // purple:      "#B11FDF" :        others                                ---> OTHERS
+
+
+            // Pie Chart
+            const pieCanvas = document.createElement("canvas");
+            pieCanvas.style.maxWidth = "400px";
+            pieCanvas.style.maxHeight = "400px";
+            pieCanvas.className = "mb-2";
+            chartDiv.appendChild(pieCanvas);
+
+            new Chart(pieCanvas.getContext("2d"), {
+                type: "pie",
+                data: {
+                    // labels: ["DP/YES-DRILL/YES-GEO", "DP/NO-DRILL/NO-GEO", "DP/YES-DRILL/NO-GEO", "DP/NO-DRILL/YES-GEO", "SENT", "IN-PROGRESS", "NEED INFO", "OTHERS"],
+                    datasets: [{
+                        data: [
+                            colorCounts.blue, 
+                            colorCounts.lightblue, 
+                            colorCounts.darkblue, 
+                            colorCounts.lightgreen, 
+                            colorCounts.green, 
+                            colorCounts.red, 
+                            colorCounts.yellow, 
+                            colorCounts.purple,
+                        ],
+                        backgroundColor: ["#0084c7", "#1AC2DF", "#005f87", "#7EB084", "#4caf50", "#ff4c4c", "#ffff00", "#B11FDF"],
+                        borderColor: "#222",
+                        borderWidth: 1
+                    }]
                 },
-                annotation: {
-                annotations: {
-                    futureBox: {
-                    type: "box",
-                    xMin: threeMonthsLater,
-                    xMax: fourMonthsLater,
-                    backgroundColor: "rgba(255,0,0,0.15)",
-                    borderWidth: 0.5,
-                    borderColor: "red"
-                    },
-                    todayLine: {
-                    type: "line",
-                    xMin: today,
-                    xMax: today,
-                    borderColor: "red",
-                    borderWidth: 2,
-                    label: { enabled: true, content: "Today", position: "start", color: "red" }
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '1 Year Schedule Stastistics',
+                            color: "#fff",
+                            font: { size: 18, weight: "bold" }
+                        },
+                        legend: { position: "bottom", labels: { color: "#fff" } },
+                        datalabels: {
+                            color: "#000",
+                            font: { weight: "bold" },
+                            formatter: (value, ctx) => {
+                                let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                return total > 0 ? (value / total * 100).toFixed(1) + "%" : "0%";
+                            }
+                        }
                     }
-                }
                 },
-                zoom: {
-                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
-                    pan: { enabled: true, mode: "x" },
-                    limits: { x: { min: minDate, max: maxDate } }
-                }
-            },
-            barThickness: 18,
-            onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const elementIndex = elements[0].index;
-                    const datasetIndex = elements[0].datasetIndex;
-                    const clickedBar = chart.data.datasets[datasetIndex].data[elementIndex];
-                    if (clickedBar && clickedBar.details) {
-                        let project = clickedBar.details.Site.slice(0,14);
-                        window.location.href = `/notes/findSite/${encodeURIComponent(project)}`;
-                    }
-                }
-            }
-            },
-            plugins: [ChartDataLabels]
-        });
-
-        chartInstances.push(chart);
-
-        // -------------------------
-        // 📊 Summary Table + Pie
-        // -------------------------
-        const totalBars = colorCounts.blue + colorCounts.red + colorCounts.green + colorCounts.yellow;
-
-        const summaryTable = document.createElement("table");
-        summaryTable.className = "table table-dark table-sm table-bordered mt-2";
-        summaryTable.innerHTML = `
-            <thead>
-            <tr>
-                <th style="background-color:#0084c7">Done</th>
-                <th style="background-color:#ff4c4c">In-Progress</th>
-                <th style="background-color:#4caf50">Sent</th>
-                <th style="color:#1a1a1a; background-color:#ffff00">Need Info.</th>
-                <th>Total</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr>
-                <td>${colorCounts.blue}</td>
-                <td>${colorCounts.red}</td>
-                <td>${colorCounts.green}</td>
-                <td>${colorCounts.yellow}</td>
-                <td><b>${totalBars}</b></td>
-            </tr>
-            </tbody>
-        `;
-        chartDiv.appendChild(summaryTable);
-
-        // Pie Chart
-        const pieCanvas = document.createElement("canvas");
-        pieCanvas.style.maxWidth = "300px";
-        pieCanvas.style.maxHeight = "300px";
-        pieCanvas.className = "mb-4";
-        chartDiv.appendChild(pieCanvas);
-
-        new Chart(pieCanvas.getContext("2d"), {
-            type: "pie",
-            data: {
-            labels: ["Done", "In-progress", "Sent", "Need Info."],
-            datasets: [{
-                data: [colorCounts.blue, colorCounts.red, colorCounts.green, colorCounts.yellow],
-                backgroundColor: ["#0084c7", "#ff4c4c", "#4caf50", "#ffff00"],
-                borderColor: "#222",
-                borderWidth: 1
-            }]
-            },
-            options: {
-            plugins: {
-                legend: { position: "bottom", labels: { color: "#fff" } },
-                datalabels: {
-                color: "#000",
-                font: { weight: "bold" },
-                formatter: (value, ctx) => {
-                    let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                    return total > 0 ? (value / total * 100).toFixed(1) + "%" : "0%";
-                }
-                }
-            }
-            },
-            plugins: [ChartDataLabels]
-        });
+                plugins: [ChartDataLabels]
+            });
         });
     }
 
@@ -1289,9 +1488,11 @@
             const rows = table.querySelectorAll("tbody tr");
             rows.forEach(row => {
                 const cells = row.querySelectorAll("td");
-                if (cells.length < 7) return; // skip malformed rows
+                // if (cells.length < 7) return; // skip malformed rows
+                if (cells.length < 8) return; // skip malformed rows <-- updated for new column count
 
-                const site = cells[6].textContent.trim().slice(0, 14); // schedule site normalized
+                //const site = cells[6].textContent.trim().slice(0, 14); // schedule site normalized
+                const site = cells[7].textContent.trim().slice(0, 14); // schedule site normalized <-- updated for new column count
                 const noteData = notesMap[site];
 
                 // --- NoteID cell ---
