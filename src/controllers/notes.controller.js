@@ -611,6 +611,7 @@ notesCrtl.syncDueDates = async (req, res) => {
     }
 
     res.json({ message: "Sync complete", updated: updatedCount });
+
   } catch (err) {
     console.error("❌ Error in syncDueDates:", err);
     res.status(500).json({ error: "Server error" });

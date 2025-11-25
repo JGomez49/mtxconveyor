@@ -509,7 +509,7 @@
             <!-- ----------------------------- -->
 
 
-            <% if (user.role == 'admin' || user.role == 'leader') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -542,7 +542,8 @@
                                 </thead>
                                 <tbody>
                                     <% notes.forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' 
+                                            || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'On Hold') { %>
 
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
@@ -762,7 +763,7 @@
 
 
 
-            <% if (user.role == 'admin' && (user.name == "John" || user.name == "Polita")) { %>
+            <% if (user.role == 'admin' && (user.name == "John" || user.name == "Polita") || user.name == "Sammy") { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
