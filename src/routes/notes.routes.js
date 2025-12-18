@@ -22,6 +22,8 @@ const {
     findSite,
     getScheduleAndNotes,
     syncDueDates,
+    renderUploadScheduleETS,
+    uploadScheduleETS,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -97,6 +99,20 @@ router.get('/notes/findSite/:site', isAuthenticated, findSite);
 router.get('/notes/getScheduleAndNotes', isAuthenticated, getScheduleAndNotes);
 
 router.get('/notes/syncDueDates', isAuthenticated, syncDueDates);
+
+
+
+
+
+
+
+
+
+//Get Upload ScheduleETS form
+router.get('/notes/uploadScheduleETS', isAuthenticated, renderUploadScheduleETS);
+
+//Upload Schedule
+router.post('/notes/uploadScheduleETS', isAuthenticated, uploadScheduleETS);
 
 
 

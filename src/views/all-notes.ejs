@@ -882,6 +882,8 @@
                                                         <th>Start</th>
                                                         <th>Site</th>
                                                         <th>Well</th>
+                                                        <th>DP Company</th>
+                                                        <th>ETS</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -897,6 +899,8 @@
                                                             <td><%= item.start %></td>
                                                             <td><%= item.site %></td>
                                                             <td><%= item.well %></td>
+                                                            <td><%= item.dpCompany %></td>
+                                                            <td><%= item.ETS %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -961,11 +965,13 @@
             const start = parseDate(cells[7]?.innerText.trim());
             const site = cells[8]?.innerText.trim();
             const well = cells[9]?.innerText.trim();
+            const dpCompany = cells[10]?.innerText.trim();
+            const ETS = cells[11]?.innerText.trim();
 
             if (!start) return;
             if (!vpMap[vp]) vpMap[vp] = {};
             if (!vpMap[vp][rig]) vpMap[vp][rig] = [];
-            vpMap[vp][rig].push({ rig, drillok, geook, dp, type, duration, vp, start, site, well });
+            vpMap[vp][rig].push({ rig, drillok, geook, dp, type, duration, vp, start, site, well, dpCompany, ETS });
         });
 
         const today = new Date();
@@ -1028,6 +1034,8 @@
                             DP: dpValue,
                             Site: siteObj.site,
                             Well: siteObj.well,
+                            dpCompany: siteObj.dpCompany,
+                            ETS: siteObj.ETS,
                             type: type,
                         }
                     });
@@ -1190,15 +1198,29 @@
                             callbacks: {
                                 label: (ctx) => {
                                 const d = ctx.raw.details;
+                                // return [
+                                //     `Rig: ${d.Rig}`,
+                                //     `VP: ${d.VP}`,
+                                //     `Start: ${d.Start}`,
+                                //     `Duration: ${d.Duration} days`,
+                                //     `DP: ${d.DP}`,
+                                //     `Site: ${d.Site}`,
+                                //     `Well: ${d.Well}`,
+                                //     `Type: ${d.type}`,
+                                //     `DrillOK: ${d.drillok}`,
+                                //     `GeoOK: ${d.geook}`
+                                // ];
                                 return [
-                                    `Rig: ${d.Rig}`,
+                                    `Site: ${d.Site}`, 
+                                    `Well: ${d.Well}`,  
+                                    `ETS: ${d.ETS}`,  
                                     `VP: ${d.VP}`,
                                     `Start: ${d.Start}`,
+                                    `Rig: ${d.Rig}`,
                                     `Duration: ${d.Duration} days`,
                                     `DP: ${d.DP}`,
-                                    `Site: ${d.Site}`,
-                                    `Well: ${d.Well}`,
                                     `Type: ${d.type}`,
+                                    `DP Company: ${d.dpCompany}`,
                                     `DrillOK: ${d.drillok}`,
                                     `GeoOK: ${d.geook}`
                                 ];

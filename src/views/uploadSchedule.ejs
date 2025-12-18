@@ -305,7 +305,9 @@
     /////////////////////// Handle Upload Schedule button click
     //
       document.getElementById("uploadScheduleBtn")?.addEventListener("click", async () => {
+        
         const table = document.getElementById("csvTable");
+        
         if (!table) {
           alert("❌ Table not found!");
           return;

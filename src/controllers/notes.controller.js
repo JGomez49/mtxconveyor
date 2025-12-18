@@ -9,6 +9,7 @@ const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
+const ScheduleETS = require("../models/ScheduleETS");
 
 
 
@@ -615,6 +616,76 @@ notesCrtl.syncDueDates = async (req, res) => {
   } catch (err) {
     console.error("❌ Error in syncDueDates:", err);
     res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
+
+
+
+notesCrtl.renderUploadScheduleETS = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadScheduleETS.ejs', {note, user});
+}
+
+
+
+
+
+
+
+// POST /notes/uploadScheduleETS
+notesCrtl.uploadScheduleETS = async (req, res) => {
+  try {
+    // Clear the entire collection before saving new data
+    // await ScheduleETS.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
+    await Schedule.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
+    console.log("Cleared existing schedule data.");
+
+    const { data } = req.body; // <-- JSON payload from frontend
+
+    if (!data || !Array.isArray(data) || data.length <= 1) {
+      return res.status(400).json({ error: "No schedule data received" });
+    }
+
+    // remove header row
+    const rows = data.slice(1);
+
+    // Map rows into objects
+    const scheduleDocs = rows.map((row) => {
+      return {
+        rig: row[24] || "",
+        drillok: row[13] || "",
+        geook: row[14] || "",
+        duration: Number(row[25]) || 0,
+        dp: row[16] || "",
+        type: row[15] || "",
+        vp: row[19] || "",
+        start: row[9] ? new Date(row[9]) : null,
+        site: row[1] || "",
+        well: row[4] || "",
+        dpCompany: row[10] || "",
+        ETS: row[0] || "",
+        user: req.user ? req.user._id : null,
+        noteId: req.params.id || null, // if uploaded from job context
+      };
+    });
+
+    // Bulk insert
+    //await ScheduleETS.insertMany(scheduleDocs);
+    await Schedule.insertMany(scheduleDocs);
+
+    console.log("<<<< Schedule uploaded >>>>");
+    req.flash("success_msg", "Schedule uploaded successfully");
+    res.redirect("/notes");
+  } catch (error) {
+    console.error("Error uploading schedule:", error);
+    req.flash("error_msg", "Error uploading schedule");
+    res.redirect("/notes");
   }
 };
 

@@ -1,9 +1,10 @@
 
 
-
 const { Schema, model } = require("mongoose");
 
-const ScheduleSchema = new Schema(
+const ScheduleETSSchema = new Schema(
+
+
   {
     rig: { type: String, default: "" },
     drillok: { type: String, default: ""},
@@ -21,6 +22,7 @@ const ScheduleSchema = new Schema(
     uploadedDate: { type: Date, default: Date.now },
   },
   { timestamps: true }
+
 );
 
-module.exports = model("Schedule", ScheduleSchema);
+module.exports = model("ScheduleETS", ScheduleETSSchema);

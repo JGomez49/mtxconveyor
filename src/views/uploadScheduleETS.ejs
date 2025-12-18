@@ -1,0 +1,401 @@
+
+
+<%- include ('partials/header.ejs') %>
+
+    <div class="_container bg-dark">
+
+        <h2 class="pt-4 m-4">Upload Schedule v2</h2>
+
+        <p class="mb-4 m-4">USER: <%= user.name %></p>
+        <!-- <pre><%= note %></pre> -->
+
+        <div class="row m-4">
+
+            <form action="/notes/uploadScheduleETS" method="POST" enctype="multipart/form-data" class="mb-4">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              id="excelFile"
+                              class="form-control"
+                            />
+
+                            <!-- <input
+                                type="file" 
+                                accept=".csv"
+                                name="csvFile" 
+                                class="form-control" 
+                                id="csvFile"
+                            > -->
+                        </div>
+                    </div>
+                </div>
+                <div class="d-grid gap-2">
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                </div>
+            </form>
+
+
+
+
+            <!-- The data is uploaded to MongoDB with a function (handler) below -->
+            <div class="d-grid gap-2 mb-4">
+              <button id="uploadScheduleBtn" class="btn btn-success" type="button">
+                ⬆️ Upload Schedule
+              </button>
+            </div>
+
+
+
+
+
+
+            <div class="accordion mb-4" id="accordionExample">
+              <div class="accordion-item bg-dark border-0">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" style="background-color: #1a1a1a; color: #ffffff;" 
+                            data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                      📋 Table
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                    <div class="accordion-body">
+                      <table
+                        id="scheduleTable"
+                        class="table table-dark table-striped table-bordered table-sm">
+                      </table>
+
+                      <!-- <table 
+                        id="csvTable" 
+                        class="table table-dark table-striped table-bordered table-sm">
+                      </table> -->
+                    </div>
+                </div>
+              </div>
+            </div> 
+
+        </div>
+    </div>
+
+    <div id="chartContainer" class="m-3"></div>
+
+
+
+    
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+  <script>
+    const DATE_HEADERS = [
+      "Est. Start Date",
+      "DP Received Date",
+      "DP Request Date",
+      "DP Drill Approved",
+      "DP Geol Approved",
+    ];
+
+
+    document.getElementById("excelFile").addEventListener("change", handleExcelUpload);
+
+
+
+    function handleExcelUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+
+        // Use FIRST sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convert to array-of-arrays
+        const rows = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          blankrows: false,
+          defval: ""
+        });
+
+        if (!rows.length) {
+          alert("❌ Excel file is empty");
+          return;
+        }
+
+        renderExcelTable(rows);
+        console.log("📄 Excel data preview:", rows.slice(0, 5));
+        // formatEstStartDateColumn();
+        formatDateColumns();
+
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+
+
+
+
+
+    function renderExcelTable(data) {
+      const table = document.getElementById("scheduleTable");
+      table.innerHTML = "";
+
+      data.forEach((row, rowIndex) => {
+        const tr = document.createElement("tr");
+
+        row.forEach(cell => {
+          const el = document.createElement(rowIndex === 0 ? "th" : "td");
+          el.textContent = cell;
+          tr.appendChild(el);
+        });
+
+        table.appendChild(tr);
+      });
+    }
+
+
+
+
+
+
+    function formatDateColumns() {
+      const table = document.getElementById("scheduleTable");
+      if (!table) return;
+
+      const headerRow = table.querySelector("tr");
+      if (!headerRow) return;
+
+      const headers = Array.from(headerRow.children).map(th =>
+        th.textContent.trim()
+      );
+
+      // Resolve column indexes dynamically
+      const dateColumnIndexes = DATE_HEADERS
+        .map(h => ({
+          header: h,
+          index: headers.findIndex(col =>
+            col.toLowerCase() === h.toLowerCase()
+          )
+        }))
+        .filter(h => h.index !== -1);
+
+      if (dateColumnIndexes.length === 0) {
+        console.warn("⚠️ No date columns found to format");
+        return;
+      }
+
+      const rows = Array.from(table.querySelectorAll("tr")).slice(1);
+
+      rows.forEach(tr => {
+        dateColumnIndexes.forEach(({ index }) => {
+          const td = tr.children[index];
+          if (!td) return;
+
+          const rawValue = td.textContent.trim();
+          if (!rawValue) return;
+
+          const formatted = formatDateYYYYMMMDD(rawValue);
+          if (formatted) {
+            td.textContent = formatted;
+          }
+        });
+      });
+
+      console.log(
+        "✅ Date columns formatted:",
+        dateColumnIndexes.map(d => d.header).join(", ")
+      );
+    }
+
+
+
+
+
+
+
+    function formatDateYYYYMMMDD(value) {
+      let dateObj = null;
+
+      // Case 1: Excel serial number
+      if (!isNaN(value)) {
+        const excelEpoch = new Date(1899, 11, 30);
+        dateObj = new Date(excelEpoch.getTime() + Number(value) * 86400000);
+      }
+      // Case 2: Parsable date string
+      else {
+        const parsed = new Date(value);
+        if (!isNaN(parsed.getTime())) {
+          dateObj = parsed;
+        }
+      }
+
+      if (!dateObj || isNaN(dateObj.getTime())) return null;
+
+      const yyyy = dateObj.getFullYear();
+      const mmm = dateObj.toLocaleString("en-US", { month: "short" });
+      const dd = String(dateObj.getDate()).padStart(2, "0");
+
+      return `${yyyy}-${mmm}-${dd}`;
+    }
+
+
+  </script>
+
+
+  <script>
+    /**
+     * Handle Upload Schedule (ETS)
+     * Reads data directly from scheduleTable and sends to backend
+     */
+    document.getElementById("uploadScheduleBtn")?.addEventListener("click", async () => {
+
+      const table = document.getElementById("scheduleTable");
+
+      if (!table) {
+        alert("❌ Table not found");
+        return;
+      }
+
+      const headers = Array.from(
+        table.querySelectorAll("th")
+      ).map(th => th.textContent.trim());
+
+      if (headers.length === 0) {
+        alert("❌ Table headers missing");
+        return;
+      }
+
+      const rowss = Array.from(table.querySelectorAll("tr")).map(tr =>
+        Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim())
+      );
+
+      if (rowss.length === 0) {
+        alert("❌ No rows to upload");
+        return;
+      }
+
+
+
+
+      // Identify DATES columns index
+        const startIdx = 9; //Start column index  
+        const drillokIdx = 13; // DrillOK column index
+        const geookIdx = 14; // GeoOK column index
+        const dpIdx = 16; // DP column index
+          
+
+
+
+      // Extract rows and clean dates
+        const rows = Array.from(table.querySelectorAll("tr")).map(tr => {
+
+          const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+
+          if (cells[startIdx]) {
+            const parsed = cleanAndConvertDate(cells[startIdx]);
+            cells[startIdx] = parsed  || ""; // Ensure valid format or empty
+          }
+
+          if(cells[drillokIdx] != '') { cells[drillokIdx] = "YES-Drill" }
+          if(cells[drillokIdx] == '') { cells[drillokIdx] = "NO-Drill" }
+
+          if(cells[geookIdx] != '') { cells[geookIdx] = "YES-Geo" }
+          if(cells[geookIdx] == '') { cells[geookIdx] = "NO-Geo" }
+          
+          if(cells[dpIdx] != '') { cells[dpIdx] = "YES-DP" }
+
+          return cells;
+        });
+
+        // Combine into one array (header + rows)
+        const data = [headers, ...rows];
+
+        console.log("📦 Ready to upload sample:", data.slice(1, 5));
+
+
+        
+
+        //////// 🚀 Upload to server
+        try {
+          const res = await fetch("/notes/uploadScheduleETS", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data }),
+          });
+
+          if (res.ok) {
+            const msg = await res.text();
+            //console.log("✅ Upload success:", msg);
+            alert("✅ Schedule uploaded successfully!");
+          } else {
+            const errText = await res.text();
+            //console.error("❌ Upload failed:", errText);
+            alert("❌ Upload failed:\n" + errText);
+          }
+        } catch (err) {
+          //console.error("❌ Upload error:", err);
+          alert("❌ Upload error: " + err.message);
+        }
+
+    });
+
+
+
+
+    function cleanAndConvertDate(str) {
+      if (!str || str.trim() === "" || str.toLowerCase() === "null") return null;
+
+      // Format like "08-Jul-25"
+      const match = str.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})$/);
+      if (match) {
+        let [_, d, monStr, y] = match;
+        const months = {
+          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+        };
+        const m = months[monStr.toLowerCase()];
+        const fullYear = y.length === 2 ? 2000 + parseInt(y) : parseInt(y);
+        const dateObj = new Date(fullYear, m, parseInt(d));
+        return !isNaN(dateObj) ? dateObj.toISOString().split("T")[0] : null; // "YYYY-MM-DD"
+      }
+
+      ////// Try native parse as fallback
+      const parsed = new Date(str);
+      if (!isNaN(parsed)) return parsed.toISOString().split("T")[0];
+
+      // Fallback → null
+      return null;
+    }
+
+  </script>
+
+
+
+
+</main>
+</body>
+</html>
+
+
+
+
+
+
+
+<!-- . -->
+
+
+<%- include ('partials/footer.ejs') %>
