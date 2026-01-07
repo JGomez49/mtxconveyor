@@ -1152,6 +1152,13 @@
             const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
             const maxDate = oneYearLater;
 
+            // const panMinDate = new Date(today);
+            // panMinDate.setMonth(panMinDate.getMonth() - 1);
+
+            // const panMaxDate = new Date(oneYearLater);
+            // panMaxDate.setMonth(panMaxDate.getMonth() + 1);
+
+
             // Canvas for Gantt
             const canvas = document.createElement("canvas");
             canvas.height = Math.max(200, rigs.length * 40);
@@ -1179,9 +1186,16 @@
                     scales: {
                         x: {
                             type: "time",
-                            time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
-                            min: today,
-                            max: oneYearLater,
+                            time: { 
+                                unit: "day", 
+                                stepSize: 1, 
+                                tooltipFormat: "dd-MMM-yyyy", 
+                                displayFormats: { day: "dd-MMM-yy" } 
+                            },
+                            // min: today,
+                            min: minDate,
+                            // max: oneYearLater,
+                            max: maxDate,
                             ticks: { color: "#ccc" },
                             grid: { color: "#333" }
                         },
@@ -1198,18 +1212,6 @@
                             callbacks: {
                                 label: (ctx) => {
                                 const d = ctx.raw.details;
-                                // return [
-                                //     `Rig: ${d.Rig}`,
-                                //     `VP: ${d.VP}`,
-                                //     `Start: ${d.Start}`,
-                                //     `Duration: ${d.Duration} days`,
-                                //     `DP: ${d.DP}`,
-                                //     `Site: ${d.Site}`,
-                                //     `Well: ${d.Well}`,
-                                //     `Type: ${d.type}`,
-                                //     `DrillOK: ${d.drillok}`,
-                                //     `GeoOK: ${d.geook}`
-                                // ];
                                 return [
                                     `Site: ${d.Site}`, 
                                     `Well: ${d.Well}`,  
@@ -1274,15 +1276,28 @@
                                     xMax: oneYearLater,
                                     borderColor: "Yellow",
                                     borderWidth: 2,
-                                    label: { enabled: true, content: "One Year", position: "oneYearLater", color: "yellow" }
+                                    label: { enabled: true, content: "One Year", position: "end", color: "yellow" }
                                 }
                             }
                         },
                         zoom: {
-                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
-                            pan: { enabled: true, mode: "x" },
-                            limits: { x: { min: minDate, max: maxDate } }
-                        }
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: "x"
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: "x",
+                                modifierKey: "ctrl"   // or "shift"
+                            },
+                            // limits: {
+                            //     x: {
+                            //     min: panMinDate,
+                            //     max: panMaxDate
+                            //     }
+                            // },
+                        },
                     },
                     barThickness: 18,
                     onClick: (event, elements) => {
