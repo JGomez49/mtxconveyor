@@ -1000,6 +1000,7 @@
                 lightgreen: 0,
                 darkblue: 0,
                 purple: 0,
+                white: 0,
             };
             // Define date window for statistics (1 year from today)
                 const today = new Date();
@@ -1041,101 +1042,75 @@
                     });
 
                     const rigToAvoid = ["PRECISION 183", "PRECISION183", "PD183", "PD 183"];
+                    const dpYes = dpValue === "YES" || dpValue === "YES-DP";
+                    const dpNo  = !dpValue || dpValue === "NO" || dpValue === "NO-DP" || dpValue === "";
+
+                    const countable =
+                        start >= today &&
+                        start <= oneYearLater &&
+                        !rigToAvoid.includes(rig);
 
 
-                    // Old color logic
+                    // Blue:    "#0084c7"   : DP-YES
+                    // Green:   "#4caf50"   : FINAL 
+                    // Red:     "#ff4c4c"   : PRELIM-IR
+                    // Yellow:  "#ffff00"   : DP-NO
+                    // Purple:  "#B11FDF"   : EXEC
+                    // White:   "#FFFFFF"   : Fallback
 
-                    // if (!isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM")) {
-                    //     colors.push("#0084c7"); // Blue
-                    //     colorCounts.blue++;
-                    // } else if (isEmptyDP && (type === "EXEC" || type === "PRELIM-IR" || type === "PRELIM" || type === "")) {
-                    //     colors.push("#ff4c4c"); // Red
-                    //     colorCounts.red++;
-                    // } else if (type === "FINAL") {
-                    //     colors.push("#4caf50"); // Green
-                    //     colorCounts.green++;
-                    // } else {
-                    //     colors.push("#ffff00"); // Yellow fallback
-                    //     colorCounts.yellow++;
-                    // }
+                    switch (true) {
+
+                        // =========================
+                        // FINAL - GREEN
+                        // =========================
+                        case type === "FINAL":
+                            colors.push("#4caf50");
+                            if (countable) colorCounts.green++;
+                            break;
+
+                        // =========================
+                        // PRELIM-IR OR DP-NO - RED
+                        // =========================
+                        case (type === "PRELIM - IR" || dpNo):
+                            colors.push("#ff4c4c");
+                            if (countable) colorCounts.red++;
+                            break;
+
+                        // =========================
+                        // DP-NO - YELLOW
+                        // =========================
+                        case dpNo:
+                            colors.push("#ffff00");
+                            if (countable) colorCounts.yellow++;
+                            break;
 
 
-                    // New color logic. Determine color based on DP and Type
-                    // New detailed logic for PRELIM with DrillOK and GeoOK
+                        // =========================
+                        // EXECUTION - PURPLE
+                        // ========================
+                        case type === "EXEC":
+                            colors.push("#B11FDF");
+                            if (countable) colorCounts.purple++;
+                            break;
 
-                    // Blue: "#0084c7"
-                    // lightBlue: "#1AC2DF"
-                    // DarkBlue: "#005f87"
-                    // Green: "#4caf50"
-                    // LightGreen: "#7EB084"
-                    // DarkGreen: "#356635"
-                    // Red: "#ff4c4c"
-                    // Yellow: "#ffff00"
-                    // purple: "#B11FDF"
 
-                    if(type == "FINAL") {
-                        colors.push("#4caf50"); // Green
-                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                            colorCounts.green++;
-                        }
-                    } 
-                    
-                    else if (type == "PRELIM-IR" || type == "") {
-                        colors.push("#ffff00"); // Yellow
-                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                            colorCounts.yellow++;
-                        }
-                    } 
-                    
-                    else if (isEmptyDP || dpValue == "NO" || dpValue == "NO-DP" || dpValue == "") {
-                        colors.push("#ff4c4c"); // Red
-                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                            colorCounts.red++;
-                        }
+                        // =========================
+                        // DP-YES - BLUE
+                        // =========================
+                        case dpYes:
+                            colors.push("#0084c7");
+                            if (countable) colorCounts.blue++;
+                            break;
+
+
+                        // =========================
+                        // Fallback - WHITE
+                        // =========================
+                        default:
+                            colors.push("#FFFFFF");
+                            if (countable) colorCounts.white++;
+                            break;
                     }
-
-                    else if ((!isEmptyDP || dpValue == "YES" || dpValue == "YES-DP") && (type == "PRELIM")) {
-
-                        if(drillok == "YES-Drill" && geook == "YES-Geo") {
-                            colors.push("#0084c7"); // Blue
-                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                                colorCounts.blue++;
-                            }
-                        }
-                        else if(drillok == "NO-Drill" && geook == "YES-Geo") {
-                            colors.push("#7EB084"); // LightGreen
-                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                                colorCounts.lightgreen++;
-                            }
-                        }
-                        else if(drillok == "YES-Drill" && geook == "NO-Geo") {
-                            colors.push("#0084c7"); // Blue 
-                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                                colorCounts.blue++;
-                            }
-                        }
-                        else if(drillok == "NO-Drill" && geook == "NO-Geo") {
-                            colors.push("#1AC2DF"); // lightBlue
-                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                                colorCounts.lightblue++;
-                            }
-                        }
-
-                        else {
-                            colors.push("#0084c7"); // Blue fallback
-                            if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                                colorCounts.blue++;
-                            }
-                        }
-                    } 
-                    
-                    else {
-                        colors.push("#B11FDF"); // Purple fallback
-                        if (start >= today && start <= oneYearLater && !rigToAvoid.includes(rig)) {
-                            colorCounts.purple++;
-                        }
-                    }
-
                 });
             });
 
@@ -1331,45 +1306,40 @@
                 colorCounts.green + 
                 colorCounts.lightgreen + 
                 colorCounts.yellow + 
-                colorCounts.purple;
+                colorCounts.purple +
+                colorCounts.white;
 
             // Summary Table
+                // Blue:    "#0084c7"   : DP-YES
+                // Green:   "#4caf50"   : FINAL 
+                // Red:     "#ff4c4c"   : PRELIM-IR
+                // Yellow:  "#ffff00"   : DP-NO
+                // Purple:  "#B11FDF"   : EXEC
+                // White:   "#FFFFFF"   : Fallback
 
-                // blue:        "#0084c7" :        DP-YES + DrillOK-YES + GeoOK-YES      ---> DP/DRILL/GEO
-                // lightBlue:   "#1AC2DF" :        DP-YES + DrillOK-NO + GeoOK-NO        ---> DP
-                // darkBlue:    "#005f87" :        DP-YES + DrillOK-YES + GeoOK-NO       ---> DP/DRILL 
-                // lightGreen:  "#7EB084" :        DP-YES + DrillOK-NO + GeoOK-YES       ---> DP/GEO
-                // green:       "#4caf50" :        FINAL                                 ---> SENT
-                // red:         "#ff4c4c" :        DP-NO                                 ---> IN-PROGRESS
-                // yellow:      "#ffff00" :        PRELIM-IR or empty type               ---> NEED INFO
-                // purple:      "#B11FDF" :        others                                ---> OTHERS
 
             const summaryTable = document.createElement("table");
             summaryTable.className = "table table-dark table-sm table-bordered mt-2";
             summaryTable.innerHTML = `
                 <thead>
                     <tr>
-                        <th style="color:#020202; background-color:#0084c7"> DRILL:YES / GEO:YES </th>
-                        <th style="color:#020202; background-color:#1AC2DF"> DRILL:NO / GEO:NO </th>
-                        <th style="color:#020202; background-color:#005f87"> DRILL:YES / GEO:NO </th>
-                        <th style="color:#020202; background-color:#7EB084"> DRILL:NO / GEO:YES </th>
-                        <th style="color:#020202; background-color:#4caf50"> SENT </th>
-                        <th style="color:#020202; background-color:#ff4c4c"> IN-PROGRESS </th>
-                        <th style="color:#020202; background-color:#ffff00"> NEED INFO </th>
-                        <th style="color:#1a1a1a; background-color:#B11FDF"> OTHERS </th>
+                        <th style="color:#020202; background-color:#0084c7"> DP-YES </th>
+                        <th style="color:#020202; background-color:#4caf50"> FINAL </th>
+                        <th style="color:#020202; background-color:#ff4c4c"> NEED INFO </th>
+                        <th style="color:#020202; background-color:#ffff00"> IN-PROGRESS </th>
+                        <th style="color:#1a1a1a; background-color:#B11FDF"> EXEC </th>
+                        <th style="color:#020202; background-color:#FFFFFF"> ERROR </th>
                         <th style="color:#FFFEFE; background-color:#1a1a1a"> TOTAL </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>${colorCounts.blue}</td>
-                        <td>${colorCounts.lightblue}</td>
-                        <td>${colorCounts.darkblue}</td>
-                        <td>${colorCounts.lightgreen}</td>
                         <td>${colorCounts.green}</td>
                         <td>${colorCounts.red}</td>
                         <td>${colorCounts.yellow}</td>
                         <td>${colorCounts.purple}</td>
+                        <td>${colorCounts.white}</td>
                         <td><b>${totalBars}</b></td>
                     </tr>
                 </tbody>
@@ -1408,8 +1378,9 @@
                             colorCounts.red, 
                             colorCounts.yellow, 
                             colorCounts.purple,
+                            colorCounts.white,
                         ],
-                        backgroundColor: ["#0084c7", "#1AC2DF", "#005f87", "#7EB084", "#4caf50", "#ff4c4c", "#ffff00", "#B11FDF"],
+                        backgroundColor: ["#0084c7", "#1AC2DF", "#005f87", "#7EB084", "#4caf50", "#ff4c4c", "#ffff00", "#B11FDF", "#FFFFFF"],
                         borderColor: "#222",
                         borderWidth: 1
                     }]
