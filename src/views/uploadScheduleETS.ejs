@@ -295,7 +295,8 @@
         const drillokIdx = 13; // DrillOK column index
         const geookIdx = 14; // GeoOK column index
         const dpIdx = 16; // DP column index
-          
+        const dpReqIdx = 17; // DP Request Date column index
+        const groupIdx = 27; // Group column index
 
 
 
@@ -323,8 +324,7 @@
         // Combine into one array (header + rows)
         const data = [headers, ...rows];
 
-        console.log("📦 Ready to upload sample:", data.slice(1, 5));
-
+        console.log("📦 Ready to upload sample:", data.slice(1, 7));
 
         
 

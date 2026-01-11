@@ -17,6 +17,10 @@ const ScheduleSchema = new Schema(
     well: { type: String, default: "" },
     dpCompany: { type: String, default: "" },
     ETS: { type: String, default: "" },
+
+    //dpReqDate: { type: Date, required: false },
+    group: { type: String, default: "group" },
+
     user: { type: Schema.Types.ObjectId, ref: "User" },
     uploadedDate: { type: Date, default: Date.now },
   },

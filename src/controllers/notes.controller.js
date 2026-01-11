@@ -2,14 +2,13 @@
 // que despues seran llamadas desde notes.routes.js
 
 const notesCrtl = {};
-
 const Note = require('../models/NoteConveyor');
 const User = require('../models/User');
 const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
-const ScheduleETS = require("../models/ScheduleETS");
+//const ScheduleETS = require("../models/ScheduleETS");
 
 
 
@@ -648,6 +647,10 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
 
     const { data } = req.body; // <-- JSON payload from frontend
 
+    console.log("Data preview:");
+    console.log(data[2]);
+    console.log(data[2][27]); // group
+
     if (!data || !Array.isArray(data) || data.length <= 1) {
       return res.status(400).json({ error: "No schedule data received" });
     }
@@ -670,6 +673,10 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
         well: row[4] || "",
         dpCompany: row[10] || "",
         ETS: row[0] || "",
+
+        //dpReqDate: row[17] ? new Date(row[17]) : null,
+        group: row[27] || "",
+
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null, // if uploaded from job context
       };
@@ -679,10 +686,12 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
     //await ScheduleETS.insertMany(scheduleDocs);
     await Schedule.insertMany(scheduleDocs);
 
-    console.log("<<<< Schedule uploaded >>>>");
+    console.log("<<<< Schedule ETS uploaded >>>>");
     req.flash("success_msg", "Schedule uploaded successfully");
     res.redirect("/notes");
+
   } catch (error) {
+
     console.error("Error uploading schedule:", error);
     req.flash("error_msg", "Error uploading schedule");
     res.redirect("/notes");
