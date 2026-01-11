@@ -101,6 +101,7 @@ app.use(require('./routes/users.routes'));
 app.use(require('./routes/notes.routes'));
 
 // ---------------------Static Files:
-app.set(express.static(path.join(__dirname, 'public')));
+//app.set(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 module.exports = app;
