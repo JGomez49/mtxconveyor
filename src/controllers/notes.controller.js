@@ -8,6 +8,7 @@ const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
+const DPStats = require("../models/DPStats");
 //const ScheduleETS = require("../models/ScheduleETS");
 
 
@@ -138,7 +139,8 @@ notesCrtl.renderNotes = async (req,res)=>{
     let count_NotStarted_setup = 0;
     const notes = await Note.find().sort({dueDate: 'asc'});
     const schedule = await Schedule.find();   // 👈 pull schedule data from MongoDB
-    res.render('all-notes.ejs', {notes, user, schedule, count_InProgress, count_NotStarted, count_NotStarted_setup});
+    const dpStats = await DPStats.find();   // 👈 pull DP stats data from MongoDB
+    res.render('all-notes.ejs', {notes, user, schedule, dpStats, count_InProgress, count_NotStarted, count_NotStarted_setup});
 };
 
 
@@ -698,6 +700,59 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
   }
 };
 
+
+
+
+
+
+
+
+notesCrtl.renderUploadDPStats = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadDPStats.ejs', {note, user});
+};
+
+
+
+notesCrtl.uploadDPStats = async (req, res) => {
+  try {
+    // Clear the entire collection before saving new data
+    await DPStats.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
+    console.log("Cleared existing DPStats data.");
+
+    const { data } = req.body; // <-- JSON payload from frontend
+
+    if (!data || !Array.isArray(data) || data.length <= 1) {
+      return res.status(400).json({ error: "No DPStats data received" });
+    }
+
+    // remove header row
+    const rows = data.slice(2);
+
+    // Map rows into objects
+    const DPStatsDocs = rows.map((row) => {
+      return {
+        dpVersion: row[0] || "P0",
+        dpDays: Number(row[1]) || 0,
+        user: req.user ? req.user._id : null,
+        noteId: req.params.id || null,
+      };
+    });
+
+    // Bulk insert
+    await DPStats.insertMany(DPStatsDocs);
+
+    console.log("<<<< DPStats uploaded >>>>");
+    req.flash("success_msg", "DPStats uploaded successfully");
+    res.redirect("/notes");
+  } catch (error) {
+    console.error("Error uploading DPStats:", error);
+    req.flash("error_msg", "Error uploading DPStats");
+    res.redirect("/notes");
+  }
+};
 
 
 

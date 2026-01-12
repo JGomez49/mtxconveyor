@@ -853,7 +853,7 @@
                                             data-bs-target="#collapseTable" 
                                             aria-expanded="true"
                                             aria-controls="collapseTable">
-                                            📋 Table
+                                            📋 Schedule Table
                                         </button>
                                     </h2>
 
@@ -916,6 +916,79 @@
                 </div>
             <% } %>
 
+
+
+
+
+
+
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+                <div class="accordion-item">
+                    <h2 class="accordion-header bg-dark">
+                        <button class="accordion-button collapsed bg-dark" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#collapseDPStats" 
+                                aria-expanded="true"
+                                aria-controls="collapseDPStats">
+                            <h4 style="color: blueviolet;">DP Stats</h4>
+                        </button>
+                    </h2>
+                    <div id="collapseDPStats" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                        <div class="accordion-body bg-dark">
+                            <div class="accordion mb-4" id="accordionExample">
+                                <div class="accordion-item bg-dark border-0">
+                                    <h2 class="accordion-header" id="headingOne">
+                                        <button class="accordion-button" 
+                                            type="button" 
+                                            data-bs-toggle="collapse" 
+                                            style="background-color: #1a1a1a; color: #ffffff;" 
+                                            data-bs-target="#collapseTable" 
+                                            aria-expanded="true"
+                                            aria-controls="collapseTable">
+                                            📋 Stats Table
+                                        </button>
+                                    </h2>
+                                    <div id="collapseTable" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
+                                        <div class="accordion-body">
+                                            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+
+                                                <!-- <button class="btn btn-info my-2" onclick="renderDPStatsBoxPlot();">📊 Show Stats</button>
+
+                                                <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div> -->
+
+                                            <% } %>
+                                            <table 
+                                                id="DPStatsTable" 
+                                                class="table table-dark table-striped table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>DP Version</th>
+                                                        <th>DP Days</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <% dpStats.forEach(item => { %>
+                                                        <tr>
+                                                            <td><%= item.dpVersion %></td>
+                                                            <td><%= item.dpDays %></td>
+                                                        </tr>
+                                                    <% }) %>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+
+
+
+
+
         </div>
     </div>
 
@@ -925,7 +998,18 @@
         <div id="chartDiv" class="m-3 bg-dark"></div>
     <% } %>
 
+
+    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>                            
+        <button class="btn btn-info my-2" onclick="renderDPStatsBoxPlot();">📊 Show Stats</button>
+        <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div>
+    <% } %>
+
+    <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div>
 </div>
+
+
+
+
 
 
 
@@ -1161,17 +1245,10 @@
                 // 📊 Gantt Chart
                 // VP title
 
-                // const title = document.createElement("h3");
-                // title.textContent = `VP: ${vp}`;
-                // title.style.color = "white";
-                // chartDiv.appendChild(title);
-
                 const title = document.createElement("h3");
                 title.textContent = `VP: ${vp} — ${group}`;
                 title.style.color = "white";
                 chartDiv.appendChild(title);
-
-
 
 
                 // Date boundaries
@@ -1595,6 +1672,46 @@
     }
 </script>
 
+
+
+
+
+
+
+
+
+
+<script>
+    function renderDPStatsBoxPlot() {
+        const versions = [];
+        const days = [];
+
+        document.querySelectorAll("#DPStatsTable tbody tr").forEach(row => {
+            versions.push(row.cells[0].innerText.trim());
+            days.push(Number(row.cells[1].innerText.trim()));
+        });
+
+        Plotly.newPlot("dpBoxPlot", [{
+            y: days,
+            x: versions,
+            type: "box",
+            boxpoints: "outliers",
+            marker: { color: "#0084c7" }
+        }], {
+            // title: "DP Duration Distribution",
+            // yaxis: { title: "DP Days" },
+            yaxis: {
+                title: "DP Days",
+                range: [0, 60],      // 👈 LIMIT TO 60 DAYS
+                fixedrange: false    // 👈 prevents zooming beyond this range
+            },
+            xaxis: { title: "DP Version" },
+            paper_bgcolor: "#111",
+            plot_bgcolor: "#111",
+            font: { color: "#fff" }
+        });
+    }
+</script>
 
 
 

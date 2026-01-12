@@ -1,0 +1,214 @@
+
+
+<%- include ('partials/header.ejs') %>
+
+    <div class="_container bg-dark">
+
+        <h2 class="pt-4 m-4">Upload DP statistics</h2>
+
+        <p class="mb-4 m-4">USER: <%= user.name %></p>
+
+        <!-- <pre><%= note %></pre> -->
+
+        <div class="row m-4">
+
+            <form action="/notes/uploadDPStats" method="POST" enctype="multipart/form-data" class="mb-4">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              id="excelFileDPStats"
+                              class="form-control"
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div class="d-grid gap-2">
+                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+                </div>
+            </form>
+
+
+
+
+            <!-- The data is uploaded to MongoDB with a function (handler) below -->
+            <div class="d-grid gap-2 mb-4">
+              <button id="uploadDpStatsBtn" class="btn btn-success" type="button">
+                ⬆️ Upload DP statistics
+              </button>
+            </div>
+
+
+
+            <div class="accordion mb-4" id="accordionExample">
+              <div class="accordion-item bg-dark border-0">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" style="background-color: #1a1a1a; color: #ffffff;" 
+                            data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                      📋 Table
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                    <div class="accordion-body">
+                      <table
+                        id="dpStatsTable"
+                        class="table table-dark table-striped table-bordered table-sm">
+                      </table>
+                    </div>
+                </div>
+              </div>
+            </div> 
+
+        </div>
+
+    </div>
+
+    <div id="chartContainer" class="m-3"></div>
+
+
+
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+    <script>
+
+        document.getElementById("excelFileDPStats").addEventListener("change", handleExcelUpload);
+
+        function handleExcelUpload(event) {
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+
+                // Use FIRST sheet
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+
+                // Convert to array-of-arrays
+                const rows = XLSX.utils.sheet_to_json(worksheet, {
+                    header: 1,
+                    blankrows: false,
+                    defval: ""
+                });
+
+                if (!rows.length) {
+                    alert("❌ Excel file is empty");
+                    return;
+                }
+
+                renderExcelTable(rows);
+                console.log("📄 Excel data preview:", rows.slice(0, 5));
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+
+
+        function renderExcelTable(data) {
+            const table = document.getElementById("dpStatsTable");
+            table.innerHTML = "";
+
+            data.forEach((row, rowIndex) => {
+                const tr = document.createElement("tr");
+
+                row.forEach(cell => {
+                const el = document.createElement(rowIndex === 0 ? "th" : "td");
+                el.textContent = cell;
+                tr.appendChild(el);
+                });
+
+                table.appendChild(tr);
+            });
+        }
+
+    </script>
+
+
+    <script>
+
+        document.getElementById("uploadDpStatsBtn")?.addEventListener("click", async () => {
+
+            const table = document.getElementById("dpStatsTable");
+
+            if (!table) {
+                alert("❌ Table not found");
+                return;
+            }
+
+            const headers = Array.from(
+                table.querySelectorAll("th")
+            ).map(th => th.textContent.trim());
+
+            if (headers.length === 0) {
+                alert("❌ Table headers missing");
+                return;
+            }
+
+            const rowss = Array.from(table.querySelectorAll("tr")).map(tr =>
+                Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim())
+            );
+
+            if (rowss.length === 0) {
+                alert("❌ No rows to upload");
+                return;
+            }
+
+
+        
+            // Combine into one array (header + rows)
+            const data = [headers, ...rowss];
+
+            console.log("📦 Ready to upload sample:", data.slice(1, 7));
+ 
+
+            //////// 🚀 Upload to server
+                try {
+                  const res = await fetch("/notes/uploadDPStats", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data }),
+                  });
+
+                  if (res.ok) {
+                    const msg = await res.text();
+                    //console.log("✅ Upload success:", msg);
+                    alert("✅ DP Stats uploaded successfully!");
+                  } else {
+                    const errText = await res.text();
+                    //console.error("❌ Upload failed:", errText);
+                    alert("❌ Upload failed:\n" + errText);
+                  }
+                } catch (err) {
+                  //console.error("❌ Upload error:", err);
+                  alert("❌ Upload error: " + err.message);
+                }
+
+        });
+
+    </script>
+
+</main>
+</body>
+</html>
+
+
+<!-- . -->
+
+
+<%- include ('partials/footer.ejs') %>

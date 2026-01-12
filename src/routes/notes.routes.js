@@ -24,6 +24,8 @@ const {
     syncDueDates,
     renderUploadScheduleETS,
     uploadScheduleETS,
+    renderUploadDPStats,
+    uploadDPStats,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -116,6 +118,14 @@ router.post('/notes/uploadScheduleETS', isAuthenticated, uploadScheduleETS);
 
 
 
+
+
+
+//Get Upload DPStats form
+router.get('/notes/uploadDPStats', isAuthenticated, renderUploadDPStats);
+
+//POST Upload DPStats
+router.post('/notes/uploadDPStats', isAuthenticated, uploadDPStats);
 
 
 module.exports = router;
