@@ -46,6 +46,11 @@
 
         <div class="accordion accordion-flush my-4 small" id="accordionExample">
 
+
+            <!-- <div id="dpBoxPlot" style="width:100%; max-width:100%;"></div> -->
+
+            <div id="dpBoxPlot" style="width:100%;"></div>
+
             
             <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
@@ -985,26 +990,24 @@
                 </div>
             <% } %>
 
-
-
-
+            <p id="scheduleUpdateText"></p>
+            <div id="chartDiv" class="m-3 bg-dark"></div>
 
         </div>
     </div>
 
-    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+    <!-- <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
         <p id="scheduleUpdateText"></p>
         <button class="btn btn-info my-2" onclick="renderChartsFromTable()">📊 Show Schedule</button>
         <div id="chartDiv" class="m-3 bg-dark"></div>
-    <% } %>
+    <% } %> -->
 
 
-    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>                            
+    <!-- <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>                            
         <button class="btn btn-info my-2" onclick="renderDPStatsBoxPlot();">📊 Show Stats</button>
-        <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div>
-    <% } %>
+    <% } %> -->
 
-    <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div>
+    <!-- <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div> -->
 </div>
 
 
@@ -1018,6 +1021,13 @@
 
 
 <!-- Script to generate the Charts -->
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderDPStatsBoxPlot();
+        renderChartsFromTable();
+    });
+</script>
 
 <script>
 
@@ -1698,17 +1708,19 @@
             boxpoints: "outliers",
             marker: { color: "#0084c7" }
         }], {
-            // title: "DP Duration Distribution",
+            title: "DP Timing Statistics",
             // yaxis: { title: "DP Days" },
             yaxis: {
-                title: "DP Days",
+                title: "Days",
                 range: [0, 60],      // 👈 LIMIT TO 60 DAYS
                 fixedrange: false    // 👈 prevents zooming beyond this range
             },
-            xaxis: { title: "DP Version" },
-            paper_bgcolor: "#111",
-            plot_bgcolor: "#111",
-            font: { color: "#fff" }
+            xaxis: { title: "Version" },
+            // paper_bgcolor: "#111",
+            // plot_bgcolor: "#111",
+            paper_bgcolor : 'rgba(0,0,0,0)',
+            plot_bgcolor : 'rgba(0,0,0,0)',
+            font: { color: "#fff" },
         });
     }
 </script>
