@@ -675,7 +675,7 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
         well: row[4] || "",
         dpCompany: row[10] || "",
         ETS: row[0] || "",
-
+        dpReq: row[17] || "",
         //dpReqDate: row[17] ? new Date(row[17]) : null,
         group: row[27] || "",
 
