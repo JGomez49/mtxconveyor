@@ -2,6 +2,20 @@
 
 <%- include ('partials/header.ejs') %>
 
+<style>
+    .pie-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;        /* allows wrapping on small screens */
+    justify-content: center;
+    margin-top: 16px;
+    }
+    .pie-chart {
+        max-width: 300px;
+        max-height: 300px;
+    }
+</style>
+
 
 <div id="navbar" class="p-2">
     <% if (user.name != 'Guest') { %>
@@ -1134,6 +1148,7 @@
                 // const rigs = Object.keys(vpMap[vp]);
                 const rigs = Object.keys(vpMap[vp][group]).sort((a, b) => a.localeCompare(b)); // ✅ alphabetical
 
+                const colorOfBorder = "#000000";
                 const datasets = [];
                 const colors = [];
                 const colorCounts = { 
@@ -1171,6 +1186,8 @@
                     const FixedEndOfLastYear = new Date("2025-12-31");
                     const FixedEndOfThisYear = new Date("2026-12-31");
                     const FixedEndOfNextYear = new Date("2027-12-31");
+
+                    const TargetDate = new Date("2026-08-31");
 
                 rigs.forEach(rig => {
 
@@ -1231,15 +1248,21 @@
                             //&& !rigToAvoid.includes(rig);
                             //if (countableForThisYear){console.log("Start Date:", start);}
                             
-
                         const countableForNextYear =
                             start > FixedEndOfThisYear 
                             && start <= FixedEndOfNextYear
                             //&& !rigToAvoid.includes(rig);
                             //if (countableForNextYear){console.log("Start Date:", start);}
 
-
                         const isForcedInProgress = isInProgressTable === true;
+
+                        
+
+                        // if(drillok === "NO-Drill" && geook === "NO-Geo"){
+                        //     colorOfBorder = "#FFFFFF"; // white border for NO-Drill/NO-Geo
+                        //     console.log("NO-Drill/NO-Geo detected for site:", drillok, geook);
+                        // }
+
 
 
                         // Blue:    "#0084c7"   : DP-YES
@@ -1309,7 +1332,7 @@
                                 if (countableForThisYear) colorCounts.whiteThisYear++;
                                 if (countableForNextYear) colorCounts.whiteNextYear++;
                                 break;
-                            }
+                        }
 
 
                     });
@@ -1345,9 +1368,10 @@
                             backgroundColor: colors,
                             borderRadius: 6,
                             borderSkipped: false,
-                            borderColor: "#000",
+                            //borderColor: "#000",
+                            borderColor: colorOfBorder,
                             borderWidth: 1,
-                            parsing: { xAxisKey: "x", yAxisKey: "y" }
+                            parsing: { xAxisKey: "x", yAxisKey: "y" },
                         }]
                     },
                     options: {
@@ -1402,6 +1426,10 @@
                                     }
                                 }
                             },
+                            // glowPlugin: {
+                            //     glowColor: 'rgba(0, 255, 255, 0.9)',
+                            //     glowBlur: 15,
+                            // },
                             datalabels: {
                                 anchor: "center",
                                 align: "center",
@@ -1453,14 +1481,14 @@
                                         borderWidth: 2,
                                         label: { enabled: true, content: "Today", position: "start", color: "red" },
                                     },
-                                    OneYearLaterLine: {
-                                        type: "line",
-                                        xMin: oneYearLater,
-                                        xMax: oneYearLater,
-                                        borderColor: "Yellow",
-                                        borderWidth: 2,
-                                        label: { enabled: true, content: "One Year", position: "end", color: "yellow" },
-                                    },
+                                    // OneYearLaterLine: {
+                                    //     type: "line",
+                                    //     xMin: oneYearLater,
+                                    //     xMax: oneYearLater,
+                                    //     borderColor: "Yellow",
+                                    //     borderWidth: 2,
+                                    //     label: { enabled: true, content: "One Year", position: "end", color: "yellow" },
+                                    // },
                                     FixedEndOfNextYearLine: {
                                         type: "line",
                                         xMin: FixedEndOfNextYear,
@@ -1476,6 +1504,14 @@
                                         borderColor: "purple",
                                         borderWidth: 4,
                                         label: { enabled: true, content: "End of This Year", position: "end", color: "purple" },
+                                    },
+                                    TargetDateLine: {
+                                        type: "line",
+                                        xMin: TargetDate,
+                                        xMax: TargetDate,
+                                        borderColor: "Yellow",
+                                        borderWidth: 2,
+                                        label: { enabled: true, content: "Target Date", position: "end", color: "yellow" },
                                     },
                                 }
                             },
@@ -1618,6 +1654,36 @@
                 chartDiv.appendChild(summaryTable);
 
 
+                const targetDateDiv = document.createElement("targetDateDiv");
+                targetDateDiv.innerHTML = 
+                // `<p class="mt-1 mb-0" style="font-size: 0.9em; color: #ccc;">Target Date: ${TargetDate.toLocaleDateString("en-US", { 
+                //     weekday: "long", 
+                //     year: "numeric", 
+                //     month: "long", 
+                //     day: "numeric" 
+                //     })}
+                // </p>`;
+                `<h6 class="mt-1 mb-0" _style="font-size: 0.9em; color: #ccc;">
+                    Target Date: <b> ${TargetDate.toLocaleDateString("en-US", { 
+                    weekday: "long", 
+                    year: "numeric", 
+                    month: "long", 
+                    day: "numeric" 
+                    })}</b>
+                </h6>
+                <p class="mt-1 mb-0" style="font-size: 1.2em; color: #ccc;">
+                    Days to target: <b> ${Math.ceil((TargetDate - today) / (1000 * 60 * 60 * 24))}</b>
+                </p>
+                <p class="mt-1 mb-0" style="font-size: 1em; color: #ccc;">
+                    * Target date refers to the date by which all sites should ideally have at least a P0 for the next year 
+                    and folders must be with Geo information, minimum <b> 5 months (150 days) </b> prior to this date.
+                </p>
+                <p class="mt-1 mb-0" style="font-size: 1.2em; color: #ccc;">
+                    Max. days to request DPs for budget: <b> ${Math.ceil(((TargetDate - today) / (1000 * 60 * 60 * 24))-150)}</b>
+                </p>
+                `;
+                chartDiv.appendChild(targetDateDiv);
+
 
                 // Summary Table
                     // Blue:    "#0084c7"   : DP-YES
@@ -1703,14 +1769,25 @@
                 // });
 
 
-                // Pie Chart 2
-                const pieCanvas2 = document.createElement("canvas");
-                pieCanvas2.style.maxWidth = "300px";
-                pieCanvas2.style.maxHeight = "300px";
-                pieCanvas2.className = "_mb-2 m-0";
+                
+                const pieRow = document.createElement("div");
+                pieRow.className = "pie-row";
+                chartDiv.appendChild(pieRow);
 
-                chartDiv.appendChild(pieCanvas2);
-                new Chart(pieCanvas2.getContext("2d"), {
+
+
+                // Pie Chart 2
+                const pieCanvas = document.createElement("canvas");
+                pieCanvas.className = "pie-chart";
+                pieRow.appendChild(pieCanvas);
+
+                // const pieCanvas2 = document.createElement("canvas");
+                // pieCanvas2.style.maxWidth = "300px";
+                // pieCanvas2.style.maxHeight = "300px";
+                // pieCanvas2.className = "_mb-2 m-0";
+
+                //chartDiv.appendChild(pieCanvas);
+                new Chart(pieCanvas.getContext("2d"), {
                     type: "pie",
                     data: {
                         // labels: [
@@ -1777,11 +1854,15 @@
 
                 // Pie Chart 3
                 const pieCanvas3 = document.createElement("canvas");
-                pieCanvas3.style.maxWidth = "300px";
-                pieCanvas3.style.maxHeight = "300px";
-                pieCanvas3.className = "mb-2";
+                pieCanvas3.className = "pie-chart";
+                pieRow.appendChild(pieCanvas3);
 
-                chartDiv.appendChild(pieCanvas3);
+                // const pieCanvas3 = document.createElement("canvas");
+                // pieCanvas3.style.maxWidth = "300px";
+                // pieCanvas3.style.maxHeight = "300px";
+                // pieCanvas3.className = "mb-2";
+
+                //chartDiv.appendChild(pieCanvas3);
                 new Chart(pieCanvas3.getContext("2d"), {
                     type: "pie",
                     data: {
