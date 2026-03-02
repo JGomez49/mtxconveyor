@@ -891,6 +891,8 @@
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
                 <% } %> 
 
+
+
                 <% if (user.role == 'user' || user.role == 'leader') { %>
                     <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
                     <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
@@ -958,7 +960,7 @@
         <!----------------- LOG ------------------>
 
 
-        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
 
 
             <div style="background-color: darkslategray;">

@@ -9,6 +9,7 @@ const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
 const DPStats = require("../models/DPStats");
+
 //const ScheduleETS = require("../models/ScheduleETS");
 
 
@@ -754,6 +755,17 @@ notesCrtl.uploadDPStats = async (req, res) => {
   }
 };
 
+
+
+
+
+
+notesCrtl.renderUploadDPI = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadDPI.ejs', {note, user});
+};
 
 
 

@@ -26,6 +26,7 @@ const {
     uploadScheduleETS,
     renderUploadDPStats,
     uploadDPStats,
+    renderUploadDPI,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -127,5 +128,9 @@ router.get('/notes/uploadDPStats', isAuthenticated, renderUploadDPStats);
 //POST Upload DPStats
 router.post('/notes/uploadDPStats', isAuthenticated, uploadDPStats);
 
+
+
+//Get Upload DPI (Directional Plan Index) form
+router.get('/notes/uploadDPI', isAuthenticated, renderUploadDPI);
 
 module.exports = router;
