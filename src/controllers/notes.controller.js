@@ -770,4 +770,14 @@ notesCrtl.renderUploadDPI = async(req,res)=>{
 
 
 
+notesCrtl.renderUploadPason = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadPason.ejs', {note, user});
+};
+
+
+
+
 module.exports = notesCrtl;

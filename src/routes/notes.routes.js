@@ -27,6 +27,7 @@ const {
     renderUploadDPStats,
     uploadDPStats,
     renderUploadDPI,
+    renderUploadPason,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -132,5 +133,12 @@ router.post('/notes/uploadDPStats', isAuthenticated, uploadDPStats);
 
 //Get Upload DPI (Directional Plan Index) form
 router.get('/notes/uploadDPI', isAuthenticated, renderUploadDPI);
+
+
+
+//Get Upload Pason Data form
+router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
+
+
 
 module.exports = router;
