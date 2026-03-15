@@ -1,14 +1,14 @@
 
-
 <!doctype html>
+
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
-  <title>Pason Plots</title>
+  <title>Drilling Plots</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="32x64"
     href="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png">
-  <!-- Bootswatch "Slate" (Bootstrap 5) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5/dist/slate/bootstrap.min.css">
   <style>
     body { padding: 2rem 0; }
@@ -17,24 +17,24 @@
     input[type="file"] { color-scheme: dark; }
     canvas { max-height: 70vh; }
     .file-title { font-weight: 600; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
     .form-range { width: 220px; }
     .num-input { width: 120px; }
     .num-input-wide { width: 180px; }
     .num-input-axis { width: 120px; }
     .controls-block { gap: .75rem; }
-    .section-title { font-weight: 600; }
     hr.subtle { border-top: 1px solid rgba(255,255,255,0.08); }
     .vis-hidden { display: none !important; }
     .flex-gap { gap: .5rem; }
+    .dropdown-menu-checklist { max-height: 40vh; overflow: auto; min-width: 260px; }
   </style>
 </head>
+
 <body>
   <div class="container">
-    
+
     <header class="mb-3">
       <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
-        alt="Girl in a jacket" width="250" height="100">
+        alt="Canadian Natural Resources Logo" width="250" height="100">
       <h1 class="h4 mb-1">Pason Plots</h1>
     </header>
 
@@ -42,28 +42,11 @@
       <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
     </div>
 
-    <!-- <header class="mb-4"> -->
-      <!-- <h1 class="h3">Single Plot Selector: HL / Torque / WOB / ROP / MSE / Flow / Time–Depth</h1> -->
-      <!-- <p class="small-note">
-        Overlay one Excel file (B &amp; C vs A) and <strong>all Pason CSV files</strong> in a folder.<br>
-        <strong>Hook Load</strong>: X = col 3 (MD), Y = col 9 (kDaN).<br>
-        <strong>Torque</strong>: X = col 3 (MD), Y = col 11 (kN·m).<br>
-        <strong>WOB</strong>: X = col 3 (MD), Y = col 6 (Weight on Bit, kDaN).<br>
-        <strong>Flow</strong>: X = col 3 (MD), Y = col 12 (Total Pump Output, m³/min).<br>
-        <strong>ROP</strong>: X = col 3 (MD), Y = col 5 (ROP, m/h). <em>Negative ROP is discarded.</em><br>
-        <strong>MSE</strong>: X = col 3 (MD), Y = <em>Mechanical Specific Energy (ksi)</em> column (auto‑detect header or manual index).<br>
-        <strong>Time–Depth</strong>: X = days from start (Date col 1 + Time col 2), Y = Hole Depth (m, col 3; axis inverted).<br>
-        Any <span class="mono">-999.25</span> is replaced with the running average up to that point; if at the start, it’s forward‑filled from the first valid value.
-      </p> -->
-    <!-- </header> -->
-
-    <!-- Files -->
     <div class="card mb-4">
       <div class="card-body">
         <div class="row g-4">
-          <!-- File 1: Generic Excel -->
           <div class="col-lg-6">
-            <div class="file-title mb-2">File 1 (Generic Excel): B &amp; C vs A</div>
+            <div class="file-title mb-2">File 1 (Generic Excel): B & C vs A</div>
             <label for="file1" class="form-label">Excel file (.xlsx or .xls)</label>
             <input id="file1" class="form-control" type="file" accept=".xlsx,.xls" />
             <div class="form-check mt-2">
@@ -72,8 +55,6 @@
             </div>
             <div id="status1" class="form-text mt-2"></div>
           </div>
-
-          <!-- Pason: Folder of CSVs -->
           <div class="col-lg-6">
             <div class="file-title mb-2">Pason CSVs Folder</div>
             <label for="pasonFolder" class="form-label">Select folder with Pason CSV files</label>
@@ -92,15 +73,12 @@
 
         <hr class="my-4 subtle"/>
 
-        <!-- Plot selector + Global Controls -->
         <div class="row g-3 align-items-center mb-2">
           <div class="col-xxl-4 d-flex align-items-center flex-gap">
             <label for="plotSelect" class="form-label mb-0">Plot:</label>
             <select id="plotSelect" class="form-select form-select-sm" style="max-width: 520px;"></select>
           </div>
-
-        <div class="col-xxl-8 d-flex flex-wrap controls-block justify-content-xxl-end align-items-center">
-            <!-- Palette toggle -->
+          <div class="col-xxl-8 d-flex flex-wrap controls-block justify-content-xxl-end align-items-center">
             <div class="input-group input-group-sm" style="width: 200px;">
               <label class="input-group-text" for="paletteMode">Palette</label>
               <select class="form-select" id="paletteMode">
@@ -108,41 +86,36 @@
                 <option value="gray">Gray</option>
               </select>
             </div>
-
-            <!-- Line style selector (regular curves) -->
-            <div class="input-group input-group-sm" style="width: 235px;">
+            <div class="input-group input-group-sm" style="width: 260px;">
               <label class="input-group-text" for="lineStyle">Line style</label>
               <select class="form-select" id="lineStyle">
                 <option value="solid">Solid line</option>
                 <option value="dotted">Dotted line</option>
                 <option value="points" selected>Points only</option>
+                <option value="hide">Hide regular curves</option>
               </select>
             </div>
-
-            <!-- Hide points entirely -->
+            <!-- Points toggle (default hidden) -->
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="hidePoints" />
-              <label class="form-check-label" for="hidePoints">Hide points</label>
+              <input class="form-check-input" type="checkbox" id="showPoints" />
+              <label class="form-check-label" for="showPoints">Show points</label>
             </div>
-
-            <!-- Dots size & opacity slider -->
             <div class="d-flex align-items-center gap-2">
-              <label for="dotStyle" class="form-label mb-0">Dots size &amp; opacity</label>
+              <label for="dotStyle" class="form-label mb-0">Dots size & opacity</label>
               <input type="range" id="dotStyle" class="form-range" min="0" max="100" step="1" value="10" />
             </div>
-
-            <!-- Spike rejection -->
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="rejectSpikes" />
               <label class="form-check-label" for="rejectSpikes">Reject spikes</label>
             </div>
             <div class="input-group input-group-sm num-input">
-              <span class="input-group-text">Δ &gt;</span>
+              <span class="input-group-text">Δ ></span>
               <input type="number" class="form-control" id="spikeThreshold" value="5" step="0.1" min="0" />
-              <!-- <span class="input-group-text">kDaN / kN·m / m/h / ksi / m³/min / m</span> -->
             </div>
-
-            <!-- Smoothing (regular & Average). Percentiles always smoothed. -->
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="useIqrReject" checked />
+              <label class="form-check-label" for="useIqrReject">Robust spike filter (IQR)</label>
+            </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="applySmoothing" checked />
               <label class="form-check-label" for="applySmoothing">Smooth</label>
@@ -152,10 +125,20 @@
               <input type="range" id="smoothWindow" class="form-range" min="1" max="25" step="2" value="5" />
               <span id="smoothValue" class="small-note">5</span>
             </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="showLegend" />
+              <label class="form-check-label" for="showLegend">Show legend</label>
+            </div>
+            <!-- Series toggle dropdown -->
+            <div class="dropdown">
+              <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Series (current plot)
+              </button>
+              <div class="dropdown-menu dropdown-menu-checklist p-2" id="seriesToggleMenu"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Special curves (HL, Torque, WOB, ROP, MSE, Flow) -->
         <div id="specialControls" class="row g-3 align-items-center mb-2">
           <div class="col-xxl-12 d-flex flex-wrap controls-block justify-content-xxl-end align-items-center">
             <div class="form-check">
@@ -164,14 +147,13 @@
             </div>
             <div class="input-group input-group-sm num-input-wide">
               <span class="input-group-text">Step</span>
-              <input type="number" class="form-control" id="avgStep" value="5" step="1" min="0.1" />
-              <span class="input-group-text">m</span>
+              <input type="number" class="form-control" id="avgStep" value="5" step="1" min="0.0001" />
+              <span class="input-group-text">m / days</span>
             </div>
             <div class="input-group input-group-sm num-input">
               <span class="input-group-text">Min series</span>
               <input type="number" class="form-control" id="avgMinSeries" value="2" step="1" min="1" />
             </div>
-
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="showMax" checked />
               <label class="form-check-label" for="showMax">Max (percentile)</label>
@@ -180,7 +162,6 @@
               <span class="input-group-text">Max %</span>
               <input type="number" class="form-control" id="maxPct" value="90" step="1" min="50" max="100" />
             </div>
-
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="showMin" checked />
               <label class="form-check-label" for="showMin">Min (percentile)</label>
@@ -189,8 +170,6 @@
               <span class="input-group-text">Min %</span>
               <input type="number" class="form-control" id="minPct" value="10" step="1" min="0" max="50" />
             </div>
-
-            <!-- CSV Exports for current plot (if supports special curves) -->
             <div class="btn-group btn-group-sm" role="group" aria-label="CSV Exports">
               <button id="exportAvgCsv" class="btn btn-outline-success">Export Average CSV</button>
               <button id="exportMaxCsv" class="btn btn-outline-success">Export Max CSV</button>
@@ -199,7 +178,6 @@
           </div>
         </div>
 
-        <!-- Axis & Zoom controls (for current plot) -->
         <div class="row g-2 align-items-center mb-2">
           <div class="col-xxl-12 d-flex flex-wrap align-items-center gap-2">
             <span class="small-note me-2">Axes (<span id="axesPlotName">Hook Load vs Measured Depth</span>):</span>
@@ -221,21 +199,18 @@
             </div>
             <button id="applyAxes" class="btn btn-outline-light btn-sm">Apply</button>
             <button id="autoAxes" class="btn btn-outline-light btn-sm">Auto</button>
-
             <div class="form-check ms-3">
               <input class="form-check-input" type="checkbox" id="enableZoom" />
               <label class="form-check-label" for="enableZoom">Enable zoom/pan</label>
             </div>
             <button id="resetZoom" class="btn btn-outline-warning btn-sm">Reset Zoom</button>
-
             <button id="exportPng" class="btn btn-outline-info btn-sm ms-auto">Download PNG</button>
+            <button id="exportVisibleCsv" class="btn btn-outline-info btn-sm">Export visible CSV</button>
           </div>
         </div>
-
       </div>
     </div>
 
-    <!-- SINGLE CHART AREA -->
     <div class="card">
       <div class="card-body">
         <div class="chart-wrap">
@@ -247,7 +222,7 @@
     <div class="text-muted small-note mt-3">
       <p class="mb-1"><strong>Data rules</strong></p>
       <ul class="mb-2">
-        <li>Excel (File 1): A = Measured Depth (m), B &amp; C = numeric series for HL plot.</li>
+        <li>Excel (File 1): A = Measured Depth (m), B & C = numeric series for HL plot.</li>
         <li>Pason CSVs:
           <ul>
             <li><strong>Date</strong> = column 1 (day, month, year), <strong>Time</strong> = column 2 (HH:MM:SS)</li>
@@ -270,987 +245,196 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    /* Register zoom plugin if available */
-    (function() {
-      const zp = window['chartjs-plugin-zoom'];
-      if (zp && window.Chart) { Chart.register(zp); }
-    })();
+    (function() { const zp = window['chartjs-plugin-zoom']; if (zp && window.Chart) { Chart.register(zp); }})();
 
-    // ---------------- Plot registry (drives the dropdown) ----------------
     const plotRegistry = [
-      { id: 'hl',   name: 'Hook Load vs Measured Depth', xTitle: 'Measured Depth (m)', yTitle: 'Hook Load (kDaN)',       supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'tq',   name: 'Torque vs Measured Depth',     xTitle: 'Measured Depth (m)', yTitle: 'Torque (kN·m)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'wob',  name: 'WOB vs Measured Depth',        xTitle: 'Measured Depth (m)', yTitle: 'WOB (kDaN)',            supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'rop',  name: 'ROP vs Measured Depth',        xTitle: 'Measured Depth (m)', yTitle: 'ROP (m/h)',             supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'mse',  name: 'MSE vs Measured Depth',        xTitle: 'Measured Depth (m)', yTitle: 'MSE (ksi)',             supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'flow', name: 'Flow vs Measured Depth',       xTitle: 'Measured Depth (m)', yTitle: 'Flow (m³/min)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
-      { id: 'td',   name: 'Hole Depth vs Time (days)',    xTitle: 'Time (days from start)', yTitle: 'Hole Depth (m)',    supportsSpecial: false, reversedY: true,  defaultSolid: true }
+      { id: 'hl',  name: 'Hook Load vs Measured Depth',   xTitle: 'Measured Depth (m)', yTitle: 'Hook Load (kDaN)', supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'tq',  name: 'Torque vs Measured Depth',      xTitle: 'Measured Depth (m)', yTitle: 'Torque (kN·m)',     supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'wob', name: 'WOB vs Measured Depth',         xTitle: 'Measured Depth (m)', yTitle: 'WOB (kDaN)',        supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'rop', name: 'ROP vs Measured Depth',         xTitle: 'Measured Depth (m)', yTitle: 'ROP (m/h)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'mse', name: 'MSE vs Measured Depth',         xTitle: 'Measured Depth (m)', yTitle: 'MSE (ksi)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'flow',name: 'Flow vs Measured Depth',        xTitle: 'Measured Depth (m)', yTitle: 'Flow (m³/min)',     supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'td',  name: 'Hole Depth vs Time (days)',     xTitle: 'Time (days from start)', yTitle: 'Hole Depth (m)', supportsSpecial: true,  reversedY: true,  defaultSolid: true }
     ];
 
     function buildPlotDropdownUI() {
-      const sel = document.getElementById('plotSelect');
-      sel.innerHTML = '';
-      plotRegistry.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id; opt.textContent = p.name;
-        sel.appendChild(opt);
-      });
-      sel.value = 'hl'; // default
-      updateSpecialControlsVisibility();
-      updateAxesLabels();
+      const sel = document.getElementById('plotSelect'); sel.innerHTML = '';
+      plotRegistry.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name; sel.appendChild(opt); });
+      sel.value = 'hl'; updateSpecialControlsVisibility(); updateAxesLabels();
     }
+    function currentPlotDef() { const id = document.getElementById('plotSelect').value; return plotRegistry.find(p => p.id === id) || plotRegistry[0]; }
+    function updateSpecialControlsVisibility(){ const p = currentPlotDef(); document.getElementById('specialControls').classList.toggle('vis-hidden', !p.supportsSpecial); }
+    function updateAxesLabels(){ const p = currentPlotDef(); document.getElementById('axesPlotName').textContent = p.name; document.getElementById('xMin').placeholder = p.xTitle+' min'; document.getElementById('xMax').placeholder = p.xTitle+' max'; document.getElementById('yMin').placeholder = p.yTitle+' min'; document.getElementById('yMax').placeholder = p.yTitle+' max'; }
 
-    function currentPlotDef() {
-      const id = document.getElementById('plotSelect').value;
-      return plotRegistry.find(p => p.id === id) || plotRegistry[0];
-    }
+    function toNumber(v){ if (typeof v==='number') return Number.isFinite(v)?v:NaN; if(v==null) return NaN; const s=String(v).trim(); if(!s) return NaN; const normalized=s.replace(/\s/g,'').replace(/,/g,''); const n=Number(normalized); return Number.isFinite(n)?n:NaN; }
 
-    function updateSpecialControlsVisibility() {
-      const p = currentPlotDef();
-      document.getElementById('specialControls').classList.toggle('vis-hidden', !p.supportsSpecial);
-    }
+    function cleanAndBuildXY(xArr,yArr){ const xs=[],ys=[]; let runSum=0,runCount=0,replaced=0; for(let i=0;i<Math.min(xArr.length,yArr.length);i++){ const x=toNumber(xArr[i]); let y=toNumber(yArr[i]); if(!Number.isFinite(x)) continue; if(Number.isFinite(y)){ if(y===-999.25){ y=(runCount>0)?(runSum/runCount):null; replaced++; } } else { y=(runCount>0)?(runSum/runCount):null; replaced++; } xs.push(x); ys.push(y); if(y!==null && Number.isFinite(y)){ runSum+=y; runCount+=1; } } const firstIdx=ys.findIndex(v=>v!==null && Number.isFinite(v)); if(firstIdx>0){ const firstVal=ys[firstIdx]; for(let i=0;i<firstIdx;i++) ys[i]=firstVal; } const pts=[]; for(let i=0;i<xs.length;i++){ const y=ys[i]; if(y!==null && Number.isFinite(y)) pts.push({x:xs[i], y}); } pts.sort((a,b)=>a.x-b.x); return {pts, replaced}; }
 
-    function updateAxesLabels() {
-      const p = currentPlotDef();
-      document.getElementById('axesPlotName').textContent = p.name;
-      document.getElementById('xMin').placeholder = p.xTitle + ' min';
-      document.getElementById('xMax').placeholder = p.xTitle + ' max';
-      document.getElementById('yMin').placeholder = p.yTitle + ' min';
-      document.getElementById('yMax').placeholder = p.yTitle + ' max';
-    }
+    function rejectSpikes(points,threshold){ if(!Array.isArray(points)||points.length===0||threshold<=0) return points; const out=[]; let prevY=null; for(const p of points){ if(prevY===null){ out.push(p); prevY=p.y; continue; } const dy=Math.abs(p.y-prevY); if(dy<=threshold){ out.push(p); prevY=p.y; } } return out; }
 
-    // ---------------- Utilities (shared) ----------------
+    function percentileOfSorted(sorted,q){ const n=sorted.length; if(!n) return null; if(q<=0) return sorted[0]; if(q>=1) return sorted[n-1]; const pos=(n-1)*q; const lo=Math.floor(pos); const hi=Math.ceil(pos); const frac=pos-lo; if(hi===lo) return sorted[lo]; return sorted[lo]*(1-frac)+sorted[hi]*frac; }
+    function rejectSpikesIqr(points,win=51,k=3.0){ if(!Array.isArray(points)||points.length===0) return points; const w=Math.max(3,win|0); const half=Math.floor(w/2); const ys=points.map(p=>p.y); const out=[]; for(let i=0;i<ys.length;i++){ const s=Math.max(0,i-half), e=Math.min(ys.length-1,i+half); const slice=ys.slice(s,e+1).filter(Number.isFinite).sort((a,b)=>a-b); if(slice.length<5){ out.push(points[i]); continue; } const q1=percentileOfSorted(slice,0.25); const q3=percentileOfSorted(slice,0.75); const iqr=q3-q1; const lo=q1-k*iqr; const hi=q3+k*iqr; const y=ys[i]; if(y>=lo && y<=hi) out.push(points[i]); } return out; }
 
-    function toNumber(v) {
-      if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
-      if (v == null) return NaN;
-      const s = String(v).trim();
-      if (!s) return NaN;
-      const normalized = s.replace(/\s/g, '').replace(/,/g, '');
-      const n = Number(normalized);
-      return Number.isFinite(n) ? n : NaN;
-    }
+    function smoothSeries(points,window){ if(!points||points.length===0||window<=1) return points; const w=Math.max(1,window|0); const half=Math.floor(w/2); const out=new Array(points.length); const pref=new Array(points.length+1).fill(0); for(let i=0;i<points.length;i++) pref[i+1]=pref[i]+points[i].y; for(let i=0;i<points.length;i++){ const start=Math.max(0,i-half); const end=Math.min(points.length-1,i+half); const count=end-start+1; const sum=pref[end+1]-pref[start]; out[i]={x:points[i].x,y:sum/count}; } return out; }
 
-    /** Replace -999.25 (or non-numeric) with running mean; forward-fill start; return sorted points + count. */
-    function cleanAndBuildXY(xArr, yArr) {
-      const xs = [], ys = [];
-      let runSum = 0, runCount = 0, replaced = 0;
-      for (let i = 0; i < Math.min(xArr.length, yArr.length); i++) {
-        const x = toNumber(xArr[i]);
-        let y = toNumber(yArr[i]);
-        if (!Number.isFinite(x)) continue;
+    function interpAt(points,x){ const n=points.length; if(n===0) return null; if(x<points[0].x || x>points[n-1].x) return null; if(x===points[0].x) return points[0].y; if(x===points[n-1].x) return points[n-1].y; for(let i=1;i<n;i++){ const p0=points[i-1], p1=points[i]; if(x>=p0.x && x<=p1.x){ const dx=p1.x-p0.x; if(dx===0) return p0.y; const t=(x-p0.x)/dx; return p0.y + t*(p1.y-p0.y); } } return null; }
+    function collectSeriesValuesAtX(seriesList,x){ const ys=[]; for(const arr of seriesList){ const y=interpAt(arr,x); if(Number.isFinite(y)) ys.push(y); } return ys; }
 
-        if (Number.isFinite(y)) {
-          if (y === -999.25) { y = (runCount > 0) ? (runSum / runCount) : null; replaced++; }
-        } else { y = (runCount > 0) ? (runSum / runCount) : null; replaced++; }
+    function xRange(seriesList){ let minX=Infinity,maxX=-Infinity; for(const arr of seriesList){ if(!arr.length) continue; if(arr[0].x<minX) minX=arr[0].x; if(arr[arr.length-1].x>maxX) maxX=arr[arr.length-1].x; } return {minX,maxX}; }
 
-        xs.push(x); ys.push(y);
-        if (y !== null && Number.isFinite(y)) { runSum += y; runCount += 1; }
-      }
-      // Forward-fill initial nulls
-      const firstIdx = ys.findIndex(v => v !== null && Number.isFinite(v));
-      if (firstIdx > 0) { const firstVal = ys[firstIdx]; for (let i = 0; i < firstIdx; i++) ys[i] = firstVal; }
+    function buildAverageSeries(seriesList, step, minSeries, alsoSmooth, smoothWindow){ const valid=seriesList.filter(a=>Array.isArray(a)&&a.length>0); if(!valid.length) return []; const {minX,maxX}=xRange(valid); if(!(Number.isFinite(minX)&&Number.isFinite(maxX)&&maxX>minX)) return []; const s=Math.max(0.0001, step); const out=[]; for(let x=minX; x<=maxX+1e-9; x+=s){ const ys=collectSeriesValuesAtX(valid,x); if(ys.length>=minSeries){ const avg=ys.reduce((a,b)=>a+b,0)/ys.length; out.push({x,y:avg}); } } return alsoSmooth ? smoothSeries(out, smoothWindow) : out; }
+    function buildPercentileSeries(seriesList, step, minSeries, pct, smoothWindow){ const valid=seriesList.filter(a=>Array.isArray(a)&&a.length>0); if(!valid.length) return []; const {minX,maxX}=xRange(valid); if(!(Number.isFinite(minX)&&Number.isFinite(maxX)&&maxX>minX)) return []; const s=Math.max(0.0001, step); const out=[]; for(let x=minX; x<=maxX+1e-9; x+=s){ const ys=collectSeriesValuesAtX(valid,x); if(ys.length>=minSeries){ ys.sort((a,b)=>a-b); const val=percentileOfSorted(ys,pct); if(Number.isFinite(val)) out.push({x,y:val}); } } return smoothSeries(out, smoothWindow); }
 
-      const pts = [];
-      for (let i = 0; i < xs.length; i++) {
-        const y = ys[i];
-        if (y !== null && Number.isFinite(y)) pts.push({ x: xs[i], y });
-      }
-      pts.sort((a, b) => a.x - b.x);
-      return { pts, replaced };
-    }
+    function parseDateTimeUTC(dStr,tStr){ const d=(dStr==null)?'':String(dStr).trim(); const t=(tStr==null)?'':String(tStr).trim(); if(!d) return NaN; let year,month,day; const split=(s)=>s.split(/[\/\-.]/).map(x=>x.trim()); if(/-/.test(d)||/\./.test(d)||/\//.test(d)){ const parts=split(d); if(parts.length===3){ if(parts[0].length===4){ year=+parts[0]; month=+parts[1]; day=+parts[2]; } else { day=+parts[0]; month=+parts[1]; year=+parts[2]; if(year<100) year+=2000; } } } if(!Number.isFinite(year)||!Number.isFinite(month)||!Number.isFinite(day)){ const parsed=Date.parse(d+(t?(' '+t):'')); return isNaN(parsed)?NaN:parsed; } let hh=0,mm=0,ss=0; if(t){ const tp=t.split(':').map(n=>parseInt(n,10)); hh=tp[0]||0; mm=tp[1]||0; ss=tp[2]||0; } return Date.UTC(year,month-1,day,hh,mm,ss); }
 
-    /** Spike rejection vs previous kept point. */
-    function rejectSpikes(points, threshold) {
-      if (!Array.isArray(points) || points.length === 0 || threshold <= 0) return points;
-      const out = [];
-      let prevY = null;
-      for (const p of points) {
-        if (prevY === null) { out.push(p); prevY = p.y; continue; }
-        const dy = Math.abs(p.y - prevY);
-        if (dy <= threshold) { out.push(p); prevY = p.y; }
-      }
-      return out;
-    }
-
-    /** Moving average smoothing (odd window). */
-    function smoothSeries(points, window) {
-      if (!points || points.length === 0 || window <= 1) return points;
-      const w = Math.max(1, window | 0);
-      const half = Math.floor(w / 2);
-      const out = new Array(points.length);
-      const pref = new Array(points.length + 1).fill(0);
-      for (let i = 0; i < points.length; i++) pref[i + 1] = pref[i] + points[i].y;
-      for (let i = 0; i < points.length; i++) {
-        const start = Math.max(0, i - half);
-        const end = Math.min(points.length - 1, i + half);
-        const count = end - start + 1;
-        const sum = pref[end + 1] - pref[start];
-        out[i] = { x: points[i].x, y: sum / count };
-      }
-      return out;
-    }
-
-    // Percentile helpers
-    function percentileOfSorted(sorted, q) {
-      const n = sorted.length;
-      if (!n) return null;
-      if (q <= 0) return sorted[0];
-      if (q >= 1) return sorted[n - 1];
-      const pos = (n - 1) * q;
-      const lo = Math.floor(pos);
-      const hi = Math.ceil(pos);
-      const frac = pos - lo;
-      if (hi === lo) return sorted[lo];
-      return sorted[lo] * (1 - frac) + sorted[hi] * frac;
-    }
-
-    /** Linear interpolation y at x for sorted points; returns number or null. */
-    function interpAt(points, x) {
-      const n = points.length;
-      if (n === 0) return null;
-      if (x < points[0].x || x > points[n - 1].x) return null;
-      if (x === points[0].x) return points[0].y;
-      if (x === points[n - 1].x) return points[n - 1].y;
-      for (let i = 1; i < n; i++) {
-        const p0 = points[i - 1], p1 = points[i];
-        if (x >= p0.x && x <= p1.x) {
-          const dx = p1.x - p0.x;
-          if (dx === 0) return p0.y;
-          const t = (x - p0.x) / dx;
-          return p0.y + t * (p1.y - p0.y);
-        }
-      }
-      return null;
-    }
-
-    function collectSeriesValuesAtX(seriesList, x) {
-      const ys = [];
-      for (const arr of seriesList) {
-        const y = interpAt(arr, x);
-        if (Number.isFinite(y)) ys.push(y);
-      }
-      return ys;
-    }
-
-    function buildAverageSeries(seriesList, step, minSeries, alsoSmooth, smoothWindow) {
-      const valid = seriesList.filter(a => Array.isArray(a) && a.length > 0);
-      if (!valid.length) return [];
-      let minX = Infinity, maxX = -Infinity;
-      for (const arr of valid) {
-        if (arr[0].x < minX) minX = arr[0].x;
-        if (arr[arr.length-1].x > maxX) maxX = arr[arr.length-1].x;
-      }
-      if (!(Number.isFinite(minX) && Number.isFinite(maxX) && maxX > minX)) return [];
-      const s = Math.max(0.0001, step);
-      const out = [];
-      for (let x = minX; x <= maxX + 1e-9; x += s) {
-        const ys = collectSeriesValuesAtX(valid, x);
-        if (ys.length >= minSeries) {
-          const avg = ys.reduce((a,b)=>a+b,0)/ys.length;
-          out.push({ x, y: avg });
-        }
-      }
-      return alsoSmooth ? smoothSeries(out, smoothWindow) : out;
-    }
-
-    function buildPercentileSeries(seriesList, step, minSeries, pct, smoothWindow) {
-      const valid = seriesList.filter(a => Array.isArray(a) && a.length > 0);
-      if (!valid.length) return [];
-      let minX = Infinity, maxX = -Infinity;
-      for (const arr of valid) {
-        if (arr[0].x < minX) minX = arr[0].x;
-        if (arr[arr.length-1].x > maxX) maxX = arr[arr.length-1].x;
-      }
-      if (!(Number.isFinite(minX) && Number.isFinite(maxX) && maxX > minX)) return [];
-      const s = Math.max(0.0001, step);
-      const out = [];
-      for (let x = minX; x <= maxX + 1e-9; x += s) {
-        const ys = collectSeriesValuesAtX(valid, x);
-        if (ys.length >= minSeries) {
-          ys.sort((a,b)=>a-b);
-          const val = percentileOfSorted(ys, pct);
-          if (Number.isFinite(val)) out.push({ x, y: val });
-        }
-      }
-      return smoothSeries(out, smoothWindow); // percentile curves always smoothed
-    }
-
-    // Robust Date+Time parser (UTC)
-    function parseDateTimeUTC(dStr, tStr) {
-      const d = (dStr == null) ? '' : String(dStr).trim();
-      const t = (tStr == null) ? '' : String(tStr).trim();
-      if (!d) return NaN;
-
-      let year, month, day;
-      const split = (s) => s.split(/[-/.]/).map(x => x.trim());
-      if (/[/-]/.test(d) || /\./.test(d)) {
-        const parts = split(d);
-        if (parts.length === 3) {
-          if (parts[0].length === 4) { // YYYY-MM-DD
-            year = +parts[0]; month = +parts[1]; day = +parts[2];
-          } else { // DD/MM/YYYY
-            day = +parts[0]; month = +parts[1]; year = +parts[2];
-            if (year < 100) year += 2000;
-          }
-        }
-      }
-      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-        const parsed = Date.parse(d + (t ? (' ' + t) : ''));
-        return isNaN(parsed) ? NaN : parsed;
-      }
-
-      let hh=0, mm=0, ss=0;
-      if (t) {
-        const tp = t.split(':').map(n => parseInt(n, 10));
-        hh = tp[0] || 0; mm = tp[1] || 0; ss = tp[2] || 0;
-      }
-      return Date.UTC(year, month-1, day, hh, mm, ss);
-    }
-
-    // Color helpers
-    function hslToRgb(h, s, l) {
-      s /= 100; l /= 100;
-      const k = n => (n + h/30) % 12;
-      const a = s * Math.min(l, 1 - l);
-      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-      return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
-    }
-    function colorToRgba(color, alpha = 1) {
-      color = String(color).trim().toLowerCase();
-      if (color.startsWith('#')) {
-        const hex = color.replace('#', '');
-        const bigint = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16);
-        const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
-        return `rgba(${r},${g},${b},${alpha})`;
-      }
-      if (color.startsWith('rgb(')) {
-        const nums = color.replace(/[^\d,.-]/g, '').split(',').map(Number);
-        const [r,g,b] = nums; return `rgba(${r||0},${g||0},${b||0},${alpha})`;
-      }
-      if (color.startsWith('hsl(')) {
-        const nums = color.replace(/[^\d,.-]/g, ' ').trim().split(/\s+/).map(parseFloat);
-        const [h,s,l] = nums; const [r,g,b] = hslToRgb(h, s, l);
-        return `rgba(${r},${g},${b},${alpha})`;
-      }
-      return `rgba(176,176,176,${alpha})`;
-    }
-    function colorByIndex(i, total) {
-      const h = Math.round((360 * i) / Math.max(1, total));
-      return `hsl(${h} 70% 55%)`;
-    }
+    function hslToRgb(h,s,l){ s/=100; l/=100; const k=n=>(n+h/30)%12; const a=s*Math.min(l,1-l); const f=n=>l - a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n),1))); return [Math.round(255*f(0)), Math.round(255*f(8)), Math.round(255*f(4))]; }
+    function colorToRgba(color,alpha=1){ color=String(color).trim().toLowerCase(); if(color.startsWith('#')){ const hex=color.replace('#',''); const bigint=parseInt(hex.length===3?hex.split('').map(c=>c+c).join(''):hex,16); const r=(bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255; return `rgba(${r},${g},${b},${alpha})`; } if(color.startsWith('rgb(')){ const nums=color.replace(/[^\d,.-]/g,'').split(',').map(Number); const [r,g,b]=nums; return `rgba(${r||0},${g||0},${b||0},${alpha})`; } if(color.startsWith('hsl(')){ const nums=color.replace(/[^\d,.-]/g, ' ').trim().split(/\s+/).map(parseFloat); const [h,s,l]=nums; const [r,g,b]=hslToRgb(h, s, l); return `rgba(${r},${g},${b},${alpha})`; } return `rgba(176,176,176,${alpha})`; }
+    function colorByIndex(i,total){ const h=Math.round((360*i)/Math.max(1,total)); return `hsl(${h} 70% 55%)`; }
 
     // ---------------- State ----------------
+    let state={ file1:null, pasonSeries:[], axesHL:{xMin:null,xMax:null,yMin:null,yMax:null}, torqueSeries:[], axesTQ:{xMin:null,xMax:null,yMin:null,yMax:null}, wobSeries:[], axesWOB:{xMin:null,xMax:null,yMin:null,yMax:null}, ropSeries:[], axesROP:{xMin:null,xMax:null,yMin:null,yMax:null}, mseSeries:[], axesMSE:{xMin:null,xMax:null,yMin:null,yMax:null}, flowSeries:[], axesFLOW:{xMin:null,xMax:null,yMin:null,yMax:null}, timeDepthSeries:[], axesTD:{xMin:null,xMax:null,yMin:null,yMax:null} };
+    const seriesEnableState = { hl:{}, tq:{}, wob:{}, rop:{}, mse:{}, flow:{}, td:{} };
+    let lastCurvesSpecial={avg:[],max:[],min:[]};
+    let chartMain=null;
 
-    let state = {
-      // HL
-      file1: null,
-      pasonSeries: [],
-      axesHL: { xMin: null, xMax: null, yMin: null, yMax: null },
+    function getStyleOptionsGlobal(){ const mode=document.getElementById('lineStyle').value; if(mode==='points') return {showLine:false,borderDash:[],borderWidth:0, hide:false}; if(mode==='dotted') return {showLine:true,borderDash:[6,4],borderWidth:2, hide:false}; if(mode==='hide') return {showLine:false,borderDash:[],borderWidth:0, hide:true}; return {showLine:true,borderDash:[],borderWidth:2, hide:false}; }
+    function getStyleOptionsFor(plotId){ const global=getStyleOptionsGlobal(); if(plotId==='td' && document.getElementById('lineStyle').value==='points'){ return {showLine:true,borderDash:[],borderWidth:2, hide:false}; } return global; }
+    function dotParams(){ const v=parseInt(document.getElementById('dotStyle').value,10)||0; const radius=0.5+(v/100)*4.5; const alpha=0.15+(v/100)*0.85; return {radius,alpha}; }
 
-      // Torque
-      torqueSeries: [],
-      axesTQ: { xMin: null, xMax: null, yMin: null, yMax: null },
+    function isSeriesEnabled(plotId,key){ const st=seriesEnableState[plotId]||{}; return (key in st) ? !!st[key] : true; }
+    function setSeriesEnabled(plotId,key,val){ if(!seriesEnableState[plotId]) seriesEnableState[plotId]={}; seriesEnableState[plotId][key]=!!val; }
 
-      // WOB
-      wobSeries: [],
-      axesWOB: { xMin: null, xMax: null, yMin: null, yMax: null },
+    function getSeriesListForPlot(plotId){ const list=[]; if(plotId==='hl'){ if(state.file1?.rawB?.length){ list.push({key:'file1:B', label: `${state.file1.name} — B`}); } if(state.file1?.rawC?.length){ list.push({key:'file1:C', label: `${state.file1.name} — C`}); } state.pasonSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`hl:${s.name}`, label:s.name}); }); } else if(plotId==='tq'){ state.torqueSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`tq:${s.name}`, label:s.name}); }); } else if(plotId==='wob'){ state.wobSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`wob:${s.name}`, label:s.name}); }); } else if(plotId==='rop'){ state.ropSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`rop:${s.name}`, label:s.name}); }); } else if(plotId==='mse'){ state.mseSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`mse:${s.name}`, label:s.name}); }); } else if(plotId==='flow'){ state.flowSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`flow:${s.name}`, label:s.name}); }); } else if(plotId==='td'){ state.timeDepthSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`td:${s.name}`, label:s.name}); }); } return list; }
 
-      // ROP
-      ropSeries: [],
-      axesROP: { xMin: null, xMax: null, yMin: null, yMax: null },
-
-      // MSE
-      mseSeries: [],
-      axesMSE: { xMin: null, xMax: null, yMin: null, yMax: null },
-
-      // Flow
-      flowSeries: [],
-      axesFLOW: { xMin: null, xMax: null, yMin: null, yMax: null },
-
-      // Time vs Depth
-      timeDepthSeries: [],
-      axesTD: { xMin: null, xMax: null, yMin: null, yMax: null }
-    };
-
-    // last exported special curves for current plot
-    let lastCurvesSpecial = { avg: [], max: [], min: [] };
-
-    // Chart
-    let chartMain = null;
-
-    // ---------------- Controls & helpers ----------------
-
-    function getStyleOptionsGlobal() {
-      const mode = document.getElementById('lineStyle').value;
-      if (mode === 'points') return { showLine: false, borderDash: [], borderWidth: 0 };
-      if (mode === 'dotted') return { showLine: true, borderDash: [6, 4], borderWidth: 2 };
-      return { showLine: true, borderDash: [], borderWidth: 2 };
+    function buildSeriesToggleMenu(){ const p=currentPlotDef(); const menu=document.getElementById('seriesToggleMenu'); menu.innerHTML=''; const items=getSeriesListForPlot(p.id); if(!items.length){ const em=document.createElement('div'); em.className='text-muted small'; em.textContent='No series loaded'; menu.appendChild(em); return; }
+      items.forEach(({key,label})=>{ const id='chk_'+btoa(p.id+'|'+key).replace(/=/g,''); const wrap=document.createElement('div'); wrap.className='form-check'; const inp=document.createElement('input'); inp.className='form-check-input'; inp.type='checkbox'; inp.id=id; inp.checked=isSeriesEnabled(p.id, key); const lab=document.createElement('label'); lab.className='form-check-label'; lab.htmlFor=id; lab.textContent=label; wrap.appendChild(inp); wrap.appendChild(lab); menu.appendChild(wrap); inp.addEventListener('change', ()=>{ setSeriesEnabled(p.id, key, inp.checked); renderMain(); }); });
     }
 
-    /** Per-plot style: TD defaults to solid when global is "points" */
-    function getStyleOptionsFor(plotId) {
-      const global = getStyleOptionsGlobal();
-      if (plotId === 'td' && document.getElementById('lineStyle').value === 'points') {
-        return { showLine: true, borderDash: [], borderWidth: 2 };
-      }
-      return global;
-    }
+    function prepareForPlot(points){ const reject=document.getElementById('rejectSpikes').checked; const thresh=parseFloat(document.getElementById('spikeThreshold').value)||0; const useIqr=document.getElementById('useIqrReject').checked; const smoothOn=document.getElementById('applySmoothing').checked; const win=parseInt(document.getElementById('smoothWindow').value,10)||1; let out=points; if(reject){ out=useIqr?rejectSpikesIqr(out,51,3.0):rejectSpikes(out,thresh); } if(smoothOn) out=smoothSeries(out,win); return out; }
 
-    function dotParams() {
-      const v = parseInt(document.getElementById('dotStyle').value, 10) || 0; // 0..100
-      const radius = 0.5 + (v / 100) * 4.5;   // 0.5 .. 5.0
-      const alpha  = 0.15 + (v / 100) * 0.85; // 0.15 .. 1.00
-      return { radius, alpha };
-    }
+    function makeDatasetFor(plotId,label,data,baseColor){ const grayMode=document.getElementById('paletteMode').value==='gray'; const style=getStyleOptionsFor(plotId); const {radius:dotRadius,alpha:dotAlpha}=dotParams(); const showPts=document.getElementById('showPoints').checked; const lineColor=grayMode?'#b0b0b0':baseColor; const pointColor=colorToRgba(lineColor,dotAlpha); return { label, data, borderColor:lineColor, backgroundColor:lineColor, showLine:style.showLine, borderDash:style.borderDash, borderWidth:style.borderWidth, fill:false, tension:0.2, pointRadius: showPts?dotRadius:0, pointBackgroundColor:pointColor, pointBorderColor:pointColor, order:10, hidden: !!style.hide }; }
 
-    function prepareForPlot(points) {
-      const reject = document.getElementById('rejectSpikes').checked;
-      const thresh = parseFloat(document.getElementById('spikeThreshold').value) || 0;
-      const smoothOn = document.getElementById('applySmoothing').checked;
-      const win = parseInt(document.getElementById('smoothWindow').value, 10) || 1;
+    function getAllProcessedSeriesHL(){ const out=[]; if(state.file1?.rawB?.length && isSeriesEnabled('hl','file1:B')) out.push(prepareForPlot(state.file1.rawB)); if(state.file1?.rawC?.length && isSeriesEnabled('hl','file1:C')) out.push(prepareForPlot(state.file1.rawC)); state.pasonSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('hl', `hl:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesTQ(){ const out=[]; state.torqueSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('tq', `tq:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesWOB(){ const out=[]; state.wobSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('wob', `wob:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesROP(){ const out=[]; state.ropSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('rop', `rop:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesMSE(){ const out=[]; state.mseSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('mse', `mse:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesFLOW(){ const out=[]; state.flowSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('flow', `flow:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesTD(){ const out=[]; state.timeDepthSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
 
-      let out = points;
-      if (reject && thresh > 0) out = rejectSpikes(out, thresh);
-      if (smoothOn) out = smoothSeries(out, win);
-      return out;
-    }
+    function computeAdaptiveStepTD(seriesList){ const {minX,maxX}=xRange(seriesList); if(!(Number.isFinite(minX)&&Number.isFinite(maxX)&&maxX>minX)) return 0.05; const range=maxX-minX; const target=800; let step=range/target; step=Math.max(0.001, Math.min(step, Math.max(0.5, range/50)) ); return step; }
 
-    function makeDatasetFor(plotId, label, data, baseColor) {
-      const grayMode = document.getElementById('paletteMode').value === 'gray';
-      const style = getStyleOptionsFor(plotId);
-      const { radius: dotRadius, alpha: dotAlpha } = dotParams();
-      const hidePts = document.getElementById('hidePoints').checked;
+    function renderMain(){ const plot=currentPlotDef(); const ctx=document.getElementById('chartMain').getContext('2d'); if(chartMain){ chartMain.destroy(); chartMain=null; }
+      const enableZoom=document.getElementById('enableZoom').checked; const showLegend=document.getElementById('showLegend').checked; const datasets=[]; lastCurvesSpecial={avg:[],max:[],min:[]};
 
-      const lineColor = grayMode ? '#b0b0b0' : baseColor;
-      const pointColor = colorToRgba(lineColor, dotAlpha);
-      return {
-        label,
-        data,
-        borderColor: lineColor,
-        backgroundColor: lineColor,
-        showLine: style.showLine,
-        borderDash: style.borderDash,
-        borderWidth: style.borderWidth,
-        fill: false,
-        tension: 0.2,
-        pointRadius: hidePts ? 0 : dotRadius,
-        pointBackgroundColor: pointColor,
-        pointBorderColor: pointColor,
-        order: 10
-      };
-    }
-
-    function getAllProcessedSeriesHL()   { const out=[]; if (state.file1?.rawB?.length) out.push(prepareForPlot(state.file1.rawB)); if (state.file1?.rawC?.length) out.push(prepareForPlot(state.file1.rawC)); state.pasonSeries.forEach(s=>s.raw?.length&&out.push(prepareForPlot(s.raw))); return out; }
-    function getAllProcessedSeriesTQ()   { return state.torqueSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-    function getAllProcessedSeriesWOB()  { return state.wobSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-    function getAllProcessedSeriesROP()  { return state.ropSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-    function getAllProcessedSeriesMSE()  { return state.mseSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-    function getAllProcessedSeriesFLOW() { return state.flowSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-    function getAllProcessedSeriesTD()   { return state.timeDepthSeries.filter(s=>s.raw?.length).map(s=>prepareForPlot(s.raw)); }
-
-    // ---------------- Rendering (single chart) ----------------
-
-    function renderMain() {
-      const plot = currentPlotDef();
-      const ctx = document.getElementById('chartMain').getContext('2d');
-      if (chartMain) { chartMain.destroy(); chartMain = null; }
-
-      const enableZoom = document.getElementById('enableZoom').checked;
-      const datasets = [];
-      lastCurvesSpecial = { avg: [], max: [], min: [] };
-
-      if (plot.id === 'hl') {
-        const pal = { b: '#4cc9f0', c: '#fca311' };
-        if (state.file1?.rawB?.length) datasets.push(makeDatasetFor('hl', `${state.file1.name} — B vs A`, prepareForPlot(state.file1.rawB), pal.b));
-        if (state.file1?.rawC?.length) datasets.push(makeDatasetFor('hl', `${state.file1.name} — C vs A`, prepareForPlot(state.file1.rawC), pal.c));
-        const nP = state.pasonSeries.length;
-        state.pasonSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nP);
-          datasets.push(makeDatasetFor('hl', `${s.name} — HL (col9 vs col3)`, prepareForPlot(s.raw), col));
-        });
+      if(plot.id==='hl'){
+        const pal={b:'#4cc9f0', c:'#fca311'};
+        if(state.file1?.rawB?.length && isSeriesEnabled('hl','file1:B')) datasets.push(makeDatasetFor('hl', `${state.file1.name} — B vs A`, prepareForPlot(state.file1.rawB), pal.b));
+        if(state.file1?.rawC?.length && isSeriesEnabled('hl','file1:C')) datasets.push(makeDatasetFor('hl', `${state.file1.name} — C vs A`, prepareForPlot(state.file1.rawC), pal.c));
+        const nP=state.pasonSeries.length; state.pasonSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('hl', `hl:${s.name}`))) return; const col=s.color||colorByIndex(idx,nP); datasets.push(makeDatasetFor('hl', `${s.name} — HL (col9 vs col3)`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesHL(), 'HL');
       }
-
-      else if (plot.id === 'tq') {
-        const nT = state.torqueSeries.length;
-        state.torqueSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nT);
-          datasets.push(makeDatasetFor('tq', `${s.name} — TQ (col11 vs col3)`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='tq'){
+        const nT=state.torqueSeries.length; state.torqueSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('tq', `tq:${s.name}`))) return; const col=s.color||colorByIndex(idx,nT); datasets.push(makeDatasetFor('tq', `${s.name} — TQ (col11 vs col3)`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesTQ(), 'Torque');
       }
-
-      else if (plot.id === 'wob') {
-        const nW = state.wobSeries.length;
-        state.wobSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nW);
-          datasets.push(makeDatasetFor('wob', `${s.name} — WOB (kDaN) vs MD`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='wob'){
+        const nW=state.wobSeries.length; state.wobSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('wob', `wob:${s.name}`))) return; const col=s.color||colorByIndex(idx,nW); datasets.push(makeDatasetFor('wob', `${s.name} — WOB (kDaN) vs MD`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesWOB(), 'WOB');
       }
-
-      else if (plot.id === 'rop') {
-        const nR = state.ropSeries.length;
-        state.ropSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nR);
-          datasets.push(makeDatasetFor('rop', `${s.name} — ROP (from file, ≥0)`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='rop'){
+        const nR=state.ropSeries.length; state.ropSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('rop', `rop:${s.name}`))) return; const col=s.color||colorByIndex(idx,nR); datasets.push(makeDatasetFor('rop', `${s.name} — ROP (from file, ≥0)`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesROP(), 'ROP');
       }
-
-      else if (plot.id === 'mse') {
-        const nM = state.mseSeries.length;
-        state.mseSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nM);
-          datasets.push(makeDatasetFor('mse', `${s.name} — MSE (ksi) vs MD`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='mse'){
+        const nM=state.mseSeries.length; state.mseSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('mse', `mse:${s.name}`))) return; const col=s.color||colorByIndex(idx,nM); datasets.push(makeDatasetFor('mse', `${s.name} — MSE (ksi) vs MD`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesMSE(), 'MSE');
       }
-
-      else if (plot.id === 'flow') {
-        const nF = state.flowSeries.length;
-        state.flowSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nF);
-          datasets.push(makeDatasetFor('flow', `${s.name} — Flow (m³/min) vs MD`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='flow'){
+        const nF=state.flowSeries.length; state.flowSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('flow', `flow:${s.name}`))) return; const col=s.color||colorByIndex(idx,nF); datasets.push(makeDatasetFor('flow', `${s.name} — Flow (m³/min) vs MD`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesFLOW(), 'Flow');
       }
-
-      else if (plot.id === 'td') {
-        const nTD = state.timeDepthSeries.length;
-        state.timeDepthSeries.forEach((s, idx) => {
-          const col = s.color || colorByIndex(idx, nTD);
-          datasets.push(makeDatasetFor('td', `${s.name} — Depth vs Time`, prepareForPlot(s.raw), col));
-        });
+      else if(plot.id==='td'){
+        const nTD=state.timeDepthSeries.length; state.timeDepthSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`))) return; const col=s.color||colorByIndex(idx,nTD); datasets.push(makeDatasetFor('td', `${s.name} — Depth vs Time`, prepareForPlot(s.raw), col)); });
+        const tdSeries=getAllProcessedSeriesTD(); const tdStep=computeAdaptiveStepTD(tdSeries);
+        buildSpecialCurves(datasets, tdSeries, 'Depth', { stepOverride: tdStep, minSeriesOverride: 1 });
       }
 
-      const axesSelected =
-        plot.id === 'hl'   ? state.axesHL   :
-        plot.id === 'tq'   ? state.axesTQ   :
-        plot.id === 'wob'  ? state.axesWOB  :
-        plot.id === 'rop'  ? state.axesROP  :
-        plot.id === 'mse'  ? state.axesMSE  :
-        plot.id === 'flow' ? state.axesFLOW : state.axesTD;
+      const axesSelected = plot.id==='hl'?state.axesHL: plot.id==='tq'?state.axesTQ: plot.id==='wob'?state.axesWOB: plot.id==='rop'?state.axesROP: plot.id==='mse'?state.axesMSE: plot.id==='flow'?state.axesFLOW: state.axesTD;
 
-      const tooltipLabel = (ctx) => {
-        const y = ctx.parsed.y, x = ctx.parsed.x;
-        const name = ctx.dataset.label || 'Series';
-        const xf = Number.isFinite(x) ? x.toFixed(2) : '—';
-        const yf = Number.isFinite(y) ? y.toFixed(2) : '—';
-        if (plot.id === 'hl')   return `${name}: ${yf} kDaN @ ${xf} m`;
-        if (plot.id === 'tq')   return `${name}: ${yf} kN·m @ ${xf} m`;
-        if (plot.id === 'wob')  return `${name}: ${yf} kDaN @ ${xf} m`;
-        if (plot.id === 'rop')  return `${name}: ${yf} m/h @ ${xf} m`;
-        if (plot.id === 'mse')  return `${name}: ${yf} ksi @ ${xf} m`;
-        if (plot.id === 'flow') return `${name}: ${yf} m³/min @ ${xf} m`;
-        return `${name}: ${yf} m @ ${xf} days`;
-      };
-
-      chartMain = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              mode: 'nearest',
-              intersect: false,
-              filter: (item) => !((item.dataset.label||'').toLowerCase().includes('glow')),
-              callbacks: { label: tooltipLabel }
-            },
-            zoom: enableZoom ? {
-              pan: { enabled: true, mode: 'xy' },
-              zoom: { wheel: { enabled: true, modifierKey: 'ctrl' }, pinch: { enabled: true }, mode: 'xy' }
-            } : undefined
-          },
-          scales: {
-            x: {
-              type: 'linear',
-              title: { display: true, text: plot.xTitle, color: '#e9ecef' },
-              ticks: { color: '#adb5bd' },
-              grid: { color: 'rgba(173,181,189,0.2)' },
-              min: Number.isFinite(axesSelected.xMin) ? axesSelected.xMin : undefined,
-              max: Number.isFinite(axesSelected.xMax) ? axesSelected.xMax : undefined
-            },
-            y: {
-              type: 'linear',
-              reverse: !!plot.reversedY,
-              title: { display: true, text: plot.yTitle, color: '#e9ecef' },
-              ticks: { color: '#adb5bd', callback: (v) => Number.isFinite(v) ? Number(v).toFixed(2) : v },
-              grid: { color: 'rgba(173,181,189,0.2)' },
-              min: Number.isFinite(axesSelected.yMin) ? axesSelected.yMin : undefined,
-              max: Number.isFinite(axesSelected.yMax) ? axesSelected.yMax : undefined
-            }
-          }
+      let autoYMin, autoYMax;
+      if (plot.id !== 'td' && (axesSelected.yMin==null && axesSelected.yMax==null)) {
+        let yMaxCur = (lastCurvesSpecial.max && lastCurvesSpecial.max.length)
+          ? Math.max(...lastCurvesSpecial.max.map(p=>p.y).filter(Number.isFinite))
+          : null;
+        if (!Number.isFinite(yMaxCur)) {
+          const allY=[]; datasets.forEach(d=>{ if(!/glow/i.test(String(d.label||''))) d.data.forEach(pt=>Number.isFinite(pt?.y)&&allY.push(pt.y)); });
+          if (allY.length) yMaxCur = Math.max(...allY);
         }
-      });
+        if (Number.isFinite(yMaxCur)) { autoYMin=0; autoYMax=yMaxCur*1.10; }
+      }
+
+      const tooltipLabel=(ctx)=>{ const y=ctx.parsed.y, x=ctx.parsed.x; const name=ctx.dataset.label||'Series'; const xf=Number.isFinite(x)?x.toFixed(2):'—'; const yf=Number.isFinite(y)?y.toFixed(2):'—'; if(plot.id==='hl') return `${name}: ${yf} kDaN @ ${xf} m`; if(plot.id==='tq') return `${name}: ${yf} kN·m @ ${xf} m`; if(plot.id==='wob') return `${name}: ${yf} kDaN @ ${xf} m`; if(plot.id==='rop') return `${name}: ${yf} m/h @ ${xf} m`; if(plot.id==='mse') return `${name}: ${yf} ksi @ ${xf} m`; if(plot.id==='flow') return `${name}: ${yf} m³/min @ ${xf} m`; return `${name}: ${yf} m @ ${xf} days`; };
+
+      chartMain=new Chart(ctx,{ type:'line', data:{datasets}, options:{ responsive:true, plugins:{ legend:{ display:showLegend, labels:{ color:'#e9ecef', filter:(item)=>!String(item.text||'').toLowerCase().includes('glow') } }, tooltip:{ mode:'nearest', intersect:false, filter:(item)=>!((item.dataset.label||'').toLowerCase().includes('glow')), callbacks:{label: tooltipLabel} }, zoom: enableZoom?{ pan:{enabled:true,mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }: undefined }, scales:{ x:{ type:'linear', title:{display:true,text:plot.xTitle,color:'#e9ecef'}, ticks:{color:'#adb5bd'}, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.xMin)?axesSelected.xMin: undefined, max: Number.isFinite(axesSelected.xMax)?axesSelected.xMax: undefined }, y:{ type:'linear', reverse: !!plot.reversedY, title:{display:true,text:plot.yTitle,color:'#e9ecef'}, ticks:{ color:'#adb5bd', callback:(v)=>Number.isFinite(v)?Number(v).toFixed(2):v }, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.yMin)?axesSelected.yMin : (autoYMin), max: Number.isFinite(axesSelected.yMax)?axesSelected.yMax : (autoYMax) } } } });
+
+      buildSeriesToggleMenu();
     }
 
-    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix) {
-      const showAvg = document.getElementById('showAverage').checked;
-      const showMax = document.getElementById('showMax').checked;
-      const showMin = document.getElementById('showMin').checked;
-      const step = Math.max(0.0001, parseFloat(document.getElementById('avgStep').value) || 5);
-      const minSeries = Math.max(1, parseInt(document.getElementById('avgMinSeries').value, 10) || 2);
-      const smoothOn = document.getElementById('applySmoothing').checked;
-      const win = parseInt(document.getElementById('smoothWindow').value, 10) || 1;
-      const maxPctVal = Math.min(100, Math.max(50, parseFloat(document.getElementById('maxPct').value) || 90)) / 100;
-      const minPctVal = Math.min(50, Math.max(0, parseFloat(document.getElementById('minPct').value) || 10)) / 100;
+    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix, opts){ const showAvg=document.getElementById('showAverage').checked; const showMax=document.getElementById('showMax').checked; const showMin=document.getElementById('showMin').checked; const userStep=parseFloat(document.getElementById('avgStep').value)||5; const step=(opts && Number.isFinite(opts.stepOverride))?opts.stepOverride:Math.max(0.0001, userStep); const userMinSeries=parseInt(document.getElementById('avgMinSeries').value,10)||2; const minSeries=(opts && Number.isFinite(opts.minSeriesOverride))?opts.minSeriesOverride:Math.max(1,userMinSeries); const smoothOn=document.getElementById('applySmoothing').checked; const win=parseInt(document.getElementById('smoothWindow').value,10)||1; const maxPctVal=Math.min(100,Math.max(50, parseFloat(document.getElementById('maxPct').value)||90))/100; const minPctVal=Math.min(50,Math.max(0,  parseFloat(document.getElementById('minPct').value)||10))/100; lastCurvesSpecial={avg:[],max:[],min:[]}; if(showMin){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win); lastCurvesSpecial.min=pts; if(pts.length){ datasets.push({ label:`Min ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(255,0,0,0.20)', backgroundColor:'rgba(255,0,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:993 }); datasets.push({ label:`Min ${labelPrefix}`, data:pts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:994 }); } } if(showMax){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win); lastCurvesSpecial.max=pts; if(pts.length){ datasets.push({ label:`Max ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,255,0,0.20)', backgroundColor:'rgba(0,255,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:995 }); datasets.push({ label:`Max ${labelPrefix}`, data:pts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:996 }); } } if(showAvg){ const pts=buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win); lastCurvesSpecial.avg=pts; if(pts.length){ datasets.push({ label:`Average ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,229,255,0.20)', backgroundColor:'rgba(0,229,255,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:997 }); datasets.push({ label:`Average ${labelPrefix}`, data:pts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:998 }); } } }
 
-      lastCurvesSpecial = { avg: [], max: [], min: [] };
+    async function processFile1(file, hasHeader){ const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames.length) throw new Error('No sheets'); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null}); if(!rows.length) throw new Error('Empty sheet'); const start=hasHeader?1:0; const A=[],B=[],C=[]; for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; A.push(row[0]); B.push(row[1]); C.push(row[2]); } const {pts:rawB,replaced:replacedB}=cleanAndBuildXY(A,B); const {pts:rawC,replaced:replacedC}=cleanAndBuildXY(A,C); state.file1={name:file.name, rawB, rawC, rows:rows.length-start, replacedB, replacedC}; }
 
-      if (showMin) {
-        const pts = buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win);
-        lastCurvesSpecial.min = pts;
-        if (pts.length) {
-          datasets.push({
-            label: `Min ${labelPrefix} (glow)`,
-            data: pts,
-            borderColor: 'rgba(255,0,0,0.20)', backgroundColor: 'rgba(255,0,0,0.20)',
-            showLine: true, borderDash: [], borderWidth: 10, pointRadius: 0, fill: false, tension: 0.25, order: 993
-          });
-          datasets.push({
-            label: `Min ${labelPrefix}`,
-            data: pts,
-            borderColor: '#ff0000', backgroundColor: '#ff0000',
-            showLine: true, borderDash: [], borderWidth: 3, pointRadius: 0, fill: false, tension: 0.25, order: 994
-          });
-        }
-      }
-
-      if (showMax) {
-        const pts = buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win);
-        lastCurvesSpecial.max = pts;
-        if (pts.length) {
-          datasets.push({
-            label: `Max ${labelPrefix} (glow)`,
-            data: pts,
-            borderColor: 'rgba(0,255,0,0.20)', backgroundColor: 'rgba(0,255,0,0.20)',
-            showLine: true, borderDash: [], borderWidth: 10, pointRadius: 0, fill: false, tension: 0.25, order: 995
-          });
-          datasets.push({
-            label: `Max ${labelPrefix}`,
-            data: pts,
-            borderColor: '#00ff00', backgroundColor: '#00ff00',
-            showLine: true, borderDash: [], borderWidth: 3, pointRadius: 0, fill: false, tension: 0.25, order: 996
-          });
-        }
-      }
-
-      if (showAvg) {
-        const pts = buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win);
-        lastCurvesSpecial.avg = pts;
-        if (pts.length) {
-          datasets.push({
-            label: `Average ${labelPrefix} (glow)`,
-            data: pts,
-            borderColor: 'rgba(0,229,255,0.20)', backgroundColor: 'rgba(0,229,255,0.20)',
-            showLine: true, borderDash: [], borderWidth: 10, pointRadius: 0, fill: false, tension: 0.25, order: 997
-          });
-          datasets.push({
-            label: `Average ${labelPrefix}`,
-            data: pts,
-            borderColor: '#00e5ff', backgroundColor: '#00e5ff',
-            showLine: true, borderDash: [], borderWidth: 3, pointRadius: 0, fill: false, tension: 0.25, order: 998
-          });
-        }
-      }
+    async function parsePasonCsvFile(file,hasHeader,manualMseCol1Based){ const text=await file.text(); const parsed=Papa.parse(text,{ delimiter:"", newline:"", quoteChar:'"', escapeChar:'"', header:false, skipEmptyLines:true }); const rows=parsed.data||[]; if(!rows.length) return null; let headerRow=null; let start=0; if(hasHeader && rows.length){ headerRow=rows[0]; start=1; } let mseIdx=null; const manualIdx=parseInt(manualMseCol1Based,10); if(Number.isFinite(manualIdx)&&manualIdx>=1){ mseIdx=manualIdx-1; } else if(headerRow){ for(let i=0;i<headerRow.length;i++){ const h=String(headerRow[i]??'').toLowerCase(); if(!h) continue; if((h.includes('mechanical specific energy')||h.includes('mse')) && (h.includes('ksi') || !h.includes('kpa'))){ mseIdx=i; break; } } }
+      const Xmd=[], Ywob=[], Yhl=[], Ytq=[], Yflow=[], Yrop=[], Ymse=[]; const tsArr=[], mdArr=[];
+      for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; Xmd.push(row[2]); Yrop.push(row[4]); Ywob.push(row[5]); Yhl.push(row[8]); Ytq.push(row[10]); Yflow.push(row[11]); if(mseIdx!==null && row.length>mseIdx){ Ymse.push(row[mseIdx]); } else { Ymse.push(null); } const d=row[0], t=row[1]; const ts=parseDateTimeUTC(d,t); const md=toNumber(row[2]); tsArr.push(Number.isFinite(ts)?ts:NaN); mdArr.push(Number.isFinite(md)?md:NaN); }
+      const XmdNum=Xmd.map(v=>v); const YropFiltered=Yrop.map(v=>toNumber(v)).map(v=>(Number.isFinite(v)&&v>=0)?v:null); const {pts:rawROP}=cleanAndBuildXY(XmdNum,YropFiltered); const {pts:rawWOB}=cleanAndBuildXY(Xmd,Ywob); const {pts:rawHL,replaced:replHL}=cleanAndBuildXY(Xmd,Yhl); const {pts:rawTQ,replaced:replTQ}=cleanAndBuildXY(Xmd,Ytq); const {pts:rawFLOW}=cleanAndBuildXY(Xmd,Yflow); let rawMSE=[]; if(mseIdx!==null){ const {pts}=cleanAndBuildXY(Xmd,Ymse); rawMSE=pts; }
+      let tdPts=[]; const firstIdx=tsArr.findIndex(v=>Number.isFinite(v)); if(firstIdx!==-1){ const t0=tsArr[firstIdx]; const days=tsArr.map(v=>Number.isFinite(v)?((v-t0)/86400000):NaN); const {pts}=cleanAndBuildXY(days, mdArr); tdPts=pts; }
+      const baseName=(file.webkitRelativePath||file.name).replace(/\.[^.]+$/, '');
+      return { name:baseName, wob:{raw:rawWOB,rows:rawWOB.length}, hl:{raw:rawHL,rows:rows.length-start,replaced:replHL}, tq:{raw:rawTQ,rows:rows.length-start,replaced:replTQ}, rop:{raw:rawROP,rows:rawROP.length}, mse:{raw:rawMSE,rows:rawMSE.length,mseCol:mseIdx}, flow:{raw:rawFLOW,rows:rawFLOW.length}, td:{raw:tdPts,rows:rows.length-start} };
     }
 
-    // ---------------- File readers ----------------
-
-    // Excel (.xlsx/.xls) — used for HL plot only (B & C vs A)
-    async function processFile1(file, hasHeader) {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array' });
-      if (!wb.SheetNames.length) throw new Error('No sheets');
-
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-      if (!rows.length) throw new Error('Empty sheet');
-
-      const start = hasHeader ? 1 : 0;
-      const A = [], B = [], C = [];
-      for (let r = start; r < rows.length; r++) {
-        const row = rows[r] || [];
-        A.push(row[0]);   // col A (MD)
-        B.push(row[1]);   // col B
-        C.push(row[2]);   // col C
-      }
-
-      const { pts: rawB, replaced: replacedB } = cleanAndBuildXY(A, B);
-      const { pts: rawC, replaced: replacedC } = cleanAndBuildXY(A, C);
-
-      state.file1 = { name: file.name, rawB, rawC, rows: rows.length - start, replacedB, replacedC };
+    async function processPasonFolder(fileList,hasHeader){ const csvFiles=Array.from(fileList).filter(f=>f.name.toLowerCase().endsWith('.csv')); csvFiles.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name)); const manualMseCol1Based=document.getElementById('mseColInput').value; const seriesHL=[],seriesTQ=[],seriesWOB=[],seriesROP=[],seriesMSE=[],seriesFLOW=[],seriesTD=[]; for(const f of csvFiles){ try{ const s=await parsePasonCsvFile(f,hasHeader,manualMseCol1Based); if(!s) continue; if(s.wob.raw.length) seriesWOB.push({name:s.name,raw:s.wob.raw,rows:s.wob.rows}); if(s.hl.raw.length) seriesHL.push({name:s.name,raw:s.hl.raw,rows:s.hl.rows,replaced:s.hl.replaced}); if(s.tq.raw.length) seriesTQ.push({name:s.name,raw:s.tq.raw,rows:s.tq.rows,replaced:s.tq.replaced}); if(s.rop.raw.length) seriesROP.push({name:s.name,raw:s.rop.raw,rows:s.rop.rows}); if(s.mse.raw.length) seriesMSE.push({name:s.name,raw:s.mse.raw,rows:s.mse.rows,mseCol:s.mse.mseCol}); if(s.flow.raw.length) seriesFLOW.push({name:s.name,raw:s.flow.raw,rows:s.flow.rows}); if(s.td.raw.length) seriesTD.push({name:s.name,raw:s.td.raw,rows:s.td.rows}); } catch(err){ console.warn('Failed to parse CSV:', f.name, err); } }
+      const totalWOB=seriesWOB.length; seriesWOB.forEach((s,i)=>s.color=colorByIndex(i,totalWOB)); const totalHL=seriesHL.length; seriesHL.forEach((s,i)=>s.color=colorByIndex(i,totalHL)); const totalTQ=seriesTQ.length; seriesTQ.forEach((s,i)=>s.color=colorByIndex(i,totalTQ)); const totalROP=seriesROP.length; seriesROP.forEach((s,i)=>s.color=colorByIndex(i,totalROP)); const totalMSE=seriesMSE.length; seriesMSE.forEach((s,i)=>s.color=colorByIndex(i,totalMSE)); const totalFLOW=seriesFLOW.length; seriesFLOW.forEach((s,i)=>s.color=colorByIndex(i,totalFLOW)); const totalTD=seriesTD.length; seriesTD.forEach((s,i)=>s.color=colorByIndex(i,totalTD));
+      state.wobSeries=seriesWOB; state.pasonSeries=seriesHL; state.torqueSeries=seriesTQ; state.ropSeries=seriesROP; state.mseSeries=seriesMSE; state.flowSeries=seriesFLOW; state.timeDepthSeries=seriesTD;
+      buildSeriesToggleMenu();
     }
 
-    // CSV (Pason) — HL (col9), Torque (col11), WOB (col6), Flow (col12), ROP (col5) vs MD (col3); MSE by header/manual; Time vs Depth
-    async function parsePasonCsvFile(file, hasHeader, manualMseCol1Based) {
-      const text = await file.text();
-      const parsed = Papa.parse(text, { delimiter: "", newline: "", quoteChar: '"', escapeChar: '"', header: false, skipEmptyLines: true });
-      const rows = parsed.data || [];
-      if (!rows.length) return null;
+    function downloadCsv(points,filename){ if(!points||!points.length){ alert('No curve data available to export.'); return; } const p=currentPlotDef(); const xHeader=(p.id==='td')?'Days':'MeasuredDepth_m'; const yHeader= p.id==='hl'?'HookLoad_kDaN': p.id==='tq'?'Torque_kN_m': p.id==='wob'?'WOB_kDaN': p.id==='rop'?'ROP_m_per_h': p.id==='mse'?'MSE_ksi': p.id==='flow'?'Flow_m3_per_min': 'HoleDepth_m'; const header=`${xHeader},${yHeader}\n`; const rows=points.map(pt=>`${pt.x.toFixed(4)},${pt.y.toFixed(4)}`).join('\n'); const blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
 
-      // Header / start
-      let headerRow = null;
-      let start = 0;
-      if (hasHeader && rows.length) { headerRow = rows[0]; start = 1; }
+    const file1El=document.getElementById('file1'); const pasonFolderEl=document.getElementById('pasonFolder'); const file1HeadersEl=document.getElementById('file1Headers'); const pasonHeadersEl=document.getElementById('pasonHeaders'); const mseColInputEl=document.getElementById('mseColInput'); const plotSelectEl=document.getElementById('plotSelect'); const applySmoothingEl=document.getElementById('applySmoothing'); const smoothWindowEl=document.getElementById('smoothWindow'); const smoothValueEl=document.getElementById('smoothValue'); const rejectSpikesEl=document.getElementById('rejectSpikes'); const spikeThresholdEl=document.getElementById('spikeThreshold'); const useIqrRejectEl=document.getElementById('useIqrReject'); const lineStyleEl=document.getElementById('lineStyle'); const paletteModeEl=document.getElementById('paletteMode'); const dotStyleEl=document.getElementById('dotStyle'); const showPointsEl=document.getElementById('showPoints'); const showLegendEl=document.getElementById('showLegend'); const showAverageEl=document.getElementById('showAverage'); const avgStepEl=document.getElementById('avgStep'); const avgMinSeriesEl=document.getElementById('avgMinSeries'); const showMaxEl=document.getElementById('showMax'); const showMinEl=document.getElementById('showMin'); const maxPctEl=document.getElementById('maxPct'); const minPctEl=document.getElementById('minPct'); const xMinEl=document.getElementById('xMin'); const xMaxEl=document.getElementById('xMax'); const yMinEl=document.getElementById('yMin'); const yMaxEl=document.getElementById('yMax'); const applyAxesBtn=document.getElementById('applyAxes'); const autoAxesBtn=document.getElementById('autoAxes'); const enableZoomEl=document.getElementById('enableZoom'); const resetZoomBtn=document.getElementById('resetZoom'); const exportAvgCsvBtn=document.getElementById('exportAvgCsv'); const exportMaxCsvBtn=document.getElementById('exportMaxCsv'); const exportMinCsvBtn=document.getElementById('exportMinCsv'); const exportPngBtn=document.getElementById('exportPng'); const exportVisibleCsvBtn=document.getElementById('exportVisibleCsv');
 
-      // Decide MSE column index:
-      let mseIdx = null;
-      const manualIdx = parseInt(manualMseCol1Based, 10);
-      if (Number.isFinite(manualIdx) && manualIdx >= 1) {
-        mseIdx = manualIdx - 1;
-      } else if (headerRow) {
-        // Auto-detect by header text
-        for (let i = 0; i < headerRow.length; i++) {
-          const h = String(headerRow[i] ?? '').toLowerCase();
-          if (!h) continue;
-          if ((h.includes('mechanical specific energy') || h.includes('mse')) && (h.includes('ksi') || !h.includes('kpa'))) {
-            mseIdx = i; break;
-          }
-        }
-      }
+    file1El.addEventListener('change', async (e)=>{ const file=e.target.files?.[0]; if(!file) return; document.getElementById('status1').textContent='Reading Excel…'; try{ await processFile1(file, file1HeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status1').textContent='Failed to read File 1.'; } });
+    pasonFolderEl.addEventListener('change', async (e)=>{ const files=e.target.files; if(!files||!files.length) return; document.getElementById('status2').textContent='Reading CSVs…'; try{ await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status2').textContent='Failed to read Pason CSV folder.'; } });
+    file1HeadersEl.addEventListener('change', async ()=>{ const f=file1El.files?.[0]; if(!f) return; document.getElementById('status1').textContent='Re-reading Excel…'; try{ await processFile1(f, file1HeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status1').textContent='Failed to read File 1.'; } });
+    pasonHeadersEl.addEventListener('change', async ()=>{ const files=pasonFolderEl.files; if(!files||!files.length) return; document.getElementById('status2').textContent='Re-reading CSVs…'; try{ await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status2').textContent='Failed to read Pason CSV folder.'; } });
+    mseColInputEl.addEventListener('change', async ()=>{ const files=pasonFolderEl.files; if(!files||!files.length) return; document.getElementById('status2').textContent='Re-reading CSVs (MSE col)…'; try{ await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status2').textContent='Failed to read Pason CSV folder.'; } });
 
-      const Xmd = [], Ywob = [], Yhl = [], Ytq = [], Yflow = [], Yrop = [], Ymse = [];
-      const tsArr = [], mdArr = [];
+    plotSelectEl.addEventListener('change', ()=>{ updateSpecialControlsVisibility(); updateAxesLabels(); xMinEl.value=''; xMaxEl.value=''; yMinEl.value=''; yMaxEl.value=''; renderMain(); });
 
-      for (let r = start; r < rows.length; r++) {
-        const row = rows[r] || [];
+    applySmoothingEl.addEventListener('change', renderMain); smoothWindowEl.addEventListener('input', ()=>{ smoothValueEl.textContent=smoothWindowEl.value; renderMain(); }); rejectSpikesEl.addEventListener('change', renderMain); useIqrRejectEl.addEventListener('change', renderMain); spikeThresholdEl.addEventListener('input', renderMain); lineStyleEl.addEventListener('change', renderMain); paletteModeEl.addEventListener('change', renderMain); dotStyleEl.addEventListener('input', renderMain); showPointsEl.addEventListener('change', renderMain); showLegendEl.addEventListener('change', renderMain);
 
-        // MD-based series inputs
-        Xmd.push(row[2]);     // MD col 3
-        Yrop.push(row[4]);    // ROP col 5 (m/h) -- from file
-        Ywob.push(row[5]);    // WOB col 6 (kDaN)
-        Yhl.push(row[8]);     // HL col 9 (kDaN)
-        Ytq.push(row[10]);    // Torque col 11 (kN·m)
-        Yflow.push(row[11]);  // Flow col 12 (m³/min)
+    showAverageEl.addEventListener('change', renderMain); avgStepEl.addEventListener('input', renderMain); avgMinSeriesEl.addEventListener('input', renderMain); showMaxEl.addEventListener('change', renderMain); showMinEl.addEventListener('change', renderMain); maxPctEl.addEventListener('input', renderMain); minPctEl.addEventListener('input', renderMain);
 
-        // MSE (if index known)
-        if (mseIdx !== null && row.length > mseIdx) {
-          Ymse.push(row[mseIdx]);
-        } else {
-          Ymse.push(null);
-        }
+    function selectedAxes(){ const p=currentPlotDef(); return p.id==='hl'?state.axesHL: p.id==='tq'?state.axesTQ: p.id==='wob'?state.axesWOB: p.id==='rop'?state.axesROP: p.id==='mse'?state.axesMSE: p.id==='flow'?state.axesFLOW: state.axesTD; }
+    function setSelectedAxes(ax){ const p=currentPlotDef(); if(p.id==='hl') state.axesHL=ax; else if(p.id==='tq') state.axesTQ=ax; else if(p.id==='wob') state.axesWOB=ax; else if(p.id==='rop') state.axesROP=ax; else if(p.id==='mse') state.axesMSE=ax; else if(p.id==='flow') state.axesFLOW=ax; else state.axesTD=ax; }
 
-        // Time–Depth inputs
-        const d = row[0];     // Date col 1
-        const t = row[1];     // Time col 2
-        const ts = parseDateTimeUTC(d, t);
-        const md = toNumber(row[2]);
-        tsArr.push(Number.isFinite(ts) ? ts : NaN);
-        mdArr.push(Number.isFinite(md) ? md : NaN);
-      }
+    document.getElementById('applyAxes').addEventListener('click', ()=>{ const xMin=parseFloat(xMinEl.value); const xMax=parseFloat(xMaxEl.value); const yMin=parseFloat(yMinEl.value); const yMax=parseFloat(yMaxEl.value); setSelectedAxes({ xMin:Number.isFinite(xMin)?xMin:null, xMax:Number.isFinite(xMax)?xMax:null, yMin:Number.isFinite(yMin)?yMin:null, yMax:Number.isFinite(yMax)?yMax:null }); renderMain(); });
+    document.getElementById('autoAxes').addEventListener('click', ()=>{ setSelectedAxes({xMin:null,xMax:null,yMin:null,yMax:null}); xMinEl.value=''; xMaxEl.value=''; yMinEl.value=''; yMaxEl.value=''; renderMain(); });
 
-      // Clean vs MD
-      // ROP: discard negatives before cleaning to avoid averaging them in
-      const XmdNum = Xmd.map(v => v);
-      const YropFiltered = Yrop.map(v => toNumber(v)).map(v => (Number.isFinite(v) && v >= 0) ? v : null);
-      // Build ROP using the same cleaner (nulls will be filled by running mean if any)
-      const { pts: rawROP } = cleanAndBuildXY(XmdNum, YropFiltered);
+    enableZoomEl.addEventListener('change', renderMain); resetZoomBtn.addEventListener('click', ()=>{ if(chartMain?.resetZoom) chartMain.resetZoom(); });
 
-      const { pts: rawWOB }  = cleanAndBuildXY(Xmd, Ywob);
-      const { pts: rawHL,  replaced: replHL } = cleanAndBuildXY(Xmd, Yhl);
-      const { pts: rawTQ,  replaced: replTQ } = cleanAndBuildXY(Xmd, Ytq);
-      const { pts: rawFLOW } = cleanAndBuildXY(Xmd, Yflow);
+    document.getElementById('exportAvgCsv').addEventListener('click', ()=>{ const p=currentPlotDef(); if(!p.supportsSpecial) return alert('No Average for this plot.'); downloadCsv(lastCurvesSpecial.avg, `${p.id.toUpperCase()}_AverageCurve.csv`); });
+    document.getElementById('exportMaxCsv').addEventListener('click', ()=>{ const p=currentPlotDef(); if(!p.supportsSpecial) return alert('No Max for this plot.'); downloadCsv(lastCurvesSpecial.max, `${p.id.toUpperCase()}_MaxCurve.csv`); });
+    document.getElementById('exportMinCsv').addEventListener('click', ()=>{ const p=currentPlotDef(); if(!p.supportsSpecial) return alert('No Min for this plot.'); downloadCsv(lastCurvesSpecial.min, `${p.id.toUpperCase()}_MinCurve.csv`); });
 
-      // MSE vs MD (ksi) if column known
-      let rawMSE = [];
-      if (mseIdx !== null) {
-        const { pts } = cleanAndBuildXY(Xmd, Ymse);
-        rawMSE = pts;
-      }
+    document.getElementById('exportVisibleCsv').addEventListener('click', ()=>{ if(!chartMain) return; const ds=chartMain.data.datasets.filter(d=>!d.hidden && d.data && d.data.length); if(!ds.length) return alert('No visible data to export.'); const lines=['Series,X,Y']; ds.forEach(d=>{ d.data.forEach(pt=>lines.push(`${d.label},${pt.x},${pt.y}`)); }); const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); const p=currentPlotDef(); a.href=url; a.download=`${p.id}_visible.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); });
 
-      // Time (days) vs Depth series (per-file Day 0)
-      let tdPts = [];
-      const firstIdx = tsArr.findIndex(v => Number.isFinite(v));
-      if (firstIdx !== -1) {
-        const t0 = tsArr[firstIdx];
-        const days = tsArr.map(v => Number.isFinite(v) ? ((v - t0) / 86400000) : NaN);
-        const { pts } = cleanAndBuildXY(days, mdArr);
-        tdPts = pts;
-      }
+    function updateStatus(){ const f1txt=state.file1 ? `Loaded \"${state.file1.name}\" • Rows: ${state.file1.rows} • Replaced: B=${state.file1.replacedB}, C=${state.file1.replacedC}` : ''; document.getElementById('status1').textContent=f1txt; const pasonCount=state.pasonSeries.length; const totalRows=state.pasonSeries.reduce((acc,s)=>acc+(s.rows||0),0); const totalRepl=state.pasonSeries.reduce((acc,s)=>acc+(s.replaced||0),0); const f2txt=pasonCount?`Loaded HL series: ${pasonCount} • Total rows: ${totalRows} • Replaced: ${totalRepl}`:''; document.getElementById('status2').textContent=f2txt; }
 
-      const baseName = (file.webkitRelativePath || file.name).replace(/\.[^.]+$/, '');
-      return {
-        name: baseName,
-        wob:  { raw: rawWOB,  rows: rawWOB.length },
-        hl:   { raw: rawHL,   rows: rows.length - start, replaced: replHL },
-        tq:   { raw: rawTQ,   rows: rows.length - start, replaced: replTQ },
-        rop:  { raw: rawROP,  rows: rawROP.length },
-        mse:  { raw: rawMSE,  rows: rawMSE.length, mseCol: mseIdx },
-        flow: { raw: rawFLOW, rows: rawFLOW.length },
-        td:   { raw: tdPts,   rows: rows.length - start }
-      };
-    }
-
-    async function processPasonFolder(fileList, hasHeader) {
-      const csvFiles = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
-      csvFiles.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
-
-      const manualMseCol1Based = document.getElementById('mseColInput').value;
-
-      const seriesHL = [], seriesTQ = [], seriesWOB = [], seriesROP = [], seriesMSE = [], seriesFLOW = [], seriesTD = [];
-      for (const f of csvFiles) {
-        try {
-          const s = await parsePasonCsvFile(f, hasHeader, manualMseCol1Based);
-          if (!s) continue;
-          if (s.wob.raw.length)  seriesWOB.push({ name: s.name, raw: s.wob.raw, rows: s.wob.rows });
-          if (s.hl.raw.length)   seriesHL.push({ name: s.name, raw: s.hl.raw, rows: s.hl.rows, replaced: s.hl.replaced });
-          if (s.tq.raw.length)   seriesTQ.push({ name: s.name, raw: s.tq.raw, rows: s.tq.rows, replaced: s.tq.replaced });
-          if (s.rop.raw.length)  seriesROP.push({ name: s.name, raw: s.rop.raw, rows: s.rop.rows });
-          if (s.mse.raw.length)  seriesMSE.push({ name: s.name, raw: s.mse.raw, rows: s.mse.rows, mseCol: s.mse.mseCol });
-          if (s.flow.raw.length) seriesFLOW.push({ name: s.name, raw: s.flow.raw, rows: s.flow.rows });
-          if (s.td.raw.length)   seriesTD.push({ name: s.name, raw: s.td.raw, rows: s.td.rows });
-        } catch (err) {
-          console.warn('Failed to parse CSV:', f.name, err);
-        }
-      }
-
-      // Assign stable colors
-      const totalWOB = seriesWOB.length;   seriesWOB.forEach((s, i) => s.color  = colorByIndex(i, totalWOB));
-      const totalHL = seriesHL.length;     seriesHL.forEach((s, i) => s.color  = colorByIndex(i, totalHL));
-      const totalTQ = seriesTQ.length;     seriesTQ.forEach((s, i) => s.color  = colorByIndex(i, totalTQ));
-      const totalROP = seriesROP.length;   seriesROP.forEach((s, i) => s.color = colorByIndex(i, totalROP));
-      const totalMSE = seriesMSE.length;   seriesMSE.forEach((s, i) => s.color = colorByIndex(i, totalMSE));
-      const totalFLOW = seriesFLOW.length; seriesFLOW.forEach((s, i) => s.color= colorByIndex(i, totalFLOW));
-      const totalTD = seriesTD.length;     seriesTD.forEach((s, i) => s.color  = colorByIndex(i, totalTD));
-
-      state.wobSeries       = seriesWOB;
-      state.pasonSeries     = seriesHL;
-      state.torqueSeries    = seriesTQ;
-      state.ropSeries       = seriesROP;
-      state.mseSeries       = seriesMSE;
-      state.flowSeries      = seriesFLOW;
-      state.timeDepthSeries = seriesTD;
-    }
-
-    // ---------------- CSV Export helpers (current plot) ----------------
-    function downloadCsv(points, filename) {
-      if (!points || !points.length) {
-        alert('No curve data available to export.');
-        return;
-      }
-      const p = currentPlotDef();
-      const xHeader = (p.id === 'td') ? 'Days' : 'MeasuredDepth_m';
-      const yHeader =
-        p.id === 'hl'   ? 'HookLoad_kDaN' :
-        p.id === 'tq'   ? 'Torque_kN_m'  :
-        p.id === 'wob'  ? 'WOB_kDaN'     :
-        p.id === 'rop'  ? 'ROP_m_per_h'  :
-        p.id === 'mse'  ? 'MSE_ksi'      :
-        p.id === 'flow' ? 'Flow_m3_per_min' : 'HoleDepth_m';
-      const header = `${xHeader},${yHeader}\n`;
-      const rows = points.map(pt => `${pt.x.toFixed(4)},${pt.y.toFixed(4)}`).join('\n');
-      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
-    // ---------------- Wire up UI ----------------
-
-    const file1El = document.getElementById('file1');
-    const pasonFolderEl = document.getElementById('pasonFolder');
-    const file1HeadersEl = document.getElementById('file1Headers');
-    const pasonHeadersEl = document.getElementById('pasonHeaders');
-    const mseColInputEl = document.getElementById('mseColInput');
-
-    const plotSelectEl = document.getElementById('plotSelect');
-
-    const applySmoothingEl = document.getElementById('applySmoothing');
-    const smoothWindowEl = document.getElementById('smoothWindow');
-    const smoothValueEl = document.getElementById('smoothValue');
-
-    const rejectSpikesEl = document.getElementById('rejectSpikes');
-    const spikeThresholdEl = document.getElementById('spikeThreshold');
-
-    const lineStyleEl = document.getElementById('lineStyle');
-    const paletteModeEl = document.getElementById('paletteMode');
-    const dotStyleEl = document.getElementById('dotStyle');
-    const hidePointsEl = document.getElementById('hidePoints');
-
-    const showAverageEl = document.getElementById('showAverage');
-    const avgStepEl = document.getElementById('avgStep');
-    const avgMinSeriesEl = document.getElementById('avgMinSeries');
-    const showMaxEl = document.getElementById('showMax');
-    const showMinEl = document.getElementById('showMin');
-    const maxPctEl = document.getElementById('maxPct');
-    const minPctEl = document.getElementById('minPct');
-
-    // Axes & zoom (current plot)
-    const xMinEl = document.getElementById('xMin');
-    const xMaxEl = document.getElementById('xMax');
-    const yMinEl = document.getElementById('yMin');
-    const yMaxEl = document.getElementById('yMax');
-    const applyAxesBtn = document.getElementById('applyAxes');
-    const autoAxesBtn = document.getElementById('autoAxes');
-    const enableZoomEl = document.getElementById('enableZoom');
-    const resetZoomBtn = document.getElementById('resetZoom');
-
-    // CSV exports for current plot (if supports)
-    const exportAvgCsvBtn = document.getElementById('exportAvgCsv');
-    const exportMaxCsvBtn = document.getElementById('exportMaxCsv');
-    const exportMinCsvBtn = document.getElementById('exportMinCsv');
-
-    const exportPngBtn = document.getElementById('exportPng');
-
-    // File events
-    file1El.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      document.getElementById('status1').textContent = 'Reading Excel…';
-      try { await processFile1(file, file1HeadersEl.checked); renderMain(); }
-      catch (err) { console.error(err); document.getElementById('status1').textContent = 'Failed to read File 1.'; }
-    });
-
-    pasonFolderEl.addEventListener('change', async (e) => {
-      const files = e.target.files;
-      if (!files || !files.length) return;
-      document.getElementById('status2').textContent = 'Reading CSVs…';
-      try { await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); }
-      catch (err) { console.error(err); document.getElementById('status2').textContent = 'Failed to read Pason CSV folder.'; }
-    });
-
-    file1HeadersEl.addEventListener('change', async () => {
-      const f = file1El.files?.[0]; if (!f) return;
-      document.getElementById('status1').textContent = 'Re-reading Excel…';
-      try { await processFile1(f, file1HeadersEl.checked); renderMain(); }
-      catch (err) { console.error(err); document.getElementById('status1').textContent = 'Failed to read File 1.'; }
-    });
-
-    pasonHeadersEl.addEventListener('change', async () => {
-      const files = pasonFolderEl.files; if (!files || !files.length) return;
-      document.getElementById('status2').textContent = 'Re-reading CSVs…';
-      try { await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); }
-      catch (err) { console.error(err); document.getElementById('status2').textContent = 'Failed to read Pason CSV folder.'; }
-    });
-
-    // If MSE column input changes, reprocess current folder (if any)
-    mseColInputEl.addEventListener('change', async () => {
-      const files = pasonFolderEl.files; if (!files || !files.length) return;
-      document.getElementById('status2').textContent = 'Re-reading CSVs (MSE col)…';
-      try { await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); }
-      catch (err) { console.error(err); document.getElementById('status2').textContent = 'Failed to read Pason CSV folder.'; }
-    });
-
-    // Plot selection
-    plotSelectEl.addEventListener('change', () => {
-      updateSpecialControlsVisibility();
-      updateAxesLabels();
-      xMinEl.value = ''; xMaxEl.value = ''; yMinEl.value = ''; yMaxEl.value = '';
-      renderMain();
-    });
-
-    // Redraw on control changes
-    applySmoothingEl.addEventListener('change', renderMain);
-    smoothWindowEl.addEventListener('input', () => { smoothValueEl.textContent = smoothWindowEl.value; renderMain(); });
-
-    rejectSpikesEl.addEventListener('change', renderMain);
-    spikeThresholdEl.addEventListener('input', renderMain);
-
-    lineStyleEl.addEventListener('change', renderMain);
-    paletteModeEl.addEventListener('change', renderMain);
-    dotStyleEl.addEventListener('input', renderMain);
-    hidePointsEl.addEventListener('change', renderMain);
-
-    showAverageEl.addEventListener('change', renderMain);
-    avgStepEl.addEventListener('input', renderMain);
-    avgMinSeriesEl.addEventListener('input', renderMain);
-    showMaxEl.addEventListener('change', renderMain);
-    showMinEl.addEventListener('change', renderMain);
-    maxPctEl.addEventListener('input', renderMain);
-    minPctEl.addEventListener('input', renderMain);
-
-    // Axes Apply/Auto for selected plot
-    function selectedAxes() {
-      const p = currentPlotDef();
-      return p.id === 'hl' ? state.axesHL :
-             p.id === 'tq' ? state.axesTQ :
-             p.id === 'wob' ? state.axesWOB :
-             p.id === 'rop' ? state.axesROP :
-             p.id === 'mse' ? state.axesMSE :
-             p.id === 'flow' ? state.axesFLOW : state.axesTD;
-    }
-    function setSelectedAxes(ax) {
-      const p = currentPlotDef();
-      if (p.id === 'hl') state.axesHL = ax;
-      else if (p.id === 'tq') state.axesTQ = ax;
-      else if (p.id === 'wob') state.axesWOB = ax;
-      else if (p.id === 'rop') state.axesROP = ax;
-      else if (p.id === 'mse') state.axesMSE = ax;
-      else if (p.id === 'flow') state.axesFLOW = ax;
-      else state.axesTD = ax;
-    }
-
-    document.getElementById('applyAxes').addEventListener('click', () => {
-      const xMin = parseFloat(xMinEl.value); const xMax = parseFloat(xMaxEl.value);
-      const yMin = parseFloat(yMinEl.value); const yMax = parseFloat(yMaxEl.value);
-      setSelectedAxes({
-        xMin: Number.isFinite(xMin) ? xMin : null,
-        xMax: Number.isFinite(xMax) ? xMax : null,
-        yMin: Number.isFinite(yMin) ? yMin : null,
-        yMax: Number.isFinite(yMax) ? yMax : null
-      });
-      renderMain();
-    });
-    document.getElementById('autoAxes').addEventListener('click', () => {
-      setSelectedAxes({ xMin: null, xMax: null, yMin: null, yMax: null });
-      xMinEl.value = ''; xMaxEl.value = ''; yMinEl.value = ''; yMaxEl.value = '';
-      renderMain();
-    });
-
-    // Zoom
-    enableZoomEl.addEventListener('change', renderMain);
-    resetZoomBtn.addEventListener('click', () => { if (chartMain?.resetZoom) chartMain.resetZoom(); });
-
-    // CSV exports (for current plot if supports)
-    document.getElementById('exportAvgCsv').addEventListener('click', () => {
-      const p = currentPlotDef(); if (!p.supportsSpecial) return alert('No Average for this plot.');
-      downloadCsv(lastCurvesSpecial.avg, `${p.id.toUpperCase()}_AverageCurve.csv`);
-    });
-    document.getElementById('exportMaxCsv').addEventListener('click', () => {
-      const p = currentPlotDef(); if (!p.supportsSpecial) return alert('No Max for this plot.');
-      downloadCsv(lastCurvesSpecial.max, `${p.id.toUpperCase()}_MaxCurve.csv`);
-    });
-    document.getElementById('exportMinCsv').addEventListener('click', () => {
-      const p = currentPlotDef(); if (!p.supportsSpecial) return alert('No Min for this plot.');
-      downloadCsv(lastCurvesSpecial.min, `${p.id.toUpperCase()}_MinCurve.csv`);
-    });
-
-    // PNG export
-    document.getElementById('exportPng').addEventListener('click', () => {
-      if (!chartMain) return;
-      const p = currentPlotDef();
-      const url = chartMain.toBase64Image('image/png', 1.0);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${p.id}_plot.png`;
-      a.click();
-    });
-
-    // Build UI + first render + status wrap
-    function updateStatus() {
-      const f1txt = state.file1
-        ? `Loaded "${state.file1.name}" • Rows: ${state.file1.rows} • Replaced: B=${state.file1.replacedB}, C=${state.file1.replacedC}`
-        : '';
-      document.getElementById('status1').textContent = f1txt;
-
-      const pasonCount = state.pasonSeries.length;
-      const totalRows = state.pasonSeries.reduce((acc, s) => acc + (s.rows || 0), 0);
-      const totalRepl = state.pasonSeries.reduce((acc, s) => acc + (s.replaced || 0), 0);
-      const f2txt = pasonCount ? `Loaded HL series: ${pasonCount} • Total rows: ${totalRows} • Replaced: ${totalRepl}` : '';
-      document.getElementById('status2').textContent = f2txt;
-    }
-    const _renderMain = renderMain;
-    renderMain = function() { _renderMain(); updateStatus(); }
+    const _renderMain=renderMain; renderMain=function(){ _renderMain(); updateStatus(); }
 
     buildPlotDropdownUI();
     renderMain();
