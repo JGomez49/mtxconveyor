@@ -107,6 +107,8 @@
                                 name="title"
                                 autofocus
                             >
+                            <option>Offsets+Subject</option>
+                            <option>BlackOps</option>
                             <option>ETS</option>
                             <option>Exe-QC</option>
                             <option>Exe-Vendor</option>
@@ -114,7 +116,6 @@
                             <option>Hydraulics</option>
                             <option>Meeting</option>
                             <option>Offsets</option>
-                            <option>Offsets+Subject</option>
                             <option>Others</option>
                             <option>Planning</option>
                             <option>Reports</option>
@@ -124,20 +125,6 @@
                             <option>SurveyMng</option>
                             <option>T&D</option>
                             <option>Training</option>
-                            <!-- <option>Choose...</option> -->
-                            <!-- <option>Subject Setup</option>
-                            <option>Req.Info</option>
-                            <option>Planning</option>
-                            <option>Revision</option>
-                            <option>Offsets</option>
-                            <option>Offsets+Subject</option>
-                            <option>Reports</option>
-                            <option>T&D</option>
-                            <option>Hydra</option>
-                            <option>SurveyMng</option>
-                            <option>Meeting</option>
-                            <option>Training</option>
-                            <option>Others</option> -->
                         </select>
                     </div>
 
@@ -150,12 +137,11 @@
                                 id="responsible"
                                 name="responsible"
                             >
-                            <option>Orphan</option>
-                            <% if (user.role == 'admin' || user.role == 'leader') { %>
-                                <%- include ('partials/optionsPeople.ejs') %>
+                            <option><%= user.name %></option>
+                            <%- include ('partials/optionsPeople.ejs') %>
+                            <% if (user.role == 'admin') { %>
+                                <option>Sammy</option>
                             <% } %>
-                            <option>Johanna</option>
-                            <option>Camilo</option>
                         </select>
                     </div>
 
@@ -169,7 +155,7 @@
                                 name="customer"
                             >
                              <option>CNRL</option>
-                             <% if (user.role == 'admin' || user.role == 'leader') { %>
+                             <% if (user.role == 'admin') { %>
                                 <option>PHX</option>
                                 <option>MSTR</option>
                                 <option>OTMX</option>
@@ -184,12 +170,12 @@
 
 
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">C.Job# / Plan V.</span>
+                        <span class="input-group-text bg-dark text-white">Plan V.</span>
                         <input 
                             type="text" 
                             name="customerJobNumber"
                             class="form-control bg-dark text-white"
-                            placeholder="Customer Job Number"
+                            placeholder="Plan Version"
                         >
                     </div>
 
@@ -367,8 +353,7 @@
                         <input type="date"
                             id="created" 
                             name="created"
-                            class="form-control bg-dark text-white"
-                            
+                            class="form-control bg-dark text-white" 
                         >
                     </div>
 
@@ -387,7 +372,7 @@
 
 
                     
-                    <% if (user.role == 'admin' || user.role == 'leader') { %>
+                    <% if (user.role == 'admin') { %>
                         <div class="input-group mb-2">
                             <span class="input-group-text bg-dark text-white">Invoice</span>
                             <select class="form-select bg-dark text-white" 
@@ -414,9 +399,7 @@
                                 <option>In Progress</option>
                                 <option>Completed</option>
                                 <option>On Hold</option>
-                                <% if (user.role == 'admin' || user.role == 'leader') { %>
-                                    <option>QA/QC</option>
-                                <% } %>
+                                <option>QA/QC</option>
                                 <% if (user.role == 'admin') { %>
                                     <option>Billed</option>
                                     <option>Archived</option>
