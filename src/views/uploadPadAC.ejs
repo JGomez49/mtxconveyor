@@ -2,10 +2,9 @@
 
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8" />
-  <title>PAD AC Risk Summary</title>
+  <title>AC Risk Summary per Offset Well</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="32x64"
     href="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png">
@@ -18,7 +17,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* ----- Tighter layout + wider page ----- */
+    :root { --th-btn-h: 36px; } /* uniform header-button height */
+
+    /* Layout */
     body { font-size: 0.94rem; }
     .container-fluid { padding-top: .6rem !important; padding-bottom: .6rem !important; }
     .card { margin-bottom: .6rem; }
@@ -26,39 +27,51 @@
     .card-header { padding: .4rem .6rem; }
     .row.g-3 { --bs-gutter-x: .75rem; --bs-gutter-y: .5rem; }
 
-    /* ----- Compact, wide summary table ----- */
+    /* Table */
     #summaryTable { font-size: 0.82rem; line-height: 1.15; width: 100%; }
     #summaryTable.table-sm > :not(caption) > * > * { padding: .25rem .4rem; }
     .table-sticky thead th { position: sticky; top: 0; z-index: 2; }
     .table-wrap { max-height: 72vh; overflow: auto; }
-
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .small-note { opacity: .85; }
-    .wrap { white-space: pre-wrap; }
-
-    /* Subject Well badges */
-    .subject-badges { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: center; }
-    .subject-badges .badge { font-weight: 600; }
-
+    #summaryTable th, #summaryTable td { text-align: center; vertical-align: middle; } /* center everything */
     /* Wider first two columns for long names */
     #summaryTable td:nth-child(1), #summaryTable th:nth-child(1) { min-width: 320px; }
     #summaryTable td:nth-child(2), #summaryTable th:nth-child(2) { min-width: 360px; }
 
-    /* Risk color chips for the two metric cells */
+    /* Subject Well badges */
+    .subject-badges { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: center; }
+    .subject-badges .badge { font-weight: 600; }
+    .small-note { opacity: .85; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+    /* Risk chips */
     .risk-red   { background-color: #b22222 !important; color: #fff !important; }
     .risk-amber { background-color: #f0c640 !important; color: #000 !important; }
     .risk-green { background-color: #2e7d32 !important; color: #fff !important; }
+
+    /* Header buttons: same height, single line */
+    .th-btn {
+      width: 100%;
+      height: var(--th-btn-h);
+      padding: 0 .5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      white-space: nowrap;
+    }
+    .th-btn .dir { opacity: .9; line-height: 1; }
   </style>
 </head>
-
 <body class="bg-dark text-light">
   <div class="container-fluid">
+
     <header class="mb-2">
       <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
         alt="Canadian Natural Resources Logo" width="250" height="100">
-      <h1 class="h5 mb-1">Pad Anticollision Risk Summary</h1>
+      <h1 class="h5 mb-1">Anticollision Risk Summary</h1>
       <!-- <p class="small-note mb-0">
-        Upload Compass anti‑collision report(s) (<span class="mono">.xls</span>, <span class="mono">.xlsx</span>, or <span class="mono">.csv</span>).
+        Upload Compass anti‑collision report(s)
+        (<span class="mono">.xls</span>, <span class="mono">.xlsx</span>, or <span class="mono">.csv</span>).
         The app flags the <strong>first</strong> station per offset where <strong>C2C &lt; 15 m</strong> or <strong>SF &lt; 1.25</strong>.
       </p> -->
     </header>
@@ -67,13 +80,13 @@
       <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
     </div>
 
+    <!-- Controls -->
     <section class="card bg-secondary border-0 mb-2">
       <div class="card-body">
-        <!-- Controls aligned on one row -->
+        <!-- Row 1 -->
         <div class="row g-3 align-items-end">
           <div class="col-12 col-xl-6">
             <label for="file" class="form-label mb-1">Report files (folder or multiple files)</label>
-            <!-- Folder + multi-file support -->
             <input id="file" type="file" class="form-control form-control-sm"
                    accept=".xls,.xlsx,.csv" webkitdirectory directory multiple />
           </div>
@@ -91,11 +104,54 @@
             </button>
           </div>
         </div>
-        <div class="small-note mt-2">
-          Tip: In Chrome/Edge you can pick a <strong>folder</strong>; in other browsers, select multiple files.
+        <div class="small-note mt-2">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
+
+        <!-- Row 2: Filters (all default ON) -->
+        <div class="row g-3 align-items-center mt-3">
+          <div class="col-12 col-xxl-11">
+            <label class="form-label mb-1">Filters (hide/show rows or columns)</label>
+            <div class="d-flex flex-wrap gap-3">
+              <!-- Row-level (HIDE rows that meet the condition) -->
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fRefMDlt100" checked>
+                <label class="form-check-label" for="fRefMDlt100">Hide: Ref. MD &lt; 100</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fE2Eempty" checked>
+                <label class="form-check-label" for="fE2Eempty">Hide: E2E is empty</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fProbTiny" checked>
+                <label class="form-check-label" for="fProbTiny">Hide: Probability “&lt; 1 in 1E+9”</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fCrossDup" checked>
+                <label class="form-check-label" for="fCrossDup">Hide: Ref/Offset cross‑duplicates</label>
+              </div>
+              <!-- NEW: Show-only filter -->
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fShowAND" checked>
+                <label class="form-check-label" for="fShowAND">Show only: C2C &lt; 15 AND SF &lt; 1.00</label>
+              </div>
+              <!-- Column visibility -->
+              <div class="form-check ms-xl-4">
+                <input class="form-check-input" type="checkbox" id="fHideW2W" checked>
+                <label class="form-check-label" for="fHideW2W">Hide W2W</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fHideE2E" checked>
+                <label class="form-check-label" for="fHideE2E">Hide E2E</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fHideMinSep" checked>
+                <label class="form-check-label" for="fHideMinSep">Hide Min. Sep.</label>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="row g-2 mt-2">
+        <!-- Row 3: Exports -->
+        <div class="row g-2 mt-3">
           <div class="col-auto">
             <button id="btnDownloadCSV" class="btn btn-outline-light btn-sm" disabled>
               <i class="bi bi-download"></i> CSV
@@ -115,17 +171,16 @@
       </div>
     </section>
 
-    <!-- Pinned Subject Well badges line -->
+    <!-- Subject Well badges -->
     <section class="card bg-secondary border-0 mb-2">
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Subject Well(s)</strong>
         <span class="small-note" id="filesCount"></span>
       </div>
-      <div class="card-body">
-        <div id="subjectBadges" class="subject-badges"></div>
-      </div>
+      <div class="card-body"><div id="subjectBadges" class="subject-badges"></div></div>
     </section>
 
+    <!-- Summary table -->
     <section class="card bg-secondary border-0">
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Summary table</strong>
@@ -134,17 +189,19 @@
       <div class="card-body p-0">
         <div id="status" class="p-2 small-note"></div>
         <div class="table-wrap">
-          <table id="summaryTable" class="table table-dark _table-striped table-hover table-sticky table-sm mb-0">
+          <!-- (no table-striped) -->
+          <table id="summaryTable" class="table table-dark table-hover table-sticky table-sm mb-0">
             <thead id="summaryThead"></thead>
             <tbody id="summaryTbody"></tbody>
           </table>
         </div>
       </div>
     </section>
+
   </div>
 
   <script>
-    // --------- helpers ----------
+    // ---------- helpers ----------
     const el = (id) => document.getElementById(id);
     const nonEmpty = (v) => v !== null && v !== undefined && String(v).trim() !== "";
     const norm = (v) => String(v ?? "").trim();
@@ -157,33 +214,33 @@
       const n = Number(cleaned);
       return Number.isFinite(n) ? n : null;
     }
-    function oneDec(val) {
-      const n = parseNumber(val);
-      return n === null ? "" : n.toFixed(1);
-    }
-    function int0(val) {
-      const n = parseNumber(val);
-      return n === null ? "" : n.toFixed(0);
-    }
+    const oneDec = (val) => { const n = parseNumber(val); return n === null ? "" : n.toFixed(1); };
+    const int0   = (val) => { const n = parseNumber(val); return n === null ? "" : n.toFixed(0); };
 
-    // Risk color selectors
+    // Risk cell classes
     function classForC2C(val) {
-      const n = parseNumber(val);
-      if (n === null) return "";
+      const n = parseNumber(val); if (n === null) return "";
       if (n < 10) return "risk-red";
       if (n < 15) return "risk-amber";
       return "risk-green";
     }
     function classForSF(val) {
-      const n = parseNumber(val);
-      if (n === null) return "";
+      const n = parseNumber(val); if (n === null) return "";
       if (n < 1.0) return "risk-red";
       if (n < 1.25) return "risk-amber";
       return "risk-green";
     }
 
+    // Recognize Compass “tiny probability” literal
+    function isProbTiny(val) {
+      const s = norm(val).replace(/\s+/g, " ");
+      if (!s) return false;
+      if (s.includes("1E+9") && s.includes("<")) return true;
+      return /^\<\s*1\s+in\s+1e\+?\d+\s*$/i.test(s);
+    }
+
     // Report structure matchers
-    function isOffsetDesignRow(row0) { return /^(offset\s+design)\b/i.test(norm(row0)); }
+    const isOffsetDesignRow = (row0) => /^(offset\s+design)\b/i.test(norm(row0));
     function isDetailHeaderRow(row) {
       const cells = row.map(c => norm(c));
       const hasMD = cells.some(c => /measured\s*depth/i.test(c));
@@ -192,24 +249,17 @@
       return hasMD && hasBC && hasSF;
     }
 
-    function arrayifySheet(ws) {
-      return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
-    }
+    const sheetToRows = (ws) => XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
 
-    // Read “Reference …” labels near the top of the report
-    function getLabelValue(rows, labelRegex, searchRows = 240) {
+    // Read top-of-report labels
+    function getLabelValue(rows, labelRegex, searchRows = 400) {
       for (let r = 0; r < Math.min(rows.length, searchRows); r++) {
         const row = rows[r] || [];
         for (let c = 0; c < row.length; c++) {
           if (labelRegex.test(norm(row[c]))) {
-            // Same row, to the right
-            for (let k = c + 1; k < row.length; k++) {
-              if (nonEmpty(row[k])) return norm(row[k]);
-            }
-            // Or next few rows: first non-empty cell
+            for (let k = c + 1; k < row.length; k++) if (nonEmpty(row[k])) return norm(row[k]);
             for (let rr = r + 1; rr < Math.min(r + 4, rows.length); rr++) {
-              const nrow = rows[rr] || [];
-              const cand = nrow.find(nonEmpty);
+              const nrow = rows[rr] || []; const cand = nrow.find(nonEmpty);
               if (cand) return norm(cand);
             }
             return "";
@@ -218,61 +268,49 @@
       }
       return "";
     }
-
     function buildSubjectWell(rows) {
       const refSite     = getLabelValue(rows, /^reference\s*site\b/i);
       const refWell     = getLabelValue(rows, /^reference\s*well\b/i);
       const refWellbore = getLabelValue(rows, /^reference\s*wellbore\b/i);
       const refDesign   = getLabelValue(rows, /^reference\s*design\b/i);
-      const parts = [refSite, refWell, refWellbore, refDesign].filter(p => norm(p).length > 0);
-      return parts.join(" - ");
+      return [refSite, refWell, refWellbore, refDesign].filter(nonEmpty).join(" - ");
     }
 
-    // Build a composite header by merging up to 2 rows ABOVE the main header row.
+    // Merge header row with up to 2 rows above (handles umbrella labels e.g., "Semi Major Axis")
     function buildCompositeHeader(allRows, headerRowIdx) {
       const main = (allRows[headerRowIdx] || []).map(c => norm(c));
       const up1  = (allRows[headerRowIdx - 1] || []).map(c => norm(c));
       const up2  = (allRows[headerRowIdx - 2] || []).map(c => norm(c));
 
-      // Join umbrella + generic labels (e.g., "Semi Major Axis" + "Reference (m)")
       const composite = main.map((label, i) => {
         const above = (up1[i] || up2[i] || "").trim();
         if (!above) return label;
         const mainIsGeneric =
-          /^(reference|offset)\b/i.test(label) ||
-          /\(m\)/i.test(label) ||
+          /^(reference|offset)\b/i.test(label) || /\(m\)/i.test(label) ||
           /depth|axis|centres|ellipses|separation|probability|warning/i.test(label);
-        if (mainIsGeneric) return `${above} ${label}`.replace(/\s+/g, ' ').trim();
-        return label;
+        return mainIsGeneric ? `${above} ${label}`.replace(/\s+/g, ' ').trim() : label;
       });
-
       return { composite, up1, up2, main };
     }
 
-    // Given a column index 'i', decide if it belongs to an umbrella header (handling merged cells).
+    // Identify if a sub-column belongs to an umbrella header (handles merged cells to the left)
     function belongsToUmbrella(i, up1, up2, umbrellaRegex, searchLeft = 6) {
       const here = (up1[i] || up2[i] || "").trim();
       if (umbrellaRegex.test(here)) return true;
-      // Look left up to 'searchLeft' cells for a non-empty umbrella label, with only blanks between
       for (let k = 1; k <= searchLeft; k++) {
-        const j = i - k;
-        if (j < 0) break;
-        const a1 = (up1[j] || "").trim();
-        const a2 = (up2[j] || "").trim();
-        if (a1 || a2) {
-          return umbrellaRegex.test(a1) || umbrellaRegex.test(a2);
-        }
+        const j = i - k; if (j < 0) break;
+        const a1 = (up1[j] || "").trim(); const a2 = (up2[j] || "").trim();
+        if (a1 || a2) return umbrellaRegex.test(a1) || umbrellaRegex.test(a2);
       }
       return false;
     }
 
-    // ---------- per-file parsing ----------
+    // ---------- parse a report file ----------
     async function parseReport(file, thC2C = 15, thSF = 1.25) {
       const buf = await file.arrayBuffer();
       let wb;
-      try {
-        wb = XLSX.read(buf, { type: "array" });
-      } catch {
+      try { wb = XLSX.read(buf, { type: "array" }); }
+      catch {
         const csv = new TextDecoder("utf-8").decode(new Uint8Array(buf));
         wb = XLSX.read(csv, { type: "string" });
       }
@@ -281,41 +319,36 @@
       wb.SheetNames.forEach(name => {
         const ws = wb.Sheets[name];
         if (ws) {
-          const rows = arrayifySheet(ws);
-          if (rows && rows.length) {
-            allRows.push(...rows, ...Array(3).fill([])); // separator between sheets
-          }
+          const rows = sheetToRows(ws);
+          if (rows && rows.length) allRows.push(...rows, ...Array(3).fill([])); // spacer
         }
       });
 
       const subjectWell = buildSubjectWell(allRows);
 
-      const results = []; // one object per flagged row
+      const results = [];
       let i = 0;
       while (i < allRows.length) {
         const row = allRows[i] || [];
         if (isOffsetDesignRow(row[0])) {
-          // Offset name is on SAME ROW, COLUMN C (index 2)
-          const offsetName = norm(row[2]);
+          const offsetName = norm(row[2]);  // same row, column C
 
-          // Find the main header row just below
+          // find detailed header
           let headerRowIdx = -1;
-          for (let k = i + 1; k < Math.min(i + 160, allRows.length); k++) {
+          for (let k = i + 1; k < Math.min(i + 400, allRows.length); k++) {
             if (isDetailHeaderRow(allRows[k] || [])) { headerRowIdx = k; break; }
           }
           if (headerRowIdx === -1) { i++; continue; }
 
-          // Build robust composite header
           const { composite: header, up1, up2, main } = buildCompositeHeader(allRows, headerRowIdx);
 
-          // Helpers to search header
+          // column indices (from composite header)
           const findAllIdx = (re) => header.reduce((a, h, idx) => (re.test(h) ? (a.push(idx), a) : a), []);
           const findIdx    = (re) => header.findIndex(h => re.test(h));
 
-          // Primary indices from composite header
-          let idxsMD   = findAllIdx(/measured\s*depth/i);      // Ref MD (first), Off MD (second)
-          let idxsTVD  = findAllIdx(/vertical\s*depth/i);      // Ref TVD (first), Off TVD (second)
-          let idxsSMAJ = findAllIdx(/semi\s*major\s*axis/i);   // Ideally Ref SM (first), Off SM (second)
+          let idxsMD   = findAllIdx(/measured\s*depth/i);     // refMD, offMD
+          let idxsTVD  = findAllIdx(/vertical\s*depth/i);     // refTVD, offTVD
+          let idxsSMAJ = findAllIdx(/semi\s*major\s*axis/i);  // refSM, offSM
 
           let idxC2C = findIdx(/(between\s*centres|distance\s*between\s*centres)/i);
           let idxW2W = findIdx(/wall[-\s]*wall\s*distance/i);
@@ -325,47 +358,34 @@
           let idxProb= findIdx(/probability\s*of\s*collision/i);
           let idxWarn= findIdx(/\bwarning\b/i);
 
-          // --- Fallback & normalization for Semi Major Axis (handles merged umbrella cells) ---
+          // fallback for Semi Major Axis pairing via umbrella
           if (idxsSMAJ.length < 2) {
-            const umbrellaRe = /semi\s*major/i;
-            const refCandIdxs = [];
-            const offCandIdxs = [];
-
+            const umb = /semi\s*major/i;
+            const refCand = [], offCand = [];
             main.forEach((t, idx) => {
-              if (/^reference\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umbrellaRe, 6)) {
-                refCandIdxs.push(idx);
-              }
-              if (/^offset\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umbrellaRe, 6)) {
-                offCandIdxs.push(idx);
-              }
+              if (/^reference\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb, 6)) refCand.push(idx);
+              if (/^offset\b/i.test(t)    && belongsToUmbrella(idx, up1, up2, umb, 6)) offCand.push(idx);
             });
-
-            if (refCandIdxs.length && offCandIdxs.length) {
-              // Choose the closest pair (smallest index distance) to be safe
-              let bestPair = [refCandIdxs[0], offCandIdxs[0]];
-              let bestGap = Math.abs(refCandIdxs[0] - offCandIdxs[0]);
-              for (const rIdx of refCandIdxs) {
-                for (const oIdx of offCandIdxs) {
-                  const gap = Math.abs(rIdx - oIdx);
-                  if (gap < bestGap) { bestGap = gap; bestPair = [rIdx, oIdx]; }
-                }
+            if (refCand.length && offCand.length) {
+              let bestPair = [refCand[0], offCand[0]], gap = Math.abs(refCand[0] - offCand[0]);
+              for (const rIdx of refCand) for (const oIdx of offCand) {
+                const g = Math.abs(rIdx - oIdx); if (g < gap) { gap = g; bestPair = [rIdx, oIdx]; }
               }
               idxsSMAJ = bestPair;
             }
           }
 
-          // Scan data rows until next section/header
+          // scan rows to capture the first flagged station for this offset
           let captured = false;
           for (let r = headerRowIdx + 1; r < allRows.length; r++) {
             const cur = allRows[r] || [];
             const c0 = norm(cur[0]);
-            if (isOffsetDesignRow(c0) || isDetailHeaderRow(cur) ||
-                /offset\s+site\s+error/i.test(cur.map(x => norm(x)).join(" "))) break;
+            const rowText = (cur || []).map(x => norm(x)).join(" ");
+            if (isOffsetDesignRow(c0) || isDetailHeaderRow(cur) || /offset\s+site\s+error/i.test(rowText)) break;
             if (!(cur || []).some(nonEmpty)) continue;
 
             const getAt = (idx) => (idx >= 0 && idx < cur.length) ? cur[idx] : "";
 
-            // Paired values (first = Ref, second = Offset)
             const refMD  = idxsMD.length   > 0 ? getAt(idxsMD[0])   : "";
             const offMD  = idxsMD.length   > 1 ? getAt(idxsMD[1])   : "";
             const refTVD = idxsTVD.length  > 0 ? getAt(idxsTVD[0])  : "";
@@ -380,64 +400,79 @@
             const sf     = getAt(idxSF);
             const prob   = getAt(idxProb);
 
-            // Fallback for Warning value if the header is missing
+            // Warning fallback when header missing
             let warn = getAt(idxWarn);
             if (!warn) {
               const joined = (cur || []).map(x => norm(x)).filter(Boolean);
               warn = joined.find(t => /(High\s*Risk|Close\s*Proximity|Monitor)/i.test(t))
-                  || joined.find(t => /\b(ES|SF|CC)(\b|,)/i.test(t))
-                  || "";
+                  || joined.find(t => /\b(ES|SF|CC)(\b|,)/i.test(t)) || "";
             }
 
             const c2cNum = parseNumber(c2c);
             const sfNum  = parseNumber(sf);
 
-            // Threshold trigger: first row per offset that meets either criterion
             if ((c2cNum !== null && c2cNum < thC2C) || (sfNum !== null && sfNum < thSF)) {
               results.push({
                 subjectWell,
                 offsetName,
                 columns: [
-                  subjectWell,   // 1 Ref. Well
-                  offsetName,    // 2 Offset Well
-                  refMD,         // 3 Ref. MD
-                  refTVD,        // 4 Ref. TVD
-                  offMD,         // 5 Offset MD
-                  offTVD,        // 6 Offset TVD
-                  refSM,         // 7 Ref. Semi Major
-                  offSM,         // 8 Off. Semi Major
-                  c2c,           // 9 C2C
-                  w2w,           // 10 W2W
-                  e2e,           // 11 E2E
-                  minSep,        // 12 Min. Sep.
-                  sf,            // 13 SF
-                  prob,          // 14 Probability of Collision
-                  warn           // 15 Warning
+                  subjectWell,     // 1 Ref. Well
+                  offsetName,      // 2 Offset Well
+                  refMD,           // 3 Ref. MD
+                  refTVD,          // 4 Ref. TVD
+                  offMD,           // 5 Offset MD
+                  offTVD,          // 6 Offset TVD
+                  refSM,           // 7 Ref. Semi Major
+                  offSM,           // 8 Off. Semi Major
+                  c2c,             // 9 C2C
+                  w2w,             // 10 W2W
+                  e2e,             // 11 E2E
+                  minSep,          // 12 Min. Sep.
+                  sf,              // 13 SF
+                  prob,            // 14 Probability
+                  warn             // 15 Warning
                 ]
               });
               captured = true;
-              i = r; // continue after this row
+              i = r;             // continue search from here
               break;
             }
           }
-          if (!captured) i = headerRowIdx + 1;
+          if (!captured) i = headerRowIdx + 1;  // nothing flagged in this block
         }
         i++;
       }
-
       return results;
     }
 
-    // --------- UI and multi-file wiring ----------
-    let lastResults = [];  // combined across files
+    // ---------- UI state & rendering ----------
+    let lastResults = [];
 
     const CUSTOM_HEADERS = [
       "Ref. Well", "Offset Well",
       "Ref. MD", "Ref. TVD", "Offset MD", "Offset TVD",
       "Ref. Semi Major", "Off. Semi Major", "C2C",
       "W2W", "E2E", "Min. Sep.", "SF",
-      "Probability of Collision", "Warning"
+      "Probability", "Warning"
     ];
+
+    // Filters (default ON)
+    const filters = {
+      // row-level hides
+      refMDlt100: true,
+      e2eEmpty:   true,
+      probTiny:   true,
+      crossDup:   true,
+      // NEW show-only filter
+      showAND:    true,   // C2C<15 AND SF<1.00
+      // column visibility
+      hideW2W:    true,   // col 10
+      hideE2E:    true,   // col 11
+      hideMinSep: true    // col 12
+    };
+
+    // Sorting
+    let sortState = { col: null, dir: 'asc' };  // col is 1-based
 
     function summarizeSubjectWells(results) {
       const counts = new Map();
@@ -447,134 +482,229 @@
       });
       return counts;
     }
-
     function renderSubjectBadges(results, fileCount) {
-      const holder = el("subjectBadges");
-      holder.innerHTML = "";
+      const holder = el("subjectBadges"); holder.innerHTML = "";
       const counts = summarizeSubjectWells(results);
       counts.forEach((count, name) => {
-        const span = document.createElement("span");
-        span.className = "badge bg-info text-dark";
-        span.title = name;
-        span.textContent = `${name}  (${count})`;
-        holder.appendChild(span);
+        const b = document.createElement("span");
+        b.className = "badge bg-info text-dark";
+        b.title = name;
+        b.textContent = `${name} (${count})`;
+        holder.appendChild(b);
       });
       el("filesCount").textContent = fileCount ? `${fileCount} file(s) processed` : "";
     }
 
-    function renderSummary(results) {
-      const thead = el("summaryThead");
-      const tbody = el("summaryTbody");
-      thead.innerHTML = "";
-      tbody.innerHTML = "";
-
-      if (!results.length) {
-        el("summaryCount").textContent = "No rows matched the thresholds.";
-        return;
+    // Cross-duplicate dedupe: (Ref,Offset) ~ (Offset,Ref)
+    function dedupeCrossPairs(rows) {
+      const seen = new Set(), out = [];
+      for (const r of rows) {
+        const ref = norm(r.columns[0]).toLowerCase();
+        const off = norm(r.columns[1]).toLowerCase();
+        const a = ref || "", b = off || "";
+        const key = a < b ? `${a}||${b}` : `${b}||${a}`;
+        if (seen.has(key)) continue;
+        seen.add(key); out.push(r);
       }
+      return out;
+    }
 
-      // Header row (custom labels)
+    // Row-level filters + NEW show-only (C2C<15 AND SF<1)
+    function getFilteredResults() {
+      let filtered = lastResults.filter(r => {
+        const c = r.columns;
+
+        // Hide: Ref. MD < 100
+        if (filters.refMDlt100) {
+          const refMD = parseNumber(c[2]); // col 3
+          if (refMD !== null && refMD < 100) return false;
+        }
+        // Hide: E2E is empty
+        if (filters.e2eEmpty) {
+          const e2e = c[10]; // col 11
+          if (!nonEmpty(e2e)) return false;
+        }
+        // Hide: Probability "< 1 in 1E+9"
+        if (filters.probTiny) {
+          const prob = c[13]; // col 14
+          if (isProbTiny(prob)) return false;
+        }
+        // Show only: C2C < 15 AND SF < 1.00  (both must be true)
+        if (filters.showAND) {
+          const c2cNum = parseNumber(c[8]);  // col 9
+          const sfNum  = parseNumber(c[12]); // col 13
+          if (!(c2cNum !== null && c2cNum < 15 && sfNum !== null && sfNum < 1.0)) return false;
+        }
+        return true;
+      });
+
+      if (filters.crossDup) filtered = dedupeCrossPairs(filtered);
+      return filtered;
+    }
+
+    // Column visibility
+    function isColVisible(colIdx1) {
+      if (colIdx1 === 10 && filters.hideW2W)    return false;
+      if (colIdx1 === 11 && filters.hideE2E)    return false;
+      if (colIdx1 === 12 && filters.hideMinSep) return false;
+      return true;
+    }
+    function getVisibleColIndices1() {
+      const cols = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+      return cols.filter(isColVisible);
+    }
+
+    // Numeric columns (1-based)
+    const NUMERIC_COLS = new Set([3,4,5,6,7,8,9,10,11,12,13]);
+
+    function compareCells(aVal, bVal, colIdx1) {
+      if (NUMERIC_COLS.has(colIdx1)) {
+        const an = parseNumber(aVal), bn = parseNumber(bVal);
+        const aNull = (an === null), bNull = (bn === null);
+        if (aNull && bNull) return 0;
+        if (aNull) return 1; if (bNull) return -1;
+        return an - bn;
+      }
+      const as = norm(aVal).toLowerCase(), bs = norm(bVal).toLowerCase();
+      if (as < bs) return -1; if (as > bs) return 1; return 0;
+    }
+
+    function getViewResults() {
+      const arr = getFilteredResults().slice();
+      // if sorting by a hidden column, ignore
+      if (!sortState.col || !isColVisible(sortState.col)) return arr;
+      const col = sortState.col, dir = sortState.dir;
+      arr.sort((ra, rb) => {
+        const a = ra.columns[col - 1], b = rb.columns[col - 1];
+        const cmp = compareCells(a, b, col);
+        return dir === 'asc' ? cmp : -cmp;
+      });
+      return arr;
+    }
+
+    function setSort(colIdx1) {
+      if (sortState.col === colIdx1) sortState.dir = (sortState.dir === 'asc') ? 'desc' : 'asc';
+      else { sortState.col = colIdx1; sortState.dir = 'asc'; }
+      renderSummary(lastResults);
+    }
+    function sortIndicator(colIdx1) {
+      if (sortState.col !== colIdx1) return '';
+      return sortState.dir === 'asc'
+        ? '<i class="bi bi-caret-up-fill dir"></i>'
+        : '<i class="bi bi-caret-down-fill dir"></i>';
+    }
+
+    function renderSummary(resultsAll) {
+      const thead = el("summaryThead"), tbody = el("summaryTbody");
+      thead.innerHTML = ""; tbody.innerHTML = "";
+
+      // Build header respecting visible columns
+      const visibleCols = getVisibleColIndices1();
       const trh = document.createElement("tr");
-      CUSTOM_HEADERS.forEach(h => {
+      visibleCols.forEach((colIdx1) => {
         const th = document.createElement("th");
-        th.textContent = h;
+        th.innerHTML =
+          `<button type="button" class="btn btn-outline-light btn-sm th-btn" data-col="${colIdx1}">
+             <span>${CUSTOM_HEADERS[colIdx1 - 1]}</span>${sortIndicator(colIdx1)}
+           </button>`;
         trh.appendChild(th);
       });
       thead.appendChild(trh);
 
-      // Body rows with formatting & color coding
-      // Columns (1-based):
-      // 3-6 -> int0; 9-13 -> oneDec; C2C=9 colored; SF=13 colored
+      // Wire sorting
+      thead.querySelectorAll("button.th-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const col = Number(e.currentTarget.getAttribute("data-col"));
+          setSort(col);
+        });
+      });
+
+      // View (filtered + sorted)
+      const results = getViewResults();
+      if (!results.length) {
+        el("summaryCount").textContent = "No rows after filters. Adjust filters or thresholds.";
+        return;
+      }
+
+      // Body rows: apply formatting & risk colors
       results.forEach((res) => {
         const tr = document.createElement("tr");
-
-        res.columns.forEach((val, i0) => {
-          const colIdx1 = i0 + 1; // 1-based
+        visibleCols.forEach((colIdx1) => {
+          const val = res.columns[colIdx1 - 1];
           const td = document.createElement("td");
 
-          // Formatting rules
-          if (colIdx1 >= 3 && colIdx1 <= 6) {
-            td.textContent = int0(val);
-          } else if (colIdx1 >= 9 && colIdx1 <= 13) {
-            td.textContent = oneDec(val);
-          } else {
-            td.textContent = val ?? "";
-          }
+          if (colIdx1 >= 3 && colIdx1 <= 6)       td.textContent = int0(val);
+          else if (colIdx1 >= 9 && colIdx1 <= 13) td.textContent = oneDec(val);
+          else                                     td.textContent = val ?? "";
 
-          // Color rules for C2C (col 9) and SF (col 13)
-          if (colIdx1 === 9) {
-            td.classList.add(classForC2C(val));
-          } else if (colIdx1 === 13) {
-            td.classList.add(classForSF(val));
-          }
+          if (colIdx1 === 9)  { const cls = classForC2C(val); if (cls) td.classList.add(cls); }
+          if (colIdx1 === 13) { const cls = classForSF(val);  if (cls) td.classList.add(cls); }
 
           tr.appendChild(td);
         });
-
         tbody.appendChild(tr);
       });
 
-      el("summaryCount").textContent = `${results.length} flagged row(s) across all files`;
+      el("summaryCount").textContent = `${results.length} row(s) shown (from ${resultsAll.length} parsed).`;
     }
 
-    function setBusy(msg) { el("status").innerHTML = `<span class="text-info"><i class="bi bi-hourglass-split"></i> ${msg}</span>`; }
-    function setOk(msg)   { el("status").innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${msg}</span>`; }
-    function setWarn(msg) { el("status").innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> ${msg}</span>`; }
+    // Status helpers
+    const setBusy = (msg) => el("status").innerHTML = `<span class="text-info"><i class="bi bi-hourglass-split"></i> ${msg}</span>`;
+    const setOk   = (msg) => el("status").innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${msg}</span>`;
+    const setWarn = (msg) => el("status").innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> ${msg}</span>`;
 
-    // Downloads (combined) — include ALL columns; apply same numeric formatting (3–6 int0, 9–13 oneDec)
-    function downloadCSV(results) {
-      if (!results.length) return;
-      const headers = CUSTOM_HEADERS.slice();
-      const rows = results.map(r => r.columns.map((v, i) => {
-        const c = i + 1;
-        if (c >= 3 && c <= 6) return int0(v);
-        if (c >= 9 && c <= 13) return oneDec(v);
-        return v ?? "";
-      }));
+    // Exports (filtered + sorted + visible columns)
+    function buildExportAoA() {
+      const visibleCols = getVisibleColIndices1();
+      const results = getViewResults();
+      const headers = visibleCols.map(c => CUSTOM_HEADERS[c - 1]);
+      const rows = results.map(r =>
+        visibleCols.map(cIdx => {
+          const v = r.columns[cIdx - 1];
+          if (cIdx >= 3 && cIdx <= 6)  return int0(v);
+          if (cIdx >= 9 && cIdx <= 13) return oneDec(v);
+          return v ?? "";
+        })
+      );
+      return { headers, rows };
+    }
+
+    function downloadCSV() {
+      const { headers, rows } = buildExportAoA();
+      if (!rows.length) return;
       const csv = [headers, ...rows].map(r =>
         r.map(v => {
           const s = String(v ?? "");
           return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         }).join(",")
       ).join("\n");
-
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "ac_risk_summary.csv";
-      a.click();
+      const a = document.createElement("a"); a.href = url; a.download = "ac_risk_summary.csv"; a.click();
       URL.revokeObjectURL(url);
     }
-
-    function downloadXLSX(results) {
-      if (!results.length) return;
-      const headers = CUSTOM_HEADERS.slice();
-      const data = [headers, ...results.map(r => r.columns.map((v, i) => {
-        const c = i + 1;
-        if (c >= 3 && c <= 6) return int0(v);
-        if (c >= 9 && c <= 13) return oneDec(v);
-        return v ?? "";
-      }))];
-      const ws = XLSX.utils.aoa_to_sheet(data);
+    function downloadXLSX() {
+      const { headers, rows } = buildExportAoA();
+      if (!rows.length) return;
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Summary");
       XLSX.writeFile(wb, "ac_risk_summary.xlsx");
     }
 
-    // Events
+    // ---------- events ----------
     el("btnParse").addEventListener("click", async () => {
       const files = Array.from(el("file").files || []);
       if (!files.length) { setWarn("Please choose at least one report file or a folder."); return; }
 
       const thC2C = Number(el("thC2C").value);
-      const thSF = Number(el("thSF").value);
+      const thSF  = Number(el("thSF").value);
 
       lastResults = [];
       el("btnDownloadCSV").disabled  = true;
       el("btnDownloadXLSX").disabled = true;
       renderSubjectBadges([], 0);
-      renderSummary([]);
+      renderSummary([]); // build header UI early with default toggles
 
       let processed = 0;
       for (const f of files) {
@@ -599,8 +729,23 @@
       }
     });
 
-    el("btnDownloadCSV").addEventListener("click", () => downloadCSV(lastResults));
-    el("btnDownloadXLSX").addEventListener("click", () => downloadXLSX(lastResults));
+    // Row filters
+    el("fRefMDlt100").addEventListener("change", (e) => { filters.refMDlt100 = e.target.checked; renderSummary(lastResults); });
+    el("fE2Eempty").addEventListener("change",   (e) => { filters.e2eEmpty   = e.target.checked; renderSummary(lastResults); });
+    el("fProbTiny").addEventListener("change",   (e) => { filters.probTiny   = e.target.checked; renderSummary(lastResults); });
+    el("fCrossDup").addEventListener("change",   (e) => { filters.crossDup   = e.target.checked; renderSummary(lastResults); });
+    el("fShowAND").addEventListener("change",    (e) => { filters.showAND    = e.target.checked; renderSummary(lastResults); });
+
+    // Column toggles
+    el("fHideW2W").addEventListener("change",    (e) => { filters.hideW2W    = e.target.checked; renderSummary(lastResults); });
+    el("fHideE2E").addEventListener("change",    (e) => { filters.hideE2E    = e.target.checked; renderSummary(lastResults); });
+    el("fHideMinSep").addEventListener("change", (e) => { filters.hideMinSep = e.target.checked; renderSummary(lastResults); });
+
+    // Exports
+    el("btnDownloadCSV").addEventListener("click", downloadCSV);
+    el("btnDownloadXLSX").addEventListener("click", downloadXLSX);
+
+    // Reset
     el("btnReset").addEventListener("click", () => {
       el("file").value = "";
       el("summaryThead").innerHTML = "";
@@ -611,7 +756,29 @@
       el("btnDownloadXLSX").disabled = true;
       el("subjectBadges").innerHTML = "";
       el("filesCount").textContent = "";
+
+      // default (all ON)
+      el("fRefMDlt100").checked = true;
+      el("fE2Eempty").checked   = true;
+      el("fProbTiny").checked   = true;
+      el("fCrossDup").checked   = true;
+      el("fShowAND").checked    = true;
+      el("fHideW2W").checked    = true;
+      el("fHideE2E").checked    = true;
+      el("fHideMinSep").checked = true;
+
+      filters.refMDlt100 = true;
+      filters.e2eEmpty   = true;
+      filters.probTiny   = true;
+      filters.crossDup   = true;
+      filters.showAND    = true;
+      filters.hideW2W    = true;
+      filters.hideE2E    = true;
+      filters.hideMinSep = true;
+
+      sortState = { col: null, dir: 'asc' };
       lastResults = [];
+      renderSummary([]); // rebuild blank header
     });
   </script>
 </body>
