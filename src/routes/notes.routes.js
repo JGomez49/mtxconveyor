@@ -28,6 +28,7 @@ const {
     uploadDPStats,
     renderUploadDPI,
     renderUploadPason,
+    renderUploadPadAC,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -138,6 +139,11 @@ router.get('/notes/uploadDPI', isAuthenticated, renderUploadDPI);
 
 //Get Upload Pason Data form
 router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
+
+
+
+//Get Upload AC with risk reports
+router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 
 
 

@@ -780,4 +780,13 @@ notesCrtl.renderUploadPason = async(req,res)=>{
 
 
 
+notesCrtl.renderUploadPadAC = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadPadAC.ejs', {note, user});
+};
+
+
+
 module.exports = notesCrtl;
