@@ -80,77 +80,110 @@
       <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
     </div>
 
+
     <!-- Controls -->
-    <section class="card bg-secondary border-0 mb-2">
+    <section class="card bg-primary border-0 mb-2">
       <div class="card-body">
         <!-- Row 1 -->
         <div class="row g-3 align-items-end">
+          
           <div class="col-12 col-xl-6">
             <label for="file" class="form-label mb-1">Report files (folder or multiple files)</label>
             <input id="file" type="file" class="form-control form-control-sm"
                    accept=".xls,.xlsx,.csv" webkitdirectory directory multiple />
           </div>
+
           <div class="col-6 col-sm-4 col-md-3 col-lg-2">
             <label for="thC2C" class="form-label mb-1">C2C threshold (m)</label>
             <input id="thC2C" type="number" class="form-control form-control-sm" step="0.01" value="15" />
           </div>
+
           <div class="col-6 col-sm-4 col-md-3 col-lg-2">
             <label for="thSF" class="form-label mb-1">SF threshold</label>
             <input id="thSF" type="number" class="form-control form-control-sm" step="0.01" value="1.25" />
           </div>
+
           <div class="col-12 col-sm-4 col-md-3 col-lg-2 d-grid">
-            <button id="btnParse" class="btn btn-primary btn-sm">
+            <button id="btnParse" class="btn btn-success btn-sm">
               <i class="bi bi-cpu"></i> Parse
             </button>
           </div>
         </div>
+
         <div class="small-note mt-2">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
 
         <!-- Row 2: Filters (all default ON) -->
+
         <div class="row g-3 align-items-center mt-3">
           <div class="col-12 col-xxl-11">
             <label class="form-label mb-1">Filters (hide/show rows or columns)</label>
             <div class="d-flex flex-wrap gap-3">
+
               <!-- Row-level (HIDE rows that meet the condition) -->
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fRefMDlt100" checked>
                 <label class="form-check-label" for="fRefMDlt100">Hide: Ref. MD &lt; 100</label>
               </div>
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fE2Eempty" checked>
-                <label class="form-check-label" for="fE2Eempty">Hide: E2E is empty</label>
+                <label class="form-check-label" for="fE2Eempty">E2E empty</label>
               </div>
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fProbTiny" checked>
-                <label class="form-check-label" for="fProbTiny">Hide: Probability “&lt; 1 in 1E+9”</label>
+                <label class="form-check-label" for="fProbTiny">Probability &lt; 1 in 1E+9</label>
               </div>
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fCrossDup" checked>
-                <label class="form-check-label" for="fCrossDup">Hide: Ref/Offset cross‑duplicates</label>
+                <label class="form-check-label" for="fCrossDup">Hide duplicates</label>
               </div>
+
               <!-- NEW: Show-only filter -->
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="fShowAND" checked>
+                <input class="form-check-input" type="checkbox" id="fShowAND" _checked>
                 <label class="form-check-label" for="fShowAND">Show only: C2C &lt; 15 AND SF &lt; 1.00</label>
               </div>
+
               <!-- Column visibility -->
               <div class="form-check ms-xl-4">
                 <input class="form-check-input" type="checkbox" id="fHideW2W" checked>
-                <label class="form-check-label" for="fHideW2W">Hide W2W</label>
+                <label class="form-check-label" for="fHideW2W">W2W</label>
               </div>
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fHideE2E" checked>
-                <label class="form-check-label" for="fHideE2E">Hide E2E</label>
+                <label class="form-check-label" for="fHideE2E">E2E</label>
               </div>
+
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="fHideMinSep" checked>
-                <label class="form-check-label" for="fHideMinSep">Hide Min. Sep.</label>
+                <label class="form-check-label" for="fHideMinSep">Min. Sep.</label>
               </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fHideSemiMajor" checked>
+                <label class="form-check-label" for="fHideSemiMajor">Semi Majors</label>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fHideProbPct" checked>
+                <label class="form-check-label" for="fHideProbPct">Probability (%)</label>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fHideWarning" checked>
+                <label class="form-check-label" for="fHideWarning">Warning</label>
+              </div>
+
             </div>
           </div>
         </div>
 
         <!-- Row 3: Exports -->
+
         <div class="row g-2 mt-3">
           <div class="col-auto">
             <button id="btnDownloadCSV" class="btn btn-outline-light btn-sm" disabled>
@@ -172,20 +205,27 @@
     </section>
 
     <!-- Subject Well badges -->
-    <section class="card bg-secondary border-0 mb-2">
+
+    <section class="card bg-primary border-0 mb-2">
+
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Subject Well(s)</strong>
         <span class="small-note" id="filesCount"></span>
       </div>
+
       <div class="card-body"><div id="subjectBadges" class="subject-badges"></div></div>
+
     </section>
 
     <!-- Summary table -->
-    <section class="card bg-secondary border-0">
+
+    <section class="card bg-primary border-0">
+      
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Summary table</strong>
         <span class="small-note" id="summaryCount"></span>
       </div>
+
       <div class="card-body p-0">
         <div id="status" class="p-2 small-note"></div>
         <div class="table-wrap">
@@ -196,12 +236,15 @@
           </table>
         </div>
       </div>
+
     </section>
 
   </div>
 
   <script>
+
     // ---------- helpers ----------
+
     const el = (id) => document.getElementById(id);
     const nonEmpty = (v) => v !== null && v !== undefined && String(v).trim() !== "";
     const norm = (v) => String(v ?? "").trim();
@@ -217,7 +260,21 @@
     const oneDec = (val) => { const n = parseNumber(val); return n === null ? "" : n.toFixed(1); };
     const int0   = (val) => { const n = parseNumber(val); return n === null ? "" : n.toFixed(0); };
 
+    function parseProbabilityFraction(val) {
+      const m = String(val || "").match(/1\s*in\s*([\d,]+)/i);
+      if (!m) return null;
+      const x = Number(m[1].replace(/,/g, ""));
+      return Number.isFinite(x) && x > 0 ? x : null;
+    }
+
+    function probabilityToPercent(val, decimals = 3) {
+      const x = parseProbabilityFraction(val);
+      if (!x) return "";
+      return (100 / x).toFixed(decimals);
+    }
+
     // Risk cell classes
+
     function classForC2C(val) {
       const n = parseNumber(val); if (n === null) return "";
       if (n < 10) return "risk-red";
@@ -232,6 +289,7 @@
     }
 
     // Recognize Compass “tiny probability” literal
+
     function isProbTiny(val) {
       const s = norm(val).replace(/\s+/g, " ");
       if (!s) return false;
@@ -240,6 +298,7 @@
     }
 
     // Report structure matchers
+
     const isOffsetDesignRow = (row0) => /^(offset\s+design)\b/i.test(norm(row0));
     function isDetailHeaderRow(row) {
       const cells = row.map(c => norm(c));
@@ -252,6 +311,7 @@
     const sheetToRows = (ws) => XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
 
     // Read top-of-report labels
+
     function getLabelValue(rows, labelRegex, searchRows = 400) {
       for (let r = 0; r < Math.min(rows.length, searchRows); r++) {
         const row = rows[r] || [];
@@ -277,6 +337,7 @@
     }
 
     // Merge header row with up to 2 rows above (handles umbrella labels e.g., "Semi Major Axis")
+
     function buildCompositeHeader(allRows, headerRowIdx) {
       const main = (allRows[headerRowIdx] || []).map(c => norm(c));
       const up1  = (allRows[headerRowIdx - 1] || []).map(c => norm(c));
@@ -294,6 +355,7 @@
     }
 
     // Identify if a sub-column belongs to an umbrella header (handles merged cells to the left)
+
     function belongsToUmbrella(i, up1, up2, umbrellaRegex, searchLeft = 6) {
       const here = (up1[i] || up2[i] || "").trim();
       if (umbrellaRegex.test(here)) return true;
@@ -305,7 +367,10 @@
       return false;
     }
 
+
+
     // ---------- parse a report file ----------
+
     async function parseReport(file, thC2C = 15, thSF = 1.25) {
       const buf = await file.arrayBuffer();
       let wb;
@@ -319,159 +384,208 @@
       wb.SheetNames.forEach(name => {
         const ws = wb.Sheets[name];
         if (ws) {
-          const rows = sheetToRows(ws);
-          if (rows && rows.length) allRows.push(...rows, ...Array(3).fill([])); // spacer
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+          if (rows.length) allRows.push(...rows, ...Array(3).fill([]));
         }
       });
 
       const subjectWell = buildSubjectWell(allRows);
-
       const results = [];
       let i = 0;
+
       while (i < allRows.length) {
         const row = allRows[i] || [];
-        if (isOffsetDesignRow(row[0])) {
-          const offsetName = norm(row[2]);  // same row, column C
 
-          // find detailed header
+        if (isOffsetDesignRow(row[0])) {
+          const offsetName = norm(row[2]);
+
           let headerRowIdx = -1;
           for (let k = i + 1; k < Math.min(i + 400, allRows.length); k++) {
-            if (isDetailHeaderRow(allRows[k] || [])) { headerRowIdx = k; break; }
+            if (isDetailHeaderRow(allRows[k])) {
+              headerRowIdx = k;
+              break;
+            }
           }
           if (headerRowIdx === -1) { i++; continue; }
 
-          const { composite: header, up1, up2, main } = buildCompositeHeader(allRows, headerRowIdx);
+          const { composite: header, up1, up2, main } =
+            buildCompositeHeader(allRows, headerRowIdx);
 
-          // column indices (from composite header)
-          const findAllIdx = (re) => header.reduce((a, h, idx) => (re.test(h) ? (a.push(idx), a) : a), []);
-          const findIdx    = (re) => header.findIndex(h => re.test(h));
+          const findAllIdx = re =>
+            header.reduce((a, h, idx) => (re.test(h) ? (a.push(idx), a) : a), []);
+          const findIdx = re => header.findIndex(h => re.test(h));
 
-          let idxsMD   = findAllIdx(/measured\s*depth/i);     // refMD, offMD
-          let idxsTVD  = findAllIdx(/vertical\s*depth/i);     // refTVD, offTVD
-          let idxsSMAJ = findAllIdx(/semi\s*major\s*axis/i);  // refSM, offSM
+          const idxsMD   = findAllIdx(/measured\s*depth/i);      // ref MD, off MD
+          const idxsTVD  = findAllIdx(/vertical\s*depth/i);      // ref TVD, off TVD
+          let idxsSMAJ   = findAllIdx(/semi\s*major\s*axis/i);   // ref SM, off SM
 
-          let idxC2C = findIdx(/(between\s*centres|distance\s*between\s*centres)/i);
-          let idxW2W = findIdx(/wall[-\s]*wall\s*distance/i);
-          let idxE2E = findIdx(/(between\s*ellipses|ellipse\s*separation)/i);
-          let idxMin = findIdx(/minimum\s*separation/i);
-          let idxSF  = findIdx(/separation\s*factor/i);
-          let idxProb= findIdx(/probability\s*of\s*collision/i);
-          let idxWarn= findIdx(/\bwarning\b/i);
+          const idxC2C   = findIdx(/between\s*centres/i);
+          const idxW2W   = findIdx(/wall[-\s]*wall/i);
+          const idxE2E   = findIdx(/ellipse/i);
+          const idxMin   = findIdx(/minimum\s*separation/i);
+          const idxSF    = findIdx(/separation\s*factor/i);
+          const idxProb  = findIdx(/probability\s*of\s*collision/i);
+          const idxWarn  = findIdx(/\bwarning\b/i);
 
-          // fallback for Semi Major Axis pairing via umbrella
+          // Semi‑major fallback (same as original logic)
           if (idxsSMAJ.length < 2) {
             const umb = /semi\s*major/i;
-            const refCand = [], offCand = [];
+            const refs = [], offs = [];
             main.forEach((t, idx) => {
-              if (/^reference\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb, 6)) refCand.push(idx);
-              if (/^offset\b/i.test(t)    && belongsToUmbrella(idx, up1, up2, umb, 6)) offCand.push(idx);
+              if (/^reference\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb)) refs.push(idx);
+              if (/^offset\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb)) offs.push(idx);
             });
-            if (refCand.length && offCand.length) {
-              let bestPair = [refCand[0], offCand[0]], gap = Math.abs(refCand[0] - offCand[0]);
-              for (const rIdx of refCand) for (const oIdx of offCand) {
-                const g = Math.abs(rIdx - oIdx); if (g < gap) { gap = g; bestPair = [rIdx, oIdx]; }
-              }
-              idxsSMAJ = bestPair;
-            }
+            if (refs.length && offs.length) idxsSMAJ = [refs[0], offs[0]];
           }
 
-          // scan rows to capture the first flagged station for this offset
-          let captured = false;
+          let worst = null;
+
           for (let r = headerRowIdx + 1; r < allRows.length; r++) {
             const cur = allRows[r] || [];
-            const c0 = norm(cur[0]);
-            const rowText = (cur || []).map(x => norm(x)).join(" ");
-            if (isOffsetDesignRow(c0) || isDetailHeaderRow(cur) || /offset\s+site\s+error/i.test(rowText)) break;
-            if (!(cur || []).some(nonEmpty)) continue;
+            const rowText = cur.map(norm).join(" ");
 
-            const getAt = (idx) => (idx >= 0 && idx < cur.length) ? cur[idx] : "";
+            if (
+              isOffsetDesignRow(norm(cur[0])) ||
+              isDetailHeaderRow(cur) ||
+              /offset\s+site\s+error/i.test(rowText)
+            ) break;
 
-            const refMD  = idxsMD.length   > 0 ? getAt(idxsMD[0])   : "";
-            const offMD  = idxsMD.length   > 1 ? getAt(idxsMD[1])   : "";
-            const refTVD = idxsTVD.length  > 0 ? getAt(idxsTVD[0])  : "";
-            const offTVD = idxsTVD.length  > 1 ? getAt(idxsTVD[1])  : "";
-            const refSM  = idxsSMAJ.length > 0 ? getAt(idxsSMAJ[0]) : "";
-            const offSM  = idxsSMAJ.length > 1 ? getAt(idxsSMAJ[1]) : "";
+            if (!cur.some(nonEmpty)) continue;
 
+            const getAt = idx =>
+              (idx >= 0 && idx < cur.length) ? cur[idx] : "";
+
+            const refMD  = getAt(idxsMD[0]);
+            const refTVD = getAt(idxsTVD[0]);
+            const offMD  = getAt(idxsMD[1]);
+            const offTVD = getAt(idxsTVD[1]);
+            const refSM  = getAt(idxsSMAJ[0]);
+            const offSM  = getAt(idxsSMAJ[1]);
             const c2c    = getAt(idxC2C);
             const w2w    = getAt(idxW2W);
             const e2e    = getAt(idxE2E);
             const minSep = getAt(idxMin);
             const sf     = getAt(idxSF);
             const prob   = getAt(idxProb);
-
-            // Warning fallback when header missing
-            let warn = getAt(idxWarn);
-            if (!warn) {
-              const joined = (cur || []).map(x => norm(x)).filter(Boolean);
-              warn = joined.find(t => /(High\s*Risk|Close\s*Proximity|Monitor)/i.test(t))
-                  || joined.find(t => /\b(ES|SF|CC)(\b|,)/i.test(t)) || "";
-            }
-
+            const warn   = getAt(idxWarn);
             const c2cNum = parseNumber(c2c);
             const sfNum  = parseNumber(sf);
 
-            if ((c2cNum !== null && c2cNum < thC2C) || (sfNum !== null && sfNum < thSF)) {
-              results.push({
-                subjectWell,
-                offsetName,
+            if (
+              (c2cNum !== null && c2cNum < thC2C) ||
+              (sfNum !== null && sfNum < thSF)
+            ) {
+              const probNum = (() => {
+                const m = String(prob || "").match(/1\s*in\s*([\d,]+)/i);
+                return m ? Number(m[1].replace(/,/g, "")) : Infinity;
+              })();
+
+              const candidate = {
+                probNum,
+                sfNum: sfNum ?? Infinity,
+                c2cNum: c2cNum ?? Infinity,
+                refMDNum: parseNumber(refMD) ?? 0,
+                reason: `Selected because it has the highest collision probability (1 in ${probNum.toLocaleString()})`,
                 columns: [
-                  subjectWell,     // 1 Ref. Well
-                  offsetName,      // 2 Offset Well
-                  refMD,           // 3 Ref. MD
-                  refTVD,          // 4 Ref. TVD
-                  offMD,           // 5 Offset MD
-                  offTVD,          // 6 Offset TVD
-                  refSM,           // 7 Ref. Semi Major
-                  offSM,           // 8 Off. Semi Major
-                  c2c,             // 9 C2C
-                  w2w,             // 10 W2W
-                  e2e,             // 11 E2E
-                  minSep,          // 12 Min. Sep.
-                  sf,              // 13 SF
-                  prob,            // 14 Probability
-                  warn             // 15 Warning
+                  subjectWell,
+                  offsetName,
+                  refMD,
+                  refTVD,
+                  offMD,
+                  offTVD,
+                  refSM,
+                  offSM,
+                  c2c,
+                  w2w,
+                  e2e,
+                  minSep,
+                  sf,
+                  prob,
+                  warn
                 ]
-              });
-              captured = true;
-              i = r;             // continue search from here
-              break;
+              };
+
+              if (
+                !worst ||
+                candidate.probNum < worst.probNum ||
+                (candidate.probNum === worst.probNum && candidate.sfNum < worst.sfNum) ||
+                (candidate.sfNum === worst.sfNum && candidate.c2cNum < worst.c2cNum) ||
+                (candidate.c2cNum === worst.c2cNum && candidate.refMDNum > worst.refMDNum)
+              ) {
+                worst = candidate;
+              }
             }
           }
-          if (!captured) i = headerRowIdx + 1;  // nothing flagged in this block
+
+          if (worst) {
+            results.push({
+              subjectWell,
+              offsetName,
+              columns: worst.columns,
+              reason: worst.reason
+            });
+          }
+
+          i = headerRowIdx + 1;
+          continue;
         }
         i++;
       }
+
       return results;
     }
 
+
+
+
     // ---------- UI state & rendering ----------
+
+    function excelFillForRisk(cls) {
+      if (cls === "risk-red") {
+        return { fgColor: { rgb: "FFB22222" } };
+      }
+      if (cls === "risk-amber") {
+        return { fgColor: { rgb: "FFF0C640" } };
+      }
+      if (cls === "risk-green") {
+        return { fgColor: { rgb: "FF2E7D32" } };
+      }
+      return null;
+    }
     let lastResults = [];
+
 
     const CUSTOM_HEADERS = [
       "Ref. Well", "Offset Well",
       "Ref. MD", "Ref. TVD", "Offset MD", "Offset TVD",
       "Ref. Semi Major", "Off. Semi Major", "C2C",
       "W2W", "E2E", "Min. Sep.", "SF",
-      "Probability", "Warning"
+      "Prob.Sta.", "Prob.%", "Warning"
     ];
 
     // Filters (default ON)
+
     const filters = {
+      
       // row-level hides
       refMDlt100: true,
       e2eEmpty:   true,
       probTiny:   true,
       crossDup:   true,
       // NEW show-only filter
-      showAND:    true,   // C2C<15 AND SF<1.00
+      showAND:    false,   // C2C<15 AND SF<1.00
+      
       // column visibility
-      hideW2W:    true,   // col 10
-      hideE2E:    true,   // col 11
-      hideMinSep: true    // col 12
+      hideSemiMajor: true, // cols 7 & 8
+      hideW2W: true,       // col 10
+      hideE2E: true,       // col 11
+      hideMinSep: true,     // col 12
+      hideProbPct: true,    // col 15
+      hideWarning: true,    // col 16
     };
 
     // Sorting
+
     let sortState = { col: null, dir: 'asc' };  // col is 1-based
 
     function summarizeSubjectWells(results) {
@@ -496,6 +610,7 @@
     }
 
     // Cross-duplicate dedupe: (Ref,Offset) ~ (Offset,Ref)
+
     function dedupeCrossPairs(rows) {
       const seen = new Set(), out = [];
       for (const r of rows) {
@@ -510,6 +625,7 @@
     }
 
     // Row-level filters + NEW show-only (C2C<15 AND SF<1)
+
     function getFilteredResults() {
       let filtered = lastResults.filter(r => {
         const c = r.columns;
@@ -530,6 +646,7 @@
           if (isProbTiny(prob)) return false;
         }
         // Show only: C2C < 15 AND SF < 1.00  (both must be true)
+
         if (filters.showAND) {
           const c2cNum = parseNumber(c[8]);  // col 9
           const sfNum  = parseNumber(c[12]); // col 13
@@ -543,18 +660,31 @@
     }
 
     // Column visibility
+
     function isColVisible(colIdx1) {
-      if (colIdx1 === 10 && filters.hideW2W)    return false;
-      if (colIdx1 === 11 && filters.hideE2E)    return false;
-      if (colIdx1 === 12 && filters.hideMinSep) return false;
+      // Semi Major Axis (Ref = 7, Offset = 8)
+        if ((colIdx1 === 7 || colIdx1 === 8) && filters.hideSemiMajor) return false;
+        if (colIdx1 === 10 && filters.hideW2W) return false;
+        if (colIdx1 === 11 && filters.hideE2E) return false;
+        if (colIdx1 === 12 && filters.hideMinSep) return false;
+        if (colIdx1 === 15 && filters.hideProbPct) return false;
+        if (colIdx1 === 16 && filters.hideWarning) return false;
+
       return true;
     }
+    
+    // function getVisibleColIndices1() {
+    //   const cols = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+    //   return cols.filter(isColVisible);
+    // }
+
     function getVisibleColIndices1() {
-      const cols = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
-      return cols.filter(isColVisible);
+      return CUSTOM_HEADERS.map((_, i) => i + 1).filter(isColVisible);
     }
 
+
     // Numeric columns (1-based)
+
     const NUMERIC_COLS = new Set([3,4,5,6,7,8,9,10,11,12,13]);
 
     function compareCells(aVal, bVal, colIdx1) {
@@ -595,10 +725,12 @@
     }
 
     function renderSummary(resultsAll) {
+
       const thead = el("summaryThead"), tbody = el("summaryTbody");
       thead.innerHTML = ""; tbody.innerHTML = "";
 
       // Build header respecting visible columns
+
       const visibleCols = getVisibleColIndices1();
       const trh = document.createElement("tr");
       visibleCols.forEach((colIdx1) => {
@@ -612,6 +744,7 @@
       thead.appendChild(trh);
 
       // Wire sorting
+      
       thead.querySelectorAll("button.th-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           const col = Number(e.currentTarget.getAttribute("data-col"));
@@ -620,6 +753,7 @@
       });
 
       // View (filtered + sorted)
+
       const results = getViewResults();
       if (!results.length) {
         el("summaryCount").textContent = "No rows after filters. Adjust filters or thresholds.";
@@ -627,15 +761,31 @@
       }
 
       // Body rows: apply formatting & risk colors
+
       results.forEach((res) => {
+
         const tr = document.createElement("tr");
+
         visibleCols.forEach((colIdx1) => {
+
           const val = res.columns[colIdx1 - 1];
+
           const td = document.createElement("td");
 
+          
+          if (colIdx1 === 2 && res.reason) {
+            td.setAttribute("data-bs-toggle", "tooltip");
+            td.setAttribute("data-bs-placement", "top");
+            td.setAttribute("title", res.reason);
+          }
+
+
           if (colIdx1 >= 3 && colIdx1 <= 6)       td.textContent = int0(val);
-          else if (colIdx1 >= 9 && colIdx1 <= 13) td.textContent = oneDec(val);
-          else                                     td.textContent = val ?? "";
+          else if (colIdx1 >= 9 && colIdx1 <= 13) td.textContent = oneDec(val); 
+          else if (colIdx1 === 15) {
+            td.textContent = probabilityToPercent(res.columns[13]);
+          }
+          else td.textContent = val ?? "";
 
           if (colIdx1 === 9)  { const cls = classForC2C(val); if (cls) td.classList.add(cls); }
           if (colIdx1 === 13) { const cls = classForSF(val);  if (cls) td.classList.add(cls); }
@@ -646,23 +796,43 @@
       });
 
       el("summaryCount").textContent = `${results.length} row(s) shown (from ${resultsAll.length} parsed).`;
+
+      document
+        .querySelectorAll('[data-bs-toggle="tooltip"]')
+        .forEach(el => new bootstrap.Tooltip(el));
+
     }
 
     // Status helpers
+
     const setBusy = (msg) => el("status").innerHTML = `<span class="text-info"><i class="bi bi-hourglass-split"></i> ${msg}</span>`;
     const setOk   = (msg) => el("status").innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${msg}</span>`;
     const setWarn = (msg) => el("status").innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> ${msg}</span>`;
 
     // Exports (filtered + sorted + visible columns)
+
     function buildExportAoA() {
       const visibleCols = getVisibleColIndices1();
       const results = getViewResults();
       const headers = visibleCols.map(c => CUSTOM_HEADERS[c - 1]);
+
+      // const rows = results.map(r => visibleCols.map(cIdx => {
+      //     const v = r.columns[cIdx - 1];
+      //     if (cIdx >= 3 && cIdx <= 6)  return int0(v);
+      //     if (cIdx >= 9 && cIdx <= 13) return oneDec(v);
+      //     return v ?? "";
+      //   })
+      // );
+
       const rows = results.map(r =>
-        visibleCols.map(cIdx => {
-          const v = r.columns[cIdx - 1];
-          if (cIdx >= 3 && cIdx <= 6)  return int0(v);
-          if (cIdx >= 9 && cIdx <= 13) return oneDec(v);
+        visibleCols.map(cIdx1 => {
+          // Probability (%)
+          if (cIdx1 === 15) {
+            return probabilityToPercent(r.columns[13]);
+          }
+          const v = r.columns[cIdx1 - 1];
+          if (cIdx1 >= 3 && cIdx1 <= 6) return int0(v);
+          if (cIdx1 >= 9 && cIdx1 <= 13) return oneDec(v);
           return v ?? "";
         })
       );
@@ -683,16 +853,83 @@
       const a = document.createElement("a"); a.href = url; a.download = "ac_risk_summary.csv"; a.click();
       URL.revokeObjectURL(url);
     }
+
+
     function downloadXLSX() {
-      const { headers, rows } = buildExportAoA();
-      if (!rows.length) return;
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const visibleCols = getVisibleColIndices1();
+      const results = getViewResults();
+      if (!results.length) return;
+
+      const ws = {};
+      const range = {
+        s: { r: 0, c: 0 },
+        e: { r: results.length, c: visibleCols.length - 1 }
+      };
+
+      // Header row
+
+      visibleCols.forEach((colIdx1, c) => {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+        ws[cellRef] = {
+          v: CUSTOM_HEADERS[colIdx1 - 1],
+          t: "s",
+          s: { font: { bold: true } }
+        };
+      });
+
+      // Data rows
+
+      results.forEach((res, rIdx) => {
+        visibleCols.forEach((colIdx1, cIdx) => {
+          const val = res.columns[colIdx1 - 1];
+          const cellRef = XLSX.utils.encode_cell({ r: rIdx + 1, c: cIdx });
+
+          let displayVal = val ?? "";
+
+          // Probability (%)
+
+          if (colIdx1 === 15) {
+            displayVal = probabilityToPercent(res.columns[13]);
+          }
+          else if (colIdx1 >= 3 && colIdx1 <= 6) {
+            displayVal = int0(val);
+          }
+          else if (colIdx1 >= 9 && colIdx1 <= 13) {
+            displayVal = oneDec(val);
+          }
+
+          if (colIdx1 >= 3 && colIdx1 <= 6) displayVal = int0(val);
+          else if (colIdx1 >= 9 && colIdx1 <= 13) displayVal = oneDec(val);
+
+          const cell = { v: displayVal, t: "s" };
+
+          // Apply risk fills
+
+          if (colIdx1 === 9) { // C2C
+            const cls = classForC2C(val);
+            const fill = excelFillForRisk(cls);
+            if (fill) cell.s = { fill };
+          }
+
+          if (colIdx1 === 13) { // SF
+            const cls = classForSF(val);
+            const fill = excelFillForRisk(cls);
+            if (fill) cell.s = { fill };
+          }
+
+          ws[cellRef] = cell;
+        });
+      });
+
+      ws["!ref"] = XLSX.utils.encode_range(range);
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Summary");
       XLSX.writeFile(wb, "ac_risk_summary.xlsx");
     }
 
     // ---------- events ----------
+
     el("btnParse").addEventListener("click", async () => {
       const files = Array.from(el("file").files || []);
       if (!files.length) { setWarn("Please choose at least one report file or a folder."); return; }
@@ -730,6 +967,7 @@
     });
 
     // Row filters
+
     el("fRefMDlt100").addEventListener("change", (e) => { filters.refMDlt100 = e.target.checked; renderSummary(lastResults); });
     el("fE2Eempty").addEventListener("change",   (e) => { filters.e2eEmpty   = e.target.checked; renderSummary(lastResults); });
     el("fProbTiny").addEventListener("change",   (e) => { filters.probTiny   = e.target.checked; renderSummary(lastResults); });
@@ -737,15 +975,21 @@
     el("fShowAND").addEventListener("change",    (e) => { filters.showAND    = e.target.checked; renderSummary(lastResults); });
 
     // Column toggles
+
     el("fHideW2W").addEventListener("change",    (e) => { filters.hideW2W    = e.target.checked; renderSummary(lastResults); });
     el("fHideE2E").addEventListener("change",    (e) => { filters.hideE2E    = e.target.checked; renderSummary(lastResults); });
     el("fHideMinSep").addEventListener("change", (e) => { filters.hideMinSep = e.target.checked; renderSummary(lastResults); });
+    el("fHideSemiMajor").addEventListener("change", (e) => { filters.hideSemiMajor = e.target.checked; renderSummary(lastResults); });
+    el("fHideProbPct").addEventListener("change", e => { filters.hideProbPct = e.target.checked; renderSummary(lastResults);});
+    el("fHideWarning").addEventListener("change", e => { filters.hideWarning = e.target.checked; renderSummary(lastResults);});
 
     // Exports
+
     el("btnDownloadCSV").addEventListener("click", downloadCSV);
     el("btnDownloadXLSX").addEventListener("click", downloadXLSX);
 
     // Reset
+
     el("btnReset").addEventListener("click", () => {
       el("file").value = "";
       el("summaryThead").innerHTML = "";
@@ -758,6 +1002,7 @@
       el("filesCount").textContent = "";
 
       // default (all ON)
+
       el("fRefMDlt100").checked = true;
       el("fE2Eempty").checked   = true;
       el("fProbTiny").checked   = true;
@@ -766,6 +1011,10 @@
       el("fHideW2W").checked    = true;
       el("fHideE2E").checked    = true;
       el("fHideMinSep").checked = true;
+      el("fHideSemiMajor").checked = true;
+      el("fHideProbPct").checked = true;
+      el("fHideWarning").checked = true;
+
 
       filters.refMDlt100 = true;
       filters.e2eEmpty   = true;
@@ -775,11 +1024,21 @@
       filters.hideW2W    = true;
       filters.hideE2E    = true;
       filters.hideMinSep = true;
+      filters.hideSemiMajor = true;
+      filters.hideProbPct = true;
+      filters.hideWarning = true;
+
 
       sortState = { col: null, dir: 'asc' };
       lastResults = [];
       renderSummary([]); // rebuild blank header
     });
+
   </script>
+
 </body>
+
 </html>
+
+
+    
