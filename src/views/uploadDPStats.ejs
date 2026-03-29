@@ -1,5 +1,6 @@
 
 
+
 <%- include ('partials/header.ejs') %>
 
     <div class="_container bg-dark">
@@ -82,6 +83,29 @@
 
     <script>
 
+        function normalizeP(value) {
+            if (value === null || value === undefined) {
+                return "P0";
+            }
+
+            const text = String(value).toUpperCase();
+
+            // Look for first "P<number>"
+            const match = text.match(/P\s*(\d+)/);
+
+            if (!match) {
+                return "P0";
+            }
+
+            return "P" + Number(match[1]);
+        }
+
+        function compareP(a, b) {
+            const na = parseInt(a.replace("P", ""), 10);
+            const nb = parseInt(b.replace("P", ""), 10);
+            return na - nb;
+        }
+
         document.getElementById("excelFileDPStats").addEventListener("change", handleExcelUpload);
 
         function handleExcelUpload(event) {
@@ -100,7 +124,7 @@
                 const worksheet = workbook.Sheets[sheetName];
 
                 // Convert to array-of-arrays
-                const rows = XLSX.utils.sheet_to_json(worksheet, {
+                let rows = XLSX.utils.sheet_to_json(worksheet, {
                     header: 1,
                     blankrows: false,
                     defval: ""
@@ -111,14 +135,26 @@
                     return;
                 }
 
+                // ✅ --- NORMALIZE 1st COLUMN (index 0), SKIP HEADER ---
+                for (let i = 0; i < rows.length; i++) {
+                    rows[i][0] = normalizeP(rows[i][0]);
+                    if (rows[i][1] < 0){rows[i][1] = 0};
+                }
+
+                // ✅ --- SORT BY NORMALIZED P VALUE, KEEP HEADER ---
+                const header = rows.shift();
+
+                rows.sort((a, b) => compareP(a[0], b[0]));
+
+                rows.unshift(header);
+
                 renderExcelTable(rows);
+
                 console.log("📄 Excel data preview:", rows.slice(0, 5));
             };
 
             reader.readAsArrayBuffer(file);
         }
-
-
 
         function renderExcelTable(data) {
             const table = document.getElementById("dpStatsTable");
@@ -128,16 +164,18 @@
                 const tr = document.createElement("tr");
 
                 row.forEach(cell => {
-                const el = document.createElement(rowIndex === 0 ? "th" : "td");
-                el.textContent = cell;
-                tr.appendChild(el);
+                    const el = document.createElement(
+                        rowIndex === 0 ? "th" : "td"
+                    );
+                    el.textContent = cell;
+                    tr.appendChild(el);
                 });
 
                 table.appendChild(tr);
             });
         }
 
-    </script>
+        </script>
 
 
     <script>
