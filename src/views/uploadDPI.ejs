@@ -1,3 +1,6 @@
+
+
+
 <!doctype html>
 <html lang="en">
 
@@ -88,6 +91,7 @@
     }
 
     /* .metric-marker {} */
+
     .metric-bubble {
       width: 44px;
       height: 44px;
@@ -174,12 +178,12 @@
   <div class="container-fluid">
     <header class="mb-3">
       <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
-        alt="Canadian Natural Resources Logo" width="250" height="100">
+        alt="Girl in a jacket" width="250" height="100">
       <h1 class="h4 mb-1">Directional Planning Index</h1>
     </header>
 
     <div class="d-grid gap-2">
-      <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+      <a href="/notes" class="btn btn-danger btn-block my-2">Back</a>
     </div>
 
     <div class="card mb-3">
@@ -225,9 +229,10 @@
 
     <div class="mt-3-5">
       <div class="d-flex align-items-center gap-2 mb-2">
-        <label for="markerMetric" class="form-label mb-0">Marker shows</label>
+        <label for="markerMetric" class="form-label mb-0 my-2">Marker shows</label>
         <select id="markerMetric" class="form-select form-select-sm" style="max-width: 260px;">
           <option value="steer_index" selected>Steer Index</option>
+          <option value="tri_index">Trajectory Risk Index</option>
           <option value="curvature_index">Curvature Index</option>
           <option value="reach_index">Reach Index</option>
           <option value="ddi_excel">DDI</option>
@@ -235,7 +240,40 @@
         <!-- <span class="small-muted">Surface marker at row 0; trajectory polyline uses all rows with Lat/Long.</span> -->
       </div>
       <h2 class="h6 mb-2">Surface locations map (toggle Streets / Satellite / Terrain)</h2>
+
+      <div class="card mb-3">
+        <div class="card-header fw-bold">
+          Drilling Parameters (for MSE / TRI)
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+
+            <div class="col-md-3">
+              <label class="form-label">WOB (kDaN)</label>
+              <input id="inpWOB" type="number" class="form-control form-control-sm" value="120">
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">ROP (m/h)</label>
+              <input id="inpROP" type="number" class="form-control form-control-sm" value="20">
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">Torque (kN·m)</label>
+              <input id="inpTorque" type="number" class="form-control form-control-sm" value="12">
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">Bit Diameter (in)</label>
+              <input id="inpBit" type="number" class="form-control form-control-sm" value="8.5">
+            </div>
+
+          </div>
+        </div>
+      </div>
+
       <div id="map" role="region" aria-label="Map of surface Lat/Long and trajectories"></div>
+
     </div>
 
     <div id="errorBox" class="alert alert-danger mt-3" role="alert" style="display:none;"></div>
@@ -243,83 +281,697 @@
 
   <!-- Bootstrap JS (bundle includes Popper) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     // === utilities and existing code trimmed for brevity in this snippet ===
+
     function stripBOM(t) { if (!t) return t; return t.charCodeAt(0) === 0xFEFF ? t.slice(1) : t; }
-    function sniffDelimiter(text) { const sample = stripBOM(text).split(/\r\n|\n|\r/).filter(l => l.trim() !== '').slice(0, 5).join('\n'); const cand = [',', ';', '\t', '|']; let best = ',', score = -1; cand.forEach(d => { const lines = sample.split('\n'); const counts = lines.map(l => l.split(d).length); const mean = counts.reduce((a, b) => a + b, 0) / counts.length; const stdev = Math.sqrt(counts.reduce((s, c) => s + (c - mean) * (c - mean), 0) / counts.length); const s = mean - stdev; if (s > score) { score = s; best = d; } }); return best; }
-    function parseCSV(text, delimiter) { try { text = stripBOM(text); if (!delimiter) delimiter = sniffDelimiter(text); const rows = []; let cur = '', row = [], i = 0, len = text.length, inQ = false; while (i < len) { const ch = text[i]; if (inQ) { if (ch === '\"') { if (i + 1 < len && text[i + 1] === '\"') { cur += '\"'; i += 2; } else { inQ = false; i++; } } else { cur += ch; i++; } } else { if (ch === '\"') { inQ = true; i++; } else if (ch === delimiter) { row.push(cur); cur = ''; i++; } else if (ch === '\r') { if (i + 1 < len && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; i++; } else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; i++; } else { cur += ch; i++; } } } row.push(cur); rows.push(row); if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0].trim() === '') rows.pop(); const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0); const norm = rows.map(r => r.length === maxCols ? r : r.concat(Array(maxCols - r.length).fill(''))); return { rows: norm, delimiter }; } catch (e) { throw new Error('CSV parse failed: ' + e.message); } }
-    function previewCSV(rows, delimiter) { try { const badge = document.getElementById('fileMeta'); if (badge) { const base = badge.getAttribute('data-name') || badge.textContent || ''; const name = (delimiter === '\t') ? 'TAB' : (delimiter === ';' ? 'SEMICOLON' : delimiter); badge.textContent = `${base} • Delim: ${name}`; badge.setAttribute('data-name', base || badge.textContent); } } catch { } }
-    const el = s => document.querySelector(s); const show = n => n.style.display = ''; const hide = n => n.style.display = 'none';
-    function escapeHtml(str) { return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
-    function neutralizeExcelFormula(s) { const str = String(s ?? ''); return /^[=+\-@]/.test(str) ? `'${str}` : str; }
-    function makeId(str, idx) { const base = String(str ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); return (base || 'item') + '-' + idx; }
-    function fmt2(x) { if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; return Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-    function fmt6(x) { if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; return Number(x).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 }); }
-    function fmtPct2(x) { if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; return Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
-    function fmtMarker(k, x) { const v = Number(x); if (!Number.isFinite(v)) return ''; return k === 'ddi_excel' ? v.toFixed(1) : v.toFixed(2); }
-    function getColumnIndex(hr, names) { const L = hr.map(h => String(h ?? '').trim().toLowerCase()); for (const nm of names) { const i = L.indexOf(nm.toLowerCase()); if (i >= 0) return i; } return -1; }
-    function parseNumber(v) { if (v == null) return NaN; const s = String(v).replace(/,/g, '').trim(); const m = s.match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; }
-    function meanStd(values) { const v = values.filter(Number.isFinite); const n = v.length; if (!n) return { mean: null, std: null }; const mean = v.reduce((a, b) => a + b, 0) / n; const variance = v.reduce((s, x) => s + (x - mean) * (x - mean), 0) / n; return { mean, std: Math.sqrt(variance) }; }
-    function accumulateSteeringMD(rows, idxMD, idxDOG, startIdx, endIdx) { if (idxMD < 0 || idxDOG < 0) return null; if (!Array.isArray(rows) || rows.length < 2) return 0; let t = 0; const from = Math.max(1, startIdx), to = Math.min(endIdx, rows.length - 1); if (to < from) return 0; for (let i = from; i <= to; i++) { const dls = parseNumber(rows[i][idxDOG]); if (!(dls > 1)) continue; const md = parseNumber(rows[i][idxMD]); const mdp = parseNumber(rows[i - 1][idxMD]); if (Number.isFinite(md) && Number.isFinite(mdp)) { const d = md - mdp; if (d > 0) t += d; } } return t; }
-    function computeSteerEffortFullPath(rows, idxMD, idxDOG) { if (idxMD < 0 || idxDOG < 0 || !Array.isArray(rows) || rows.length < 2) return null; let tot = 0; for (let i = 1; i < rows.length; i++) { const dls = parseNumber(rows[i][idxDOG]); const md = parseNumber(rows[i][idxMD]); const mdp = parseNumber(rows[i - 1][idxMD]); if (!Number.isFinite(dls) || !Number.isFinite(md) || !Number.isFinite(mdp)) continue; const dMD = md - mdp; if (dMD <= 0) continue; const above = Math.max(dls - 1, 0); tot += (above * above) * dMD; } return tot; }
-    function computeDDIExcel(rows, idxMD, idxDOG, idxN, idxE, tdIdx) { if (!rows || rows.length < 2) return { ddi: null }; const endRow = Number.isInteger(tdIdx) && tdIdx >= 0 ? tdIdx : rows.length - 1; const TMD = idxMD >= 0 ? parseNumber(rows[endRow][idxMD]) : NaN; let cumA = 0, cumT = 0; for (let i = 1; i < rows.length; i++) { if (idxN >= 0 && idxE >= 0) { const n = parseNumber(rows[i][idxN]), np = parseNumber(rows[i - 1][idxN]); const e = parseNumber(rows[i][idxE]), ep = parseNumber(rows[i - 1][idxE]); if ([n, np, e, ep].every(Number.isFinite)) { const dN = n - np, dE = e - ep; const seg = Math.hypot(dN, dE); if (seg > 0) cumA += seg; } } if (idxMD >= 0 && idxDOG >= 0) { const md = parseNumber(rows[i][idxMD]), mdp = parseNumber(rows[i - 1][idxMD]); if (Number.isFinite(md) && Number.isFinite(mdp)) { const CL = md - mdp; if (CL > 0) { let dls = parseNumber(rows[i][idxDOG]); if (!Number.isFinite(dls) || dls === 0) dls = 0.5; cumT += (CL * dls); } } } } if (Number.isFinite(TMD) && TMD > 0) { const tort = cumT / TMD; const comp = TMD * cumA * tort; const ddi = (Number.isFinite(comp) && comp > 0) ? Math.log10(comp) : null; return { ddi }; } return { ddi: null }; }
+    
+    function sniffDelimiter(text) { 
+      const sample = stripBOM(text).split(/\r\n|\n|\r/).filter(l => l.trim() !== '').slice(0, 5).join('\n'); 
+      const cand = [',', ';', '\t', '|']; 
+      let best = ',', score = -1; cand.forEach(d => { 
+        const lines = sample.split('\n'); 
+        const counts = lines.map(l => l.split(d).length); 
+        const mean = counts.reduce((a, b) => a + b, 0) / counts.length; 
+        const stdev = Math.sqrt(counts.reduce((s, c) => s + (c - mean) * (c - mean), 0) / counts.length); 
+        const s = mean - stdev; if (s > score) { score = s; best = d; } 
+      }); return best; 
+    }
+    
+    function parseCSV(text, delimiter) { 
+      try { 
+        text = stripBOM(text); 
+        if (!delimiter) delimiter = sniffDelimiter(text); const rows = []; 
+        let cur = '', row = [], i = 0, 
+        len = text.length, inQ = false; 
+        while (i < len) { 
+          const ch = text[i]; 
+          if (inQ) { 
+            if (ch === '\"') { 
+              if (i + 1 < len && text[i + 1] === '\"') { 
+                cur += '\"'; i += 2; } 
+              else { 
+                inQ = false; i++; } 
+            } else { cur += ch; i++; } 
+          } else { 
+            if (ch === '\"') { 
+              inQ = true; i++; 
+            } else if (ch === delimiter) { 
+              row.push(cur); cur = ''; i++; 
+            } else if (ch === '\r') { 
+              if (i + 1 < len && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; i++; 
+            } else if (ch === '\n') { 
+              row.push(cur); rows.push(row); row = []; cur = ''; i++; 
+            } else { 
+              cur += ch; i++; 
+            } 
+          } 
+        } 
+        row.push(cur); rows.push(row); 
+        if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0].trim() === '') 
+        rows.pop(); const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0); 
+        const norm = rows.map(r => r.length === maxCols ? r : r.concat(Array(maxCols - r.length).fill(''))); 
+        return { rows: norm, delimiter }; 
+      } catch (e) { 
+        throw new Error('CSV parse failed: ' + e.message); 
+      } 
+    }
+    
+    function previewCSV(rows, delimiter) { 
+      try { 
+        const badge = document.getElementById('fileMeta'); 
+        if (badge) { 
+          const base = badge.getAttribute('data-name') || badge.textContent || ''; 
+          const name = (delimiter === '\t') ? 'TAB' : (delimiter === ';' ? 'SEMICOLON' : delimiter); 
+          badge.textContent = `${base} • Delim: ${name}`; 
+          badge.setAttribute('data-name', base || badge.textContent); } 
+      } catch { } 
+    }
+    
+    const el = s => document.querySelector(s); const show = n => n.style.display = ''; 
+    const hide = n => n.style.display = 'none';
+    
+    function escapeHtml(str) { 
+      return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); 
+    }
+    
+    function neutralizeExcelFormula(s) { 
+      const str = String(s ?? ''); return /^[=+\-@]/.test(str) ? `'${str}` : str; 
+    }
+    
+    function makeId(str, idx) { 
+      const base = String(str ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); 
+      return (base || 'item') + '-' + idx; 
+    }
+    
+    function fmt2(x) { 
+      if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; 
+        return Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); 
+      }
+    
+    function fmt6(x) { 
+      if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; 
+        return Number(x).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 }); 
+    }
+    
+    function fmtPct2(x) { 
+      if (x == null || Number.isNaN(x) || !Number.isFinite(x)) return ''; 
+        return Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; 
+      }
+    
+    function fmtMarker(k, x) { 
+      const v = Number(x); 
+      if (!Number.isFinite(v)) return ''; return k === 'ddi_excel' ? v.toFixed(1) : v.toFixed(2); 
+    }
+    
+    function getColumnIndex(hr, names) { 
+      const L = hr.map(h => String(h ?? '').trim().toLowerCase()); 
+      for (const nm of names) { 
+        const i = L.indexOf(nm.toLowerCase()); 
+        if (i >= 0) return i; 
+      } return -1; 
+    }
+    
+    function parseNumber(v) { 
+      if (v == null) return NaN; 
+      const s = String(v).replace(/,/g, '').trim(); 
+      const m = s.match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; 
+    }
+    
+    function meanStd(values) { 
+      const v = values.filter(Number.isFinite); 
+      const n = v.length; if (!n) return { mean: null, std: null }; 
+      const mean = v.reduce((a, b) => a + b, 0) / n; 
+      const variance = v.reduce((s, x) => s + (x - mean) * (x - mean), 0) / n; return { mean, std: Math.sqrt(variance) }; 
+    }
+
+    function inchToMeter(inch) {
+      return inch * 0.0254;
+    }
+
+    function computeBitArea(bitInch) {
+      const d = inchToMeter(bitInch);
+      return Math.PI * (d * d) / 4;
+    }
+
+    function normalizeClamp(v, vmin, vmax){
+      if (!Number.isFinite(v)) return null;
+      if (v <= vmin) return 0;
+      if (v >= vmax) return 1;
+      return (v - vmin) / (vmax - vmin);
+    }
+    
+    function accumulateSteeringMD(rows, idxMD, idxDOG, startIdx, endIdx) { 
+      if (idxMD < 0 || idxDOG < 0) return null; 
+      if (!Array.isArray(rows) || rows.length < 2) return 0; 
+      let t = 0; 
+      const from = Math.max(1, startIdx), to = Math.min(endIdx, rows.length - 1); 
+      if (to < from) return 0; 
+      for (let i = from; i <= to; i++) {
+        const dls = parseNumber(rows[i][idxDOG]); 
+        if (!(dls > 1)) continue; 
+        const md = parseNumber(rows[i][idxMD]); 
+        const mdp = parseNumber(rows[i - 1][idxMD]); 
+        if (Number.isFinite(md) && Number.isFinite(mdp)) { 
+          const d = md - mdp; if (d > 0) t += d; 
+        } 
+      } return t; 
+    }
+    
+    function computeSteerEffortFullPath(rows, idxMD, idxDOG) { 
+      if (idxMD < 0 || idxDOG < 0 || !Array.isArray(rows) || rows.length < 2) return null; 
+      let tot = 0; 
+      for (let i = 1; i < rows.length; i++) { 
+        const dls = parseNumber(rows[i][idxDOG]); 
+        const md = parseNumber(rows[i][idxMD]); 
+        const mdp = parseNumber(rows[i - 1][idxMD]); 
+        if (!Number.isFinite(dls) || !Number.isFinite(md) || !Number.isFinite(mdp)) continue; 
+        const dMD = md - mdp; if (dMD <= 0) continue; 
+        const above = Math.max(dls - 1, 0); 
+        tot += (above * above) * dMD; 
+      } return tot; 
+    }
+
+
+
+    function computeMSE({ wob_kdan, rop_mph, torque_knm, bit_in }) {
+      if (
+        !Number.isFinite(wob_kdan) ||
+        !Number.isFinite(rop_mph) ||
+        !Number.isFinite(torque_knm) ||
+        !Number.isFinite(bit_in) ||
+        rop_mph <= 0
+      ) return null;
+
+      // Unit conversions
+      const WOB_kN = wob_kdan * 10; // kDaN → kN
+      const Ab = computeBitArea(bit_in); // m²
+
+      // Simplified MSE (no RPM term)
+      const mse_kpa =
+        (WOB_kN / Ab) +
+        (2 * Math.PI * torque_knm) / Ab / rop_mph;
+
+      // kPa → ksi
+      return mse_kpa * 0.000145038;
+    }
+
+
+
+    function computeTRI({
+      curvature_index,
+      ddi_excel,
+      reach_index,
+      steer_index,
+      mse
+      }) 
+      {
+        const I_geometry   = normalizeClamp(curvature_index, 2, 12);
+        const I_tortuosity = normalizeClamp(ddi_excel, 1.5, 4.0);
+        const I_reach      = normalizeClamp(reach_index, 1.5, 4.0);
+        const I_steer      = normalizeClamp(steer_index, 0.5, 6.0);
+        const I_mse        = normalizeClamp(mse, 5, 50); // ksi
+        if (
+          [I_geometry, I_tortuosity, I_reach, I_steer, I_mse]
+            .some(v => v === null)
+        ) return null;
+        return (
+          1 * I_geometry +
+          1 * I_tortuosity +
+          1 * I_reach +
+          1 * I_steer +
+          1 * I_mse
+        );
+      }
+
+
+
+
+
+    
+    function computeDDIExcel(rows, idxMD, idxDOG, idxN, idxE, tdIdx) { 
+      if (!rows || rows.length < 2) return { ddi: null }; 
+      const endRow = Number.isInteger(tdIdx) && tdIdx >= 0 ? tdIdx : rows.length - 1; 
+      const TMD = idxMD >= 0 ? parseNumber(rows[endRow][idxMD]) : NaN; 
+      let cumA = 0, cumT = 0; 
+      for (let i = 1; i < rows.length; i++) { 
+        if (idxN >= 0 && idxE >= 0) { 
+          const n = parseNumber(rows[i][idxN]), 
+          np = parseNumber(rows[i - 1][idxN]); 
+          const e = parseNumber(rows[i][idxE]), 
+          ep = parseNumber(rows[i - 1][idxE]); 
+          if ([n, np, e, ep].every(Number.isFinite)) { 
+            const dN = n - np, dE = e - ep; 
+            const seg = Math.hypot(dN, dE); 
+            if (seg > 0) cumA += seg; 
+          } 
+        } 
+        if (idxMD >= 0 && idxDOG >= 0) { 
+          const md = parseNumber(rows[i][idxMD]), 
+          mdp = parseNumber(rows[i - 1][idxMD]); 
+          if (Number.isFinite(md) && Number.isFinite(mdp)) {
+            const CL = md - mdp; 
+            if (CL > 0) { 
+              let dls = parseNumber(rows[i][idxDOG]); 
+              if (!Number.isFinite(dls) || dls === 0) dls = 0.5; cumT += (CL * dls); 
+            } 
+          } 
+        } 
+      } 
+      if (Number.isFinite(TMD) && TMD > 0) { 
+        const tort = cumT / TMD; 
+        const comp = TMD * cumA * tort; 
+        const ddi = (Number.isFinite(comp) && comp > 0) ? Math.log10(comp) : null; return { ddi }; 
+      } return { ddi: null }; 
+    }
+
+    function normalizeClamp(v, vmin, vmax){
+      if (!Number.isFinite(v)) return null;
+      if (v <= vmin) return 0;
+      if (v >= vmax) return 1;
+      return (v - vmin) / (vmax - vmin);
+    }
+
+
 
     // State
-    const dropzone = el('#dropzone'), fileInput = el('#fileInput'), dirInput = el('#dirInput'), errorBox = el('#errorBox'), clearBtn = el('#clearBtn'), hasHeaderCheckbox = el('#hasHeader');
-    const fileMeta = el('#fileMeta'), rowCount = el('#rowCount'), colCount = el('#colCount'), fileCount = el('#fileCount'), wellCount = el('#wellCount'), metaRow = el('#metaRow');
+
+    const dropzone = el('#dropzone'), fileInput = el('#fileInput'), dirInput = el('#dirInput'), errorBox = el('#errorBox'), 
+      clearBtn = el('#clearBtn'), hasHeaderCheckbox = el('#hasHeader');
+    const fileMeta = el('#fileMeta'), rowCount = el('#rowCount'), colCount = el('#colCount'), fileCount = el('#fileCount'), 
+      wellCount = el('#wellCount'), metaRow = el('#metaRow');
     const groupContainer = el('#groupContainer'), markerMetricSelect = el('#markerMetric');
     let __summaryRows = null, __wellTrajectories = null, __leafletMap = null;
 
+
+
     // Events
+
     ['dragover', 'dragleave', 'drop'].forEach(evt => dropzone.addEventListener(evt, e => {
       if (evt === 'dragover') { e.preventDefault(); dropzone.classList.add('dragover'); }
       if (evt === 'dragleave') { dropzone.classList.remove('dragover'); }
-      if (evt === 'drop') { e.preventDefault(); dropzone.classList.remove('dragover'); const files = e.dataTransfer.files; if (files && files.length) handleFiles(files); }
+      if (evt === 'drop') { e.preventDefault(); dropzone.classList.remove('dragover'); const files = e.dataTransfer.files; 
+      if (files && files.length) handleFiles(files); }
     }));
+
     fileInput.addEventListener('change', e => { const files = e.target.files; if (files && files.length) handleFiles(files); });
-    if (dirInput) { dirInput.addEventListener('change', e => { const files = e.target.files; if (files && files.length) handleFiles(files); }); }
-    clearBtn.addEventListener('click', () => { groupContainer.innerHTML = ''; hide(errorBox); hide(metaRow); fileInput.value = ''; if (dirInput) dirInput.value = ''; clearBtn.disabled = true; window.__csvRows = null; __summaryRows = null; __wellTrajectories = null; if (__leafletMap) { __leafletMap.remove(); __leafletMap = null; } });
-    hasHeaderCheckbox.addEventListener('change', () => { if (window.__csvRows && window.__csvRows.length) { renderWellsAndSummary(window.__csvRows, window.__delimiter, hasHeaderCheckbox.checked); } });
-    markerMetricSelect.addEventListener('change', () => { if (__summaryRows) renderMap(__summaryRows, markerMetricSelect.value, __wellTrajectories); });
-
-    function showError(msg) { errorBox.textContent = msg; show(errorBox); hide(metaRow); groupContainer.innerHTML = ''; }
-    async function handleFiles(fileList) { hide(errorBox); const files = Array.from(fileList || []).filter(f => /\.csv$/i.test(f.name)); if (!files.length) return showError('No CSV files found in the selection.'); const parsed = []; for (const f of files) { const text = await f.text(); const { rows, delimiter } = parseCSV(text); if (rows && rows.length) parsed.push({ file: f, rows, delimiter }); } if (!parsed.length) return showError('The files appear to be empty.'); const useHeader = hasHeaderCheckbox.checked; const maxCols = Math.max(...parsed.map(p => p.rows[0].length)); const firstHeader = useHeader ? parsed[0].rows[0] : Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`); let totalRows = 0, totalCols = firstHeader.length; const combined = [firstHeader.slice()]; for (const p of parsed) { const rows = p.rows; const norm = rows.map(r => r.length === firstHeader.length ? r : r.concat(Array(firstHeader.length - r.length).fill(''))); const data = useHeader ? norm.slice(1) : norm; combined.push(...data); totalRows += data.length; totalCols = Math.max(totalCols, norm[0]?.length || totalCols); } const totalKB = (files.reduce((s, f) => s + f.size, 0) / 1024).toFixed(1); fileMeta.textContent = `${files.length} file(s) • ${totalKB} KB total`; fileMeta.setAttribute('data-name', fileMeta.textContent); rowCount.textContent = `${totalRows.toLocaleString()} row(s)`; colCount.textContent = `${totalCols.toLocaleString()} column(s)`; if (fileCount) fileCount.textContent = `${files.length} file(s)`; show(metaRow); window.__csvRows = combined; window.__delimiter = parsed[0].delimiter; previewCSV(combined, parsed[0].delimiter); renderWellsAndSummary(combined, parsed[0].delimiter, useHeader); clearBtn.disabled = false; }
-
-    function renderWellsAndSummary(rows, delimiter, useHeader) {
-      const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0); const normalized = rows.map(r => r.length === maxCols ? r : r.concat(Array(maxCols - r.length).fill('')));
-      const headerRow = useHeader ? normalized[0] : Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`); const dataRows = useHeader ? normalized.slice(1) : normalized;
-      const idxWellCol = (() => { const L = headerRow.map(h => String(h).trim().toLowerCase()); const i = L.indexOf('well'); return i >= 0 ? i : 0; })();
-      const idxIncl = getColumnIndex(headerRow, ['incl', 'inclination']); const idxMD = getColumnIndex(headerRow, ['md']); const idxTVD = getColumnIndex(headerRow, ['tvd']); const idxDOG = getColumnIndex(headerRow, ['dogleg', 'dls']); const idxCmt = getColumnIndex(headerRow, ['comments', 'comment']); const idxN = getColumnIndex(headerRow, ['local n', 'local north', 'northing', 'n']); const idxE = getColumnIndex(headerRow, ['local e', 'local east', 'easting', 'e']); const idxLat = getColumnIndex(headerRow, ['latitude', 'lat']); const idxLon = getColumnIndex(headerRow, ['longitude', 'long', 'lon']);
-      const byWell = new Map(); for (const r of dataRows) { const label = (r[idxWellCol] ?? '').toString().trim(); if (!label) continue; if (!byWell.has(label)) byWell.set(label, []); byWell.get(label).push(r); }
-      const coll = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }); const wellKeys = Array.from(byWell.keys()).sort((a, b) => coll.compare(a, b));
-      const mainAcc = document.createElement('div'); mainAcc.className = 'accordion'; mainAcc.id = 'wellAccordion'; const summaryRows = []; const trajectories = []; let renderedWells = 0;
-      wellKeys.forEach((wellKey, wIdx) => {
-        const rowsW = byWell.get(wellKey) || []; if (!rowsW.length) return; renderedWells++;
-        let lpIdx = -1, tdIdx = -1, maxMD = -Infinity; if (idxIncl >= 0) { for (let i = 0; i < rowsW.length; i++) { const incl = parseNumber(rowsW[i][idxIncl]); if (!Number.isNaN(incl) && incl > 88) { lpIdx = i; break; } } } if (idxMD >= 0) { for (let i = 0; i < rowsW.length; i++) { const md = parseNumber(rowsW[i][idxMD]); if (!Number.isNaN(md) && md >= maxMD) { maxMD = md; tdIdx = i; } } }
-        let icp_md = null, icp_tvd = null, td_md = null, lateral_md = null; let max_build_dls = null, max_lat_dls = null; let steer_build_md = null, steer_lat_md = null; let pct_build = null, pct_lat = null; let dls_mean_build = null, dls_std_build = null, dls_mean_lat = null, dls_std_lat = null; let curv_build_index = null, curv_lat_index = null, curvature_index = null; let steer_index = null, reach_index = null, ddi_excel = null; let lat_out = null, lon_out = null;
-        const md_surface = (idxMD >= 0 && rowsW.length) ? parseNumber(rowsW[0][idxMD]) : NaN; if (lpIdx >= 0 && idxMD >= 0) icp_md = parseNumber(rowsW[lpIdx][idxMD]); if (lpIdx >= 0 && idxTVD >= 0) icp_tvd = parseNumber(rowsW[lpIdx][idxTVD]); if (tdIdx >= 0 && idxMD >= 0) td_md = parseNumber(rowsW[tdIdx][idxMD]); if (Number.isFinite(td_md) && Number.isFinite(icp_md)) lateral_md = td_md - icp_md; if (Number.isFinite(td_md) && Number.isFinite(icp_tvd) && icp_tvd > 0) reach_index = td_md / icp_tvd;
-        if (idxDOG >= 0 && rowsW.length) { if (lpIdx >= 0) { let maxB = -Infinity; const vb = []; for (let i = 0; i <= lpIdx && i < rowsW.length; i++) { const v = parseNumber(rowsW[i][idxDOG]); if (!Number.isNaN(v)) { maxB = Math.max(maxB, v); vb.push(v); } } if (maxB !== -Infinity) max_build_dls = maxB; const msB = meanStd(vb); dls_mean_build = msB.mean; dls_std_build = msB.std; const totalBuild = accumulateSteeringMD(rowsW, idxMD, idxDOG, 0, lpIdx); if (totalBuild !== null) steer_build_md = totalBuild; } if (lpIdx >= 0 && tdIdx >= 0 && tdIdx > lpIdx) { let maxL = -Infinity; const vl = []; for (let i = lpIdx + 1; i <= tdIdx && i < rowsW.length; i++) { const v = parseNumber(rowsW[i][idxDOG]); if (!Number.isNaN(v)) { maxL = Math.max(maxL, v); vl.push(v); } } if (maxL !== -Infinity) max_lat_dls = maxL; const msL = meanStd(vl); dls_mean_lat = msL.mean; dls_std_lat = msL.std; const totalLat = accumulateSteeringMD(rowsW, idxMD, idxDOG, lpIdx + 1, tdIdx); if (totalLat !== null) steer_lat_md = totalLat; } }
-        const build_len = (Number.isFinite(icp_md) && Number.isFinite(md_surface)) ? (icp_md - md_surface) : NaN; const lat_len = (Number.isFinite(td_md) && Number.isFinite(icp_md)) ? (td_md - icp_md) : NaN; const tot_len = (Number.isFinite(td_md) && Number.isFinite(md_surface)) ? (td_md - md_surface) : NaN; if (Number.isFinite(steer_build_md) && Number.isFinite(build_len) && build_len > 0) pct_build = (steer_build_md / build_len) * 100; if (Number.isFinite(steer_lat_md) && Number.isFinite(lat_len) && lat_len > 0) pct_lat = (steer_lat_md / lat_len) * 100;
-        if ([max_build_dls, dls_mean_build, dls_std_build].every(Number.isFinite)) curv_build_index = 0.5 * max_build_dls + 0.25 * dls_mean_build + 0.25 * dls_std_build; if ([max_lat_dls, dls_mean_lat, dls_std_lat].every(Number.isFinite)) curv_lat_index = 0.5 * max_lat_dls + 0.25 * dls_mean_lat + 0.25 * dls_std_lat; if (Number.isFinite(tot_len) && tot_len > 0 && Number.isFinite(build_len) && Number.isFinite(lat_len) && Number.isFinite(curv_build_index) && Number.isFinite(curv_lat_index)) { const pB = build_len / tot_len, pL = lat_len / tot_len; curvature_index = pB * curv_build_index + pL * curv_lat_index; }
-        const effort = computeSteerEffortFullPath(rowsW, idxMD, idxDOG); if (Number.isFinite(effort) && Number.isFinite(tot_len) && tot_len > 0) steer_index = effort / tot_len; const ddiRes = computeDDIExcel(rowsW, idxMD, idxDOG, idxN, idxE, tdIdx); ddi_excel = ddiRes.ddi;
-        if (idxLat >= 0) lat_out = parseNumber(rowsW[0][idxLat]); if (idxLon >= 0) lon_out = parseNumber(rowsW[0][idxLon]);
-        const item = document.createElement('div'); item.className = 'accordion-item'; const headingId = 'heading-' + makeId(wellKey, wIdx), collapseId = 'collapse-' + makeId(wellKey, wIdx); const header = document.createElement('h2'); header.className = 'accordion-header'; header.id = headingId; header.innerHTML = `<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}"><span class="me-2">Well: <span class="monospace">${escapeHtml(wellKey)}</span></span><span class="badge badge-soft">${rowsW.length.toLocaleString()} row(s)</span></button>`; const collapse = document.createElement('div'); collapse.id = collapseId; collapse.className = 'accordion-collapse collapse'; collapse.setAttribute('aria-labelledby', headingId); collapse.setAttribute('data-bs-parent', '#wellAccordion'); const body = document.createElement('div'); body.className = 'accordion-body';
-        const tableContainer = document.createElement('div'); tableContainer.className = 'table-container'; const table = document.createElement('table'); table.className = 'table table-sm table-striped table-hover align-middle sticky-header mb-0'; const thead = document.createElement('thead'); const trHead = document.createElement('tr'); headerRow.forEach(h => { const th = document.createElement('th'); th.setAttribute('scope', 'col'); th.innerHTML = escapeHtml(h); trHead.appendChild(th); }); thead.appendChild(trHead); const tbody = document.createElement('tbody'); for (let rIdx = 0; rIdx < rowsW.length; rIdx++) { const r = rowsW[rIdx]; const tr = document.createElement('tr'); for (let c = 0; c < r.length; c++) { const td = document.createElement('td'); td.innerHTML = escapeHtml(neutralizeExcelFormula(r[c] ?? '')); tr.appendChild(td); } tbody.appendChild(tr); } table.appendChild(thead); table.appendChild(tbody); tableContainer.appendChild(table); body.appendChild(tableContainer); collapse.appendChild(body); item.appendChild(header); item.appendChild(collapse); mainAcc.appendChild(item);
-        if (idxLat >= 0 && idxLon >= 0) { const latlngs = []; for (const rr of rowsW) { const la = parseNumber(rr[idxLat]); const lo = parseNumber(rr[idxLon]); if (Number.isFinite(la) && Number.isFinite(lo)) latlngs.push([la, lo]); } if (latlngs.length > 1) trajectories.push({ well: wellKey, latlngs }); }
-        summaryRows.push({ well: wellKey, icp_md, icp_tvd, max_build_dls, max_lat_dls, curvature_index, reach_index, td_md, lateral_md, steer_build_md, steer_lat_md, pct_build, pct_lat, steer_index, lat_out, lon_out, ddi_excel });
+      if (dirInput) { 
+        dirInput.addEventListener('change', e => { 
+          const files = e.target.files; 
+          if (files && files.length) handleFiles(files); 
+        }); 
+      }
+      clearBtn.addEventListener('click', () => { 
+        groupContainer.innerHTML = ''; 
+        hide(errorBox); hide(metaRow); fileInput.value = ''; 
+        if (dirInput) dirInput.value = ''; clearBtn.disabled = true; 
+        window.__csvRows = null; __summaryRows = null; 
+        __wellTrajectories = null; 
+        if (__leafletMap) { 
+          __leafletMap.remove(); 
+          __leafletMap = null; 
+        } 
       });
-      const outer = document.createElement('div'); outer.className = 'accordion'; outer.id = 'allWellsAccordion'; const outItem = document.createElement('div'); outItem.className = 'accordion-item'; const outHeadingId = 'heading-allwells', outCollapseId = 'collapse-allwells'; const totalRowsAll = Array.from(byWell.values()).reduce((s, arr) => s + (arr?.length || 0), 0); const outHeader = document.createElement('h2'); outHeader.className = 'accordion-header'; outHeader.id = outHeadingId; outHeader.innerHTML = `<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${outCollapseId}" aria-expanded="false" aria-controls="${outCollapseId}">All Wells <span class="badge bg-primary ms-2">${wellKeys.length.toLocaleString()} well(s)</span> <span class="badge badge-soft ms-2">${totalRowsAll.toLocaleString()} row(s)</span></button>`; const outCollapse = document.createElement('div'); outCollapse.id = outCollapseId; outCollapse.className = 'accordion-collapse collapse'; outCollapse.setAttribute('aria-labelledby', outHeadingId); const outBody = document.createElement('div'); outBody.className = 'accordion-body p-2'; outBody.appendChild(mainAcc); outCollapse.appendChild(outBody); outItem.appendChild(outHeader); outItem.appendChild(outCollapse); outer.appendChild(outItem); groupContainer.innerHTML = ''; groupContainer.appendChild(outer); wellCount.textContent = `${renderedWells.toLocaleString()} well(s)`; show(metaRow);
-      summaryRows.sort((a, b) => new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare(a.well, b.well)); const sAcc = document.createElement('div'); sAcc.className = 'accordion mt-3-5'; sAcc.id = 'summaryAccordion'; const sItem = document.createElement('div'); sItem.className = 'accordion-item'; const sHeadingId = 'heading-summary', sCollapseId = 'collapse-summary'; const sHeader = document.createElement('h2'); sHeader.className = 'accordion-header'; sHeader.id = sHeadingId; sHeader.innerHTML = `<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${sCollapseId}" aria-expanded="false" aria-controls="${sCollapseId}">Summary (per well) <span class="badge badge-soft ms-2">${summaryRows.length.toLocaleString()} item(s)</span></button>`; const sCollapse = document.createElement('div'); sCollapse.id = sCollapseId; sCollapse.className = 'accordion-collapse collapse'; sCollapse.setAttribute('aria-labelledby', sHeadingId); const sBody = document.createElement('div'); sBody.className = 'accordion-body p-0'; const sWrap = document.createElement('div'); sWrap.className = 'table-container'; const sTable = document.createElement('table'); sTable.className = 'table table-sm table-striped table-hover align-middle sticky-header mb-0'; const sThead = document.createElement('thead'); sThead.innerHTML = `<tr><th>Well</th><th>ICP MD</th><th>ICP TVD</th><th>Max Build DLS</th><th>Max Lat DLS</th><th>TD MD</th><th>Lateral MD</th><th>Steer Build MD</th><th>Steer Lat MD</th><th>% Build Steer</th><th>% Lat Steer</th><th>Lat</th><th>Long</th><th>Curvature Index</th><th>Reach Index</th><th>Steer Index</th><th>DDI</th></tr>`; const sTbody = document.createElement('tbody'); summaryRows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="monospace">${escapeHtml(r.well)}</td><td>${fmt2(r.icp_md)}</td><td>${fmt2(r.icp_tvd)}</td><td>${fmt2(r.max_build_dls)}</td><td>${fmt2(r.max_lat_dls)}</td><td>${fmt2(r.td_md)}</td><td>${fmt2(r.lateral_md)}</td><td>${fmt2(r.steer_build_md)}</td><td>${fmt2(r.steer_lat_md)}</td><td>${fmtPct2(r.pct_build)}</td><td>${fmtPct2(r.pct_lat)}</td><td>${fmt6(r.lat_out)}</td><td>${fmt6(r.lon_out)}</td><td>${fmt2(r.curvature_index)}</td><td>${fmt2(r.reach_index)}</td><td>${fmt2(r.steer_index)}</td><td>${fmt2(r.ddi_excel)}</td>`; sTbody.appendChild(tr); }); sTable.appendChild(sThead); sTable.appendChild(sTbody); sWrap.appendChild(sTable); sBody.appendChild(sWrap); sCollapse.appendChild(sBody); sItem.appendChild(sHeader); sItem.appendChild(sCollapse); sAcc.appendChild(sItem); groupContainer.appendChild(sAcc);
-      __summaryRows = summaryRows.slice(); __wellTrajectories = trajectories.slice(); renderMap(__summaryRows, markerMetricSelect.value, __wellTrajectories);
+      
+    hasHeaderCheckbox.addEventListener('change', () => { 
+      if (window.__csvRows && window.__csvRows.length) { 
+        renderWellsAndSummary(window.__csvRows, window.__delimiter, hasHeaderCheckbox.checked); 
+      } 
+    });
+      
+    markerMetricSelect.addEventListener('change', () => { 
+      if (__summaryRows) renderMap(__summaryRows, markerMetricSelect.value, __wellTrajectories); 
+    });
+
+    function showError(msg) { 
+      errorBox.textContent = msg; 
+      show(errorBox); hide(metaRow); 
+      groupContainer.innerHTML = ''; 
+    }
+    
+    async function handleFiles(fileList) { 
+      hide(errorBox); 
+      const files = Array.from(fileList || []).filter(f => /\.csv$/i.test(f.name)); 
+      if (!files.length) return showError('No CSV files found in the selection.'); 
+      const parsed = []; 
+      for (const f of files) { 
+        const text = await f.text(); 
+        const { rows, delimiter } = parseCSV(text); 
+        if (rows && rows.length) parsed.push({ file: f, rows, delimiter }); 
+      } 
+      if (!parsed.length) return showError('The files appear to be empty.'); 
+      const useHeader = hasHeaderCheckbox.checked; 
+      const maxCols = Math.max(...parsed.map(p => p.rows[0].length)); 
+      const firstHeader = useHeader ? parsed[0].rows[0] : Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`); 
+      let totalRows = 0, totalCols = firstHeader.length; 
+      const combined = [firstHeader.slice()]; 
+      for (const p of parsed) { 
+        const rows = p.rows; 
+        const norm = rows.map(r => r.length === firstHeader.length ? r : r.concat(Array(firstHeader.length - r.length).fill(''))); 
+        const data = useHeader ? norm.slice(1) : norm; combined.push(...data); totalRows += data.length; totalCols = Math.max(totalCols, norm[0]?.length || totalCols); 
+      } 
+      const totalKB = (files.reduce((s, f) => s + f.size, 0) / 1024).toFixed(1); 
+      fileMeta.textContent = `${files.length} file(s) • ${totalKB} KB total`; 
+      fileMeta.setAttribute('data-name', fileMeta.textContent);
+      rowCount.textContent = `${totalRows.toLocaleString()} row(s)`; 
+      colCount.textContent = `${totalCols.toLocaleString()} column(s)`; 
+      if (fileCount) fileCount.textContent = `${files.length} file(s)`; 
+      show(metaRow); 
+      window.__csvRows = combined; 
+      window.__delimiter = parsed[0].delimiter; 
+      previewCSV(combined, parsed[0].delimiter); 
+      renderWellsAndSummary(combined, parsed[0].delimiter, useHeader); 
+      clearBtn.disabled = false; 
     }
 
-    function computeQuartiles(values) { const v = values.filter(Number.isFinite).slice().sort((a, b) => a - b); const n = v.length; if (!n) return null; const q = p => { const idx = (n - 1) * p; const lo = Math.floor(idx), hi = Math.ceil(idx); if (lo === hi) return v[lo]; const t = idx - lo; return v[lo] * (1 - t) + v[hi] * t; }; return { q25: q(0.25), q50: q(0.50), q75: q(0.75) }; }
-    function classForValue(value, qu) { if (!qu || !Number.isFinite(value)) return 'idx-low'; const { q25, q50, q75 } = qu; if (value <= q25) return 'idx-low'; if (value <= q50) return 'idx-med'; if (value <= q75) return 'idx-high'; return 'idx-xhigh'; }
-    const METRIC_LABELS = { steer_index: 'Steer Index', curvature_index: 'Curvature Index', reach_index: 'Reach Index', ddi_excel: 'DDI' };
+    function renderWellsAndSummary(rows, delimiter, useHeader) {
+      const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0); 
+      const normalized = rows.map(r => r.length === maxCols ? r : r.concat(Array(maxCols - r.length).fill('')));
+      const headerRow = useHeader ? normalized[0] : Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`); 
+      const dataRows = useHeader ? normalized.slice(1) : normalized;
+      const idxWellCol = (() => { 
+        const L = headerRow.map(h => String(h).trim().toLowerCase()); 
+        const i = L.indexOf('well'); return i >= 0 ? i : 0; 
+      })();
+      const idxIncl = getColumnIndex(headerRow, ['incl', 'inclination']); 
+      const idxMD = getColumnIndex(headerRow, ['md']); 
+      const idxTVD = getColumnIndex(headerRow, ['tvd']); 
+      const idxDOG = getColumnIndex(headerRow, ['dogleg', 'dls']); 
+      const idxCmt = getColumnIndex(headerRow, ['comments', 'comment']); 
+      const idxN = getColumnIndex(headerRow, ['local n', 'local north', 'northing', 'n']); 
+      const idxE = getColumnIndex(headerRow, ['local e', 'local east', 'easting', 'e']); 
+      const idxLat = getColumnIndex(headerRow, ['latitude', 'lat']); 
+      const idxLon = getColumnIndex(headerRow, ['longitude', 'long', 'lon']);
+      const byWell = new Map(); 
+      for (const r of dataRows) { 
+        const label = (r[idxWellCol] ?? '').toString().trim(); if (!label) continue; 
+        if (!byWell.has(label)) byWell.set(label, []); byWell.get(label).push(r); 
+      }
+      const coll = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }); 
+      const wellKeys = Array.from(byWell.keys()).sort((a, b) => coll.compare(a, b));
+      const mainAcc = document.createElement('div'); mainAcc.className = 'accordion'; mainAcc.id = 'wellAccordion'; 
+      const summaryRows = []; 
+      const trajectories = []; 
+      let renderedWells = 0;
+      wellKeys.forEach((wellKey, wIdx) => {
+        const rowsW = byWell.get(wellKey) || []; 
+        if (!rowsW.length) return; renderedWells++;
+        let lpIdx = -1, tdIdx = -1, maxMD = -Infinity; 
+        if (idxIncl >= 0) { 
+          for (let i = 0; i < rowsW.length; i++) { 
+            const incl = parseNumber(rowsW[i][idxIncl]); 
+            if (!Number.isNaN(incl) && incl > 88) { lpIdx = i; break; } 
+          } 
+        } 
+        if (idxMD >= 0) { 
+          for (let i = 0; i < rowsW.length; i++) { 
+            const md = parseNumber(rowsW[i][idxMD]); 
+            if (!Number.isNaN(md) && md >= maxMD) { maxMD = md; tdIdx = i; } 
+          } 
+        }
+        let icp_md = null, icp_tvd = null, td_md = null, lateral_md = null; 
+        let max_build_dls = null, max_lat_dls = null; 
+        let steer_build_md = null, steer_lat_md = null; 
+        let pct_build = null, pct_lat = null; 
+        let dls_mean_build = null, dls_std_build = null, dls_mean_lat = null, dls_std_lat = null; 
+        let curv_build_index = null, curv_lat_index = null, curvature_index = null; 
+        let steer_index=null, reach_index=null, ddi_excel=null, tri_index=null;
+        let lat_out = null, lon_out = null;
+        const md_surface = (idxMD >= 0 && rowsW.length) ? parseNumber(rowsW[0][idxMD]) : NaN; 
+        if (lpIdx >= 0 && idxMD >= 0) icp_md = parseNumber(rowsW[lpIdx][idxMD]); 
+        if (lpIdx >= 0 && idxTVD >= 0) icp_tvd = parseNumber(rowsW[lpIdx][idxTVD]); 
+        if (tdIdx >= 0 && idxMD >= 0) td_md = parseNumber(rowsW[tdIdx][idxMD]); 
+        if (Number.isFinite(td_md) && Number.isFinite(icp_md)) lateral_md = td_md - icp_md; 
+        if (Number.isFinite(td_md) && Number.isFinite(icp_tvd) && icp_tvd > 0) reach_index = td_md / icp_tvd;
+        if (idxDOG >= 0 && rowsW.length) { 
+          if (lpIdx >= 0) { 
+            let maxB = -Infinity; 
+            const vb = []; 
+            for (let i = 0; i <= lpIdx && i < rowsW.length; i++) { 
+              const v = parseNumber(rowsW[i][idxDOG]); 
+              if (!Number.isNaN(v)) { maxB = Math.max(maxB, v); vb.push(v); } 
+            } 
+            if (maxB !== -Infinity) max_build_dls = maxB; 
+            const msB = meanStd(vb); dls_mean_build = msB.mean; dls_std_build = msB.std; 
+            const totalBuild = accumulateSteeringMD(rowsW, idxMD, idxDOG, 0, lpIdx); 
+            if (totalBuild !== null) steer_build_md = totalBuild; 
+          } 
+          if (lpIdx >= 0 && tdIdx >= 0 && tdIdx > lpIdx) { 
+            let maxL = -Infinity; const vl = []; 
+            for (let i = lpIdx + 1; i <= tdIdx && i < rowsW.length; i++) { 
+              const v = parseNumber(rowsW[i][idxDOG]); 
+              if (!Number.isNaN(v)) { 
+                maxL = Math.max(maxL, v); vl.push(v); 
+              } 
+            } 
+            if (maxL !== -Infinity) max_lat_dls = maxL; 
+            const msL = meanStd(vl); dls_mean_lat = msL.mean; 
+            dls_std_lat = msL.std; 
+            const totalLat = accumulateSteeringMD(rowsW, idxMD, idxDOG, lpIdx + 1, tdIdx); 
+            if (totalLat !== null) steer_lat_md = totalLat; 
+          } 
+        }
+        const build_len = (Number.isFinite(icp_md) && Number.isFinite(md_surface)) ? (icp_md - md_surface) : NaN; 
+        const lat_len = (Number.isFinite(td_md) && Number.isFinite(icp_md)) ? (td_md - icp_md) : NaN; 
+        const tot_len = (Number.isFinite(td_md) && Number.isFinite(md_surface)) ? (td_md - md_surface) : NaN; 
+        if (Number.isFinite(steer_build_md) && Number.isFinite(build_len) && build_len > 0) pct_build = (steer_build_md / build_len) * 100; 
+        if (Number.isFinite(steer_lat_md) && Number.isFinite(lat_len) && lat_len > 0) pct_lat = (steer_lat_md / lat_len) * 100;
+        if ([max_build_dls, dls_mean_build, dls_std_build].every(Number.isFinite)) curv_build_index = 0.5 * max_build_dls + 0.25 * dls_mean_build + 0.25 * dls_std_build; 
+        if ([max_lat_dls, dls_mean_lat, dls_std_lat].every(Number.isFinite)) curv_lat_index = 0.5 * max_lat_dls + 0.25 * dls_mean_lat + 0.25 * dls_std_lat; 
+        if (Number.isFinite(tot_len) && tot_len > 0 
+          && Number.isFinite(build_len) 
+          && Number.isFinite(lat_len) 
+          && Number.isFinite(curv_build_index) 
+          && Number.isFinite(curv_lat_index)) { 
+            const pB = build_len / tot_len, pL = lat_len / tot_len; curvature_index = pB * curv_build_index + pL * curv_lat_index; 
+          }
+        const effort = computeSteerEffortFullPath(rowsW, idxMD, idxDOG); 
+        if (Number.isFinite(effort) && Number.isFinite(tot_len) && tot_len > 0) steer_index = effort / tot_len; 
+        const ddiRes = computeDDIExcel(rowsW, idxMD, idxDOG, idxN, idxE, tdIdx); ddi_excel = ddiRes.ddi;
+        
+        const wob   = parseNumber(document.getElementById('inpWOB').value);
+        const rop   = parseNumber(document.getElementById('inpROP').value);
+        const tq    = parseNumber(document.getElementById('inpTorque').value);
+        const bit   = parseNumber(document.getElementById('inpBit').value);
+
+        const mse = computeMSE({
+          wob_kdan: wob,
+          rop_mph: rop,
+          torque_knm: tq,
+          bit_in: bit
+        });
+
+        tri_index = computeTRI({
+          curvature_index,
+          ddi_excel,
+          reach_index,
+          steer_index,
+          mse
+        });
+
+        if (idxLat >= 0) lat_out = parseNumber(rowsW[0][idxLat]); 
+        if (idxLon >= 0) lon_out = parseNumber(rowsW[0][idxLon]);
+        const item = document.createElement('div'); item.className = 'accordion-item'; 
+        const headingId = 'heading-' + makeId(wellKey, wIdx), collapseId = 'collapse-' + makeId(wellKey, wIdx); 
+        const header = document.createElement('h2'); header.className = 'accordion-header'; 
+          header.id = headingId; header.innerHTML = `<button class="accordion-button collapsed" type="button" 
+          data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}">
+          <span class="me-2">Well: <span class="monospace">${escapeHtml(wellKey)}</span>
+          </span><span class="badge badge-soft">${rowsW.length.toLocaleString()} row(s)</span></button>`; 
+        const collapse = document.createElement('div'); collapse.id = collapseId; collapse.className = 'accordion-collapse collapse'; 
+          collapse.setAttribute('aria-labelledby', headingId); collapse.setAttribute('data-bs-parent', '#wellAccordion'); 
+        const body = document.createElement('div'); body.className = 'accordion-body';
+        const tableContainer = document.createElement('div'); tableContainer.className = 'table-container'; 
+        const table = document.createElement('table'); table.className = 'table table-sm table-striped table-hover align-middle sticky-header mb-0'; 
+        const thead = document.createElement('thead'); 
+        const trHead = document.createElement('tr'); headerRow.forEach(h => { 
+          const th = document.createElement('th'); th.setAttribute('scope', 'col'); 
+          th.innerHTML = escapeHtml(h); trHead.appendChild(th); }); 
+          thead.appendChild(trHead); 
+          const tbody = document.createElement('tbody'); 
+          for (let rIdx = 0; rIdx < rowsW.length; rIdx++) { 
+            const r = rowsW[rIdx]; 
+            const tr = document.createElement('tr'); 
+            for (let c = 0; c < r.length; c++) { 
+              const td = document.createElement('td'); 
+              td.innerHTML = escapeHtml(neutralizeExcelFormula(r[c] ?? '')); 
+              tr.appendChild(td); 
+            } 
+            tbody.appendChild(tr); 
+          } 
+          table.appendChild(thead); 
+          table.appendChild(tbody); 
+          tableContainer.appendChild(table); 
+          body.appendChild(tableContainer); 
+          collapse.appendChild(body); 
+          item.appendChild(header); 
+          item.appendChild(collapse); 
+          mainAcc.appendChild(item);
+          if (idxLat >= 0 && idxLon >= 0) { 
+            const latlngs = []; 
+            for (const rr of rowsW) { 
+              const la = parseNumber(rr[idxLat]); 
+              const lo = parseNumber(rr[idxLon]); 
+              if (Number.isFinite(la) && Number.isFinite(lo)) latlngs.push([la, lo]); 
+            } 
+            if (latlngs.length > 1) trajectories.push({ well: wellKey, latlngs }); 
+          }
+        summaryRows.push({ 
+          well: wellKey,
+          icp_md,
+          icp_tvd,
+          max_build_dls,
+          max_lat_dls,
+          curvature_index,
+          reach_index,
+          td_md,
+          lateral_md,
+          mse,
+          steer_build_md,
+          steer_lat_md,
+          pct_build,
+          pct_lat,
+          steer_index,
+          tri_index,
+          lat_out,
+          lon_out,
+          ddi_excel
+        });
+      });
+      const outer = document.createElement('div'); 
+      outer.className = 'accordion'; outer.id = 'allWellsAccordion'; 
+      const outItem = document.createElement('div'); outItem.className = 'accordion-item'; 
+      const outHeadingId = 'heading-allwells', outCollapseId = 'collapse-allwells'; 
+      const totalRowsAll = Array.from(byWell.values()).reduce((s, arr) => s + (arr?.length || 0), 0); 
+      const outHeader = document.createElement('h2'); 
+      outHeader.className = 'accordion-header'; 
+      outHeader.id = outHeadingId; 
+      outHeader.innerHTML = `<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${outCollapseId}" 
+        aria-expanded="false" aria-controls="${outCollapseId}">All Wells <span class="badge bg-primary ms-2">${wellKeys.length.toLocaleString()} 
+        well(s)</span> <span class="badge badge-soft ms-2">${totalRowsAll.toLocaleString()} row(s)</span></button>`; 
+      const outCollapse = document.createElement('div'); 
+      outCollapse.id = outCollapseId; 
+      outCollapse.className = 'accordion-collapse collapse'; 
+      outCollapse.setAttribute('aria-labelledby', outHeadingId); 
+      const outBody = document.createElement('div'); 
+      outBody.className = 'accordion-body p-2'; 
+      outBody.appendChild(mainAcc); 
+      outCollapse.appendChild(outBody); 
+      outItem.appendChild(outHeader); 
+      outItem.appendChild(outCollapse); outer.appendChild(outItem); 
+      groupContainer.innerHTML = ''; 
+      groupContainer.appendChild(outer); 
+      wellCount.textContent = `${renderedWells.toLocaleString()} well(s)`; 
+      show(metaRow);
+      summaryRows.sort((a, b) => new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare(a.well, b.well)); 
+      const sAcc = document.createElement('div'); 
+      sAcc.className = 'accordion mt-3-5'; 
+      sAcc.id = 'summaryAccordion'; 
+      const sItem = document.createElement('div'); sItem.className = 'accordion-item'; 
+      const sHeadingId = 'heading-summary', sCollapseId = 'collapse-summary'; 
+      const sHeader = document.createElement('h2'); 
+      sHeader.className = 'accordion-header'; 
+      sHeader.id = sHeadingId; 
+      sHeader.innerHTML = `<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${sCollapseId}" 
+        aria-expanded="false" aria-controls="${sCollapseId}">Summary (per well) <span class="badge badge-soft ms-2">${summaryRows.length.toLocaleString()} 
+        item(s)</span></button>`; 
+      const sCollapse = document.createElement('div'); 
+      sCollapse.id = sCollapseId; 
+      sCollapse.className = 'accordion-collapse collapse'; 
+      sCollapse.setAttribute('aria-labelledby', sHeadingId); 
+      const sBody = document.createElement('div'); sBody.className = 'accordion-body p-0'; 
+      const sWrap = document.createElement('div'); sWrap.className = 'table-container'; 
+      const sTable = document.createElement('table'); 
+      sTable.className = 'table table-sm table-striped table-hover align-middle sticky-header mb-0'; 
+      const sThead = document.createElement('thead'); 
+      sThead.innerHTML = `<tr>
+        <th>Well</th>
+        <th>ICP MD</th>
+        <th>ICP TVD</th>
+        <th>Max Build DLS</th>
+        <th>Max Lat DLS</th>
+        <th>TD MD</th>
+        <th>Lateral MD</th>
+        <th>MSE (ksi)</th>
+        <th>Steer Build MD</th>
+        <th>Steer Lat MD</th>
+        <th>% Build Steer</th>
+        <th>% Lat Steer</th>
+        <th>Lat</th>
+        <th>Long</th>
+        <th>Curv. Index</th>
+        <th>Reach Index</th>
+        <th>Steer Index</th>
+        <th>TRI</th>
+        <th>DDI</th>
+      </tr>`; 
+        const sTbody = document.createElement('tbody'); summaryRows.forEach(r => { 
+          const tr = document.createElement('tr'); 
+          tr.innerHTML = `<td class="monospace">${escapeHtml(r.well)}</td>
+          <td>${fmt2(r.icp_md)}</td>
+          <td>${fmt2(r.icp_tvd)}</td><td>${fmt2(r.max_build_dls)}</td>
+          <td>${fmt2(r.max_lat_dls)}</td>
+          <td>${fmt2(r.td_md)}</td><td>${fmt2(r.lateral_md)}</td>
+          <td>${fmt2(r.mse)}</td>
+          <td>${fmt2(r.steer_build_md)}</td><td>${fmt2(r.steer_lat_md)}</td>
+          <td>${fmtPct2(r.pct_build)}</td><td>${fmtPct2(r.pct_lat)}</td>
+          <td>${fmt6(r.lat_out)}</td>
+          <td>${fmt6(r.lon_out)}</td><td>${fmt2(r.curvature_index)}</td>
+          <td>${fmt2(r.reach_index)}</td><td>${fmt2(r.steer_index)}</td>
+          <td>${fmt2(r.tri_index)}</td>
+          <td>${fmt2(r.ddi_excel)}</td>`; 
+          sTbody.appendChild(tr); 
+        }); 
+        sTable.appendChild(sThead); 
+        sTable.appendChild(sTbody); 
+        sWrap.appendChild(sTable); 
+        sBody.appendChild(sWrap); 
+        sCollapse.appendChild(sBody); 
+        sItem.appendChild(sHeader); 
+        sItem.appendChild(sCollapse); 
+        sAcc.appendChild(sItem); 
+        groupContainer.appendChild(sAcc);
+        __summaryRows = summaryRows.slice(); 
+        __wellTrajectories = trajectories.slice(); 
+      renderMap(__summaryRows, markerMetricSelect.value, __wellTrajectories);
+    }
+
+    function computeQuartiles(values) { 
+      const v = values.filter(Number.isFinite).slice().sort((a, b) => a - b); 
+      const n = v.length; 
+      if (!n) return null; const q = p => { 
+        const idx = (n - 1) * p; const lo = Math.floor(idx), hi = Math.ceil(idx); 
+        if (lo === hi) return v[lo]; 
+        const t = idx - lo; return v[lo] * (1 - t) + v[hi] * t; 
+      }; 
+      return { q25: q(0.25), q50: q(0.50), q75: q(0.75) }; 
+    }
+    
+    function classForValue(value, qu) { 
+      if (!qu || !Number.isFinite(value)) return 'idx-low'; 
+      const { q25, q50, q75 } = qu; 
+      if (value <= q25) return 'idx-low'; 
+      if (value <= q50) return 'idx-med'; 
+      if (value <= q75) return 'idx-high'; 
+      return 'idx-xhigh'; 
+    }
+    
+    const METRIC_LABELS = { 
+      steer_index: 'Steer Index', 
+      tri_index: 'Trajectory Risk Index',
+      curvature_index: 'Curvature Index', 
+      reach_index: 'Reach Index', 
+      ddi_excel: 'DDI' 
+    };
+
+
 
     // === Legend control (bottom-right) with toggle
+
     function createLegendControl() {
       const Legend = L.Control.extend({
         options: { position: 'bottomright' },
@@ -339,7 +991,11 @@
           this._panel = panel;
           return container;
         },
-        setContent: function (html) { if (this._panel) { const title = this._panel.querySelector('.legend-title'); const content = this._panel.querySelector('.legend-content'); if (title && content) { title.innerHTML = html.title; content.innerHTML = html.body; } } }
+        setContent: function (html) { if (this._panel) { 
+          const title = this._panel.querySelector('.legend-title'); 
+          const content = this._panel.querySelector('.legend-content'); 
+          if (title && content) { title.innerHTML = html.title; content.innerHTML = html.body; } 
+        }}
       });
       return new Legend();
     }
@@ -359,33 +1015,102 @@
       __legendControl.setContent({ title: `${escapeHtml(label)} — Quartiles`, body });
     }
 
-    function spreadOverlapping(points, map) { const keyOf = (lat, lon) => `${lat.toFixed(6)},${lon.toFixed(6)}`; const groups = new Map(); points.forEach((p, idx) => { const k = keyOf(p.lat, p.lon); if (!groups.has(k)) groups.set(k, []); groups.get(k).push({ ...p, __idx: idx }); }); const adjusted = points.map(p => ({ ...p, latAdj: p.lat, lonAdj: p.lon })); groups.forEach(list => { if (list.length === 1) return; const center = L.latLng(list[0].lat, list[0].lon); const centerPx = __leafletMap.latLngToLayerPoint(center); const base = 28, extra = Math.min(20, (list.length - 2) * 4); const R = base + extra; const step = (2 * Math.PI) / list.length; list.forEach((it, i) => { const ang = i * step; const dx = R * Math.cos(ang), dy = R * Math.sin(ang); const moved = centerPx.add(L.point(dx, dy)); const ll = __leafletMap.layerPointToLatLng(moved); adjusted[it.__idx].latAdj = ll.lat; adjusted[it.__idx].lonAdj = ll.lng; }); }); return adjusted; }
+    function spreadOverlapping(points, map) { 
+      const keyOf = (lat, lon) => `${lat.toFixed(6)},${lon.toFixed(6)}`; 
+      const groups = new Map(); 
+      points.forEach((p, idx) => { 
+        const k = keyOf(p.lat, p.lon); if (!groups.has(k)) groups.set(k, []); 
+        groups.get(k).push({ ...p, __idx: idx }); 
+      }); 
+        const adjusted = points.map(p => ({ ...p, latAdj: p.lat, lonAdj: p.lon })); 
+        groups.forEach(list => { 
+          if (list.length === 1) return; 
+          const center = L.latLng(list[0].lat, list[0].lon); 
+          const centerPx = __leafletMap.latLngToLayerPoint(center); 
+          const base = 28, extra = Math.min(20, (list.length - 2) * 4); 
+          const R = base + extra; 
+          const step = (2 * Math.PI) / list.length; 
+          list.forEach((it, i) => { 
+            const ang = i * step; 
+            const dx = R * Math.cos(ang), dy = R * Math.sin(ang); 
+            const moved = centerPx.add(L.point(dx, dy)); 
+            const ll = __leafletMap.layerPointToLatLng(moved); 
+            adjusted[it.__idx].latAdj = ll.lat; 
+            adjusted[it.__idx].lonAdj = ll.lng; 
+          }); 
+        }); 
+      return adjusted; 
+    }
 
     function renderMap(summaryRows, metricKey, trajectories) {
       if (__leafletMap) { __leafletMap.remove(); __leafletMap = null; }
       const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' });
-      const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' });
-      const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC‑BY‑SA)' });
-      const map = L.map('map', { layers: [streets] }); __leafletMap = map; L.control.layers({ 'Streets': streets, 'Satellite': satellite, 'Terrain': terrain }, null, { collapsed: false }).addTo(map);
+      const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
+        { maxZoom: 19, attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
+      );
+      const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', 
+        { maxZoom: 17, attribution: 'Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC‑BY‑SA)' }
+      );
+      const map = L.map('map', { layers: [streets] }); 
+      __leafletMap = map; L.control.layers({ 'Streets': streets, 'Satellite': satellite, 'Terrain': terrain }, null, { collapsed: false }).addTo(map);
+      
       // Add legend control (bottom-right)
       __legendControl = createLegendControl();
       __legendControl.addTo(map);
 
-      const basePoints = summaryRows.map(r => ({ well: r.well, lat: r.lat_out, lon: r.lon_out, val: r[metricKey], steer: r.steer_index, curv: r.curvature_index, reach: r.reach_index, ddi: r.ddi_excel })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-      if (!basePoints.length) { map.setView([51.0486, -114.0708], 8); renderLegend(null, metricKey); return; }
+      const basePoints = summaryRows.map(r => ({ 
+        well: r.well, lat: r.lat_out, lon: r.lon_out, val: r[metricKey], steer: r.steer_index, 
+        curv: r.curvature_index, reach: r.reach_index, ddi: r.ddi_excel })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+      if (!basePoints.length) { 
+        map.setView([51.0486, -114.0708], 8); 
+        renderLegend(null, metricKey); return; 
+      }
       map.setView([basePoints[0].lat, basePoints[0].lon], 13);
       const qu = computeQuartiles(basePoints.map(p => p.val).filter(Number.isFinite));
 
+
+
+
       // Draw trajectories first (colored by quartile class of the metric)
+
       const colorByClass = { 'idx-low': '#198754', 'idx-med': '#fd7e14', 'idx-high': '#dc3545', 'idx-xhigh': '#6f42c1' };
       const trajGroup = L.featureGroup();
       const byWellTraj = new Map(); (trajectories || []).forEach(t => byWellTraj.set(t.well, t.latlngs));
-      summaryRows.forEach(r => { const latlngs = byWellTraj.get(r.well); if (latlngs && latlngs.length > 1) { const cls = classForValue(r[metricKey], qu); const color = colorByClass[cls] || '#17a2b8'; const pl = L.polyline(latlngs, { color, weight: 3.5, opacity: 0.9, lineJoin: 'round' }); pl.addTo(trajGroup); pl.bindTooltip(`<div><strong>${escapeHtml(r.well)}</strong><br>${escapeHtml(METRIC_LABELS[metricKey] || 'Value')}: ${fmt2(r[metricKey])}</div>`, { sticky: true }); } }); trajGroup.addTo(map);
+      
+      summaryRows.forEach(r => { 
+        const latlngs = byWellTraj.get(r.well); 
+        if (latlngs && latlngs.length > 1) { 
+          const cls = classForValue(r[metricKey], qu); 
+          const color = colorByClass[cls] || '#17a2b8'; 
+          const pl = L.polyline(latlngs, { color, weight: 3.5, opacity: 0.9, lineJoin: 'round' }); 
+          pl.addTo(trajGroup); 
+          pl.bindTooltip(`<div><strong>${escapeHtml(r.well)}
+            </strong><br>${escapeHtml(METRIC_LABELS[metricKey] || 'Value')}: ${fmt2(r[metricKey])}</div>`, 
+            { sticky: true }); } }); trajGroup.addTo(map);
+
 
       // Then markers at surface
-      const adjusted = spreadOverlapping(basePoints, map); const markers = []; adjusted.forEach(({ well, lat, lon, latAdj, lonAdj, val, steer, curv, reach, ddi }) => { const cls = classForValue(val, qu); const icon = L.divIcon({ className: `metric-marker ${cls}`, html: `<div class=\"metric-bubble\">${fmtMarker(metricKey, val)}</div>`, iconSize: [44, 44], iconAnchor: [22, 22] }); const m = L.marker([latAdj ?? lat, lonAdj ?? lon], { icon }).addTo(map); const metricLabel = METRIC_LABELS[metricKey] || 'Value'; m.bindTooltip(`<div><strong>${escapeHtml(well)}</strong></div>`, { direction: 'top', sticky: true }); m.bindPopup(`<div><div><strong>${escapeHtml(well)}</strong></div><div>${metricLabel}: ${fmt2(val)}</div><div>Steer Index: ${fmt2(steer)} | Curvature Index: ${fmt2(curv)}</div><div>Reach Index: ${fmt2(reach)} | DDI: ${fmt2(ddi)}</div><div>Lat: ${fmt6(lat)} Long: ${fmt6(lon)}</div></div>`); markers.push(m); });
+
+      const adjusted = spreadOverlapping(basePoints, map); 
+      const markers = []; adjusted.forEach(
+        ({ well, lat, lon, latAdj, lonAdj, val, steer, curv, reach, ddi }) => { 
+          const cls = classForValue(val, qu); 
+          const icon = L.divIcon({ className: `metric-marker ${cls}`, 
+          html: `<div class=\"metric-bubble\">${fmtMarker(metricKey, val)}</div>`, 
+          iconSize: [44, 44], iconAnchor: [22, 22] }); 
+          const m = L.marker([latAdj ?? lat, lonAdj ?? lon], { icon }).addTo(map); 
+          const metricLabel = METRIC_LABELS[metricKey] || 'Value'; m.bindTooltip(`
+            <div><strong>${escapeHtml(well)}</strong></div>`, { direction: 'top', sticky: true }); 
+            m.bindPopup(`<div><div><strong>${escapeHtml(well)}</strong></div>
+            <div>${metricLabel}: ${fmt2(val)}</div>
+            <div>Steer Index: ${fmt2(steer)} | Curvature Index: ${fmt2(curv)}</div>
+            <div>Reach Index: ${fmt2(reach)} | DDI: ${fmt2(ddi)}</div>
+            <div>Lat: ${fmt6(lat)} Long: ${fmt6(lon)}</div></div>`); markers.push(m); 
+        }
+      );
 
       const all = L.featureGroup([...markers, ...trajGroup.getLayers()]); map.fitBounds(all.getBounds().pad(0.2)); setTimeout(() => map.invalidateSize(), 150);
+      
       // Update legend content
       renderLegend(qu, metricKey);
     }
@@ -393,3 +1118,4 @@
 </body>
 
 </html>
+
