@@ -1,4 +1,7 @@
 
+
+
+
 <!--  -->
 
 <%- include ('partials/header.ejs') %>
@@ -1137,11 +1140,11 @@
         </div>
     </div>
 
-    <!-- <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
         <p id="scheduleUpdateText"></p>
         <button class="btn btn-info my-2" onclick="renderChartsFromTable()">📊 Show Schedule</button>
         <div id="chartDiv" class="m-3 bg-dark"></div>
-    <% } %> -->
+    <% } %>
 
 
     <!-- <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>                            
@@ -1169,6 +1172,8 @@
         renderChartsFromTable();
     });
 </script>
+
+
 
 <script>
 
@@ -2124,7 +2129,6 @@
 
 
 
-
 <script>
     function renderDPStatsBoxPlot() {
         const versions = [];
@@ -2168,3 +2172,5 @@
 <%- include ('partials/footer.ejs') %>
 
 <!--  -->
+
+

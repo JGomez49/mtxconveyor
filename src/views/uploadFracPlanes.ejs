@@ -1,0 +1,699 @@
+
+<!-- <link rel="icon" type="image/png" sizes="32x64"
+    href="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png"> -->
+
+<!-- <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
+        alt="Canadian Natural Resources Logo" width="250" height="100"> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Visual Plan 02 – Box Clearance (Layout + Wireframe)</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      overflow: hidden;
+    }
+
+    #info {
+      height: calc(100vh - 120px);
+      background: #111;
+      font-size: 0.7rem;
+      padding: 8px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    #plot {
+      height: calc(100vh - 120px);
+    }
+
+    label {
+      font-size: 0.7rem;
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+
+
+<body class="bg-dark text-light">
+
+  <!-- NAV -->
+  <nav class="navbar navbar-dark bg-primary px-3 py-1">
+    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
+        alt="Canadian Natural Resources Logo" width="100" height="40">
+    <span class="navbar-brand fs-6">Frac Planes Evaluation</span>
+    <input type="file" id="fileInput" class="form-control form-control-sm w-auto" accept=".csv">
+    <a href="/notes" class="btn btn-primary _btn-block btn-sm w-50">Back</a>
+    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png"
+        alt="Canadian Natural Resources Logo" width="45" height="40">
+  </nav>
+
+
+  <div class="form-check form-switch ms-3">
+    <input class="form-check-input" type="checkbox" id="themeToggle" checked>
+    <label class="form-check-label" for="themeToggle">
+      Dark
+    </label>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="container-fluid p-2">
+
+    <div class="row g-1 align-items-end">
+      <div class="col">
+        <label>Reference Well</label>
+        <select id="refWell" class="form-select form-select-sm"></select>
+      </div>
+      <div class="col">
+        <label>Offset Well</label>
+        <select id="offWell" class="form-select form-select-sm"></select>
+      </div>
+      <div class="col">
+        <label>Reference MD</label>
+        <input id="refMD" type="number" class="form-control form-control-sm">
+      </div>
+      <div class="col">
+        <label>DX</label>
+        <input id="dx" value="10" class="form-control form-control-sm">
+      </div>
+      <div class="col">
+        <label>DY</label>
+        <input id="dy" value="10" class="form-control form-control-sm">
+      </div>
+      <div class="col">
+        <label>DZ</label>
+        <input id="dz" value="10" class="form-control form-control-sm">
+      </div>
+    </div>
+
+    <div class="row g-1 align-items-end mt-1">
+      <div class="col">
+        <label>Roll X</label>
+        <input id="ax" value="0" class="form-control form-control-sm">
+      </div>
+      <div class="col">
+        <label>Pitch Y</label>
+        <input id="ay" value="0" class="form-control form-control-sm">
+      </div>
+      <div class="col">
+        <label>Yaw Z</label>
+        <input id="az" value="0" class="form-control form-control-sm">
+      </div>
+      <div class="col d-flex align-items-end">
+        <button class="btn btn-success btn-sm w-100" onclick="addBox()">Add Box</button>
+      </div>
+    </div>
+
+    <div class="row g-1 align-items-end mt-2">
+      <div class="col-4">
+        <label>Boxes</label>
+        <select id="boxSelect" class="form-select form-select-sm" onchange="loadBox()"></select>
+      </div>
+      <div class="col d-flex align-items-end">
+        <button class="btn btn-warning btn-sm w-100" onclick="updateBox()">Update</button>
+      </div>
+      <div class="col d-flex align-items-end">
+        <button class="btn btn-danger btn-sm w-100" onclick="deleteBox()">Delete</button>
+      </div>
+      <div class="col d-flex align-items-end">
+        <button class="btn btn-outline-info btn-sm w-100" onclick="exportCSV()">
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="container-fluid">
+    <div class="row g-0">
+      <div class="col-2"> <!-- results -->
+        <pre id="info">Load wells and add boxes.</pre>
+      </div>
+      <div class="col-10"> <!-- plot -->
+        <div id="plot"></div>
+      </div>
+    </div>
+  </div>
+
+
+
+
+  <script>
+
+    // theme toggle
+    let darkTheme = true;
+    function getLayout() {
+      if (darkTheme) {
+        return {
+          paper_bgcolor: "#272B30",
+          plot_bgcolor: "#272B30",
+          font: { color: "white" },
+          scene: {
+            xaxis: { title: "Eastings", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
+            yaxis: { title: "Northings", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
+            zaxis: { title: "Sub-Sea", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
+            aspectmode: "data"
+          }
+        };
+      } else {
+        return {
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff",
+          font: { color: "#000" },
+          scene: {
+            xaxis: { title: "Eastings", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            yaxis: { title: "Northings", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            zaxis: { title: "Sub-Sea", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            aspectmode: "data"
+          }
+        };
+      }
+  }
+  document.getElementById("themeToggle").addEventListener("change", e => {
+    darkTheme = e.target.checked;
+    e.target.nextElementSibling.textContent = darkTheme ? "Dark" : "Light";
+    rebuild();
+  });
+
+
+    /* ================= STATE ================= */
+    const rad = d => d * Math.PI / 180;
+    let wells = [];
+    let boxes = [];
+    let traces = [];
+    let uirev = 0;
+    let exportRows = [];
+
+    /* ================= LOAD CSV ================= */
+    fileInput.addEventListener("change", e => {
+      Papa.parse(e.target.files[0], {
+        header: true,
+        skipEmptyLines: true,
+        complete: r => {
+          wells.push({
+            name: e.target.files[0].name,
+            s: r.data.map(d => ({
+              md: +d.MD, x: +d.Eastings, y: +d.Northings, z: +d["Sub-Sea"]
+            })).filter(p => Object.values(p).every(Number.isFinite))
+          });
+          updateSelectors();
+          rebuild();
+        }
+      });
+    });
+
+    /* ================= BOX CRUD ================= */
+    function addBox() {
+      boxes.push(readBoxInputs());
+      rebuild();
+    }
+    function updateBox() {
+      if (boxSelect.value !== "") {
+        boxes[boxSelect.value] = readBoxInputs();
+        rebuild();
+      }
+    }
+    function deleteBox() {
+      if (boxSelect.value !== "") {
+        boxes.splice(boxSelect.value, 1);
+        rebuild();
+      }
+    }
+    function loadBox() {
+      const b = boxes[boxSelect.value];
+      if (!b) return;
+      refWell.value = b.ref; offWell.value = b.off;
+      refMD.value = b.md;
+      dx.value = b.dx; dy.value = b.dy; dz.value = b.dz;
+      ax.value = b.ax; ay.value = b.ay; az.value = b.az;
+    }
+    function readBoxInputs() {
+      return {
+        ref: +refWell.value,
+        off: +offWell.value,
+        md: +refMD.value,
+        dx: +dx.value,
+        dy: +dy.value,
+        dz: +dz.value,
+        ax: +ax.value,
+        ay: +ay.value,
+        az: +az.value
+      };
+    }
+
+    /* ================= GEOMETRY ================= */
+    function interp(s, md) {
+      for (let i = 0; i < s.length - 1; i++) {
+        if (md >= s[i].md && md <= s[i + 1].md) {
+          const f = (md - s[i].md) / (s[i + 1].md - s[i].md);
+          return {
+            x: s[i].x + f * (s[i + 1].x - s[i].x),
+            y: s[i].y + f * (s[i + 1].y - s[i].y),
+            z: s[i].z + f * (s[i + 1].z - s[i].z)
+          };
+        }
+      }
+    }
+    function invRotate(p, a) {
+      let { x, y, z } = p;
+      let cz = Math.cos(-rad(a.az)), sz = Math.sin(-rad(a.az));[x, y] = [x * cz - y * sz, x * sz + y * cz];
+      let cy = Math.cos(-rad(a.ay)), sy = Math.sin(-rad(a.ay));[x, z] = [x * cy + z * sy, -x * sy + z * cy];
+      let cx = Math.cos(-rad(a.ax)), sx = Math.sin(-rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
+      return { x, y, z };
+    }
+    function rotate(p, a) {
+      let { x, y, z } = p;
+      let cx = Math.cos(rad(a.ax)), sx = Math.sin(rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
+      let cy = Math.cos(rad(a.ay)), sy = Math.sin(rad(a.ay));[x, z] = [x * cy + z * sy, -x * sy + z * cy];
+      let cz = Math.cos(rad(a.az)), sz = Math.sin(rad(a.az));[x, y] = [x * cz - y * sz, x * sz + y * cz];
+      return { x, y, z };
+    }
+
+    /* ================= OFFSET ENTRY ================= */
+    function firstEntry(offset, box, a) {
+      for (let i = 0; i < offset.length - 1; i++) {
+        let A = invRotate({ x: offset[i].x - box.c.x, y: offset[i].y - box.c.y, z: offset[i].z - box.c.z }, a);
+        let B = invRotate({ x: offset[i + 1].x - box.c.x, y: offset[i + 1].y - box.c.y, z: offset[i + 1].z - box.c.z }, a);
+
+        let t0 = 0, t1 = 1;
+        for (const ax of ["x", "y", "z"]) {
+          let d = B[ax] - A[ax], min = -box.h[ax], max = box.h[ax];
+          if (Math.abs(d) < 1e-9) {
+            if (A[ax] < min || A[ax] > max) { t0 = 1; t1 = 0; break; }
+          } else {
+            let tmin = (min - A[ax]) / d, tmax = (max - A[ax]) / d;
+            if (tmin > tmax) [tmin, tmax] = [tmax, tmin];
+            t0 = Math.max(t0, tmin); t1 = Math.min(t1, tmax);
+          }
+        }
+        if (t0 <= t1 && t0 >= 0 && t0 <= 1) {
+          const eps = t0 + 1e-6;
+          const Pin = { x: A.x + eps * (B.x - A.x), y: A.y + eps * (B.y - A.y), z: A.z + eps * (B.z - A.z) };
+          if (Math.abs(Pin.x) < box.h.x && Math.abs(Pin.y) < box.h.y && Math.abs(Pin.z) < box.h.z) {
+            return {
+              md: offset[i].md + t0 * (offset[i + 1].md - offset[i].md),
+              local: { x: A.x + t0 * (B.x - A.x), y: A.y + t0 * (B.y - A.y), z: A.z + t0 * (B.z - A.z) },
+              seg: [offset[i], offset[i + 1]]
+            };
+          }
+        }
+      }
+    }
+
+    /* ================= BUILD ================= */
+    function rebuild(){
+      exportRows = [];
+      traces = [];
+      let report = "";
+
+      // draw wells
+      wells.forEach(w=>{
+        traces.push({
+          type:"scatter3d",
+          mode:"lines",
+          name:w.name,
+          x:w.s.map(p=>p.x),
+          y:w.s.map(p=>p.y),
+          z:w.s.map(p=>p.z)
+        });
+      });
+
+      // process each box independently
+      boxes.forEach((b,i)=>{
+        const rw = wells[b.ref];
+        const ow = wells[b.off];
+        if(!rw || !ow) return;
+
+        const center = interp(rw.s, b.md);
+        const closestRes = closestPointToTrajectory(center, ow.s);
+        if(!center) return;
+
+        const leastDist = minDistancePointToTrajectory(
+          center,
+          ow.s   // offset well survey
+        );
+
+
+        const box = {
+          c: center,
+          h: { x:b.dx, y:b.dy, z:b.dz }
+        };
+
+        const hit = firstEntry(ow.s, box, b);
+
+        const row = {
+          Box_ID: i + 1,
+          Reference_Well: wells[b.ref]?.name ?? "",
+          Offset_Well: wells[b.off]?.name ?? "",
+          Reference_MD: b.md,
+          Least_Distance_3D_m: closestRes.minDist.toFixed(3),
+          Offset_Enters_Box: hit ? "TRUE" : "FALSE",
+          Offset_Entry_MD: hit ? hit.md.toFixed(3) : ""
+        };
+
+        if (hit) {
+          row.Clearance_PosX_m = (box.h.x - hit.local.x).toFixed(3);
+          row.Clearance_NegX_m = (box.h.x + hit.local.x).toFixed(3);
+          row.Clearance_PosY_m = (box.h.y - hit.local.y).toFixed(3);
+          row.Clearance_NegY_m = (box.h.y + hit.local.y).toFixed(3);
+          row.Clearance_PosZ_m = (box.h.z - hit.local.z).toFixed(3);
+          row.Clearance_NegZ_m = (box.h.z + hit.local.z).toFixed(3);
+        } else {
+          row.Clearance_PosX_m = "";
+          row.Clearance_NegX_m = "";
+          row.Clearance_PosY_m = "";
+          row.Clearance_NegY_m = "";
+          row.Clearance_PosZ_m = "";
+          row.Clearance_NegZ_m = "";
+        }
+
+        exportRows.push(row);
+
+        // visuals
+        traces.push(marker(center, `Subject Center ${i+1}`, "#f0ad4e"));
+        traces.push(boxMesh(center, box.h, b));
+        traces.push(boxWireframe(center, box.h, b));
+
+        if(hit){
+          // const w = rotate(hit.local, b);
+          // const p = {
+          //   x: w.x + center.x,
+          //   y: w.y + center.y,
+          //   z: w.z + center.z
+          // };
+          // const entryWorld = p;
+          
+          const w = rotate(hit.local, b);
+          const entryWorld = {
+            x: w.x + center.x,
+            y: w.y + center.y,
+            z: w.z + center.z
+          };
+
+          traces.push(marker(entryWorld, `Offset Entry ${i+1}`, "#5bc0de"));
+
+          // Clearance dashed lines to faces
+          const projections = faceProjections(hit.local, box.h);
+
+          projections.forEach(fp => {
+            const rotated = rotate(fp.p, b);
+            const faceWorld = {
+              x: rotated.x + center.x,
+              y: rotated.y + center.y,
+              z: rotated.z + center.z
+            };
+
+            traces.push(
+              dashedClearanceLine(
+                entryWorld,
+                faceWorld,
+                fp.color,
+                `Clearance ${fp.face} (Box ${i+1})`
+              )
+            );
+          });
+
+          // traces.push(marker(p, `Offset Entry ${i+1}`, "#5bc0de"));
+
+          // Closest point marker (offset well)
+          traces.push({
+            type: "scatter3d",
+            mode: "markers",
+            name: `Closest Point (Box ${i+1})`,
+            x: [closestRes.closest.x],
+            y: [closestRes.closest.y],
+            z: [closestRes.closest.z],
+            marker: { size: 6, color: "#dc3545" }  // red
+          });
+
+          // Optional dashed line connecting them
+          traces.push({
+            type: "scatter3d",
+            mode: "lines",
+            x: [center.x, closestRes.closest.x],
+            y: [center.y, closestRes.closest.y],
+            z: [center.z, closestRes.closest.z],
+            line: { color: "#dc3545", width: 2, dash: "dot" },
+            name: "Least Distance"
+          });
+
+          // reporting
+          report += `Box ${i+1} @ Reference MD ${b.md}\n`;
+          report += `  3D least distance @ Ref MD: ${closestRes.minDist.toFixed(2)} m\n`;
+          report += `  Offset entry MD: ${hit.md.toFixed(2)}\n`;
+          report += `  Distances to faces (m):\n`;
+          report += `    +X ${(box.h.x-hit.local.x).toFixed(2)}   -X ${(box.h.x+hit.local.x).toFixed(2)}\n`;
+          report += `    +Y ${(box.h.y-hit.local.y).toFixed(2)}   -Y ${(box.h.y+hit.local.y).toFixed(2)}\n`;
+          report += `    +Z ${(box.h.z-hit.local.z).toFixed(2)}   -Z ${(box.h.z+hit.local.z).toFixed(2)}\n`;
+        } else {
+          report += `  Offset does NOT enter this box.\n`;
+        }
+
+        report += "\n--------------------------------\n\n";
+      });
+
+      // update box selector
+      boxSelect.innerHTML = "";
+      boxes.forEach((b,i)=>{
+        boxSelect.add(new Option(`Box ${i+1} @ MD ${b.md}`, i));
+      });
+
+      info.textContent = report;
+
+      Plotly.react(
+        "plot",
+        traces,
+        Object.assign(getLayout(), { uirevision: ++uirev }),
+        { scrollZoom: true, responsive: true }
+      );
+    }
+
+    /* ================= VIS ================= */
+    function marker(p, n, c) {
+      return {
+        type: "scatter3d", mode: "markers", name: n,
+        x: [p.x], y: [p.y], z: [p.z], marker: { size: 6, color: c }
+      };
+    }
+    function boxMesh(c, h, a) {
+      const pts = [[-h.x, -h.y, -h.z], [h.x, -h.y, -h.z], [h.x, h.y, -h.z], [-h.x, h.y, -h.z],
+      [-h.x, -h.y, h.z], [h.x, -h.y, h.z], [h.x, h.y, h.z], [-h.x, h.y, h.z]]
+        .map(p => {
+          const r = rotate({ x: p[0], y: p[1], z: p[2] }, a);
+          return { x: r.x + c.x, y: r.y + c.y, z: r.z + c.z };
+        });
+      return {
+        type: "mesh3d", opacity: 0.3, color: "#0e0e0d",
+        x: pts.map(p => p.x), y: pts.map(p => p.y), z: pts.map(p => p.z),
+        i: [0, 0, 4, 4, 0, 1, 2, 3], j: [1, 2, 5, 6, 3, 5, 6, 7], k: [2, 3, 6, 7, 4, 6, 7, 4]
+      };
+    }
+
+    // traces.push(boxWireframe(center, box.h, b));
+
+    function updateSelectors() {
+      refWell.innerHTML = ""; offWell.innerHTML = "";
+      wells.forEach((w, i) => {
+        refWell.add(new Option(w.name, i));
+        offWell.add(new Option(w.name, i));
+      });
+    }
+
+    /* Wireframe helper */
+    function boxWireframe(c, h, a) {
+      const edges = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7]
+      ];
+      const pts = [[-h.x, -h.y, -h.z], [h.x, -h.y, -h.z], [h.x, h.y, -h.z], [-h.x, h.y, -h.z],
+      [-h.x, -h.y, h.z], [h.x, -h.y, h.z], [h.x, h.y, h.z], [-h.x, h.y, h.z]]
+        .map(p => {
+          const r = rotate({ x: p[0], y: p[1], z: p[2] }, a);
+          return { x: r.x + c.x, y: r.y + c.y, z: r.z + c.z };
+        });
+      let x = [], y = [], z = [];
+      edges.forEach(e => {
+        x.push(pts[e[0]].x, pts[e[1]].x, null);
+        y.push(pts[e[0]].y, pts[e[1]].y, null);
+        z.push(pts[e[0]].z, pts[e[1]].z, null);
+      });
+      return {
+        type: "scatter3d",
+        mode: "lines",
+        x, y, z,
+        line: { color: "#000", width: 3 },
+        name: "Box Wireframe",
+        hoverinfo: "skip"
+      };
+    }
+
+    // distance from point P to segment A-B in 3D
+    function pointToSegmentDistance(P, A, B) {
+      const AB = {
+        x: B.x - A.x,
+        y: B.y - A.y,
+        z: B.z - A.z
+      };
+      const AP = {
+        x: P.x - A.x,
+        y: P.y - A.y,
+        z: P.z - A.z
+      };
+
+      const ab2 =
+        AB.x*AB.x + AB.y*AB.y + AB.z*AB.z;
+
+      let t = ab2 === 0
+        ? 0
+        : (AP.x*AB.x + AP.y*AB.y + AP.z*AB.z) / ab2;
+
+      t = Math.max(0, Math.min(1, t));
+
+      const closest = {
+        x: A.x + t*AB.x,
+        y: A.y + t*AB.y,
+        z: A.z + t*AB.z
+      };
+
+      const dx = P.x - closest.x;
+      const dy = P.y - closest.y;
+      const dz = P.z - closest.z;
+
+      return Math.sqrt(dx*dx + dy*dy + dz*dz);
+    }
+
+    // minimal distance from point to polyline
+    function minDistancePointToTrajectory(P, survey) {
+      let min = Infinity;
+
+      for (let i = 0; i < survey.length - 1; i++) {
+        const d = pointToSegmentDistance(
+          P,
+          survey[i],
+          survey[i+1]
+        );
+        if (d < min) min = d;
+      }
+      return min;
+    }
+
+
+    function closestPointOnSegment(P, A, B) {
+      const AB = { x: B.x - A.x, y: B.y - A.y, z: B.z - A.z };
+      const AP = { x: P.x - A.x, y: P.y - A.y, z: P.z - A.z };
+
+      const ab2 = AB.x**2 + AB.y**2 + AB.z**2;
+      let t = ab2 === 0 ? 0 : (AP.x*AB.x + AP.y*AB.y + AP.z*AB.z) / ab2;
+      t = Math.max(0, Math.min(1, t));
+
+      return {
+        point: {
+          x: A.x + t*AB.x,
+          y: A.y + t*AB.y,
+          z: A.z + t*AB.z
+        },
+        t
+      };
+    }
+
+    function closestPointToTrajectory(P, survey) {
+      let minDist = Infinity;
+      let closest = null;
+
+      for (let i = 0; i < survey.length - 1; i++) {
+        const res = closestPointOnSegment(P, survey[i], survey[i+1]);
+        const dx = P.x - res.point.x;
+        const dy = P.y - res.point.y;
+        const dz = P.z - res.point.z;
+        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        if (d < minDist) {
+          minDist = d;
+          closest = { ...res.point };
+        }
+      }
+      return { minDist, closest };
+    }
+
+
+    function faceProjections(local, h) {
+      return [
+        { face:"+X", p:{ x:  h.x, y:local.y, z:local.z }, color:"#ff4d4d" },
+        { face:"-X", p:{ x: -h.x, y:local.y, z:local.z }, color:"#ff4d4d" },
+
+        { face:"+Y", p:{ x:local.x, y:  h.y, z:local.z }, color:"#4dcc4d" },
+        { face:"-Y", p:{ x:local.x, y: -h.y, z:local.z }, color:"#4dcc4d" },
+
+        { face:"+Z", p:{ x:local.x, y:local.y, z:  h.z }, color:"#4d79ff" },
+        { face:"-Z", p:{ x:local.x, y:local.y, z: -h.z }, color:"#4d79ff" },
+      ];
+    }
+
+
+    function dashedClearanceLine(a, b, color, name) {
+      return {
+        type: "scatter3d",
+        mode: "lines",
+        x: [a.x, b.x],
+        y: [a.y, b.y],
+        z: [a.z, b.z],
+        line: {
+          color: color,
+          width: 2,
+          dash: "dot"
+        },
+        name,
+        hoverinfo: "text",
+        text: name
+      };
+    }
+
+
+    function exportCSV() {
+      if (!exportRows.length) {
+        alert("No results to export.");
+        return;
+      }
+
+      const headers = Object.keys(exportRows[0]);
+      const csv = [
+        headers.join(","),
+        ...exportRows.map(row =>
+          headers.map(h => `"${row[h] ?? ""}"`).join(",")
+        )
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const ts = new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+      const filename = `visual_plan_02_results_${ts}.csv`;
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+
+  </script>
+
+
+</body>
+
+</html>

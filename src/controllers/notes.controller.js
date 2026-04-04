@@ -788,5 +788,13 @@ notesCrtl.renderUploadPadAC = async(req,res)=>{
 };
 
 
+notesCrtl.renderUploadFracPlanes = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadFracPlanes.ejs', {note, user});
+};
+
+
 
 module.exports = notesCrtl;
