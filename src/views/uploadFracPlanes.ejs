@@ -5,13 +5,26 @@
 <!-- <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
         alt="Canadian Natural Resources Logo" width="250" height="100"> -->
 
+<!-- NAV -->
+  <!-- <nav class="navbar navbar-dark bg-primary px-3 py-1">
+    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
+        alt="Canadian Natural Resources Logo" width="100" height="40">
+    <span class="navbar-brand fs-6">Frac Planes Evaluation</span>
+    <input type="file" id="fileInput" class="form-control form-control-sm w-auto" accept=".csv">
+    <a href="/notes" class="btn btn-primary _btn-block btn-sm w-50">Back</a>
+    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png"
+        alt="Canadian Natural Resources Logo" width="45" height="40">
+  </nav> -->
 
-<!DOCTYPE html>
+
+
+
+  <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
-  <title>Visual Plan 02 – Box Clearance (Layout + Wireframe)</title>
+  <title>Visual Plan</title>
 
   <script src="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
@@ -20,7 +33,7 @@
 
   <style>
     body {
-      overflow: hidden;
+      _overflow: hidden;
     }
 
     #info {
@@ -40,107 +53,174 @@
       font-size: 0.7rem;
       margin-bottom: 2px;
     }
-  </style>
-</head>
 
+  </style>
+
+</head>
 
 <body class="bg-dark text-light">
 
   <!-- NAV -->
+
   <nav class="navbar navbar-dark bg-primary px-3 py-1">
+
     <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
         alt="Canadian Natural Resources Logo" width="100" height="40">
+
     <span class="navbar-brand fs-6">Frac Planes Evaluation</span>
     <input type="file" id="fileInput" class="form-control form-control-sm w-auto" accept=".csv">
-    <a href="/notes" class="btn btn-primary _btn-block btn-sm w-50">Back</a>
-    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png"
-        alt="Canadian Natural Resources Logo" width="45" height="40">
+
+    <div class="form-check form-switch ms-3">
+        <input class="form-check-input" type="checkbox" id="themeToggle" checked>
+        <label class="form-check-label" for="themeToggle">Dark</label>
+      </div>
+
+      <div class="form-check form-switch ms-3">
+        <input class="form-check-input" type="checkbox" id="ellipsoidToggle" checked>
+        <label class="form-check-label" for="ellipsoidToggle">Show Ellipsoids</label>
+      </div>
+
+      <div class="form-check form-switch ms-3">
+        <input class="form-check-input" type="checkbox" id="legendToggle" checked>
+        <label class="form-check-label" for="legendToggle">Show Legend</label>
+      </div>
+
+      <a href="/notes" class="btn btn-primary btn-block btn-sm w-50">Back</a>
+
   </nav>
 
 
-  <div class="form-check form-switch ms-3">
-    <input class="form-check-input" type="checkbox" id="themeToggle" checked>
-    <label class="form-check-label" for="themeToggle">
-      Dark
-    </label>
-  </div>
 
   <!-- CONTROLS -->
+
   <div class="container-fluid p-2">
 
     <div class="row g-1 align-items-end">
-      <div class="col">
+
+      <div class="col-2">
         <label>Reference Well</label>
         <select id="refWell" class="form-select form-select-sm"></select>
       </div>
-      <div class="col">
+      <div class="col-2">
         <label>Offset Well</label>
         <select id="offWell" class="form-select form-select-sm"></select>
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>Reference MD</label>
         <input id="refMD" type="number" class="form-control form-control-sm">
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>DX</label>
         <input id="dx" value="10" class="form-control form-control-sm">
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>DY</label>
         <input id="dy" value="10" class="form-control form-control-sm">
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>DZ</label>
         <input id="dz" value="10" class="form-control form-control-sm">
       </div>
-    </div>
-
-    <div class="row g-1 align-items-end mt-1">
-      <div class="col">
+      <div class="col-1">
         <label>Roll X</label>
         <input id="ax" value="0" class="form-control form-control-sm">
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>Pitch Y</label>
         <input id="ay" value="0" class="form-control form-control-sm">
       </div>
-      <div class="col">
+      <div class="col-1">
         <label>Yaw Z</label>
         <input id="az" value="0" class="form-control form-control-sm">
       </div>
-      <div class="col d-flex align-items-end">
+      <div class="col-1 d-flex align-items-end">
         <button class="btn btn-success btn-sm w-100" onclick="addBox()">Add Box</button>
       </div>
-    </div>
+
+  </div>
+
 
     <div class="row g-1 align-items-end mt-2">
-      <div class="col-4">
+
+      <div class="col-1">
         <label>Boxes</label>
         <select id="boxSelect" class="form-select form-select-sm" onchange="loadBox()"></select>
       </div>
-      <div class="col d-flex align-items-end">
+
+      <div class="col-1 d-flex align-items-end">
         <button class="btn btn-warning btn-sm w-100" onclick="updateBox()">Update</button>
       </div>
-      <div class="col d-flex align-items-end">
+
+      <div class="col-1 d-flex align-items-end">
         <button class="btn btn-danger btn-sm w-100" onclick="deleteBox()">Delete</button>
       </div>
-      <div class="col d-flex align-items-end">
-        <button class="btn btn-outline-info btn-sm w-100" onclick="exportCSV()">
-          Export CSV
-        </button>
+
+      <div class="col-1 d-flex align-items-end">
+        <button class="btn btn-outline-info btn-sm w-100" onclick="exportCSV()">Export CSV</button>
       </div>
+
     </div>
+
 
   </div>
 
   <!-- MAIN LAYOUT -->
+
   <div class="container-fluid">
     <div class="row g-0">
-      <div class="col-2"> <!-- results -->
+
+      <!-- INFO PANEL -->
+      <div class="col-2">
         <pre id="info">Load wells and add boxes.</pre>
       </div>
-      <div class="col-10"> <!-- plot -->
-        <div id="plot"></div>
+
+      <!-- MAIN CONTENT -->
+      <div class="col-10">
+
+        <!-- 3D PLOT -->
+        <div id="plot" style="height: 55vh;"></div>
+
+        <!-- AXIS CONTROLS (IMMEDIATELY BELOW 3D PLOT) -->
+
+        <div class="p-1">
+          <label class="me-2">C2C X:</label>
+          <input id="distXmin" type="number" placeholder="MD min" class="form-control-sm d-inline w-auto">
+          <input id="distXmax" type="number" placeholder="MD max" class="form-control-sm d-inline w-auto">
+
+          <label class="ms-3 me-2">C2C Y:</label>
+          <input id="distYmin" type="number" value="0" class="form-control-sm d-inline w-auto">
+          <input id="distYmax" type="number" value="25" class="form-control-sm d-inline w-auto">
+
+          <button id="applyDist" class="btn btn-sm btn-outline-info ms-2">Apply C2C</button>
+        </div>
+
+        <!-- C2C PLOT -->
+
+        <div id="distPlot" style="height: 20vh;"></div>
+
+
+        <!-- SF AXIS CONTROLS -->
+
+        <div class="p-1">
+          <label class="me-2">SF X:</label>
+          <input id="sfXmin" type="number" placeholder="MD min"
+                class="form-control-sm d-inline w-auto">
+          <input id="sfXmax" type="number" placeholder="MD max"
+                class="form-control-sm d-inline w-auto">
+
+          <label class="ms-3 me-2">SF Y:</label>
+          <input id="sfYmin" type="number" value="0"
+                class="form-control-sm d-inline w-auto">
+          <input id="sfYmax" type="number" value="1.5"
+                class="form-control-sm d-inline w-auto">
+
+          <button id="applySF" class="btn btn-sm btn-outline-info ms-2"> Apply SF </button>
+        </div>
+
+        <!-- SF PLOT -->
+
+        <div id="sfPlot" style="height: 20vh;"></div>
+
       </div>
     </div>
   </div>
@@ -152,6 +232,9 @@
 
     // theme toggle
     let darkTheme = true;
+    let showEllipsoids = true;
+    let showLegend = true;
+
     function getLayout() {
       if (darkTheme) {
         return {
@@ -159,9 +242,25 @@
           plot_bgcolor: "#272B30",
           font: { color: "white" },
           scene: {
-            xaxis: { title: "Eastings", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
-            yaxis: { title: "Northings", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
-            zaxis: { title: "Sub-Sea", backgroundcolor: "#272B30", gridcolor: "#444", zerolinecolor: "#666" },
+            xaxis: { 
+              title: "Eastings (X)", 
+              backgroundcolor: "#272B30", 
+              gridcolor: "#444", 
+              zerolinecolor: "#666" 
+            },
+            yaxis: { 
+              title: "Northings (Y)", 
+              backgroundcolor: "#272B30", 
+              gridcolor: "#444", 
+              zerolinecolor: "#666" 
+            },
+            zaxis: {
+              title: "Sub-Sea (Z)",
+              backgroundcolor: "#272B30",
+              gridcolor: "#444",
+              zerolinecolor: "#666",
+              autorange: true
+            },
             aspectmode: "data"
           }
         };
@@ -171,9 +270,9 @@
           plot_bgcolor: "#ffffff",
           font: { color: "#000" },
           scene: {
-            xaxis: { title: "Eastings", gridcolor: "#ddd", zerolinecolor: "#aaa" },
-            yaxis: { title: "Northings", gridcolor: "#ddd", zerolinecolor: "#aaa" },
-            zaxis: { title: "Sub-Sea", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            xaxis: { title: "Eastings (X)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            yaxis: { title: "Northings (Y)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
+            zaxis: { title: "Sub-Sea (Z)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
             aspectmode: "data"
           }
         };
@@ -185,6 +284,84 @@
     rebuild();
   });
 
+  document.getElementById("ellipsoidToggle").addEventListener("change", e => {
+    showEllipsoids = e.target.checked;
+    rebuild();
+  });
+
+  document.getElementById("legendToggle").addEventListener("change", e => {
+    showLegend = e.target.checked;
+    rebuild();
+  });
+
+
+
+  // ---------- APPLY SF AXIS ONLY ----------
+
+const applySFBtn = document.getElementById("applySF");
+if (applySFBtn) {
+  applySFBtn.addEventListener("click", () => {
+    const xRange = (
+      sfXmin.value || sfXmax.value
+        ? [Number(sfXmin.value), Number(sfXmax.value)]
+        : null
+    );
+
+    const yRange = [Number(sfYmin.value), Number(sfYmax.value)];
+
+    const layoutUpdate = {
+      "xaxis.range": xRange,
+      "yaxis.range": yRange
+    };
+
+    Plotly.relayout("sfPlot", layoutUpdate);
+  });
+}
+
+
+// ---------- APPLY C2C AXIS ONLY ----------
+
+const applyDistBtn = document.getElementById("applyDist");
+if (applyDistBtn) {
+  applyDistBtn.addEventListener("click", () => {
+    const xRange = (
+      distXmin.value || distXmax.value
+        ? [Number(distXmin.value), Number(distXmax.value)]
+        : null
+    );
+
+    const yRange = [Number(distYmin.value), Number(distYmax.value)];
+
+    const layoutUpdate = {
+      "xaxis.range": xRange,
+      "yaxis.range": yRange
+    };
+
+    Plotly.relayout("distPlot", layoutUpdate);
+  });
+}
+
+
+// // ---------- APPLY SF AXIS ONLY ----------
+// const applySFBtn = document.getElementById("applySF");
+// if (applySFBtn) {
+//   applySFBtn.addEventListener("click", () => {
+//     const xRange = (
+//       sfXmin.value || sfXmax.value
+//         ? [Number(sfXmin.value), Number(sfXmax.value)]
+//         : null
+//     );
+
+//     const yRange = [Number(sfYmin.value), Number(sfYmax.value)];
+
+//     Plotly.relayout("sfPlot", {
+//       "xaxis.range": xRange,
+//       "yaxis.range": yRange
+//     });
+//   });
+// }
+
+
 
     /* ================= STATE ================= */
     const rad = d => d * Math.PI / 180;
@@ -194,7 +371,158 @@
     let uirev = 0;
     let exportRows = [];
 
+    /* ================= ISCWSA REV-4 UNCERTAINTY ================= */
+
+    // Simple 2D covariance container (Northing/Easting)
+
+    class Cov2 {
+      constructor(xx, xy, yy) {
+        this.xx = xx;
+        this.xy = xy;
+        this.yy = yy;
+      }
+      add(o) {
+        return new Cov2(
+          this.xx + o.xx,
+          this.xy + o.xy,
+          this.yy + o.yy
+        );
+      }
+    }
+
+
+
+    /**
+     * ISCWSA Rev-4 MWD + HRGM uncertainty model (planning-level)
+     * Returns 1-sigma horizontal covariance
+     */
+
+    function rev4MWD_HRGM(md, incDeg) {
+      const inc = rad(incDeg);
+
+      // ---- 1-sigma error terms (Rev-4 consistent) ----
+      const sigmaInc = rad(0.10);   // Inclination error (deg)
+      const sigmaAzi = rad(0.20);   // Azimuth error (HRGM)
+      const sigmaMD  = 0.001 * md;  // Depth error (0.1% MD)
+
+      // Horizontal variance growth
+      const varH =
+        Math.pow(md * sigmaInc * Math.sin(inc), 2) +
+        Math.pow(md * sigmaAzi * Math.sin(inc), 2) +
+        Math.pow(sigmaMD * Math.sin(inc), 2);
+
+      // Isotropic horizontal ellipse
+      return new Cov2(varH / 2, 0, varH / 2);
+    }
+
+
+
+
+    function rev4MWD_HRGM_3D(md, incDeg) {
+      const inc = rad(incDeg);
+
+      const sigmaInc = rad(0.10);
+      const sigmaAzi = rad(0.20);
+      const sigmaMD  = 0.001 * md;
+
+      const varH =
+        Math.pow(md * sigmaInc * Math.sin(inc), 2) +
+        Math.pow(md * sigmaAzi * Math.sin(inc), 2) +
+        Math.pow(sigmaMD * Math.sin(inc), 2);
+
+      const varZ =
+        Math.pow(md * sigmaInc * Math.cos(inc), 2) +
+        Math.pow(sigmaMD, 2);
+
+      return {
+        xx: varH / 2,
+        yy: varH / 2,
+        zz: varZ
+      };
+    }
+
+
+
+    function separationFactor(ref, covRef, off, covOff) {
+      const dx = ref.x - off.x;
+      const dy = ref.y - off.y;
+      const D  = Math.sqrt(dx*dx + dy*dy);
+
+      if (D < 1e-9) {
+        return { separation: 0, sigma: Infinity, SF: 0 };
+      }
+
+      const ux = dx / D;
+      const uy = dy / D;
+
+      const cov = covRef.add(covOff);
+
+      const varSep =
+        ux*ux*cov.xx +
+        2*ux*uy*cov.xy +
+        uy*uy*cov.yy;
+
+      const sigmaSep = Math.sqrt(varSep);
+      const k = 2.447; // 95%
+
+      return {
+        separation: D,
+        sigma: sigmaSep,
+        SF: D / (k * sigmaSep)
+      };
+    }
+
+
+
+    function sampleMDs(survey, step=30) {
+      const mds = [];
+      const mdMin = survey[0].md;
+      const mdMax = survey[survey.length-1].md;
+      for (let md = mdMin; md <= mdMax; md += step) {
+        mds.push(md);
+      }
+      return mds;
+    }
+
+
+
+    function computeSFProfile(refWell, offWell, step=30) {
+      const mds = [];
+      const sfs = [];
+      const dists = [];
+
+      const mdMin = refWell.s[0].md;
+      const mdMax = refWell.s[refWell.s.length - 1].md;
+
+      for (let md = mdMin; md <= mdMax; md += step) {
+        const refPt = interpSurvey(refWell.s, md);
+        if (!refPt) continue;
+
+        const offPt = interpolateClosestPointWithSurvey(refPt, offWell.s);
+        if (!offPt) continue;
+
+        const covRef = rev4MWD_HRGM(refPt.md, refPt.inc);
+        const covOff = rev4MWD_HRGM(offPt.md, offPt.inc);
+
+        const sf = separationFactor(refPt, covRef, offPt, covOff);
+
+        const dx = refPt.x - offPt.x;
+        const dy = refPt.y - offPt.y;
+        const dz = refPt.z - offPt.z;
+        const dist3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        mds.push(md);
+        sfs.push(sf.SF);
+        dists.push(dist3D);
+      }
+
+      return { mds, sfs, dists };
+    }
+
+
+
     /* ================= LOAD CSV ================= */
+
     fileInput.addEventListener("change", e => {
       Papa.parse(e.target.files[0], {
         header: true,
@@ -202,9 +530,23 @@
         complete: r => {
           wells.push({
             name: e.target.files[0].name,
+
             s: r.data.map(d => ({
-              md: +d.MD, x: +d.Eastings, y: +d.Northings, z: +d["Sub-Sea"]
-            })).filter(p => Object.values(p).every(Number.isFinite))
+              md: +d.MD,
+              inc: +d.Incl,
+              azi: +d.Azim,
+              x: +d.Eastings,
+              y: +d.Northings,
+              z: +d["Sub-Sea"]
+            })).filter(p =>
+              Number.isFinite(p.md) &&
+              Number.isFinite(p.inc) &&
+              Number.isFinite(p.azi) &&
+              Number.isFinite(p.x) &&
+              Number.isFinite(p.y) &&
+              Number.isFinite(p.z)
+            )
+
           });
           updateSelectors();
           rebuild();
@@ -264,6 +606,27 @@
         }
       }
     }
+
+
+    function interpSurvey(s, md) {
+      for (let i = 0; i < s.length - 1; i++) {
+        if (md >= s[i].md && md <= s[i + 1].md) {
+          const f = (md - s[i].md) / (s[i + 1].md - s[i].md);
+          return {
+            md,
+            x: s[i].x + f * (s[i+1].x - s[i].x),
+            y: s[i].y + f * (s[i+1].y - s[i].y),
+            z: s[i].z + f * (s[i+1].z - s[i].z),
+            inc: s[i].inc + f * (s[i+1].inc - s[i].inc),
+            azi: s[i].azi + f * (s[i+1].azi - s[i].azi)
+          };
+        }
+      }
+    }
+
+    
+
+
     function invRotate(p, a) {
       let { x, y, z } = p;
       let cz = Math.cos(-rad(a.az)), sz = Math.sin(-rad(a.az));[x, y] = [x * cz - y * sz, x * sz + y * cz];
@@ -271,6 +634,7 @@
       let cx = Math.cos(-rad(a.ax)), sx = Math.sin(-rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
       return { x, y, z };
     }
+
     function rotate(p, a) {
       let { x, y, z } = p;
       let cx = Math.cos(rad(a.ax)), sx = Math.sin(rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
@@ -280,6 +644,7 @@
     }
 
     /* ================= OFFSET ENTRY ================= */
+
     function firstEntry(offset, box, a) {
       for (let i = 0; i < offset.length - 1; i++) {
         let A = invRotate({ x: offset[i].x - box.c.x, y: offset[i].y - box.c.y, z: offset[i].z - box.c.z }, a);
@@ -328,7 +693,67 @@
         });
       });
 
+
+      /* ===== 3D UNCERTAINTY ELLIPSOIDS (REF + OFFSET) ===== */
+
+      if (showEllipsoids) {
+        boxes.forEach(b => {
+
+          const rwEllip = wells[b.ref];
+          const owEllip = wells[b.off];
+
+          // ---- Reference well ellipsoids ----
+          if (rwEllip) {
+            const mdSamples = sampleMDs(rwEllip.s, 30);
+
+            mdSamples.forEach(md => {
+              const p = interpSurvey(rwEllip.s, md);
+              if (!p) return;
+
+              const cov3 = rev4MWD_HRGM_3D(p.md, p.inc);
+
+              traces.push(
+                ellipsoidTrace(
+                  p,
+                  cov3,
+                  2.447,
+                  `Ref Ellipsoid @ MD ${md}`,
+                  "#0dcaf0"
+                )
+              );
+            });
+          }
+
+          // ---- Offset well ellipsoids ----
+
+          if (owEllip) {
+            const mdSamples = sampleMDs(owEllip.s, 30);
+
+            mdSamples.forEach(md => {
+              const p = interpSurvey(owEllip.s, md);
+              if (!p) return;
+
+              const cov3 = rev4MWD_HRGM_3D(p.md, p.inc);
+
+              traces.push(
+                ellipsoidTrace(
+                  p,
+                  cov3,
+                  2.447,
+                  `Off Ellipsoid @ MD ${md}`,
+                  "#ffc107"
+                )
+              );
+            });
+          }
+
+        });
+      }
+
+
+
       // process each box independently
+
       boxes.forEach((b,i)=>{
         const rw = wells[b.ref];
         const ow = wells[b.off];
@@ -337,6 +762,19 @@
         const center = interp(rw.s, b.md);
         const closestRes = closestPointToTrajectory(center, ow.s);
         if(!center) return;
+
+        const refPt = interpSurvey(rw.s, b.md);
+
+        const offInterp = interpolateClosestPointWithSurvey(
+          refPt,
+          ow.s
+        );
+
+        const covRef = rev4MWD_HRGM(refPt.md, refPt.inc);
+        const covOff = rev4MWD_HRGM(offInterp.md, offInterp.inc);
+
+        const sf = separationFactor(refPt, covRef, offInterp, covOff);
+
 
         const leastDist = minDistancePointToTrajectory(
           center,
@@ -361,6 +799,10 @@
           Offset_Entry_MD: hit ? hit.md.toFixed(3) : ""
         };
 
+        row.Separation_m = sf.separation.toFixed(2);
+        row.Sigma_95_m   = (2.447 * sf.sigma).toFixed(2);
+        row.SF_95        = sf.SF.toFixed(2);
+
         if (hit) {
           row.Clearance_PosX_m = (box.h.x - hit.local.x).toFixed(3);
           row.Clearance_NegX_m = (box.h.x + hit.local.x).toFixed(3);
@@ -384,15 +826,10 @@
         traces.push(boxMesh(center, box.h, b));
         traces.push(boxWireframe(center, box.h, b));
 
+        traces.push(ellipseTrace(refPt, covRef, 2.447, "Ref 95%", "#0dcaf0"));
+        traces.push(ellipseTrace(offInterp, covOff, 2.447, "Off 95%", "#ffc107"));
+
         if(hit){
-          // const w = rotate(hit.local, b);
-          // const p = {
-          //   x: w.x + center.x,
-          //   y: w.y + center.y,
-          //   z: w.z + center.z
-          // };
-          // const entryWorld = p;
-          
           const w = rotate(hit.local, b);
           const entryWorld = {
             x: w.x + center.x,
@@ -449,12 +886,14 @@
 
           // reporting
           report += `Box ${i+1} @ Reference MD ${b.md}\n`;
-          report += `  3D least distance @ Ref MD: ${closestRes.minDist.toFixed(2)} m\n`;
-          report += `  Offset entry MD: ${hit.md.toFixed(2)}\n`;
-          report += `  Distances to faces (m):\n`;
-          report += `    +X ${(box.h.x-hit.local.x).toFixed(2)}   -X ${(box.h.x+hit.local.x).toFixed(2)}\n`;
-          report += `    +Y ${(box.h.y-hit.local.y).toFixed(2)}   -Y ${(box.h.y+hit.local.y).toFixed(2)}\n`;
-          report += `    +Z ${(box.h.z-hit.local.z).toFixed(2)}   -Z ${(box.h.z+hit.local.z).toFixed(2)}\n`;
+          report += ` 3D least distance @ Ref MD: ${closestRes.minDist.toFixed(2)} m\n`;
+          report += ` Separation Factor (95%): ${sf.SF.toFixed(2)}\n`;
+          report += ` Combined σ (95%): ${(2.447 * sf.sigma).toFixed(2)} m\n`;
+          report += ` Offset entry MD: ${hit ? hit.md.toFixed(2) : "N/A"}\n`;
+          report += ` Distances to faces (m):\n`;
+          report += ` +X ${(box.h.x-hit.local.x).toFixed(2)} -X ${(box.h.x+hit.local.x).toFixed(2)}\n`;
+          report += ` +Y ${(box.h.y-hit.local.y).toFixed(2)} -Y ${(box.h.y+hit.local.y).toFixed(2)}\n`;
+          report += ` +Z ${(box.h.z-hit.local.z).toFixed(2)} -Z ${(box.h.z+hit.local.z).toFixed(2)}\n`;
         } else {
           report += `  Offset does NOT enter this box.\n`;
         }
@@ -470,21 +909,114 @@
 
       info.textContent = report;
 
+
+      // ===== SF & DISTANCE PROFILES =====
+
+      if (boxes.length > 0) {
+        const b = boxes[0];
+        const rw = wells[b.ref];
+        const ow = wells[b.off];
+
+        if (rw && ow) {
+          const prof = computeSFProfile(rw, ow, 30);
+
+          // --- SF vs MD ---
+
+          const sfTrace = {
+            type: "scatter",
+            mode: "lines",
+            x: prof.mds,
+            y: prof.sfs,
+            line: { color: "#ffc107", width: 2 },
+            name: "SF (95%)"
+          };
+
+          const sfLayout = {
+            paper_bgcolor: darkTheme ? "#272B30" : "#ffffff",
+            plot_bgcolor: darkTheme ? "#272B30" : "#ffffff",
+            font: { color: darkTheme ? "white" : "black" },
+            margin: { l: 50, r: 10, t: 20, b: 40 },
+            xaxis: { title: "MD (m)" },
+            yaxis: { title: "SF (95%)" },
+            shapes: [
+              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:1.0, y1:1.0, line:{ dash:"dot", color:"#dc3545" }},
+              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:1.5, y1:1.5, line:{ dash:"dot", color:"#ffc107" }},
+              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:2.0, y1:2.0, line:{ dash:"dot", color:"#28a745" }}
+            ]
+          };
+
+          Plotly.react("sfPlot", [sfTrace], sfLayout, { responsive:true });
+
+
+
+          // --- CLICK HANDLER: jump to MD ---
+
+          document.getElementById("sfPlot")
+            .on('plotly_click', ev => {
+              const md = ev.points[0].x;
+              refMD.value = md.toFixed(2);
+              rebuild();
+            });
+
+          // --- Distance vs MD ---
+
+          const distTrace = {
+            type: "scatter",
+            mode: "lines",
+            x: prof.mds,
+            y: prof.dists,
+            line: { color: "#0dcaf0", width: 2 },
+            name: "3D Distance"
+          };
+
+          const distLayout = {
+            paper_bgcolor: darkTheme ? "#272B30" : "#ffffff",
+            plot_bgcolor: darkTheme ? "#272B30" : "#ffffff",
+            font: { color: darkTheme ? "white" : "black" },
+            margin: { l: 50, r: 10, t: 20, b: 40 },
+            xaxis: {
+              title: "Measured Depth (m)",
+              range: (
+                distXmin.value || distXmax.value
+                  ? [Number(distXmin.value), Number(distXmax.value)]
+                  : undefined
+              )
+            },
+            yaxis: {
+              title: "3D Distance (m)",
+              range: [Number(distYmin.value), Number(distYmax.value)]
+            }
+          };
+
+          Plotly.react("distPlot", [distTrace], distLayout, { responsive:true });
+        }
+      }
+
+
+      
+      const layout3D = getLayout();
+      layout3D.showlegend = showLegend;
+
       Plotly.react(
         "plot",
         traces,
-        Object.assign(getLayout(), { uirevision: ++uirev }),
+        Object.assign(layout3D, { uirevision: ++uirev }),
         { scrollZoom: true, responsive: true }
       );
+
+
+
     }
 
     /* ================= VIS ================= */
+
     function marker(p, n, c) {
       return {
         type: "scatter3d", mode: "markers", name: n,
         x: [p.x], y: [p.y], z: [p.z], marker: { size: 6, color: c }
       };
     }
+
     function boxMesh(c, h, a) {
       const pts = [[-h.x, -h.y, -h.z], [h.x, -h.y, -h.z], [h.x, h.y, -h.z], [-h.x, h.y, -h.z],
       [-h.x, -h.y, h.z], [h.x, -h.y, h.z], [h.x, h.y, h.z], [-h.x, h.y, h.z]]
@@ -496,6 +1028,54 @@
         type: "mesh3d", opacity: 0.3, color: "#0e0e0d",
         x: pts.map(p => p.x), y: pts.map(p => p.y), z: pts.map(p => p.z),
         i: [0, 0, 4, 4, 0, 1, 2, 3], j: [1, 2, 5, 6, 3, 5, 6, 7], k: [2, 3, 6, 7, 4, 6, 7, 4]
+      };
+    }
+
+    function ellipseTrace(center, cov, scale, name, color) {
+      const n = 36;
+      const a = Math.sqrt(cov.xx) * scale;
+      const b = Math.sqrt(cov.yy) * scale;
+
+      const x=[], y=[], z=[];
+      for (let i=0;i<=n;i++){
+        const t = 2*Math.PI*i/n;
+        x.push(center.x + a*Math.cos(t));
+        y.push(center.y + b*Math.sin(t));
+        z.push(center.z);
+      }
+      return {
+        type:"scatter3d",
+        mode:"lines",
+        x,y,z,
+        line:{ dash:"dot", color },
+        name
+      };
+    }
+
+    function ellipsoidTrace(center, cov3, scale, name, color) {
+      // const Nu = 16, Nv = 16;
+      const Nu = 12, Nv = 12;
+      const a = Math.sqrt(cov3.xx) * scale;
+      const b = Math.sqrt(cov3.yy) * scale;
+      const c = Math.sqrt(cov3.zz) * scale;
+
+      const x=[], y=[], z=[];
+      for (let i=0;i<=Nu;i++) {
+        const u = Math.PI * i / Nu;
+        for (let j=0;j<=Nv;j++) {
+          const v = 2*Math.PI * j / Nv;
+          x.push(center.x + a*Math.sin(u)*Math.cos(v));
+          y.push(center.y + b*Math.sin(u)*Math.sin(v));
+          z.push(center.z + c*Math.cos(u));
+        }
+      }
+
+      return {
+        type: "mesh3d",
+        x, y, z,
+        opacity: 0.15,
+        color,
+        name
       };
     }
 
@@ -627,6 +1207,38 @@
     }
 
 
+    function interpolateClosestPointWithSurvey(P, survey) {
+      let minDist = Infinity;
+      let best = null;
+
+      for (let i = 0; i < survey.length - 1; i++) {
+        const A = survey[i];
+        const B = survey[i + 1];
+
+        const res = closestPointOnSegment(P, A, B);
+        const dx = P.x - res.point.x;
+        const dy = P.y - res.point.y;
+        const dz = P.z - res.point.z;
+        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        if (d < minDist) {
+          minDist = d;
+
+          const f = res.t;
+          best = {
+            x: res.point.x,
+            y: res.point.y,
+            z: res.point.z,
+            md: A.md + f * (B.md - A.md),
+            inc: A.inc + f * (B.inc - A.inc),
+            azi: A.azi + f * (B.azi - A.azi)
+          };
+        }
+      }
+      return best;
+    }
+
+
     function faceProjections(local, h) {
       return [
         { face:"+X", p:{ x:  h.x, y:local.y, z:local.z }, color:"#ff4d4d" },
@@ -697,3 +1309,5 @@
 </body>
 
 </html>
+
+
