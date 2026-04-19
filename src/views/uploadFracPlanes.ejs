@@ -18,1296 +18,1130 @@
 
 
 
-
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
-  <title>Visual Plan</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.js"></script>
+  <title>Frac Planes Evaluation</title>
+  <link rel="icon" type="image/png" sizes="32x64"
+    href="https://res.cloudinary.com/metacortexjohn/image/upload/v1658373747/Icono_Metacortex_ahblhc.png">
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;500;700&display=swap" rel="stylesheet">
 
   <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #21262d;
+      --accent:    #00e5ff;
+      --warn:      #ffc107;
+      --danger:    #ff4d4d;
+      --ok:        #39d353;
+      --text:      #c9d1d9;
+      --muted:     #6e7681;
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-ui:   'Barlow Condensed', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      _overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
-    #info {
-      height: calc(100vh - 120px);
-      background: #111;
-      font-size: 0.7rem;
+    /* ── NAV ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    nav .brand {
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-size: 14px;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+    nav .brand span { color: var(--muted); }
+
+    .nav-item { display: flex; align-items: center; gap: 6px; }
+    .nav-label { color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* folder button */
+    #folderBtn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: opacity .15s;
+    }
+    #folderBtn:hover { opacity: .8; }
+    #folderInput { display: none; }
+
+    .pill {
+      background: var(--border);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 2px;
+    }
+
+    /* toggle switch */
+    .sw { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+    .sw input { display: none; }
+    .sw-track {
+      width: 30px; height: 14px;
+      background: var(--border);
+      border-radius: 7px;
+      position: relative;
+      transition: background .2s;
+    }
+    .sw-track::after {
+      content: '';
+      position: absolute;
+      left: 2px; top: 2px;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform .2s, background .2s;
+    }
+    .sw input:checked + .sw-track { background: var(--accent)33; }
+    .sw input:checked + .sw-track::after { transform: translateX(16px); background: var(--accent); }
+    .sw-label { color: var(--muted); font-size: 11px; letter-spacing: .5px; }
+
+    /* ── CONTROL STRIP ── */
+    #controls {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 5px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .ctrl-group { display: flex; flex-direction: column; gap: 2px; }
+    .ctrl-group label { font-size: 10px; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+
+    select, input[type=number], input[type=text] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      outline: none;
+      width: 100%;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+
+    .btn {
+      border: none;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .8; }
+    .btn-add    { background: var(--ok);     color: #000; }
+    .btn-upd    { background: var(--warn);   color: #000; }
+    .btn-del    { background: var(--danger); color: #fff; }
+    .btn-exp    { background: transparent;   color: var(--accent); border: 1px solid var(--accent); }
+    .btn-scan   { background: var(--accent); color: #000; font-weight: 700; }
+
+    /* ── MAIN LAYOUT ── */
+    #main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+    }
+
+    /* ── INFO PANEL ── */
+    #info-panel {
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 6px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .15s;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-pane { display: none; flex: 1; overflow-y: auto; }
+    .tab-pane.active { display: block; }
+
+    #log {
+      font-family: var(--font-mono);
+      font-size: 10px;
       padding: 8px;
-      overflow-y: auto;
       white-space: pre-wrap;
+      color: var(--muted);
+      line-height: 1.6;
     }
+    #log .val { color: var(--text); }
+    #log .hi  { color: var(--accent); }
+    #log .warn{ color: var(--warn); }
+    #log .bad { color: var(--danger); }
+    #log .ok  { color: var(--ok); }
 
-    #plot {
-      height: calc(100vh - 120px);
+    /* Wells list */
+    #wellsList { padding: 6px; }
+    .well-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      margin-bottom: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 10px;
     }
+    .well-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .well-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .well-pts { color: var(--muted); }
 
-    label {
-      font-size: 0.7rem;
-      margin-bottom: 2px;
+    /* ── PLOTS AREA ── */
+    #plots-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+    #plot3d { flex: 1; min-height: 0; }
 
+    .mini-controls {
+      padding: 3px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .mini-label { font-size: 10px; color: var(--muted); letter-spacing: .5px; }
+    .mini-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 5px;
+      width: 70px;
+      outline: none;
+    }
+    .mini-input:focus { border-color: var(--accent); }
+    .mini-btn {
+      background: none;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    .mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    #c2cPlot, #sfPlot { height: 130px; flex-shrink: 0; }
+
+    /* ── MATRIX TAB ── */
+    #matrixWrap {
+      padding: 6px;
+      overflow: auto;
+      font-family: var(--font-mono);
+      font-size: 9px;
+    }
+    .matrix-table { border-collapse: collapse; width: 100%; }
+    .matrix-table th, .matrix-table td {
+      border: 1px solid var(--border);
+      padding: 3px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .matrix-table th { background: var(--surface); color: var(--muted); }
+    .cell-ok   { background: #39d35322; color: var(--ok); }
+    .cell-warn { background: #ffc10722; color: var(--warn); }
+    .cell-bad  { background: #ff4d4d22; color: var(--danger); }
+    .cell-na   { background: var(--surface); color: var(--border); }
+
+    /* scrollbars */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
   </style>
-
 </head>
+<body>
 
-<body class="bg-dark text-light">
+<!-- NAV -->
+<nav>
+  <span class="brand">FRAC Planes<span>·</span>& AC <span style="font-size:10px;color:var(--muted)">v035</span></span>
 
-  <!-- NAV -->
-
-  <nav class="navbar navbar-dark bg-primary px-3 py-1">
-
-    <img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png"
-        alt="Canadian Natural Resources Logo" width="100" height="40">
-
-    <span class="navbar-brand fs-6">Frac Planes Evaluation</span>
-    <input type="file" id="fileInput" class="form-control form-control-sm w-auto" accept=".csv">
-
-    <div class="form-check form-switch ms-3">
-        <input class="form-check-input" type="checkbox" id="themeToggle" checked>
-        <label class="form-check-label" for="themeToggle">Dark</label>
-      </div>
-
-      <div class="form-check form-switch ms-3">
-        <input class="form-check-input" type="checkbox" id="ellipsoidToggle" checked>
-        <label class="form-check-label" for="ellipsoidToggle">Show Ellipsoids</label>
-      </div>
-
-      <div class="form-check form-switch ms-3">
-        <input class="form-check-input" type="checkbox" id="legendToggle" checked>
-        <label class="form-check-label" for="legendToggle">Show Legend</label>
-      </div>
-
-      <a href="/notes" class="btn btn-primary btn-block btn-sm w-50">Back</a>
-
-  </nav>
-
-
-
-  <!-- CONTROLS -->
-
-  <div class="container-fluid p-2">
-
-    <div class="row g-1 align-items-end">
-
-      <div class="col-2">
-        <label>Reference Well</label>
-        <select id="refWell" class="form-select form-select-sm"></select>
-      </div>
-      <div class="col-2">
-        <label>Offset Well</label>
-        <select id="offWell" class="form-select form-select-sm"></select>
-      </div>
-      <div class="col-1">
-        <label>Reference MD</label>
-        <input id="refMD" type="number" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>DX</label>
-        <input id="dx" value="10" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>DY</label>
-        <input id="dy" value="10" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>DZ</label>
-        <input id="dz" value="10" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>Roll X</label>
-        <input id="ax" value="0" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>Pitch Y</label>
-        <input id="ay" value="0" class="form-control form-control-sm">
-      </div>
-      <div class="col-1">
-        <label>Yaw Z</label>
-        <input id="az" value="0" class="form-control form-control-sm">
-      </div>
-      <div class="col-1 d-flex align-items-end">
-        <button class="btn btn-success btn-sm w-100" onclick="addBox()">Add Box</button>
-      </div>
-
+  <div class="nav-item">
+    <button id="folderBtn">📂 LOAD FOLDER</button>
+    <input type="file" id="folderInput" webkitdirectory multiple accept=".csv">
+    <span id="wellCount" class="pill">0 wells</span>
   </div>
 
+  <div class="nav-item">
+    <label class="sw">
+      <input type="checkbox" id="themeToggle" checked>
+      <span class="sw-track"></span>
+      <span class="sw-label">DARK</span>
+    </label>
+  </div>
+  <div class="nav-item">
+    <label class="sw">
+      <input type="checkbox" id="ellipsoidToggle" checked>
+      <span class="sw-track"></span>
+      <span class="sw-label">ELLIPSOIDS</span>
+    </label>
+  </div>
+  <div class="nav-item">
+    <label class="sw">
+      <input type="checkbox" id="legendToggle" checked>
+      <span class="sw-track"></span>
+      <span class="sw-label">LEGEND</span>
+    </label>
+  </div>
+  <div class="nav-item" style="padding-left: 50px;">
+      <button class="btn btn-add" onclick="location.href='/notes'" style="width: 100px;">BACK</button>
+  </div>
+</nav>
 
-    <div class="row g-1 align-items-end mt-2">
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="ctrl-group" style="width:130px">
+    <label>Reference Well</label>
+    <select id="refWell"></select>
+  </div>
+  <div class="ctrl-group" style="width:130px">
+    <label>Offset Well</label>
+    <select id="offWell"></select>
+  </div>
+  <div class="ctrl-group" style="width:80px">
+    <label>Ref MD (m)</label>
+    <input id="refMD" type="number">
+  </div>
+  <div class="ctrl-group" style="width:55px"><label>DX (m)</label><input id="dx" type="number" value="10"></div>
+  <div class="ctrl-group" style="width:55px"><label>DY (m)</label><input id="dy" type="number" value="10"></div>
+  <div class="ctrl-group" style="width:55px"><label>DZ (m)</label><input id="dz" type="number" value="10"></div>
+  <div class="ctrl-group" style="width:55px"><label>Roll X°</label><input id="ax" type="number" value="0"></div>
+  <div class="ctrl-group" style="width:55px"><label>Pitch Y°</label><input id="ay" type="number" value="0"></div>
+  <div class="ctrl-group" style="width:55px"><label>Yaw Z°</label><input id="az" type="number" value="0"></div>
 
-      <div class="col-1">
-        <label>Boxes</label>
-        <select id="boxSelect" class="form-select form-select-sm" onchange="loadBox()"></select>
-      </div>
+  <button class="btn btn-add" onclick="addBox()">+ BOX</button>
 
-      <div class="col-1 d-flex align-items-end">
-        <button class="btn btn-warning btn-sm w-100" onclick="updateBox()">Update</button>
-      </div>
+  <div class="ctrl-group" style="width:110px">
+    <label>Boxes</label>
+    <select id="boxSelect" onchange="loadBox()"></select>
+  </div>
+  <button class="btn btn-upd" onclick="updateBox()">UPDATE</button>
+  <button class="btn btn-del" onclick="deleteBox()">DELETE</button>
+  <button class="btn btn-exp" onclick="exportCSV()">EXPORT CSV</button>
+  <button class="btn btn-scan" onclick="runAllPairsScan()">⚡ SCAN ALL PAIRS</button>
+</div>
 
-      <div class="col-1 d-flex align-items-end">
-        <button class="btn btn-danger btn-sm w-100" onclick="deleteBox()">Delete</button>
-      </div>
+<!-- MAIN -->
+<div id="main">
 
-      <div class="col-1 d-flex align-items-end">
-        <button class="btn btn-outline-info btn-sm w-100" onclick="exportCSV()">Export CSV</button>
-      </div>
-
+  <!-- LEFT PANEL -->
+  <div id="info-panel">
+    <div class="panel-tabs">
+      <button class="tab-btn active" onclick="switchTab('log')">LOG</button>
+      <button class="tab-btn" onclick="switchTab('wells')">WELLS</button>
+      <button class="tab-btn" onclick="switchTab('matrix')">MATRIX</button>
     </div>
-
-
-  </div>
-
-  <!-- MAIN LAYOUT -->
-
-  <div class="container-fluid">
-    <div class="row g-0">
-
-      <!-- INFO PANEL -->
-      <div class="col-2">
-        <pre id="info">Load wells and add boxes.</pre>
-      </div>
-
-      <!-- MAIN CONTENT -->
-      <div class="col-10">
-
-        <!-- 3D PLOT -->
-        <div id="plot" style="height: 55vh;"></div>
-
-        <!-- AXIS CONTROLS (IMMEDIATELY BELOW 3D PLOT) -->
-
-        <div class="p-1">
-          <label class="me-2">C2C X:</label>
-          <input id="distXmin" type="number" placeholder="MD min" class="form-control-sm d-inline w-auto">
-          <input id="distXmax" type="number" placeholder="MD max" class="form-control-sm d-inline w-auto">
-
-          <label class="ms-3 me-2">C2C Y:</label>
-          <input id="distYmin" type="number" value="0" class="form-control-sm d-inline w-auto">
-          <input id="distYmax" type="number" value="25" class="form-control-sm d-inline w-auto">
-
-          <button id="applyDist" class="btn btn-sm btn-outline-info ms-2">Apply C2C</button>
-        </div>
-
-        <!-- C2C PLOT -->
-
-        <div id="distPlot" style="height: 20vh;"></div>
-
-
-        <!-- SF AXIS CONTROLS -->
-
-        <div class="p-1">
-          <label class="me-2">SF X:</label>
-          <input id="sfXmin" type="number" placeholder="MD min"
-                class="form-control-sm d-inline w-auto">
-          <input id="sfXmax" type="number" placeholder="MD max"
-                class="form-control-sm d-inline w-auto">
-
-          <label class="ms-3 me-2">SF Y:</label>
-          <input id="sfYmin" type="number" value="0"
-                class="form-control-sm d-inline w-auto">
-          <input id="sfYmax" type="number" value="1.5"
-                class="form-control-sm d-inline w-auto">
-
-          <button id="applySF" class="btn btn-sm btn-outline-info ms-2"> Apply SF </button>
-        </div>
-
-        <!-- SF PLOT -->
-
-        <div id="sfPlot" style="height: 20vh;"></div>
-
-      </div>
+    <div id="tab-log" class="tab-pane active">
+      <pre id="log">Load a folder of CSVs to begin.</pre>
+    </div>
+    <div id="tab-wells" class="tab-pane">
+      <div id="wellsList"></div>
+    </div>
+    <div id="tab-matrix" class="tab-pane">
+      <div id="matrixWrap"><em style="color:var(--muted);font-size:10px;padding:6px;display:block">Run ⚡ SCAN ALL PAIRS to populate.</em></div>
     </div>
   </div>
 
+  <!-- RIGHT: PLOTS -->
+  <div id="plots-area">
+    <div id="plot3d"></div>
 
+    <div class="mini-controls">
+      <span class="mini-label">C2C X:</span>
+      <input class="mini-input" id="distXmin" type="number" placeholder="MD min">
+      <input class="mini-input" id="distXmax" type="number" placeholder="MD max">
+      <span class="mini-label">Y:</span>
+      <input class="mini-input" id="distYmin" type="number" value="0">
+      <input class="mini-input" id="distYmax" type="number" value="25">
+      <button class="mini-btn" id="applyDist">APPLY</button>
+    </div>
+    <div id="c2cPlot"></div>
 
+    <div class="mini-controls">
+      <span class="mini-label">SF X:</span>
+      <input class="mini-input" id="sfXmin" type="number" placeholder="MD min">
+      <input class="mini-input" id="sfXmax" type="number" placeholder="MD max">
+      <span class="mini-label">Y:</span>
+      <input class="mini-input" id="sfYmin" type="number" value="0">
+      <input class="mini-input" id="sfYmax" type="number" value="3">
+      <button class="mini-btn" id="applySF">APPLY</button>
+    </div>
+    <div id="sfPlot"></div>
+  </div>
 
-  <script>
+</div>
 
-    // theme toggle
-    let darkTheme = true;
-    let showEllipsoids = true;
-    let showLegend = true;
+<script>
+/* ═══════════════════════════════════════════════════
+   CONSTANTS & STATE
+═══════════════════════════════════════════════════ */
+const rad = d => d * Math.PI / 180;
+const K95 = 2.447; // 95% confidence factor
 
-    function getLayout() {
-      if (darkTheme) {
-        return {
-          paper_bgcolor: "#272B30",
-          plot_bgcolor: "#272B30",
-          font: { color: "white" },
-          scene: {
-            xaxis: { 
-              title: "Eastings (X)", 
-              backgroundcolor: "#272B30", 
-              gridcolor: "#444", 
-              zerolinecolor: "#666" 
-            },
-            yaxis: { 
-              title: "Northings (Y)", 
-              backgroundcolor: "#272B30", 
-              gridcolor: "#444", 
-              zerolinecolor: "#666" 
-            },
-            zaxis: {
-              title: "Sub-Sea (Z)",
-              backgroundcolor: "#272B30",
-              gridcolor: "#444",
-              zerolinecolor: "#666",
-              autorange: true
-            },
-            aspectmode: "data"
-          }
-        };
-      } else {
-        return {
-          paper_bgcolor: "#ffffff",
-          plot_bgcolor: "#ffffff",
-          font: { color: "#000" },
-          scene: {
-            xaxis: { title: "Eastings (X)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
-            yaxis: { title: "Northings (Y)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
-            zaxis: { title: "Sub-Sea (Z)", gridcolor: "#ddd", zerolinecolor: "#aaa" },
-            aspectmode: "data"
-          }
-        };
-      }
+let wells = [];
+let boxes = [];
+let traces = [];
+let uirev = 0;
+let exportRows = [];
+let darkTheme = true;
+let showEllipsoids = true;
+let showLegend = true;
+let allPairsResults = [];
+
+const WELL_COLORS = [
+  "#00e5ff","#39d353","#ffc107","#ff6b6b","#c56cf0",
+  "#ff9f43","#48dbfb","#ff9ff3","#54a0ff","#5f27cd",
+  "#ee5a24","#009432","#0652DD","#833471","#EA2027"
+];
+
+/* ═══════════════════════════════════════════════════
+   ISCWSA REV-5 ERROR MODEL (planning-grade)
+   Sources: SPE-90408, ISCWSA MWD Rev5 coefficient table
+   Error terms: ABXY-TI1, ABXY-TI2, ASXY-TI1H, ASXY-TI2H,
+                SAG, AMIL-G, ABZE, DECR, DBHG, MDI
+═══════════════════════════════════════════════════ */
+function rev5_3D(md, incDeg, aziDeg) {
+  const inc = rad(incDeg);
+  const azi = rad(aziDeg);
+  const sI = Math.sin(inc), cI = Math.cos(inc);
+  const sA = Math.sin(azi), cA = Math.cos(azi);
+
+  // ── Propagated 1-sigma error terms (Rev-5 MWD + HRGM) ──
+  // Inclination bias (ABXY-TI1): 0.10 deg
+  const sigABXY_inc = rad(0.10) * md;
+  // Azimuth bias (ABXY-TI2): 0.30 deg (increased from Rev4)
+  const sigABXY_azi = rad(0.30) * md;
+  // Azimuth scale (ASXY-TI1H): 0.001 * MD
+  const sigASXY     = 0.001 * md;
+  // Sag correction error: 0.02 deg * MD * sin(inc)
+  const sigSAG      = rad(0.02) * md * sI;
+  // Depth measurement error: 0.0005 * MD (Rev-5 tighter)
+  const sigmaMD     = 0.0005 * md;
+  // Declination reference error: 0.36 deg * MD * sin(inc)
+  const sigDECR     = rad(0.36) * md * sI;
+  // Magnetic interference (DBHG): 70 nT → ~0.12 deg * MD * sin(inc)
+  const sigDBHG     = rad(0.12) * md * sI;
+
+  // ── Horizontal variance (Northing / Easting plane) ──
+  // Each term's contribution in the horizontal plane
+  const varH =
+    Math.pow(sigABXY_inc * sI, 2) +       // incl bias → horizontal
+    Math.pow(sigABXY_azi * sI, 2) +       // azi bias  → horizontal
+    Math.pow(sigASXY     * sI, 2) +       // azi scale → horizontal
+    Math.pow(sigSAG      * sI, 2) +       // sag       → horizontal
+    Math.pow(sigDECR,           2) +       // decl ref  → horizontal
+    Math.pow(sigDBHG,           2);        // mag inter → horizontal
+
+  // ── Vertical variance (Sub-Sea depth) ──
+  const varZ =
+    Math.pow(sigABXY_inc * cI, 2) +       // incl bias → vertical
+    Math.pow(sigSAG      * cI, 2) +       // sag       → vertical
+    Math.pow(sigmaMD,           2);        // depth err → vertical
+
+  // Return 3-axis diagonal covariance (isotropic horizontal)
+  return {
+    xx: varH / 2,   // Easting variance
+    yy: varH / 2,   // Northing variance
+    zz: varZ        // Sub-Sea variance
+  };
+}
+
+/* ═══════════════════════════════════════════════════
+   3D SEPARATION FACTOR (SPE-90408 / ISCWSA)
+   Uses full 3D covariance along the 3D separation vector
+═══════════════════════════════════════════════════ */
+function separationFactor3D(refPt, cRef, offPt, cOff) {
+  const dx = refPt.x - offPt.x;
+  const dy = refPt.y - offPt.y;
+  const dz = refPt.z - offPt.z;
+  const D  = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+  if (D < 1e-9) return { separation: 0, sigma: Infinity, SF: 0 };
+
+  // Unit vector along separation
+  const ux = dx / D, uy = dy / D, uz = dz / D;
+
+  // Combined covariance (diagonal 3D)
+  const Cxx = cRef.xx + cOff.xx;
+  const Cyy = cRef.yy + cOff.yy;
+  const Czz = cRef.zz + cOff.zz;
+
+  // Variance of separation = uᵀ C u  (diagonal matrix)
+  const varSep = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz;
+  const sigmaSep = Math.sqrt(Math.max(varSep, 0));
+
+  return {
+    separation: D,
+    sigma: sigmaSep,
+    SF: sigmaSep > 1e-9 ? D / (K95 * sigmaSep) : Infinity
+  };
+}
+
+/* ═══════════════════════════════════════════════════
+   SURVEY INTERPOLATION
+═══════════════════════════════════════════════════ */
+function interpSurvey(s, md) {
+  for (let i = 0; i < s.length - 1; i++) {
+    if (md >= s[i].md && md <= s[i+1].md) {
+      const f = (md - s[i].md) / (s[i+1].md - s[i].md);
+      return {
+        md,
+        x:   s[i].x   + f*(s[i+1].x   - s[i].x),
+        y:   s[i].y   + f*(s[i+1].y   - s[i].y),
+        z:   s[i].z   + f*(s[i+1].z   - s[i].z),
+        inc: s[i].inc + f*(s[i+1].inc - s[i].inc),
+        azi: s[i].azi + f*(s[i+1].azi - s[i].azi)
+      };
+    }
   }
-  document.getElementById("themeToggle").addEventListener("change", e => {
-    darkTheme = e.target.checked;
-    e.target.nextElementSibling.textContent = darkTheme ? "Dark" : "Light";
-    rebuild();
-  });
-
-  document.getElementById("ellipsoidToggle").addEventListener("change", e => {
-    showEllipsoids = e.target.checked;
-    rebuild();
-  });
-
-  document.getElementById("legendToggle").addEventListener("change", e => {
-    showLegend = e.target.checked;
-    rebuild();
-  });
-
-
-
-  // ---------- APPLY SF AXIS ONLY ----------
-
-const applySFBtn = document.getElementById("applySF");
-if (applySFBtn) {
-  applySFBtn.addEventListener("click", () => {
-    const xRange = (
-      sfXmin.value || sfXmax.value
-        ? [Number(sfXmin.value), Number(sfXmax.value)]
-        : null
-    );
-
-    const yRange = [Number(sfYmin.value), Number(sfYmax.value)];
-
-    const layoutUpdate = {
-      "xaxis.range": xRange,
-      "yaxis.range": yRange
-    };
-
-    Plotly.relayout("sfPlot", layoutUpdate);
-  });
+  return null;
 }
 
-
-// ---------- APPLY C2C AXIS ONLY ----------
-
-const applyDistBtn = document.getElementById("applyDist");
-if (applyDistBtn) {
-  applyDistBtn.addEventListener("click", () => {
-    const xRange = (
-      distXmin.value || distXmax.value
-        ? [Number(distXmin.value), Number(distXmax.value)]
-        : null
-    );
-
-    const yRange = [Number(distYmin.value), Number(distYmax.value)];
-
-    const layoutUpdate = {
-      "xaxis.range": xRange,
-      "yaxis.range": yRange
-    };
-
-    Plotly.relayout("distPlot", layoutUpdate);
-  });
+function closestPointOnSegment(P, A, B) {
+  const AB = { x:B.x-A.x, y:B.y-A.y, z:B.z-A.z };
+  const AP = { x:P.x-A.x, y:P.y-A.y, z:P.z-A.z };
+  const ab2 = AB.x**2 + AB.y**2 + AB.z**2;
+  let t = ab2===0 ? 0 : (AP.x*AB.x + AP.y*AB.y + AP.z*AB.z) / ab2;
+  t = Math.max(0, Math.min(1, t));
+  return {
+    point: { x:A.x+t*AB.x, y:A.y+t*AB.y, z:A.z+t*AB.z },
+    t
+  };
 }
 
+function closestPointToTrajectory(P, survey) {
+  let minDist = Infinity, closest = null;
+  for (let i = 0; i < survey.length-1; i++) {
+    const res = closestPointOnSegment(P, survey[i], survey[i+1]);
+    const dx=P.x-res.point.x, dy=P.y-res.point.y, dz=P.z-res.point.z;
+    const d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if (d < minDist) { minDist=d; closest={...res.point}; }
+  }
+  return { minDist, closest };
+}
 
-// // ---------- APPLY SF AXIS ONLY ----------
-// const applySFBtn = document.getElementById("applySF");
-// if (applySFBtn) {
-//   applySFBtn.addEventListener("click", () => {
-//     const xRange = (
-//       sfXmin.value || sfXmax.value
-//         ? [Number(sfXmin.value), Number(sfXmax.value)]
-//         : null
-//     );
-
-//     const yRange = [Number(sfYmin.value), Number(sfYmax.value)];
-
-//     Plotly.relayout("sfPlot", {
-//       "xaxis.range": xRange,
-//       "yaxis.range": yRange
-//     });
-//   });
-// }
-
-
-
-    /* ================= STATE ================= */
-    const rad = d => d * Math.PI / 180;
-    let wells = [];
-    let boxes = [];
-    let traces = [];
-    let uirev = 0;
-    let exportRows = [];
-
-    /* ================= ISCWSA REV-4 UNCERTAINTY ================= */
-
-    // Simple 2D covariance container (Northing/Easting)
-
-    class Cov2 {
-      constructor(xx, xy, yy) {
-        this.xx = xx;
-        this.xy = xy;
-        this.yy = yy;
-      }
-      add(o) {
-        return new Cov2(
-          this.xx + o.xx,
-          this.xy + o.xy,
-          this.yy + o.yy
-        );
-      }
-    }
-
-
-
-    /**
-     * ISCWSA Rev-4 MWD + HRGM uncertainty model (planning-level)
-     * Returns 1-sigma horizontal covariance
-     */
-
-    function rev4MWD_HRGM(md, incDeg) {
-      const inc = rad(incDeg);
-
-      // ---- 1-sigma error terms (Rev-4 consistent) ----
-      const sigmaInc = rad(0.10);   // Inclination error (deg)
-      const sigmaAzi = rad(0.20);   // Azimuth error (HRGM)
-      const sigmaMD  = 0.001 * md;  // Depth error (0.1% MD)
-
-      // Horizontal variance growth
-      const varH =
-        Math.pow(md * sigmaInc * Math.sin(inc), 2) +
-        Math.pow(md * sigmaAzi * Math.sin(inc), 2) +
-        Math.pow(sigmaMD * Math.sin(inc), 2);
-
-      // Isotropic horizontal ellipse
-      return new Cov2(varH / 2, 0, varH / 2);
-    }
-
-
-
-
-    function rev4MWD_HRGM_3D(md, incDeg) {
-      const inc = rad(incDeg);
-
-      const sigmaInc = rad(0.10);
-      const sigmaAzi = rad(0.20);
-      const sigmaMD  = 0.001 * md;
-
-      const varH =
-        Math.pow(md * sigmaInc * Math.sin(inc), 2) +
-        Math.pow(md * sigmaAzi * Math.sin(inc), 2) +
-        Math.pow(sigmaMD * Math.sin(inc), 2);
-
-      const varZ =
-        Math.pow(md * sigmaInc * Math.cos(inc), 2) +
-        Math.pow(sigmaMD, 2);
-
-      return {
-        xx: varH / 2,
-        yy: varH / 2,
-        zz: varZ
+function interpolateClosestWithSurvey(P, survey) {
+  let minDist = Infinity, best = null;
+  for (let i = 0; i < survey.length-1; i++) {
+    const A=survey[i], B=survey[i+1];
+    const res = closestPointOnSegment(P, A, B);
+    const dx=P.x-res.point.x, dy=P.y-res.point.y, dz=P.z-res.point.z;
+    const d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if (d < minDist) {
+      minDist = d;
+      const f = res.t;
+      best = {
+        x: res.point.x, y: res.point.y, z: res.point.z,
+        md:  A.md  + f*(B.md  - A.md),
+        inc: A.inc + f*(B.inc - A.inc),
+        azi: A.azi + f*(B.azi - A.azi)
       };
     }
+  }
+  return best;
+}
 
+function sampleMDs(survey, step=30) {
+  const out = [];
+  const mdMin = survey[0].md, mdMax = survey[survey.length-1].md;
+  for (let md=mdMin; md<=mdMax; md+=step) out.push(md);
+  return out;
+}
 
+/* ═══════════════════════════════════════════════════
+   PROFILE: SF & C2C vs MD  (Rev-5 3D)
+═══════════════════════════════════════════════════ */
+function computeProfile(refWell, offWell, step=30) {
+  const mds=[], sfs=[], dists=[];
+  const mdMin=refWell.s[0].md, mdMax=refWell.s[refWell.s.length-1].md;
+  for (let md=mdMin; md<=mdMax; md+=step) {
+    const refPt = interpSurvey(refWell.s, md);
+    if (!refPt) continue;
+    const offPt = interpolateClosestWithSurvey(refPt, offWell.s);
+    if (!offPt) continue;
+    const cRef = rev5_3D(refPt.md, refPt.inc, refPt.azi);
+    const cOff = rev5_3D(offPt.md, offPt.inc, offPt.azi);
+    const sf   = separationFactor3D(refPt, cRef, offPt, cOff);
+    const dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+    mds.push(md);
+    sfs.push(sf.SF);
+    dists.push(Math.sqrt(dx*dx+dy*dy+dz*dz));
+  }
+  return { mds, sfs, dists };
+}
 
-    function separationFactor(ref, covRef, off, covOff) {
-      const dx = ref.x - off.x;
-      const dy = ref.y - off.y;
-      const D  = Math.sqrt(dx*dx + dy*dy);
+/* ═══════════════════════════════════════════════════
+   ALL-PAIRS SCAN
+═══════════════════════════════════════════════════ */
+function runAllPairsScan() {
+  if (wells.length < 2) { alert("Load at least 2 wells first."); return; }
+  allPairsResults = [];
 
-      if (D < 1e-9) {
-        return { separation: 0, sigma: Infinity, SF: 0 };
+  for (let r=0; r<wells.length; r++) {
+    for (let o=r+1; o<wells.length; o++) {
+      const rw=wells[r], ow=wells[o];
+      const step=30;
+      let minSF=Infinity, minC2C=Infinity, minSF_md=null, minC2C_md=null;
+      const mdMin=rw.s[0].md, mdMax=rw.s[rw.s.length-1].md;
+      for (let md=mdMin; md<=mdMax; md+=step) {
+        const refPt=interpSurvey(rw.s, md); if (!refPt) continue;
+        const offPt=interpolateClosestWithSurvey(refPt, ow.s); if (!offPt) continue;
+        const cRef=rev5_3D(refPt.md,refPt.inc,refPt.azi);
+        const cOff=rev5_3D(offPt.md,offPt.inc,offPt.azi);
+        const sf=separationFactor3D(refPt,cRef,offPt,cOff);
+        const dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+        const dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if (sf.SF < minSF)   { minSF=sf.SF; minSF_md=md; }
+        if (dist < minC2C)   { minC2C=dist; minC2C_md=md; }
       }
-
-      const ux = dx / D;
-      const uy = dy / D;
-
-      const cov = covRef.add(covOff);
-
-      const varSep =
-        ux*ux*cov.xx +
-        2*ux*uy*cov.xy +
-        uy*uy*cov.yy;
-
-      const sigmaSep = Math.sqrt(varSep);
-      const k = 2.447; // 95%
-
-      return {
-        separation: D,
-        sigma: sigmaSep,
-        SF: D / (k * sigmaSep)
-      };
+      allPairsResults.push({ r, o,
+        refName: rw.name, offName: ow.name,
+        minSF: isFinite(minSF)?minSF:999,
+        minC2C: isFinite(minC2C)?minC2C:9999,
+        minSF_md, minC2C_md
+      });
     }
+  }
+  renderMatrix();
+  switchTab('matrix');
+  // also log summary
+  let txt = '⚡ ALL-PAIRS SCAN RESULTS\n';
+  txt += '━'.repeat(28)+'\n';
+  allPairsResults.forEach(r=>{
+    const sfStr = r.minSF.toFixed(2);
+    const cls = r.minSF<1?'bad':r.minSF<1.5?'warn':'ok';
+    txt += `\n<span class="${cls}">${r.refName.replace(/\.csv$/i,'')} ↔ ${r.offName.replace(/\.csv$/i,'')}</span>\n`;
+    txt += ` Min SF (3D,95%): <span class="${cls} val">${sfStr}</span>  @ MD ${r.minSF_md?.toFixed(0)} m\n`;
+    txt += ` Min C2C:         <span class="val">${r.minC2C.toFixed(1)} m</span>  @ MD ${r.minC2C_md?.toFixed(0)} m\n`;
+  });
+  document.getElementById('log').innerHTML = txt;
+  switchTab('log');
+}
 
+function renderMatrix() {
+  if (!wells.length) return;
+  const names = wells.map(w=>w.name.replace(/\.csv$/i,''));
+  const n = wells.length;
 
+  // Build lookup
+  const lookup = {};
+  allPairsResults.forEach(r=>{ lookup[`${r.r}-${r.o}`]=r; lookup[`${r.o}-${r.r}`]=r; });
 
-    function sampleMDs(survey, step=30) {
-      const mds = [];
-      const mdMin = survey[0].md;
-      const mdMax = survey[survey.length-1].md;
-      for (let md = mdMin; md <= mdMax; md += step) {
-        mds.push(md);
-      }
-      return mds;
+  let html = '<table class="matrix-table"><thead><tr><th></th>';
+  names.forEach(n=>{ html+=`<th title="${n}">${n.length>8?n.slice(0,8)+'…':n}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (let i=0; i<n; i++) {
+    html += `<tr><th title="${names[i]}">${names[i].length>8?names[i].slice(0,8)+'…':names[i]}</th>`;
+    for (let j=0; j<n; j++) {
+      if (i===j) { html+=`<td class="cell-na">—</td>`; continue; }
+      const key=`${Math.min(i,j)}-${Math.max(i,j)}`;
+      const res=lookup[key];
+      if (!res) { html+=`<td class="cell-na">?</td>`; continue; }
+      const sf=res.minSF;
+      const cls=sf<1?'cell-bad':sf<1.5?'cell-warn':'cell-ok';
+      html+=`<td class="${cls}" title="Min SF=${sf.toFixed(2)}, Min C2C=${res.minC2C.toFixed(1)}m">${sf.toFixed(2)}</td>`;
     }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  html += '<p style="color:var(--muted);font-size:9px;padding:4px">SF colour: <span style="color:var(--ok)">≥1.5 safe</span> · <span style="color:var(--warn)">1.0–1.5 caution</span> · <span style="color:var(--danger)">&lt;1.0 collision risk</span></p>';
+  document.getElementById('matrixWrap').innerHTML = html;
+}
 
+/* ═══════════════════════════════════════════════════
+   GEOMETRY HELPERS
+═══════════════════════════════════════════════════ */
+function rotate(p, a) {
+  let {x,y,z}=p;
+  let cx=Math.cos(rad(a.ax)),sx=Math.sin(rad(a.ax));[y,z]=[y*cx-z*sx,y*sx+z*cx];
+  let cy=Math.cos(rad(a.ay)),sy=Math.sin(rad(a.ay));[x,z]=[x*cy+z*sy,-x*sy+z*cy];
+  let cz=Math.cos(rad(a.az)),sz=Math.sin(rad(a.az));[x,y]=[x*cz-y*sz,x*sz+y*cz];
+  return {x,y,z};
+}
+function invRotate(p, a) {
+  let {x,y,z}=p;
+  let cz=Math.cos(-rad(a.az)),sz=Math.sin(-rad(a.az));[x,y]=[x*cz-y*sz,x*sz+y*cz];
+  let cy=Math.cos(-rad(a.ay)),sy=Math.sin(-rad(a.ay));[x,z]=[x*cy+z*sy,-x*sy+z*cy];
+  let cx=Math.cos(-rad(a.ax)),sx=Math.sin(-rad(a.ax));[y,z]=[y*cx-z*sx,y*sx+z*cx];
+  return {x,y,z};
+}
 
-
-    function computeSFProfile(refWell, offWell, step=30) {
-      const mds = [];
-      const sfs = [];
-      const dists = [];
-
-      const mdMin = refWell.s[0].md;
-      const mdMax = refWell.s[refWell.s.length - 1].md;
-
-      for (let md = mdMin; md <= mdMax; md += step) {
-        const refPt = interpSurvey(refWell.s, md);
-        if (!refPt) continue;
-
-        const offPt = interpolateClosestPointWithSurvey(refPt, offWell.s);
-        if (!offPt) continue;
-
-        const covRef = rev4MWD_HRGM(refPt.md, refPt.inc);
-        const covOff = rev4MWD_HRGM(offPt.md, offPt.inc);
-
-        const sf = separationFactor(refPt, covRef, offPt, covOff);
-
-        const dx = refPt.x - offPt.x;
-        const dy = refPt.y - offPt.y;
-        const dz = refPt.z - offPt.z;
-        const dist3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        mds.push(md);
-        sfs.push(sf.SF);
-        dists.push(dist3D);
-      }
-
-      return { mds, sfs, dists };
+function firstEntry(offsetSurvey, box, a) {
+  for (let i=0; i<offsetSurvey.length-1; i++) {
+    const A=invRotate({x:offsetSurvey[i].x-box.c.x,y:offsetSurvey[i].y-box.c.y,z:offsetSurvey[i].z-box.c.z},a);
+    const B=invRotate({x:offsetSurvey[i+1].x-box.c.x,y:offsetSurvey[i+1].y-box.c.y,z:offsetSurvey[i+1].z-box.c.z},a);
+    let t0=0,t1=1;
+    for (const ax of ['x','y','z']) {
+      const d=B[ax]-A[ax],min=-box.h[ax],max=box.h[ax];
+      if (Math.abs(d)<1e-9){if(A[ax]<min||A[ax]>max){t0=1;t1=0;break;}}
+      else{let tmin=(min-A[ax])/d,tmax=(max-A[ax])/d;if(tmin>tmax)[tmin,tmax]=[tmax,tmin];t0=Math.max(t0,tmin);t1=Math.min(t1,tmax);}
     }
+    if (t0<=t1&&t0>=0&&t0<=1) {
+      const eps=t0+1e-6;
+      const Pin={x:A.x+eps*(B.x-A.x),y:A.y+eps*(B.y-A.y),z:A.z+eps*(B.z-A.z)};
+      if (Math.abs(Pin.x)<box.h.x&&Math.abs(Pin.y)<box.h.y&&Math.abs(Pin.z)<box.h.z)
+        return { md:offsetSurvey[i].md+t0*(offsetSurvey[i+1].md-offsetSurvey[i].md), local:{x:A.x+t0*(B.x-A.x),y:A.y+t0*(B.y-A.y),z:A.z+t0*(B.z-A.z)}, seg:[offsetSurvey[i],offsetSurvey[i+1]] };
+    }
+  }
+}
 
+/* ═══════════════════════════════════════════════════
+   PLOTLY TRACES
+═══════════════════════════════════════════════════ */
+function markerTrace(p, name, color) {
+  return { type:'scatter3d',mode:'markers',name, x:[p.x],y:[p.y],z:[p.z], marker:{size:6,color} };
+}
 
+function boxMesh(c,h,a) {
+  const raw=[[-h.x,-h.y,-h.z],[h.x,-h.y,-h.z],[h.x,h.y,-h.z],[-h.x,h.y,-h.z],
+             [-h.x,-h.y,h.z],[h.x,-h.y,h.z],[h.x,h.y,h.z],[-h.x,h.y,h.z]].map(p=>{const r=rotate({x:p[0],y:p[1],z:p[2]},a);return{x:r.x+c.x,y:r.y+c.y,z:r.z+c.z};});
+  return { type:'mesh3d',opacity:0.25,color:'#00e5ff',
+    x:raw.map(p=>p.x),y:raw.map(p=>p.y),z:raw.map(p=>p.z),
+    i:[0,0,4,4,0,1,2,3],j:[1,2,5,6,3,5,6,7],k:[2,3,6,7,4,6,7,4] };
+}
 
-    /* ================= LOAD CSV ================= */
+function boxWireframe(c,h,a) {
+  const edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const raw=[[-h.x,-h.y,-h.z],[h.x,-h.y,-h.z],[h.x,h.y,-h.z],[-h.x,h.y,-h.z],
+             [-h.x,-h.y,h.z],[h.x,-h.y,h.z],[h.x,h.y,h.z],[-h.x,h.y,h.z]].map(p=>{const r=rotate({x:p[0],y:p[1],z:p[2]},a);return{x:r.x+c.x,y:r.y+c.y,z:r.z+c.z};});
+  let x=[],y=[],z=[];
+  edges.forEach(e=>{x.push(raw[e[0]].x,raw[e[1]].x,null);y.push(raw[e[0]].y,raw[e[1]].y,null);z.push(raw[e[0]].z,raw[e[1]].z,null);});
+  return { type:'scatter3d',mode:'lines',x,y,z, line:{color:'#00e5ff',width:2}, name:'Box',hoverinfo:'skip' };
+}
 
-    fileInput.addEventListener("change", e => {
-      Papa.parse(e.target.files[0], {
-        header: true,
-        skipEmptyLines: true,
-        complete: r => {
-          wells.push({
-            name: e.target.files[0].name,
+function ellipsoidTrace(center, cov3, scale, name, color) {
+  const Nu=10, Nv=10;
+  const a=Math.sqrt(cov3.xx)*scale, b=Math.sqrt(cov3.yy)*scale, c=Math.sqrt(cov3.zz)*scale;
+  const x=[],y=[],z=[];
+  for(let i=0;i<=Nu;i++){const u=Math.PI*i/Nu;for(let j=0;j<=Nv;j++){const v=2*Math.PI*j/Nv;x.push(center.x+a*Math.sin(u)*Math.cos(v));y.push(center.y+b*Math.sin(u)*Math.sin(v));z.push(center.z+c*Math.cos(u));}}
+  return { type:'mesh3d',x,y,z,opacity:0.12,color,name };
+}
 
-            s: r.data.map(d => ({
-              md: +d.MD,
-              inc: +d.Incl,
-              azi: +d.Azim,
-              x: +d.Eastings,
-              y: +d.Northings,
-              z: +d["Sub-Sea"]
-            })).filter(p =>
-              Number.isFinite(p.md) &&
-              Number.isFinite(p.inc) &&
-              Number.isFinite(p.azi) &&
-              Number.isFinite(p.x) &&
-              Number.isFinite(p.y) &&
-              Number.isFinite(p.z)
-            )
+function dashedLine(a,b,color,name) {
+  return { type:'scatter3d',mode:'lines',x:[a.x,b.x],y:[a.y,b.y],z:[a.z,b.z],
+    line:{color,width:2,dash:'dot'},name,hoverinfo:'text',text:name };
+}
 
-          });
-          updateSelectors();
-          rebuild();
-        }
+function faceProjections(local,h) {
+  return [
+    {face:'+X',p:{x: h.x,y:local.y,z:local.z},color:'#ff4d4d'},
+    {face:'-X',p:{x:-h.x,y:local.y,z:local.z},color:'#ff4d4d'},
+    {face:'+Y',p:{x:local.x,y: h.y,z:local.z},color:'#39d353'},
+    {face:'-Y',p:{x:local.x,y:-h.y,z:local.z},color:'#39d353'},
+    {face:'+Z',p:{x:local.x,y:local.y,z: h.z},color:'#54a0ff'},
+    {face:'-Z',p:{x:local.x,y:local.y,z:-h.z},color:'#54a0ff'},
+  ];
+}
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════ */
+function getLayout3D() {
+  const dark = darkTheme;
+  const bg   = dark ? '#0d1117' : '#f6f8fa';
+  const grid = dark ? '#21262d' : '#e0e0e0';
+  const font = dark ? '#c9d1d9' : '#24292f';
+  return {
+    paper_bgcolor: bg, plot_bgcolor: bg, font:{color:font,family:"'Share Tech Mono', monospace",size:10},
+    margin:{l:0,r:0,t:0,b:0},
+    scene:{
+      xaxis:{title:'Eastings (E)',backgroundcolor:bg,gridcolor:grid,zerolinecolor:grid},
+      yaxis:{title:'Northings (N)',backgroundcolor:bg,gridcolor:grid,zerolinecolor:grid},
+      zaxis:{title:'Sub-Sea (Z)',backgroundcolor:bg,gridcolor:grid,zerolinecolor:grid,autorange:true},
+      aspectmode:'data'
+    }
+  };
+}
+
+function getLayout2D(xTitle,yTitle) {
+  const bg=darkTheme?'#0d1117':'#f6f8fa', font=darkTheme?'#c9d1d9':'#24292f', grid=darkTheme?'#21262d':'#e0e0e0';
+  return {
+    paper_bgcolor:bg,plot_bgcolor:bg,font:{color:font,family:"'Share Tech Mono', monospace",size:9},
+    margin:{l:45,r:10,t:4,b:32},
+    xaxis:{title:xTitle,gridcolor:grid,zerolinecolor:grid},
+    yaxis:{title:yTitle,gridcolor:grid,zerolinecolor:grid}
+  };
+}
+
+/* ═══════════════════════════════════════════════════
+   REBUILD
+═══════════════════════════════════════════════════ */
+function rebuild() {
+  exportRows = [];
+  traces = [];
+  let logHtml = '';
+
+  // Draw well trajectories
+  wells.forEach((w,i) => {
+    traces.push({
+      type:'scatter3d', mode:'lines', name:w.name,
+      x:w.s.map(p=>p.x), y:w.s.map(p=>p.y), z:w.s.map(p=>p.z),
+      line:{color:WELL_COLORS[i%WELL_COLORS.length],width:4}
+    });
+  });
+
+  // Ellipsoids for selected ref/off wells
+  if (showEllipsoids && boxes.length > 0) {
+    const b0=boxes[0];
+    [{ wi:b0.ref,color:'#00e5ff' },{ wi:b0.off,color:'#ffc107' }].forEach(({wi,color}) => {
+      const w=wells[wi]; if(!w) return;
+      sampleMDs(w.s,60).forEach(md=>{
+        const p=interpSurvey(w.s,md); if(!p) return;
+        const cov=rev5_3D(p.md,p.inc,p.azi);
+        traces.push(ellipsoidTrace(p,cov,K95,`Ell@${md}`,color));
       });
     });
+  }
 
-    /* ================= BOX CRUD ================= */
-    function addBox() {
-      boxes.push(readBoxInputs());
-      rebuild();
-    }
-    function updateBox() {
-      if (boxSelect.value !== "") {
-        boxes[boxSelect.value] = readBoxInputs();
-        rebuild();
-      }
-    }
-    function deleteBox() {
-      if (boxSelect.value !== "") {
-        boxes.splice(boxSelect.value, 1);
-        rebuild();
-      }
-    }
-    function loadBox() {
-      const b = boxes[boxSelect.value];
-      if (!b) return;
-      refWell.value = b.ref; offWell.value = b.off;
-      refMD.value = b.md;
-      dx.value = b.dx; dy.value = b.dy; dz.value = b.dz;
-      ax.value = b.ax; ay.value = b.ay; az.value = b.az;
-    }
-    function readBoxInputs() {
-      return {
-        ref: +refWell.value,
-        off: +offWell.value,
-        md: +refMD.value,
-        dx: +dx.value,
-        dy: +dy.value,
-        dz: +dz.value,
-        ax: +ax.value,
-        ay: +ay.value,
-        az: +az.value
-      };
-    }
+  // Process boxes
+  boxes.forEach((b,i) => {
+    const rw=wells[b.ref], ow=wells[b.off];
+    if (!rw||!ow) return;
 
-    /* ================= GEOMETRY ================= */
-    function interp(s, md) {
-      for (let i = 0; i < s.length - 1; i++) {
-        if (md >= s[i].md && md <= s[i + 1].md) {
-          const f = (md - s[i].md) / (s[i + 1].md - s[i].md);
-          return {
-            x: s[i].x + f * (s[i + 1].x - s[i].x),
-            y: s[i].y + f * (s[i + 1].y - s[i].y),
-            z: s[i].z + f * (s[i + 1].z - s[i].z)
-          };
-        }
-      }
+    const center = interpSurvey(rw.s, b.md);
+    if (!center) return;
+
+    const offPt = interpolateClosestWithSurvey(center, ow.s);
+    if (!offPt) return;
+
+    const cRef = rev5_3D(center.md,center.inc,center.azi);
+    const cOff = rev5_3D(offPt.md,offPt.inc,offPt.azi);
+    const sf   = separationFactor3D(center,cRef,offPt,cOff);
+
+    const closest3D = closestPointToTrajectory(center, ow.s);
+
+    const box = { c:center, h:{x:b.dx,y:b.dy,z:b.dz} };
+    const hit = firstEntry(ow.s, box, b);
+
+    const row = {
+      Box_ID: i+1,
+      Reference_Well: rw.name,
+      Offset_Well: ow.name,
+      Ref_MD: b.md,
+      Model: 'ISCWSA-Rev5-3D',
+      Separation_m: sf.separation.toFixed(2),
+      Combined_Sigma_95_m: (K95*sf.sigma).toFixed(2),
+      SF_3D_95: sf.SF.toFixed(3),
+      Min_C2C_3D_m: closest3D.minDist.toFixed(3),
+      Offset_In_Box: hit?'TRUE':'FALSE',
+      Offset_Entry_MD: hit?hit.md.toFixed(2):''
+    };
+    if (hit) {
+      row.Clr_PosX=( box.h.x - hit.local.x ).toFixed(2); 
+      row.Clr_NegX=( box.h.x + hit.local.x ).toFixed(2);
+      row.Clr_PosY=( box.h.y - hit.local.y ).toFixed(2); 
+      row.Clr_NegY=( box.h.y + hit.local.y ).toFixed(2);
+      row.Clr_PosZ=( box.h.z - hit.local.z ).toFixed(2); 
+      row.Clr_NegZ=( box.h.z + hit.local.z ).toFixed(2);
+      row.Dist_X=( hit.local.x ).toFixed(2);
+      row.Dist_Y=( hit.local.y ).toFixed(2);
+      row.Dist_Z=( hit.local.z ).toFixed(2);
     }
+    exportRows.push(row);
 
+    // Visuals
+    traces.push(markerTrace(center,`Ref MD ${b.md}`,'#ffc107'));
+    traces.push(boxMesh(center,box.h,b));
+    traces.push(boxWireframe(center,box.h,b));
 
-    function interpSurvey(s, md) {
-      for (let i = 0; i < s.length - 1; i++) {
-        if (md >= s[i].md && md <= s[i + 1].md) {
-          const f = (md - s[i].md) / (s[i + 1].md - s[i].md);
-          return {
-            md,
-            x: s[i].x + f * (s[i+1].x - s[i].x),
-            y: s[i].y + f * (s[i+1].y - s[i].y),
-            z: s[i].z + f * (s[i+1].z - s[i].z),
-            inc: s[i].inc + f * (s[i+1].inc - s[i].inc),
-            azi: s[i].azi + f * (s[i+1].azi - s[i].azi)
-          };
-        }
-      }
+    if (hit) {
+      const rotWorld = rotate(hit.local,b);
+      const entryWorld = {x:rotWorld.x+center.x,y:rotWorld.y+center.y,z:rotWorld.z+center.z};
+      traces.push(markerTrace(entryWorld,`Entry Box${i+1}`,'#00e5ff'));
+      faceProjections(hit.local,box.h).forEach(fp=>{
+        const rp=rotate(fp.p,b);
+        traces.push(dashedLine(entryWorld,{x:rp.x+center.x,y:rp.y+center.y,z:rp.z+center.z},fp.color,`Clr ${fp.face} Box${i+1}`));
+      });
     }
 
-    
-
-
-    function invRotate(p, a) {
-      let { x, y, z } = p;
-      let cz = Math.cos(-rad(a.az)), sz = Math.sin(-rad(a.az));[x, y] = [x * cz - y * sz, x * sz + y * cz];
-      let cy = Math.cos(-rad(a.ay)), sy = Math.sin(-rad(a.ay));[x, z] = [x * cy + z * sy, -x * sy + z * cy];
-      let cx = Math.cos(-rad(a.ax)), sx = Math.sin(-rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
-      return { x, y, z };
+    if (closest3D.closest) {
+      traces.push(markerTrace(closest3D.closest,`Closest Off Box${i+1}`,'#ff4d4d'));
+      traces.push(dashedLine(center,closest3D.closest,'#ff4d4d',`Min C2C Box${i+1}`));
     }
 
-    function rotate(p, a) {
-      let { x, y, z } = p;
-      let cx = Math.cos(rad(a.ax)), sx = Math.sin(rad(a.ax));[y, z] = [y * cx - z * sx, y * sx + z * cx];
-      let cy = Math.cos(rad(a.ay)), sy = Math.sin(rad(a.ay));[x, z] = [x * cy + z * sy, -x * sy + z * cy];
-      let cz = Math.cos(rad(a.az)), sz = Math.sin(rad(a.az));[x, y] = [x * cz - y * sz, x * sz + y * cz];
-      return { x, y, z };
+    // Log
+    const sfCls=sf.SF<1?'bad':sf.SF<1.5?'warn':'ok';
+    logHtml+=`<span class="hi">BOX ${i+1}</span>  Ref: ${rw.name.replace(/\.csv$/i,'')} @ MD ${b.md} m\n`;
+    logHtml+=` Off: ${ow.name.replace(/\.csv$/i,'')}\n`;
+    logHtml+=` Model: <span class="val">ISCWSA Rev-5 · 3D SF</span>\n`;
+    logHtml+=` Sep 3D: <span class="val">${sf.separation.toFixed(2)} m</span>\n`;
+    logHtml+=` σ (95%): <span class="val">${(K95*sf.sigma).toFixed(2)} m</span>\n`;
+    logHtml+=` SF: <span class="${sfCls}">${sf.SF.toFixed(3)}</span>${sf.SF<1?' ⚠️ COLLISION RISK':sf.SF<1.5?' ⚠️ CAUTION':' ✓'}\n`;
+    logHtml+=` Min C2C: <span class="val">${closest3D.minDist.toFixed(2)} m</span>\n`;
+    logHtml+=` In Box: <span class="${hit?'bad':'ok'}">${hit?'YES at MD ' + hit.md.toFixed(2)+' m':'NO'}</span>\n`;
+    if (hit) {
+      logHtml+=' Distances entry point to box (m):\n';
+      logHtml+=' +X: ' + Math.abs(( box.h.x - hit.local.x).toFixed(2))+';\n'; 
+      logHtml+=' -X: ' + Math.abs((box.h.x + hit.local.x).toFixed(2))+';\n';
+      logHtml+=' +Y: ' + Math.abs(( box.h.y - hit.local.y).toFixed(2))+';\n'; 
+      logHtml+=' -Y: ' + Math.abs((box.h.y + hit.local.y).toFixed(2))+';\n';
+      logHtml+=' +Z: ' + Math.abs(( box.h.z - hit.local.z).toFixed(2))+';\n'; 
+      logHtml+=' -Z: ' + Math.abs((box.h.z + hit.local.z).toFixed(2))+';\n';
+      logHtml+=' Distances between points (m):\n';
+      logHtml+=' X: ' + Math.abs(( hit.local.x ).toFixed(2))+';\n';
+      logHtml+=' Y: ' + Math.abs(( hit.local.y ).toFixed(2))+';\n';
+      logHtml+=' Z: ' + Math.abs(( hit.local.z ).toFixed(2))+';\n';
+      logHtml+=' 3D: ' + Math.sqrt(hit.local.x**2 + hit.local.y**2 + hit.local.z**2).toFixed(2)+';\n';
     }
+    logHtml+='─'.repeat(24)+'\n\n';
+  });
 
-    /* ================= OFFSET ENTRY ================= */
+  if (!logHtml) logHtml='<span style="color:var(--muted)">Add boxes to see anti-collision results.</span>';
+  document.getElementById('log').innerHTML = logHtml;
 
-    function firstEntry(offset, box, a) {
-      for (let i = 0; i < offset.length - 1; i++) {
-        let A = invRotate({ x: offset[i].x - box.c.x, y: offset[i].y - box.c.y, z: offset[i].z - box.c.z }, a);
-        let B = invRotate({ x: offset[i + 1].x - box.c.x, y: offset[i + 1].y - box.c.y, z: offset[i + 1].z - box.c.z }, a);
+  // Box selector
+  document.getElementById('boxSelect').innerHTML='';
+  boxes.forEach((b,i)=>{
+    document.getElementById('boxSelect').add(new Option(`Box ${i+1} @ MD ${b.md}`,i));
+  });
 
-        let t0 = 0, t1 = 1;
-        for (const ax of ["x", "y", "z"]) {
-          let d = B[ax] - A[ax], min = -box.h[ax], max = box.h[ax];
-          if (Math.abs(d) < 1e-9) {
-            if (A[ax] < min || A[ax] > max) { t0 = 1; t1 = 0; break; }
-          } else {
-            let tmin = (min - A[ax]) / d, tmax = (max - A[ax]) / d;
-            if (tmin > tmax) [tmin, tmax] = [tmax, tmin];
-            t0 = Math.max(t0, tmin); t1 = Math.min(t1, tmax);
-          }
-        }
-        if (t0 <= t1 && t0 >= 0 && t0 <= 1) {
-          const eps = t0 + 1e-6;
-          const Pin = { x: A.x + eps * (B.x - A.x), y: A.y + eps * (B.y - A.y), z: A.z + eps * (B.z - A.z) };
-          if (Math.abs(Pin.x) < box.h.x && Math.abs(Pin.y) < box.h.y && Math.abs(Pin.z) < box.h.z) {
-            return {
-              md: offset[i].md + t0 * (offset[i + 1].md - offset[i].md),
-              local: { x: A.x + t0 * (B.x - A.x), y: A.y + t0 * (B.y - A.y), z: A.z + t0 * (B.z - A.z) },
-              seg: [offset[i], offset[i + 1]]
-            };
-          }
-        }
-      }
-    }
-
-    /* ================= BUILD ================= */
-    function rebuild(){
-      exportRows = [];
-      traces = [];
-      let report = "";
-
-      // draw wells
-      wells.forEach(w=>{
-        traces.push({
-          type:"scatter3d",
-          mode:"lines",
-          name:w.name,
-          x:w.s.map(p=>p.x),
-          y:w.s.map(p=>p.y),
-          z:w.s.map(p=>p.z)
-        });
+  // Mini profiles
+  if (boxes.length>0) {
+    const b=boxes[0], rw=wells[b.ref], ow=wells[b.off];
+    if (rw&&ow) {
+      const prof=computeProfile(rw,ow,30);
+      const sfTrace={type:'scatter',mode:'lines',x:prof.mds,y:prof.sfs,line:{color:'#ffc107',width:2},name:'SF (3D,95%)'};
+      const sfLayout=Object.assign(getLayout2D('MD (m)','SF (3D 95%)'),{
+        shapes:[
+          {type:'line',x0:prof.mds[0],x1:prof.mds.at(-1),y0:1.0,y1:1.0,line:{dash:'dot',color:'#ff4d4d'}},
+          {type:'line',x0:prof.mds[0],x1:prof.mds.at(-1),y0:1.5,y1:1.5,line:{dash:'dot',color:'#ffc107'}},
+          {type:'line',x0:prof.mds[0],x1:prof.mds.at(-1),y0:2.0,y1:2.0,line:{dash:'dot',color:'#39d353'}}
+        ]
+      });
+      Plotly.react('sfPlot',[sfTrace],sfLayout,{responsive:true});
+      document.getElementById('sfPlot').on?.('plotly_click',ev=>{
+        document.getElementById('refMD').value=ev.points[0].x.toFixed(2); rebuild();
       });
 
+      const distTrace={type:'scatter',mode:'lines',x:prof.mds,y:prof.dists,line:{color:'#00e5ff',width:2},name:'C2C 3D'};
+      Plotly.react('c2cPlot',[distTrace],getLayout2D('MD (m)','C2C 3D (m)'),{responsive:true});
+    }
+  }
 
-      /* ===== 3D UNCERTAINTY ELLIPSOIDS (REF + OFFSET) ===== */
+  // 3D plot
+  const lay3D=Object.assign(getLayout3D(),{showlegend:showLegend,uirevision:++uirev});
+  Plotly.react('plot3d',traces,lay3D,{scrollZoom:true,responsive:true});
+}
 
-      if (showEllipsoids) {
-        boxes.forEach(b => {
+/* ═══════════════════════════════════════════════════
+   FOLDER LOAD
+═══════════════════════════════════════════════════ */
+document.getElementById('folderBtn').addEventListener('click',()=>{
+  document.getElementById('folderInput').click();
+});
 
-          const rwEllip = wells[b.ref];
-          const owEllip = wells[b.off];
+document.getElementById('folderInput').addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f=>f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { alert('No CSV files found in the selected folder.'); return; }
 
-          // ---- Reference well ellipsoids ----
-          if (rwEllip) {
-            const mdSamples = sampleMDs(rwEllip.s, 30);
+  wells = [];
+  let loaded = 0;
 
-            mdSamples.forEach(md => {
-              const p = interpSurvey(rwEllip.s, md);
-              if (!p) return;
-
-              const cov3 = rev4MWD_HRGM_3D(p.md, p.inc);
-
-              traces.push(
-                ellipsoidTrace(
-                  p,
-                  cov3,
-                  2.447,
-                  `Ref Ellipsoid @ MD ${md}`,
-                  "#0dcaf0"
-                )
-              );
-            });
-          }
-
-          // ---- Offset well ellipsoids ----
-
-          if (owEllip) {
-            const mdSamples = sampleMDs(owEllip.s, 30);
-
-            mdSamples.forEach(md => {
-              const p = interpSurvey(owEllip.s, md);
-              if (!p) return;
-
-              const cov3 = rev4MWD_HRGM_3D(p.md, p.inc);
-
-              traces.push(
-                ellipsoidTrace(
-                  p,
-                  cov3,
-                  2.447,
-                  `Off Ellipsoid @ MD ${md}`,
-                  "#ffc107"
-                )
-              );
-            });
-          }
-
-        });
-      }
-
-
-
-      // process each box independently
-
-      boxes.forEach((b,i)=>{
-        const rw = wells[b.ref];
-        const ow = wells[b.off];
-        if(!rw || !ow) return;
-
-        const center = interp(rw.s, b.md);
-        const closestRes = closestPointToTrajectory(center, ow.s);
-        if(!center) return;
-
-        const refPt = interpSurvey(rw.s, b.md);
-
-        const offInterp = interpolateClosestPointWithSurvey(
-          refPt,
-          ow.s
+  files.forEach(file => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: r => {
+        const survey = r.data.map(d=>({
+          md:  +d.MD, inc: +d.Incl, azi: +d.Azim,
+          x:   +d.Eastings, y: +d.Northings, z: +d['Sub-Sea']
+        })).filter(p=>
+          Number.isFinite(p.md)&&Number.isFinite(p.inc)&&Number.isFinite(p.azi)&&
+          Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z)
         );
-
-        const covRef = rev4MWD_HRGM(refPt.md, refPt.inc);
-        const covOff = rev4MWD_HRGM(offInterp.md, offInterp.inc);
-
-        const sf = separationFactor(refPt, covRef, offInterp, covOff);
-
-
-        const leastDist = minDistancePointToTrajectory(
-          center,
-          ow.s   // offset well survey
-        );
-
-
-        const box = {
-          c: center,
-          h: { x:b.dx, y:b.dy, z:b.dz }
-        };
-
-        const hit = firstEntry(ow.s, box, b);
-
-        const row = {
-          Box_ID: i + 1,
-          Reference_Well: wells[b.ref]?.name ?? "",
-          Offset_Well: wells[b.off]?.name ?? "",
-          Reference_MD: b.md,
-          Least_Distance_3D_m: closestRes.minDist.toFixed(3),
-          Offset_Enters_Box: hit ? "TRUE" : "FALSE",
-          Offset_Entry_MD: hit ? hit.md.toFixed(3) : ""
-        };
-
-        row.Separation_m = sf.separation.toFixed(2);
-        row.Sigma_95_m   = (2.447 * sf.sigma).toFixed(2);
-        row.SF_95        = sf.SF.toFixed(2);
-
-        if (hit) {
-          row.Clearance_PosX_m = (box.h.x - hit.local.x).toFixed(3);
-          row.Clearance_NegX_m = (box.h.x + hit.local.x).toFixed(3);
-          row.Clearance_PosY_m = (box.h.y - hit.local.y).toFixed(3);
-          row.Clearance_NegY_m = (box.h.y + hit.local.y).toFixed(3);
-          row.Clearance_PosZ_m = (box.h.z - hit.local.z).toFixed(3);
-          row.Clearance_NegZ_m = (box.h.z + hit.local.z).toFixed(3);
-        } else {
-          row.Clearance_PosX_m = "";
-          row.Clearance_NegX_m = "";
-          row.Clearance_PosY_m = "";
-          row.Clearance_NegY_m = "";
-          row.Clearance_PosZ_m = "";
-          row.Clearance_NegZ_m = "";
+        if (survey.length > 1) {
+          wells.push({ name: file.name, s: survey });
         }
-
-        exportRows.push(row);
-
-        // visuals
-        traces.push(marker(center, `Subject Center ${i+1}`, "#f0ad4e"));
-        traces.push(boxMesh(center, box.h, b));
-        traces.push(boxWireframe(center, box.h, b));
-
-        traces.push(ellipseTrace(refPt, covRef, 2.447, "Ref 95%", "#0dcaf0"));
-        traces.push(ellipseTrace(offInterp, covOff, 2.447, "Off 95%", "#ffc107"));
-
-        if(hit){
-          const w = rotate(hit.local, b);
-          const entryWorld = {
-            x: w.x + center.x,
-            y: w.y + center.y,
-            z: w.z + center.z
-          };
-
-          traces.push(marker(entryWorld, `Offset Entry ${i+1}`, "#5bc0de"));
-
-          // Clearance dashed lines to faces
-          const projections = faceProjections(hit.local, box.h);
-
-          projections.forEach(fp => {
-            const rotated = rotate(fp.p, b);
-            const faceWorld = {
-              x: rotated.x + center.x,
-              y: rotated.y + center.y,
-              z: rotated.z + center.z
-            };
-
-            traces.push(
-              dashedClearanceLine(
-                entryWorld,
-                faceWorld,
-                fp.color,
-                `Clearance ${fp.face} (Box ${i+1})`
-              )
-            );
-          });
-
-          // traces.push(marker(p, `Offset Entry ${i+1}`, "#5bc0de"));
-
-          // Closest point marker (offset well)
-          traces.push({
-            type: "scatter3d",
-            mode: "markers",
-            name: `Closest Point (Box ${i+1})`,
-            x: [closestRes.closest.x],
-            y: [closestRes.closest.y],
-            z: [closestRes.closest.z],
-            marker: { size: 6, color: "#dc3545" }  // red
-          });
-
-          // Optional dashed line connecting them
-          traces.push({
-            type: "scatter3d",
-            mode: "lines",
-            x: [center.x, closestRes.closest.x],
-            y: [center.y, closestRes.closest.y],
-            z: [center.z, closestRes.closest.z],
-            line: { color: "#dc3545", width: 2, dash: "dot" },
-            name: "Least Distance"
-          });
-
-          // reporting
-          report += `Box ${i+1} @ Reference MD ${b.md}\n`;
-          report += ` 3D least distance @ Ref MD: ${closestRes.minDist.toFixed(2)} m\n`;
-          report += ` Separation Factor (95%): ${sf.SF.toFixed(2)}\n`;
-          report += ` Combined σ (95%): ${(2.447 * sf.sigma).toFixed(2)} m\n`;
-          report += ` Offset entry MD: ${hit ? hit.md.toFixed(2) : "N/A"}\n`;
-          report += ` Distances to faces (m):\n`;
-          report += ` +X ${(box.h.x-hit.local.x).toFixed(2)} -X ${(box.h.x+hit.local.x).toFixed(2)}\n`;
-          report += ` +Y ${(box.h.y-hit.local.y).toFixed(2)} -Y ${(box.h.y+hit.local.y).toFixed(2)}\n`;
-          report += ` +Z ${(box.h.z-hit.local.z).toFixed(2)} -Z ${(box.h.z+hit.local.z).toFixed(2)}\n`;
-        } else {
-          report += `  Offset does NOT enter this box.\n`;
-        }
-
-        report += "\n--------------------------------\n\n";
-      });
-
-      // update box selector
-      boxSelect.innerHTML = "";
-      boxes.forEach((b,i)=>{
-        boxSelect.add(new Option(`Box ${i+1} @ MD ${b.md}`, i));
-      });
-
-      info.textContent = report;
-
-
-      // ===== SF & DISTANCE PROFILES =====
-
-      if (boxes.length > 0) {
-        const b = boxes[0];
-        const rw = wells[b.ref];
-        const ow = wells[b.off];
-
-        if (rw && ow) {
-          const prof = computeSFProfile(rw, ow, 30);
-
-          // --- SF vs MD ---
-
-          const sfTrace = {
-            type: "scatter",
-            mode: "lines",
-            x: prof.mds,
-            y: prof.sfs,
-            line: { color: "#ffc107", width: 2 },
-            name: "SF (95%)"
-          };
-
-          const sfLayout = {
-            paper_bgcolor: darkTheme ? "#272B30" : "#ffffff",
-            plot_bgcolor: darkTheme ? "#272B30" : "#ffffff",
-            font: { color: darkTheme ? "white" : "black" },
-            margin: { l: 50, r: 10, t: 20, b: 40 },
-            xaxis: { title: "MD (m)" },
-            yaxis: { title: "SF (95%)" },
-            shapes: [
-              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:1.0, y1:1.0, line:{ dash:"dot", color:"#dc3545" }},
-              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:1.5, y1:1.5, line:{ dash:"dot", color:"#ffc107" }},
-              { type:"line", x0:prof.mds[0], x1:prof.mds.at(-1), y0:2.0, y1:2.0, line:{ dash:"dot", color:"#28a745" }}
-            ]
-          };
-
-          Plotly.react("sfPlot", [sfTrace], sfLayout, { responsive:true });
-
-
-
-          // --- CLICK HANDLER: jump to MD ---
-
-          document.getElementById("sfPlot")
-            .on('plotly_click', ev => {
-              const md = ev.points[0].x;
-              refMD.value = md.toFixed(2);
-              rebuild();
-            });
-
-          // --- Distance vs MD ---
-
-          const distTrace = {
-            type: "scatter",
-            mode: "lines",
-            x: prof.mds,
-            y: prof.dists,
-            line: { color: "#0dcaf0", width: 2 },
-            name: "3D Distance"
-          };
-
-          const distLayout = {
-            paper_bgcolor: darkTheme ? "#272B30" : "#ffffff",
-            plot_bgcolor: darkTheme ? "#272B30" : "#ffffff",
-            font: { color: darkTheme ? "white" : "black" },
-            margin: { l: 50, r: 10, t: 20, b: 40 },
-            xaxis: {
-              title: "Measured Depth (m)",
-              range: (
-                distXmin.value || distXmax.value
-                  ? [Number(distXmin.value), Number(distXmax.value)]
-                  : undefined
-              )
-            },
-            yaxis: {
-              title: "3D Distance (m)",
-              range: [Number(distYmin.value), Number(distYmax.value)]
-            }
-          };
-
-          Plotly.react("distPlot", [distTrace], distLayout, { responsive:true });
+        loaded++;
+        if (loaded===files.length) {
+          // Sort alphabetically
+          wells.sort((a,b)=>a.name.localeCompare(b.name));
+          document.getElementById('wellCount').textContent=`${wells.length} wells`;
+          updateSelectors();
+          renderWellsList();
+          allPairsResults=[];
+          document.getElementById('matrixWrap').innerHTML='<em style="color:var(--muted);font-size:10px;padding:6px;display:block">Run ⚡ SCAN ALL PAIRS to populate.</em>';
+          rebuild();
         }
       }
+    });
+  });
+});
 
+function renderWellsList() {
+  const div=document.getElementById('wellsList');
+  div.innerHTML='';
+  wells.forEach((w,i)=>{
+    div.innerHTML+=`<div class="well-chip">
+      <span class="well-dot" style="background:${WELL_COLORS[i%WELL_COLORS.length]}"></span>
+      <span class="well-name" title="${w.name}">${w.name.replace(/\.csv$/i,'')}</span>
+      <span class="well-pts">${w.s.length}pts</span>
+    </div>`;
+  });
+}
 
-      
-      const layout3D = getLayout();
-      layout3D.showlegend = showLegend;
+function updateSelectors() {
+  const rw=document.getElementById('refWell'), ow=document.getElementById('offWell');
+  rw.innerHTML=''; ow.innerHTML='';
+  wells.forEach((w,i)=>{ rw.add(new Option(w.name,i)); ow.add(new Option(w.name,i)); });
+  if (wells.length>1) ow.selectedIndex=1;
+}
 
-      Plotly.react(
-        "plot",
-        traces,
-        Object.assign(layout3D, { uirevision: ++uirev }),
-        { scrollZoom: true, responsive: true }
-      );
+/* ═══════════════════════════════════════════════════
+   BOX CRUD
+═══════════════════════════════════════════════════ */
+function readBoxInputs(){
+  return {
+    ref:+document.getElementById('refWell').value,
+    off:+document.getElementById('offWell').value,
+    md: +document.getElementById('refMD').value,
+    dx: +document.getElementById('dx').value,
+    dy: +document.getElementById('dy').value,
+    dz: +document.getElementById('dz').value,
+    ax: +document.getElementById('ax').value,
+    ay: +document.getElementById('ay').value,
+    az: +document.getElementById('az').value
+  };
+}
+function addBox()    { boxes.push(readBoxInputs()); rebuild(); }
+function updateBox() { const s=document.getElementById('boxSelect'); if(s.value!=='') { boxes[s.value]=readBoxInputs(); rebuild(); } }
+function deleteBox() { const s=document.getElementById('boxSelect'); if(s.value!=='') { boxes.splice(s.value,1); rebuild(); } }
+function loadBox()   {
+  const b=boxes[document.getElementById('boxSelect').value]; if(!b) return;
+  document.getElementById('refWell').value=b.ref; document.getElementById('offWell').value=b.off;
+  document.getElementById('refMD').value=b.md;
+  document.getElementById('dx').value=b.dx; document.getElementById('dy').value=b.dy; document.getElementById('dz').value=b.dz;
+  document.getElementById('ax').value=b.ax; document.getElementById('ay').value=b.ay; document.getElementById('az').value=b.az;
+}
 
+/* ═══════════════════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════════════════ */
+function exportCSV() {
+  if (!exportRows.length) { alert('No results to export.'); return; }
+  const headers=Object.keys(exportRows[0]);
+  const csv=[headers.join(','),...exportRows.map(row=>headers.map(h=>`"${row[h]??''}"`).join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const ts=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  const a=document.createElement('a'); a.href=url; a.download=`ac_rev5_${ts}.csv`; a.style.display='none';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 
+  // Also export all-pairs
+  if (allPairsResults.length) {
+    const h2=['Ref','Offset','Min_SF_3D_95','Min_SF_MD_m','Min_C2C_3D_m','Min_C2C_MD_m'];
+    const csv2=[h2.join(','),...allPairsResults.map(r=>`
+      "${r.refName}",
+      "${r.offName}",
+      ${r.minSF.toFixed(3)},
+      ${r.minSF_md??''},
+      ${r.minC2C.toFixed(2)},
+      ${r.minC2C_md??''}`)].join('\n');
+    const blob2=new Blob([csv2],{type:'text/csv;charset=utf-8;'});
+    const url2=URL.createObjectURL(blob2);
+    const a2=document.createElement('a'); a2.href=url2; a2.download=`ac_allpairs_${ts}.csv`; a2.style.display='none';
+    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+  }
+}
 
-    }
+/* ═══════════════════════════════════════════════════
+   AXIS APPLY BUTTONS
+═══════════════════════════════════════════════════ */
+document.getElementById('applyDist').addEventListener('click',()=>{
+  const xr=(document.getElementById('distXmin').value||document.getElementById('distXmax').value)?[+document.getElementById('distXmin').value,+document.getElementById('distXmax').value]:null;
+  const yr=[+document.getElementById('distYmin').value,+document.getElementById('distYmax').value];
+  Plotly.relayout('c2cPlot',{'xaxis.range':xr,'yaxis.range':yr});
+});
+document.getElementById('applySF').addEventListener('click',()=>{
+  const xr=(document.getElementById('sfXmin').value||document.getElementById('sfXmax').value)?[+document.getElementById('sfXmin').value,+document.getElementById('sfXmax').value]:null;
+  const yr=[+document.getElementById('sfYmin').value,+document.getElementById('sfYmax').value];
+  Plotly.relayout('sfPlot',{'xaxis.range':xr,'yaxis.range':yr});
+});
 
-    /* ================= VIS ================= */
+/* ═══════════════════════════════════════════════════
+   TOGGLES
+═══════════════════════════════════════════════════ */
+document.getElementById('themeToggle').addEventListener('change',e=>{
+  darkTheme=e.target.checked;
+  e.target.closest('.sw').querySelector('.sw-label').textContent=darkTheme?'DARK':'LIGHT';
+  rebuild();
+});
+document.getElementById('ellipsoidToggle').addEventListener('change',e=>{ showEllipsoids=e.target.checked; rebuild(); });
+document.getElementById('legendToggle').addEventListener('change',e=>{ showLegend=e.target.checked; rebuild(); });
 
-    function marker(p, n, c) {
-      return {
-        type: "scatter3d", mode: "markers", name: n,
-        x: [p.x], y: [p.y], z: [p.z], marker: { size: 6, color: c }
-      };
-    }
+/* ═══════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════ */
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    const ids=['log','wells','matrix'];
+    b.classList.toggle('active',ids[i]===id);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+}
 
-    function boxMesh(c, h, a) {
-      const pts = [[-h.x, -h.y, -h.z], [h.x, -h.y, -h.z], [h.x, h.y, -h.z], [-h.x, h.y, -h.z],
-      [-h.x, -h.y, h.z], [h.x, -h.y, h.z], [h.x, h.y, h.z], [-h.x, h.y, h.z]]
-        .map(p => {
-          const r = rotate({ x: p[0], y: p[1], z: p[2] }, a);
-          return { x: r.x + c.x, y: r.y + c.y, z: r.z + c.z };
-        });
-      return {
-        type: "mesh3d", opacity: 0.3, color: "#0e0e0d",
-        x: pts.map(p => p.x), y: pts.map(p => p.y), z: pts.map(p => p.z),
-        i: [0, 0, 4, 4, 0, 1, 2, 3], j: [1, 2, 5, 6, 3, 5, 6, 7], k: [2, 3, 6, 7, 4, 6, 7, 4]
-      };
-    }
-
-    function ellipseTrace(center, cov, scale, name, color) {
-      const n = 36;
-      const a = Math.sqrt(cov.xx) * scale;
-      const b = Math.sqrt(cov.yy) * scale;
-
-      const x=[], y=[], z=[];
-      for (let i=0;i<=n;i++){
-        const t = 2*Math.PI*i/n;
-        x.push(center.x + a*Math.cos(t));
-        y.push(center.y + b*Math.sin(t));
-        z.push(center.z);
-      }
-      return {
-        type:"scatter3d",
-        mode:"lines",
-        x,y,z,
-        line:{ dash:"dot", color },
-        name
-      };
-    }
-
-    function ellipsoidTrace(center, cov3, scale, name, color) {
-      // const Nu = 16, Nv = 16;
-      const Nu = 12, Nv = 12;
-      const a = Math.sqrt(cov3.xx) * scale;
-      const b = Math.sqrt(cov3.yy) * scale;
-      const c = Math.sqrt(cov3.zz) * scale;
-
-      const x=[], y=[], z=[];
-      for (let i=0;i<=Nu;i++) {
-        const u = Math.PI * i / Nu;
-        for (let j=0;j<=Nv;j++) {
-          const v = 2*Math.PI * j / Nv;
-          x.push(center.x + a*Math.sin(u)*Math.cos(v));
-          y.push(center.y + b*Math.sin(u)*Math.sin(v));
-          z.push(center.z + c*Math.cos(u));
-        }
-      }
-
-      return {
-        type: "mesh3d",
-        x, y, z,
-        opacity: 0.15,
-        color,
-        name
-      };
-    }
-
-    // traces.push(boxWireframe(center, box.h, b));
-
-    function updateSelectors() {
-      refWell.innerHTML = ""; offWell.innerHTML = "";
-      wells.forEach((w, i) => {
-        refWell.add(new Option(w.name, i));
-        offWell.add(new Option(w.name, i));
-      });
-    }
-
-    /* Wireframe helper */
-    function boxWireframe(c, h, a) {
-      const edges = [
-        [0, 1], [1, 2], [2, 3], [3, 0],
-        [4, 5], [5, 6], [6, 7], [7, 4],
-        [0, 4], [1, 5], [2, 6], [3, 7]
-      ];
-      const pts = [[-h.x, -h.y, -h.z], [h.x, -h.y, -h.z], [h.x, h.y, -h.z], [-h.x, h.y, -h.z],
-      [-h.x, -h.y, h.z], [h.x, -h.y, h.z], [h.x, h.y, h.z], [-h.x, h.y, h.z]]
-        .map(p => {
-          const r = rotate({ x: p[0], y: p[1], z: p[2] }, a);
-          return { x: r.x + c.x, y: r.y + c.y, z: r.z + c.z };
-        });
-      let x = [], y = [], z = [];
-      edges.forEach(e => {
-        x.push(pts[e[0]].x, pts[e[1]].x, null);
-        y.push(pts[e[0]].y, pts[e[1]].y, null);
-        z.push(pts[e[0]].z, pts[e[1]].z, null);
-      });
-      return {
-        type: "scatter3d",
-        mode: "lines",
-        x, y, z,
-        line: { color: "#000", width: 3 },
-        name: "Box Wireframe",
-        hoverinfo: "skip"
-      };
-    }
-
-    // distance from point P to segment A-B in 3D
-    function pointToSegmentDistance(P, A, B) {
-      const AB = {
-        x: B.x - A.x,
-        y: B.y - A.y,
-        z: B.z - A.z
-      };
-      const AP = {
-        x: P.x - A.x,
-        y: P.y - A.y,
-        z: P.z - A.z
-      };
-
-      const ab2 =
-        AB.x*AB.x + AB.y*AB.y + AB.z*AB.z;
-
-      let t = ab2 === 0
-        ? 0
-        : (AP.x*AB.x + AP.y*AB.y + AP.z*AB.z) / ab2;
-
-      t = Math.max(0, Math.min(1, t));
-
-      const closest = {
-        x: A.x + t*AB.x,
-        y: A.y + t*AB.y,
-        z: A.z + t*AB.z
-      };
-
-      const dx = P.x - closest.x;
-      const dy = P.y - closest.y;
-      const dz = P.z - closest.z;
-
-      return Math.sqrt(dx*dx + dy*dy + dz*dz);
-    }
-
-    // minimal distance from point to polyline
-    function minDistancePointToTrajectory(P, survey) {
-      let min = Infinity;
-
-      for (let i = 0; i < survey.length - 1; i++) {
-        const d = pointToSegmentDistance(
-          P,
-          survey[i],
-          survey[i+1]
-        );
-        if (d < min) min = d;
-      }
-      return min;
-    }
-
-
-    function closestPointOnSegment(P, A, B) {
-      const AB = { x: B.x - A.x, y: B.y - A.y, z: B.z - A.z };
-      const AP = { x: P.x - A.x, y: P.y - A.y, z: P.z - A.z };
-
-      const ab2 = AB.x**2 + AB.y**2 + AB.z**2;
-      let t = ab2 === 0 ? 0 : (AP.x*AB.x + AP.y*AB.y + AP.z*AB.z) / ab2;
-      t = Math.max(0, Math.min(1, t));
-
-      return {
-        point: {
-          x: A.x + t*AB.x,
-          y: A.y + t*AB.y,
-          z: A.z + t*AB.z
-        },
-        t
-      };
-    }
-
-    function closestPointToTrajectory(P, survey) {
-      let minDist = Infinity;
-      let closest = null;
-
-      for (let i = 0; i < survey.length - 1; i++) {
-        const res = closestPointOnSegment(P, survey[i], survey[i+1]);
-        const dx = P.x - res.point.x;
-        const dy = P.y - res.point.y;
-        const dz = P.z - res.point.z;
-        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        if (d < minDist) {
-          minDist = d;
-          closest = { ...res.point };
-        }
-      }
-      return { minDist, closest };
-    }
-
-
-    function interpolateClosestPointWithSurvey(P, survey) {
-      let minDist = Infinity;
-      let best = null;
-
-      for (let i = 0; i < survey.length - 1; i++) {
-        const A = survey[i];
-        const B = survey[i + 1];
-
-        const res = closestPointOnSegment(P, A, B);
-        const dx = P.x - res.point.x;
-        const dy = P.y - res.point.y;
-        const dz = P.z - res.point.z;
-        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        if (d < minDist) {
-          minDist = d;
-
-          const f = res.t;
-          best = {
-            x: res.point.x,
-            y: res.point.y,
-            z: res.point.z,
-            md: A.md + f * (B.md - A.md),
-            inc: A.inc + f * (B.inc - A.inc),
-            azi: A.azi + f * (B.azi - A.azi)
-          };
-        }
-      }
-      return best;
-    }
-
-
-    function faceProjections(local, h) {
-      return [
-        { face:"+X", p:{ x:  h.x, y:local.y, z:local.z }, color:"#ff4d4d" },
-        { face:"-X", p:{ x: -h.x, y:local.y, z:local.z }, color:"#ff4d4d" },
-
-        { face:"+Y", p:{ x:local.x, y:  h.y, z:local.z }, color:"#4dcc4d" },
-        { face:"-Y", p:{ x:local.x, y: -h.y, z:local.z }, color:"#4dcc4d" },
-
-        { face:"+Z", p:{ x:local.x, y:local.y, z:  h.z }, color:"#4d79ff" },
-        { face:"-Z", p:{ x:local.x, y:local.y, z: -h.z }, color:"#4d79ff" },
-      ];
-    }
-
-
-    function dashedClearanceLine(a, b, color, name) {
-      return {
-        type: "scatter3d",
-        mode: "lines",
-        x: [a.x, b.x],
-        y: [a.y, b.y],
-        z: [a.z, b.z],
-        line: {
-          color: color,
-          width: 2,
-          dash: "dot"
-        },
-        name,
-        hoverinfo: "text",
-        text: name
-      };
-    }
-
-
-    function exportCSV() {
-      if (!exportRows.length) {
-        alert("No results to export.");
-        return;
-      }
-
-      const headers = Object.keys(exportRows[0]);
-      const csv = [
-        headers.join(","),
-        ...exportRows.map(row =>
-          headers.map(h => `"${row[h] ?? ""}"`).join(",")
-        )
-      ].join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-
-      const ts = new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
-      const filename = `visual_plan_02_results_${ts}.csv`;
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.style.display = "none";
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-
-  </script>
-
-
+/* ── INIT ── */
+rebuild();
+</script>
 </body>
-
 </html>
-
 
