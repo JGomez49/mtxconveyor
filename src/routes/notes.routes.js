@@ -30,6 +30,7 @@ const {
     renderUploadPason,
     renderUploadPadAC,
     renderUploadFracPlanes,
+    renderUploadTorqueAndDrag,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -149,6 +150,10 @@ router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 
 //Get Upload Frac Planes form
 router.get('/notes/uploadFracPlanes', isAuthenticated, renderUploadFracPlanes);
+
+
+//Get Upload Torque and Drag form
+router.get('/notes/uploadTorqueAndDrag', isAuthenticated, renderUploadTorqueAndDrag);
 
 
 

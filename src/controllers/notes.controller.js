@@ -796,5 +796,13 @@ notesCrtl.renderUploadFracPlanes = async(req,res)=>{
 };
 
 
+notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{
+    // res.send('Edit note...');
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadTorqueAndDrag.ejs', {note, user});
+};
+
+
 
 module.exports = notesCrtl;

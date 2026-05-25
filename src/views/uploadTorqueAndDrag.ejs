@@ -1,0 +1,2372 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torque and Drag Modeler v5</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --panel: #111820;
+      --panel2: #161e28;
+      --border: #1e2d3d;
+      --accent: #00c8ff;
+      --accent2: #ff6b35;
+      --accent3: #39ff14;
+      --text: #c8d8e8;
+      --text-dim: #5a7080;
+      --text-bright: #e8f4ff;
+      --red: #ff4060;
+      --yellow: #ffd060;
+      --purple: #c084fc;
+      --teal: #2dd4bf;
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Barlow', sans-serif;
+      --cond: 'Barlow Condensed', sans-serif;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html {
+      font-size: 13px
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(0, 200, 255, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 200, 255, .025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0
+    }
+
+    /* HEADER */
+    header {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(180deg, #0d1520, transparent);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px
+    }
+
+    .logo-hex {
+      width: 34px;
+      height: 34px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: var(--bg);
+      font-weight: 700;
+      flex-shrink: 0
+    }
+
+    .hdr-title {
+      flex: 1
+    }
+
+    .hdr-title h1 {
+      font-family: var(--cond);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: 2px;
+      text-transform: uppercase
+    }
+
+    .hdr-title p {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--accent);
+      letter-spacing: 1px;
+      margin-top: 1px
+    }
+
+    .hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .unit-toggle {
+      display: flex;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden
+    }
+
+    .unit-btn {
+      font-family: var(--mono);
+      font-size: 9px;
+      padding: 4px 10px;
+      border: none;
+      background: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all .15s
+    }
+
+    .unit-btn.active {
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--accent3);
+      border: 1px solid var(--accent3);
+      padding: 2px 6px;
+      border-radius: 2px;
+      letter-spacing: 1px
+    }
+
+    /* LAYOUT */
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      min-height: calc(100vh - 58px)
+    }
+
+    .left {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      max-height: calc(100vh - 58px);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent
+    }
+
+    .right {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    /* LEFT SECTIONS */
+    .sec {
+      border-bottom: 1px solid var(--border)
+    }
+
+    .sec-hdr {
+      padding: 9px 14px;
+      background: var(--panel);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      transition: background .15s
+    }
+
+    .sec-hdr:hover {
+      background: var(--panel2)
+    }
+
+    .sec-num {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--accent);
+      background: rgba(0, 200, 255, .1);
+      border: 1px solid rgba(0, 200, 255, .3);
+      padding: 2px 5px;
+      border-radius: 2px;
+      flex-shrink: 0
+    }
+
+    .sec-ttl {
+      font-family: var(--cond);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-bright);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      flex: 1
+    }
+
+    .sec-tog {
+      font-size: 8px;
+      color: var(--text-dim);
+      transition: transform .2s
+    }
+
+    .sec-tog.open {
+      transform: rotate(180deg)
+    }
+
+    .sec-body {
+      padding: 11px 14px;
+      background: var(--bg);
+      display: none
+    }
+
+    .sec-body.open {
+      display: block
+    }
+
+    /* FORMS */
+    .fg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 6px
+    }
+
+    .fg.tri {
+      grid-template-columns: 1fr 1fr 1fr
+    }
+
+    .fg.one {
+      grid-template-columns: 1fr
+    }
+
+    label {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 2px
+    }
+
+    input[type=number],
+    input[type=text],
+    select {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text-bright);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 6px;
+      border-radius: 3px;
+      outline: none;
+      transition: border-color .15s
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 200, 255, .1)
+    }
+
+    select option {
+      background: var(--panel)
+    }
+
+    .hint {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      line-height: 1.5
+    }
+
+    /* INPUT DATA TABLES */
+    .tbl-wrap {
+      overflow-x: auto;
+      margin-bottom: 6px
+    }
+
+    table.dt {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 9px
+    }
+
+    table.dt th {
+      background: var(--panel2);
+      color: var(--accent);
+      font-size: 7px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 4px;
+      text-align: center;
+      border: 1px solid var(--border);
+      white-space: nowrap
+    }
+
+    table.dt td {
+      border: 1px solid var(--border);
+      padding: 1px
+    }
+
+    table.dt td input {
+      border: none;
+      background: transparent;
+      text-align: center;
+      padding: 3px;
+      font-size: 9px;
+      width: 100%;
+      min-width: 34px;
+      color: var(--text-bright);
+      font-family: var(--mono)
+    }
+
+    table.dt td input:focus {
+      background: rgba(0, 200, 255, .08)
+    }
+
+    table.dt tr:hover td {
+      background: rgba(255, 255, 255, .015)
+    }
+
+    .del {
+      background: none;
+      border: none;
+      color: var(--red);
+      cursor: pointer;
+      font-size: 10px;
+      padding: 2px 4px;
+      opacity: .4;
+      transition: opacity .15s
+    }
+
+    .del:hover {
+      opacity: 1
+    }
+
+    /* BUTTONS */
+    .brow {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      flex-wrap: wrap
+    }
+
+    .btn {
+      font-family: var(--cond);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 3px;
+      border: none;
+      cursor: pointer;
+      transition: all .15s
+    }
+
+    .btn-g {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim)
+    }
+
+    .btn-g:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .btn-run {
+      background: linear-gradient(135deg, var(--accent2), #ff8c55);
+      color: #fff;
+      font-size: 11px;
+      padding: 8px 18px;
+      width: 100%;
+      margin-top: 2px;
+      letter-spacing: 2px
+    }
+
+    .btn-run:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 18px rgba(255, 107, 53, .4)
+    }
+
+    .btn-run:active {
+      transform: none
+    }
+
+    .btn-cal {
+      background: linear-gradient(135deg, var(--purple), #a855f7);
+      color: #fff;
+      font-size: 10px;
+      padding: 5px 11px
+    }
+
+    .btn-cal:hover {
+      box-shadow: 0 3px 12px rgba(192, 132, 252, .4)
+    }
+
+    /* EDR */
+    .edr-box {
+      background: rgba(0, 200, 255, .04);
+      border: 1px solid rgba(0, 200, 255, .2);
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 8px
+    }
+
+    .edr-ttl {
+      font-family: var(--cond);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 7px
+    }
+
+    .drop {
+      border: 2px dashed var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      margin-bottom: 6px
+    }
+
+    .drop:hover,
+    .drop.over {
+      border-color: var(--accent);
+      background: rgba(0, 200, 255, .05)
+    }
+
+    .drop p {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      line-height: 1.7
+    }
+
+    .drop strong {
+      color: var(--accent)
+    }
+
+    .drop input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%
+    }
+
+    .edr-st {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--accent3);
+      margin-top: 5px;
+      display: none
+    }
+
+    .col-map {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin-top: 7px
+    }
+
+    .col-map label {
+      font-size: 7px
+    }
+
+    /* CALIBRATION */
+    .cal-box {
+      background: rgba(192, 132, 252, .06);
+      border: 1px solid rgba(192, 132, 252, .25);
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 8px
+    }
+
+    .cal-ttl {
+      font-family: var(--cond);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--purple);
+      margin-bottom: 8px
+    }
+
+    .srow {
+      display: grid;
+      grid-template-columns: 1fr auto 56px;
+      gap: 7px;
+      align-items: center;
+      margin-bottom: 7px
+    }
+
+    .slbl {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      letter-spacing: 1px
+    }
+
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--purple);
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(192, 132, 252, .6)
+    }
+
+    .sval {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--purple);
+      text-align: right
+    }
+
+    .rmse-box {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 6px 9px;
+      margin-top: 7px;
+      line-height: 1.7;
+      display: none
+    }
+
+    /* RESULTS TOOLBAR */
+    .rtbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .rtbar h2 {
+      font-family: var(--cond);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-left: auto
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 8px;
+      padding: 3px 7px;
+      border-radius: 2px;
+      border: 1px solid;
+      white-space: nowrap
+    }
+
+    .cb {
+      color: var(--accent);
+      border-color: rgba(0, 200, 255, .3);
+      background: rgba(0, 200, 255, .07)
+    }
+
+    .co {
+      color: var(--accent2);
+      border-color: rgba(255, 107, 53, .3);
+      background: rgba(255, 107, 53, .07)
+    }
+
+    .cg {
+      color: var(--accent3);
+      border-color: rgba(57, 255, 20, .3);
+      background: rgba(57, 255, 20, .07)
+    }
+
+    .cr {
+      color: var(--red);
+      border-color: rgba(255, 64, 96, .3);
+      background: rgba(255, 64, 96, .07)
+    }
+
+    .cp {
+      color: var(--purple);
+      border-color: rgba(192, 132, 252, .3);
+      background: rgba(192, 132, 252, .07)
+    }
+
+    /* CHARTS — stacked panels each with chart left + table right */
+    .charts {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    /* plot panel */
+    .pp {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative
+    }
+
+    .pp::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      z-index: 2
+    }
+
+    .pp.c-bl::before {
+      background: var(--accent)
+    }
+
+    .pp.c-or::before {
+      background: var(--accent2)
+    }
+
+    .pp.c-te::before {
+      background: var(--teal)
+    }
+
+    .pp.c-pu::before {
+      background: var(--purple)
+    }
+
+    .pp.c-gr::before {
+      background: var(--accent3)
+    }
+
+    .pp.c-wh::before {
+      background: #ffffff
+    }
+
+    .pp-hdr {
+      padding: 7px 12px;
+      background: var(--panel2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center
+    }
+
+    .pp-ttl {
+      font-family: var(--cond);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim)
+    }
+
+    /* body: left = chart, right = table */
+    .pp-body {
+      display: grid;
+      grid-template-columns: 60% 40%
+    }
+
+    .pp-body.wide3d {
+      grid-template-columns: 65% 35%
+    }
+
+    /* chart area */
+    .pp-chart {
+      position: relative;
+      border-right: 1px solid var(--border);
+      height: 320px
+    }
+
+    .pp-chart.tall {
+      height: 420px
+    }
+
+    .pp-chart.h3d {
+      height: 480px
+    }
+
+    .pp-chart canvas {
+      position: absolute;
+      inset: 6px
+    }
+
+    /* plotly 3d fills chart area */
+    .pp-plotly {
+      width: 100%;
+      height: 100%
+    }
+
+    /* panel result table */
+    .pp-tbl {
+      overflow: auto;
+      height: 320px
+    }
+
+    .pp-tbl.tall {
+      height: 420px
+    }
+
+    .pp-tbl.h3d {
+      height: 480px
+    }
+
+    table.ptbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 8px
+    }
+
+    table.ptbl th {
+      background: var(--panel2);
+      color: var(--accent);
+      font-size: 7px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      padding: 3px 5px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+      text-align: right
+    }
+
+    table.ptbl th:first-child {
+      text-align: left
+    }
+
+    table.ptbl td {
+      border-bottom: 1px solid rgba(30, 45, 61, .6);
+      padding: 2px 5px;
+      text-align: right;
+      color: var(--text)
+    }
+
+    table.ptbl td:first-child {
+      text-align: left;
+      color: var(--text-dim)
+    }
+
+    table.ptbl tr:hover td {
+      background: rgba(0, 200, 255, .04)
+    }
+
+    /* PLACEHOLDER */
+    .ph {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      text-align: center;
+      min-height: 400px
+    }
+
+    .ph-icon {
+      font-size: 48px;
+      margin-bottom: 14px;
+      opacity: .25
+    }
+
+    .ph h3 {
+      font-family: var(--cond);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      opacity: .4
+    }
+
+    .ph p {
+      font-size: 11px;
+      line-height: 1.6;
+      max-width: 320px;
+      opacity: .35
+    }
+
+    /* STATUS BAR */
+    .sbar {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 5px 14px;
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .sdot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0
+    }
+
+    .sdot.ok {
+      background: var(--accent3);
+      box-shadow: 0 0 5px var(--accent3)
+    }
+
+    .sdot.err {
+      background: var(--red);
+      box-shadow: 0 0 5px var(--red)
+    }
+
+    .sdot.run {
+      background: var(--accent);
+      animation: pulse 1s infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    .errbox {
+      background: rgba(255, 64, 96, .1);
+      border: 1px solid rgba(255, 64, 96, .4);
+      border-radius: 3px;
+      padding: 7px 11px;
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--red);
+      line-height: 1.6;
+      display: none;
+      margin: 8px 14px
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo-hex">+</div>
+    <div class="hdr-title">
+      <h1>Torque &amp; Drag Modeler</h1>
+      <p>SOFT-STRING (JOHANCSIK 1984) · 3D TRAJECTORY · WELLPLAN-STYLE OUTPUT · EDR CALIBRATION</p>
+    </div>
+    <div class="hdr-right">
+      <div class="unit-toggle">
+        <button class="unit-btn" id="btnImp" onclick="setUnits('imperial')">IMPERIAL</button>
+        <button class="unit-btn active" id="btnMet" onclick="setUnits('metric')">METRIC</button>
+      </div>
+      <div class="badge">v5.0</div>
+    </div>
+  </header>
+
+  <div class="app">
+
+    <!-- ===== LEFT INPUT PANEL ===== -->
+    <div class="left">
+
+      <!-- 01 GLOBAL -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">01</span><span class="sec-ttl">Global Parameters</span><span
+            class="sec-tog open">v</span>
+        </div>
+        <div class="sec-body open">
+          <div class="fg">
+            <div><label id="lMW">Mud Weight (kg/m3)</label><input type="number" id="mudWeight" value="1040" step="1" />
+            </div>
+            <div><label id="lBW">Block Weight (kN)</label><input type="number" id="blockWeight" value="10" step="0.1" />
+            </div>
+          </div>
+          <div class="fg">
+            <div><label id="lWOBr">WOB Rotating (kN)</label><input type="number" id="wobRot" value="20" step="0.5" />
+            </div>
+            <div><label id="lWOBs">WOB Sliding (kN)</label><input type="number" id="wobSlid" value="19" step="0.5" />
+            </div>
+          </div>
+          <div class="fg">
+            <div><label id="lTQ">Torque Limit (N.m)</label><input type="number" id="torqueLimit" value="35000"
+                step="100" /></div>
+            <div><label>Steel Density (kg/m3)</label><input type="number" id="steelDens" value="7850" step="10" /></div>
+          </div>
+          <div class="fg tri">
+            <div><label>mu Casing 1</label><input type="number" id="ff1" value="0.25" step="0.01" min="0.01"
+                max="0.8" /></div>
+            <div><label>mu Casing 2</label><input type="number" id="ff2" value="0.20" step="0.01" min="0.01"
+                max="0.8" /></div>
+            <div><label>mu Open Hole</label><input type="number" id="ffOH" value="0.32" step="0.01" min="0.01"
+                max="0.8" /></div>
+          </div>
+          <p class="hint">mu typical: 0.15-0.25 cased / 0.25-0.40 open hole. CNRL defaults loaded.</p>
+        </div>
+      </div>
+
+      <!-- 02 SURVEY -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">02</span><span class="sec-ttl">Well Survey Trajectory</span><span
+            class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead>
+                <tr>
+                  <th id="th_md">MD (m)</th>
+                  <th>Inc (deg)</th>
+                  <th>Az (deg)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="survBody"></tbody>
+            </table>
+          </div>
+          <div class="brow">
+            <button class="btn btn-g" onclick="addSurv()">+ Row</button>
+            <button class="btn btn-g" onclick="loadCNRL()">Load CNRL Example</button>
+          </div>
+          <p class="hint">CNRL ETS 158861 matches the Landmark WellPlan report exactly.</p>
+        </div>
+      </div>
+
+      <!-- 03 CASING -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">03</span><span class="sec-ttl">Casing / Liner Program</span><span
+            class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>OD (mm)</th>
+                  <th>ID (mm)</th>
+                  <th id="th_ctop">Top (m)</th>
+                  <th id="th_cshoe">Shoe (m)</th>
+                  <th>mu</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="casBody"></tbody>
+            </table>
+          </div>
+          <div class="brow">
+            <button class="btn btn-g" onclick="addCas()">+ String</button>
+            <button class="btn btn-g" onclick="loadCNRLCas()">Load CNRL</button>
+          </div>
+          <p class="hint">mu idx: 1=mu1 (Casing 1), 2=mu2 (Casing 2). OD/ID always in mm.</p>
+        </div>
+      </div>
+
+      <!-- 04 BHA -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">04</span><span class="sec-ttl">Drill String / BHA</span><span class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>OD (mm)</th>
+                  <th>ID (mm)</th>
+                  <th id="th_blen">Length (m)</th>
+                  <th id="th_bwt">Wt (kg/m)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="bhaBody"></tbody>
+            </table>
+          </div>
+          <div class="brow">
+            <button class="btn btn-g" onclick="addBHA()">+ Component</button>
+            <button class="btn btn-g" onclick="loadCNRLBHA()">Load CNRL</button>
+          </div>
+          <p class="hint">List bottom-up: Bit first, then up to DP. OD/ID always in mm.</p>
+        </div>
+      </div>
+
+      <!-- 05 OPEN HOLE -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">05</span><span class="sec-ttl">Open Hole Geometry</span><span class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="fg">
+            <div><label>OH Diameter (mm)</label><input type="number" id="ohDiam" value="159" step="0.5" /></div>
+            <div><label id="lOHtop">OH Top (m MD)</label><input type="number" id="ohTop" value="1138" step="1" /></div>
+          </div>
+          <div class="fg one">
+            <div><label id="lTD">Total Depth TD (m MD)</label><input type="number" id="td" value="3487.9" step="0.1" />
+            </div>
+          </div>
+          <p class="hint">Open hole begins at last casing shoe (OH Top) and extends to TD.</p>
+        </div>
+      </div>
+
+      <!-- 06 EDR -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">06</span><span class="sec-ttl">EDR Import (Pason)</span><span class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="edr-box">
+            <div class="edr-ttl">Real-Time EDR Overlay</div>
+            <div class="drop" id="dropZ">
+              <input type="file" accept=".csv,.txt" onchange="handleEDR(this.files[0])" />
+              <p>Drop Pason CSV or click to browse<br />
+                <strong>Columns:</strong> Bit Depth, Hook Load, Surface Torque, WOB, RPM
+              </p>
+            </div>
+            <div id="edrSt" class="edr-st"></div>
+            <div id="colMap" class="col-map">
+              <div><label>Depth col</label><select id="cDepth"></select></div>
+              <div><label>Hook Load col</label><select id="cHL"></select></div>
+              <div><label>Torque col</label><select id="cTQ"></select></div>
+              <div><label>WOB col</label><select id="cWOB"></select></div>
+              <div><label>RPM col</label><select id="cRPM"></select></div>
+              <div><label>Depth unit</label>
+                <select id="edrDepthU">
+                  <option value="m">m</option>
+                  <option value="ft">ft</option>
+                </select>
+              </div>
+            </div>
+            <div id="edrBtns" style="display:none" class="brow">
+              <button class="btn btn-g" onclick="applyColMap()">Apply Mapping</button>
+              <button class="btn btn-g" onclick="clearEDR()">Clear EDR</button>
+            </div>
+            <div class="brow">
+              <button class="btn btn-g" style="font-size:9px" onclick="loadExEDR()">Load Example EDR</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 07 CALIBRATION -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">07</span><span class="sec-ttl">Friction Factor Calibration</span><span
+            class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="cal-box">
+            <div class="cal-ttl">Interactive mu Calibration vs EDR</div>
+            <div class="srow">
+              <span class="slbl">mu CASING 1</span>
+              <input type="range" id="sl1" min="0.05" max="0.60" step="0.01" value="0.25" oninput="onSlider()" />
+              <span class="sval" id="v1">0.25</span>
+            </div>
+            <div class="srow">
+              <span class="slbl">mu CASING 2</span>
+              <input type="range" id="sl2" min="0.05" max="0.60" step="0.01" value="0.20" oninput="onSlider()" />
+              <span class="sval" id="v2">0.20</span>
+            </div>
+            <div class="srow">
+              <span class="slbl">mu OPEN HOLE</span>
+              <input type="range" id="sl3" min="0.05" max="0.70" step="0.01" value="0.32" oninput="onSlider()" />
+              <span class="sval" id="v3">0.32</span>
+            </div>
+            <div class="brow">
+              <button class="btn btn-cal" onclick="autoCalib()">Auto-Fit mu (Min RMSE)</button>
+              <button class="btn btn-g" onclick="applySliders()">Apply to Model</button>
+            </div>
+            <div id="rmseBox" class="rmse-box"></div>
+          </div>
+          <p class="hint">Load EDR data first. Slide mu or click Auto-Fit. RMSE below 5% = excellent match.</p>
+        </div>
+      </div>
+
+      <!-- RUN -->
+      <div style="padding:12px">
+        <button class="btn btn-run" onclick="runModel()">RUN T&amp;D MODEL</button>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ===== RIGHT RESULTS PANEL ===== -->
+    <div class="right">
+      <div class="rtbar">
+        <h2>Results</h2>
+        <div class="chips" id="chips">
+          <span class="chip cb">ROT OB @ TD: --</span>
+          <span class="chip co">SLIDE @ TD: --</span>
+          <span class="chip cg">TRIP OUT @ TD: --</span>
+          <span class="chip cr">TRIP IN @ TD: --</span>
+          <span class="chip cp">TORQUE @ TD: --</span>
+        </div>
+      </div>
+      <div id="errbox" class="errbox"></div>
+      <div class="charts" id="chartsArea">
+        <div class="ph" id="ph">
+          <div class="ph-icon">O</div>
+          <h3>Ready to Model</h3>
+          <p>The CNRL ETS 158861 example is pre-loaded. Click <strong>Run T&amp;D Model</strong> to compute all plots
+            and tables.</p>
+        </div>
+      </div>
+      <div class="sbar">
+        <div class="sdot" id="sdot"></div>
+        <span id="smsg">Awaiting input — CNRL example loaded, click Run</span>
+      </div>
+    </div>
+
+  </div><!-- /app -->
+
+  <script>
+    // =============================================================
+    // UNIT SYSTEM
+    // Internal model always uses SI: m, N, N.m, kg/m3, kg/m
+    // Display converts for imperial: ft, klbf, kft.lbf, ppg, lb/ft
+    // =============================================================
+    var UNIT = 'metric';
+    var FT = 0.3048;
+    var KN2KLBF = 0.224809;
+    var NM2FTLBF = 0.737562;
+    var KGM32PPG = 0.0083454;
+    var KGM2LBFT = 0.67197;
+    var G = 9.81;
+
+    function dU(t) {
+      if (UNIT === 'metric') {
+        if (t === 'depth') return 'm';
+        if (t === 'force') return 'kN';
+        if (t === 'torque') return 'N.m';
+        if (t === 'sf') return 'kgf/m';
+      } else {
+        if (t === 'depth') return 'ft';
+        if (t === 'force') return 'klbf';
+        if (t === 'torque') return 'kft.lbf';
+        if (t === 'sf') return 'kgf/ft';
+      }
+      return '';
+    }
+
+    function setUnits(u) {
+      var prev = UNIT;
+      UNIT = u;
+      document.getElementById('btnMet').classList.toggle('active', u === 'metric');
+      document.getElementById('btnImp').classList.toggle('active', u === 'imperial');
+      if (prev === u) return;
+      var toImp = (u === 'imperial');
+      // Scalar depth fields
+      ['ohTop', 'td'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.value = toImp ? (+el.value / FT).toFixed(1) : (+el.value * FT).toFixed(1);
+      });
+      // Force fields
+      ['blockWeight', 'wobRot', 'wobSlid'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.value = toImp ? (+el.value * KN2KLBF).toFixed(2) : (+el.value / KN2KLBF).toFixed(2);
+      });
+      // Mud weight
+      (function () {
+        var el = document.getElementById('mudWeight');
+        el.value = toImp ? (+el.value * KGM32PPG).toFixed(3) : (+el.value / KGM32PPG).toFixed(0);
+      })();
+      // Torque limit
+      (function () {
+        var el = document.getElementById('torqueLimit');
+        el.value = toImp ? (+el.value * NM2FTLBF / 1000).toFixed(1) : (+el.value / NM2FTLBF * 1000).toFixed(0);
+      })();
+      // Table depth columns
+      convCol('survBody', 0, toImp ? 1 / FT : FT);
+      convCol('casBody', 3, toImp ? 1 / FT : FT);
+      convCol('casBody', 4, toImp ? 1 / FT : FT);
+      convCol('bhaBody', 3, toImp ? 1 / FT : FT);
+      convCol('bhaBody', 4, toImp ? KGM2LBFT : 1 / KGM2LBFT);
+      updateLabels();
+    }
+
+    function convCol(tbId, col, fac) {
+      document.querySelectorAll('#' + tbId + ' tr').forEach(function (r) {
+        var ins = r.querySelectorAll('input');
+        if (ins[col] && ins[col].value !== '') {
+          ins[col].value = (+ins[col].value * fac).toFixed(2);
+        }
+      });
+    }
+
+    function updateLabels() {
+      var M = (UNIT === 'metric');
+      document.getElementById('lMW').textContent = M ? 'Mud Weight (kg/m3)' : 'Mud Weight (ppg)';
+      document.getElementById('lBW').textContent = M ? 'Block Weight (kN)' : 'Block Weight (klbf)';
+      document.getElementById('lWOBr').textContent = M ? 'WOB Rotating (kN)' : 'WOB Rotating (klbf)';
+      document.getElementById('lWOBs').textContent = M ? 'WOB Sliding (kN)' : 'WOB Sliding (klbf)';
+      document.getElementById('lTQ').textContent = M ? 'Torque Limit (N.m)' : 'Torque Limit (kft.lbf)';
+      document.getElementById('th_md').textContent = M ? 'MD (m)' : 'MD (ft)';
+      document.getElementById('th_ctop').textContent = M ? 'Top (m)' : 'Top (ft)';
+      document.getElementById('th_cshoe').textContent = M ? 'Shoe (m)' : 'Shoe (ft)';
+      document.getElementById('th_blen').textContent = M ? 'Length (m)' : 'Length (ft)';
+      document.getElementById('th_bwt').textContent = M ? 'Wt (kg/m)' : 'Wt (lb/ft)';
+      document.getElementById('lOHtop').textContent = M ? 'OH Top (m MD)' : 'OH Top (ft MD)';
+      document.getElementById('lTD').textContent = M ? 'Total Depth TD (m MD)' : 'Total Depth TD (ft MD)';
+    }
+
+    // =============================================================
+    // TABLE ROW BUILDERS
+    // =============================================================
+    function mkCell(v, ph) {
+      return '<td><input type="number" value="' + v + '" placeholder="' + ph + '" step="any"/></td>';
+    }
+    function mkText(v, ph) {
+      return '<td><input type="text" value="' + v + '" placeholder="' + ph + '"/></td>';
+    }
+    function delBtn() {
+      return '<td><button class="del" onclick="this.closest(\'tr\').remove()">x</button></td>';
+    }
+
+    function addSurv(md, inc, az) {
+      md = md || ''; inc = inc || ''; az = az || '';
+      var tr = document.createElement('tr');
+      tr.innerHTML = mkCell(md, 'MD') + mkCell(inc, 'Inc') + mkCell(az, 'Az') + delBtn();
+      document.getElementById('survBody').appendChild(tr);
+    }
+
+    function addCas(nm, od, id_, top, shoe, ffidx) {
+      nm = nm || ''; od = od || ''; id_ = id_ || ''; top = top || ''; shoe = shoe || ''; ffidx = ffidx || '1';
+      var tr = document.createElement('tr');
+      var sel = '<td><select style="background:var(--panel);border:1px solid var(--border);color:var(--text-bright);font-family:var(--mono);font-size:9px;width:100%;padding:3px">'
+        + '<option value="1"' + (ffidx === '1' ? ' selected' : '') + '>1</option>'
+        + '<option value="2"' + (ffidx === '2' ? ' selected' : '') + '>2</option>'
+        + '</select></td>';
+      tr.innerHTML = mkText(nm, 'Name') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(top, 'Top') + mkCell(shoe, 'Shoe') + sel + delBtn();
+      document.getElementById('casBody').appendChild(tr);
+    }
+
+    function addBHA(nm, od, id_, len, wt) {
+      nm = nm || ''; od = od || ''; id_ = id_ || ''; len = len || ''; wt = wt || '';
+      var tr = document.createElement('tr');
+      tr.innerHTML = mkText(nm, 'Component') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(len, 'Len') + mkCell(wt, 'Wt') + delBtn();
+      document.getElementById('bhaBody').appendChild(tr);
+    }
+
+    // =============================================================
+    // CNRL ETS 158861 EXAMPLE DATA (matches Landmark WellPlan report)
+    // =============================================================
+    function loadCNRL() {
+      document.getElementById('survBody').innerHTML = '';
+      var M = (UNIT === 'metric');
+      var f = M ? 1 : 1 / FT;
+      var surv = [
+        [0, 0, 0], [30, 0, 0], [60, 0, 0], [90, 0, 0], [120, 0, 0], [150, 0, 0], [180, 0, 0],
+        [210, 0, 0], [240, 0, 0], [270, 0, 0], [300, 0, 0], [330, 0, 0], [360, 0, 0], [390, 0, 0],
+        [420, 0, 0], [450, 0, 0], [480, 0, 0], [510, 0, 0], [540, 0, 0], [570, 0, 0], [600, 0, 0],
+        [630, 0, 0], [660, 0, 0], [690, 0, 0], [720, 0, 0], [730, 0, 0],
+        [750, 2.67, 198.19], [780, 6.67, 198.19], [810, 10.67, 198.19], [840, 14.67, 198.19],
+        [870, 18.67, 198.19], [900, 22.67, 198.19], [930, 26.67, 198.19], [960, 30.67, 198.19],
+        [990, 34.67, 198.19], [1020, 38.67, 198.19], [1050, 42.67, 198.19], [1080, 46.67, 198.19],
+        [1110, 50.67, 198.19], [1140, 54.67, 198.19], [1170, 58.67, 198.19], [1200, 62.67, 198.19],
+        [1230, 66.67, 198.19], [1260, 70.67, 198.19], [1290, 74.67, 198.19],
+        [1317.04, 78.27, 198.19], [1320, 78.27, 198.19], [1350, 78.27, 198.19],
+        [1380, 78.27, 198.19], [1410, 78.27, 198.19], [1440, 78.27, 198.19],
+        [1449.46, 78.27, 198.19], [1455, 78.88, 197.24], [1470, 80.53, 194.69],
+        [1485, 82.19, 192.17], [1500, 83.88, 189.67], [1515, 85.57, 187.18],
+        [1530, 87.27, 184.71], [1545, 88.98, 182.24], [1553.94, 90, 180.77],
+        [1560, 90, 180.77], [1583.94, 90, 180.77], [1590, 90, 180.77], [1620, 90, 180.77],
+        [1650, 90, 180.77], [1680, 90, 180.77], [1709.64, 90, 180.77],
+        [1711.26, 90, 180.58], [1740, 90, 180.58], [1770, 90, 180.58], [1800, 90, 180.58],
+        [1830, 90, 180.58], [1860, 90, 180.58], [1890, 90, 180.58], [1920, 90, 180.58],
+        [1950, 90, 180.58], [1980, 90, 180.58], [2010, 90, 180.58], [2040, 90, 180.58],
+        [2070, 90, 180.58], [2100, 90, 180.58], [2130, 90, 180.58], [2160, 90, 180.58],
+        [2190, 90, 180.58], [2220, 90, 180.58], [2250, 90, 180.58], [2280, 90, 180.58],
+        [2310, 90, 180.58], [2340, 90, 180.58], [2370, 90, 180.58], [2400, 90, 180.58],
+        [2430, 90, 180.58], [2460, 90, 180.58], [2490, 90, 180.58], [2520, 90, 180.58],
+        [2550, 90, 180.58], [2580, 90, 180.58], [2610, 90, 180.58], [2640, 90, 180.58],
+        [2670, 90, 180.58], [2700, 90, 180.58], [2730, 90, 180.58], [2736.56, 90, 180.58],
+        [2760, 90, 180.58], [2790, 90, 180.58], [2820, 90, 180.58], [2850, 90, 180.58],
+        [2880, 90, 180.58], [2910, 90, 180.58], [2940, 90, 180.58], [2970, 90, 180.58],
+        [3000, 90, 180.58], [3030, 90, 180.58], [3060, 90, 180.58], [3090, 90, 180.58],
+        [3120, 90, 180.58], [3150, 90, 180.58], [3180, 90, 180.58], [3210, 90, 180.58],
+        [3240, 90, 180.58], [3270, 90, 180.58], [3300, 90, 180.58], [3330, 90, 180.58],
+        [3360, 90, 180.58], [3390, 90, 180.58], [3420, 90, 180.58], [3450, 90, 180.58],
+        [3480, 90, 180.58], [3487.9, 90, 180.58]
+      ];
+      surv.forEach(function (s) { addSurv((s[0] * f).toFixed(1), s[1], s[2]); });
+      document.getElementById('ohTop').value = M ? 1138 : (1138 / FT).toFixed(0);
+      document.getElementById('td').value = M ? 3487.9 : (3487.9 / FT).toFixed(0);
+      document.getElementById('mudWeight').value = M ? 1040 : (1040 * KGM32PPG).toFixed(3);
+      document.getElementById('wobRot').value = M ? 20 : (20 * KN2KLBF).toFixed(2);
+      document.getElementById('wobSlid').value = M ? 19 : (19 * KN2KLBF).toFixed(2);
+      document.getElementById('blockWeight').value = M ? 10 : (10 * KN2KLBF).toFixed(2);
+      document.getElementById('ff1').value = 0.25;
+      document.getElementById('ff2').value = 0.20;
+      document.getElementById('ffOH').value = 0.32;
+      setStatus('ok', 'CNRL ETS 158861 survey loaded — click Run T&D Model');
+    }
+
+    function loadCNRLCas() {
+      document.getElementById('casBody').innerHTML = '';
+      var M = (UNIT === 'metric');
+      var f = M ? 1 : 1 / FT;
+      addCas('20in Conductor', 508, 475, (0 * f).toFixed(0), (200 * f).toFixed(0), '1');
+      addCas('6-5/8in Casing', 168.3, 161.7, (0 * f).toFixed(0), (1138 * f).toFixed(0), '2');
+    }
+
+    function loadCNRLBHA() {
+      document.getElementById('bhaBody').innerHTML = '';
+      var M = (UNIT === 'metric');
+      var fl = M ? 1 : 1 / FT;
+      var fw = M ? 1 : KGM2LBFT;
+      // kg/m = lb/ft * 1.48816; converting lb/ft stored values
+      var bha = [
+        ['PDC Bit 158.75mm', 158.75, 0, 0.20, 208.34 * 0.453592 / FT],
+        ['Mud Motor 137mm', 137, 63.5, 10.05, 69.84 * 0.453592 / FT],
+        ['DC 127mm', 127, 64, 4.60, 73.81 * 0.453592 / FT],
+        ['DC 121mm', 121, 68, 9.29, 73.81 * 0.453592 / FT],
+        ['DC 120mm', 120, 76, 1.68, 73.81 * 0.453592 / FT],
+        ['DC 122mm B', 122, 67, 9.54, 73.81 * 0.453592 / FT],
+        ['DC 122mm A', 122, 67, 9.42, 73.81 * 0.453592 / FT],
+        ['Sub 137mm', 137.16, 48.77, 1.18, 104.41 * 0.453592 / FT],
+        ['Underreamer 130mm', 130, 58, 1.38, 47.62 * 0.453592 / FT],
+        ['DP 114.3mm C', 114.3, 71.4, 704, 27.69 * 0.453592 / FT],
+        ['Accelerator 130mm', 130, 70, 5.35, 77.56 * 0.453592 / FT],
+        ['HWDP 114.3mm', 114.3, 69.85, 1000, 61.01 * 0.453592 / FT],
+        ['DP 114.3mm B', 114.3, 71.4, 1600, 27.69 * 0.453592 / FT],
+        ['DP 114.3mm A', 114.3, 71.4, 131.21, 27.69 * 0.453592 / FT]
+      ];
+      bha.forEach(function (c) {
+        addBHA(c[0], c[1], c[2], (c[3] * fl).toFixed(2), (c[4] * fw).toFixed(3));
+      });
+    }
+
+    // =============================================================
+    // READ INPUTS (always returns SI units internally)
+    // =============================================================
+    function getParams() {
+      var M = (UNIT === 'metric');
+      return {
+        mudDens: M ? +document.getElementById('mudWeight').value : +document.getElementById('mudWeight').value / KGM32PPG,
+        blockW: M ? +document.getElementById('blockWeight').value * 1000 : +document.getElementById('blockWeight').value / KN2KLBF * 1000,
+        wobRot: M ? +document.getElementById('wobRot').value * 1000 : +document.getElementById('wobRot').value / KN2KLBF * 1000,
+        wobSlid: M ? +document.getElementById('wobSlid').value * 1000 : +document.getElementById('wobSlid').value / KN2KLBF * 1000,
+        torqLim: M ? +document.getElementById('torqueLimit').value : +document.getElementById('torqueLimit').value / NM2FTLBF * 1000,
+        ff1: +document.getElementById('ff1').value,
+        ff2: +document.getElementById('ff2').value,
+        ffOH: +document.getElementById('ffOH').value,
+        steelDens: +document.getElementById('steelDens').value,
+        ohDiam_m: +document.getElementById('ohDiam').value / 1000,
+        ohTop: M ? +document.getElementById('ohTop').value : +document.getElementById('ohTop').value * FT,
+        td: M ? +document.getElementById('td').value : +document.getElementById('td').value * FT
+      };
+    }
+
+    function getSurvey() {
+      var M = (UNIT === 'metric');
+      return Array.from(document.querySelectorAll('#survBody tr')).map(function (r) {
+        var ins = r.querySelectorAll('input');
+        return { md: M ? +ins[0].value : +ins[0].value * FT, inc: +ins[1].value, az: +ins[2].value };
+      }).filter(function (r) { return !isNaN(r.md) && r.md >= 0; }).sort(function (a, b) { return a.md - b.md; });
+    }
+
+    function getCasings() {
+      var M = (UNIT === 'metric');
+      return Array.from(document.querySelectorAll('#casBody tr')).map(function (r) {
+        var ins = r.querySelectorAll('input');
+        var sel = r.querySelector('select');
+        return {
+          name: ins[0].value,
+          od_m: +ins[1].value / 1000,
+          id_m: +ins[2].value / 1000,
+          top: M ? +ins[3].value : +ins[3].value * FT,
+          shoe: M ? +ins[4].value : +ins[4].value * FT,
+          ffidx: sel ? +sel.value : 1
+        };
+      }).filter(function (r) { return r.od_m > 0 && r.shoe > 0; });
+    }
+
+    function getBHA() {
+      var M = (UNIT === 'metric');
+      return Array.from(document.querySelectorAll('#bhaBody tr')).map(function (r) {
+        var ins = r.querySelectorAll('input');
+        return {
+          name: ins[0].value,
+          od_m: +ins[1].value / 1000,
+          id_m: +ins[2].value / 1000,
+          len: M ? +ins[3].value : +ins[3].value * FT,
+          wt: M ? +ins[4].value : +ins[4].value / KGM2LBFT
+        };
+      }).filter(function (r) { return r.od_m > 0 && r.len > 0; });
+    }
+
+    // =============================================================
+    // MINIMUM CURVATURE — trajectory calculation
+    // Returns array of {md, inc, az, tvd, ns, ew, dls}
+    // =============================================================
+    function minCurvature(survey) {
+      var out = [];
+      var tvd = 0, ns = 0, ew = 0;
+      out.push({ md: survey[0].md, inc: survey[0].inc, az: survey[0].az, tvd: 0, ns: 0, ew: 0, dls: 0 });
+      for (var i = 1; i < survey.length; i++) {
+        var a = survey[i - 1], b = survey[i];
+        var dMD = b.md - a.md;
+        if (dMD <= 0) { out.push({ md: b.md, inc: b.inc, az: b.az, tvd: tvd, ns: ns, ew: ew, dls: 0 }); continue; }
+        var I1 = a.inc * Math.PI / 180, I2 = b.inc * Math.PI / 180;
+        var A1 = a.az * Math.PI / 180, A2 = b.az * Math.PI / 180;
+        var cosB = Math.cos(I2 - I1) - Math.sin(I1) * Math.sin(I2) * (1 - Math.cos(A2 - A1));
+        var beta = Math.acos(Math.max(-1, Math.min(1, cosB)));
+        var RF = beta < 1e-6 ? 1 : (2 / beta) * Math.tan(beta / 2);
+        tvd += (dMD / 2) * (Math.cos(I1) + Math.cos(I2)) * RF;
+        ns += (dMD / 2) * (Math.sin(I1) * Math.cos(A1) + Math.sin(I2) * Math.cos(A2)) * RF;
+        ew += (dMD / 2) * (Math.sin(I1) * Math.sin(A1) + Math.sin(I2) * Math.sin(A2)) * RF;
+        var dls = (beta * 180 / Math.PI) / dMD * 30;
+        out.push({ md: b.md, inc: b.inc, az: b.az, tvd: tvd, ns: ns, ew: ew, dls: dls });
+      }
+      return out;
+    }
+
+    function interpTraj(traj, md) {
+      if (md <= traj[0].md) return traj[0];
+      var last = traj[traj.length - 1];
+      if (md >= last.md) return last;
+      for (var i = 1; i < traj.length; i++) {
+        if (md <= traj[i].md) {
+          var a = traj[i - 1], b = traj[i];
+          var t = (md - a.md) / (b.md - a.md);
+          return {
+            tvd: a.tvd + t * (b.tvd - a.tvd),
+            ns: a.ns + t * (b.ns - a.ns),
+            ew: a.ew + t * (b.ew - a.ew),
+            dls: a.dls + t * (b.dls - a.dls),
+            inc: a.inc + t * (b.inc - a.inc),
+            az: a.az + t * (b.az - a.az)
+          };
+        }
+      }
+      return last;
+    }
+
+    // =============================================================
+    // HOLE GEOMETRY — which casing or OH at a given MD
+    // =============================================================
+    function holeAt(md, casings, ohTop, ohDiam_m, params) {
+      var sorted = casings.slice().sort(function (a, b) { return b.shoe - a.shoe; });
+      for (var i = 0; i < sorted.length; i++) {
+        var c = sorted[i];
+        if (md >= c.top && md <= c.shoe) {
+          var ff = (c.ffidx === 1) ? params.ff1 : (c.ffidx === 2) ? params.ff2 : params.ffOH;
+          return { id_m: c.id_m, ff: ff, inCasing: true, ffidx: c.ffidx };
+        }
+      }
+      if (md >= ohTop) return { id_m: ohDiam_m, ff: params.ffOH, inCasing: false, ffidx: 0 };
+      if (sorted.length > 0) return { id_m: sorted[sorted.length - 1].id_m, ff: params.ff1, inCasing: true, ffidx: 1 };
+      return { id_m: ohDiam_m, ff: params.ffOH, inCasing: false, ffidx: 0 };
+    }
+
+    // =============================================================
+    // PIPE AT DEPTH — which BHA component or DP at a given MD (for fixed TD)
+    // =============================================================
+    function pipeAt(md, td, bha) {
+      var depth = td;
+      for (var i = 0; i < bha.length; i++) {
+        var top = depth - bha[i].len;
+        if (md >= top && md <= depth) return bha[i];
+        depth = top;
+      }
+      return null;
+    }
+
+    // =============================================================
+    // INTERPOLATE SURVEY
+    // =============================================================
+    function interpSurv(surv, md) {
+      if (md <= surv[0].md) return { inc: surv[0].inc, az: surv[0].az };
+      var last = surv[surv.length - 1];
+      if (md >= last.md) return { inc: last.inc, az: last.az };
+      for (var i = 1; i < surv.length; i++) {
+        if (md <= surv[i].md) {
+          var a = surv[i - 1], b = surv[i], t = (md - a.md) / (b.md - a.md);
+          return { inc: a.inc + t * (b.inc - a.inc), az: a.az + t * (b.az - a.az) };
+        }
+      }
+      return { inc: last.inc, az: last.az };
+    }
+
+    // =============================================================
+    // COMPUTE EFFECTIVE TENSION MODEL (5 WellPlan cases, fixed TD)
+    // Returns per-node array with ET, torque, side force, trajectory
+    // =============================================================
+    function computeModel(surv, casings, bha, params, overrideFF) {
+      var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
+      var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
+      var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
+      var BF = 1 - mudDens / steelDens;
+      var dpDef = { od_m: 0.1143, id_m: 0.0714, wt: 41.2 };
+      var STEP = 10;
+      var traj = minCurvature(surv);
+
+      var nodes = [];
+      for (var md = 0; md <= td; md += STEP) nodes.push(md);
+      if (nodes[nodes.length - 1] < td) nodes.push(td);
+
+      var nData = nodes.map(function (md) {
+        var geo = holeAt(md, casings, ohTop, ohDiam_m, p);
+        var comp = pipeAt(md, td, bha) || dpDef;
+        var ia = interpSurv(surv, md);
+        var tr = interpTraj(traj, md);
+        return {
+          md: md, inc: ia.inc, az: ia.az,
+          tvd: tr.tvd, ns: tr.ns, ew: tr.ew, dls: tr.dls,
+          wt: comp.wt * G * BF,
+          od_m: comp.od_m, id_m: comp.id_m,
+          ff: geo.ff, inCasing: geo.inCasing, ffidx: geo.ffidx
+        };
+      });
+
+      function integrate(wob_N, dragSign) {
+        var F = -wob_N, Tq = 0;
+        var res = new Array(nodes.length);
+        res[nodes.length - 1] = { F: F, Tq: Tq, N: 0 };
+        for (var i = nData.length - 2; i >= 0; i--) {
+          var bot = nData[i + 1], top = nData[i];
+          var dMD = bot.md - top.md;
+          if (dMD <= 0) { res[i] = res[i + 1]; continue; }
+          var iAvg = (top.inc + bot.inc) / 2 * Math.PI / 180;
+          var dInc = (bot.inc - top.inc) * Math.PI / 180;
+          var dAz = (bot.az - top.az) * Math.PI / 180;
+          var wEl = top.wt * dMD;
+          var ff = top.ff;
+          var r = top.od_m / 2;
+          var t1 = F * dInc + wEl * Math.sin(iAvg);
+          var t2 = F * Math.sin(iAvg) * dAz;
+          var N = Math.sqrt(t1 * t1 + t2 * t2);
+          F += wEl * Math.cos(iAvg) + dragSign * ff * N;
+          if (dragSign === 0) Tq += ff * N * r;
+          res[i] = { F: F, Tq: Tq, N: N };
+        }
+        return res;
+      }
+
+      var rotOB = integrate(-wobRot, 0);
+      var slideOB = integrate(-wobSlid, -1);
+      var rotOff = integrate(0, 0);
+      var tripOut = integrate(0, +1);
+      var tripIn = integrate(0, -1);
+
+      return nodes.map(function (md, i) {
+        var nd = nData[i];
+        var dMD = i > 0 ? nodes[i] - nodes[i - 1] : (nodes[1] ? nodes[1] - nodes[0] : STEP);
+        dMD = Math.max(1, dMD);
+        return {
+          md: md, inc: nd.inc, az: nd.az,
+          tvd: nd.tvd, ns: nd.ns, ew: nd.ew, dls: nd.dls,
+          inCasing: nd.inCasing, ffidx: nd.ffidx,
+          etRotOB: (rotOB[i].F + blockW) / 1000,
+          etSlide: (slideOB[i].F + blockW) / 1000,
+          etRotOff: (rotOff[i].F + blockW) / 1000,
+          etTripOut: (tripOut[i].F + blockW) / 1000,
+          etTripIn: (tripIn[i].F + blockW) / 1000,
+          torqRotOB: rotOB[i].Tq,
+          torqRotOff: rotOff[i].Tq,
+          sfRotOB: rotOB[i].N / G / dMD,
+          sfSlide: slideOB[i].N / G / dMD,
+          sfRotOff: rotOff[i].N / G / dMD,
+          sfTripOut: tripOut[i].N / G / dMD,
+          sfTripIn: tripIn[i].N / G / dMD
+        };
+      });
+    }
+
+    // =============================================================
+    // COMPUTE HOOKLOAD vs BIT DEPTH (correct WellPlan p.33 method)
+    // Re-runs integration for each bit depth — BHA anchored at bit
+    // =============================================================
+    function computeHookload(surv, casings, bha, params, overrideFF) {
+      var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
+      var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
+      var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
+      var BF = 1 - mudDens / steelDens;
+      var dpDef = { od_m: 0.1143, id_m: 0.0714, wt: 41.2 };
+      var bhaLen = bha.reduce(function (s, c) { return s + c.len; }, 0);
+      var HL_STEP = 30.48;
+      var bitDepths = [];
+      for (var d = HL_STEP; d <= td; d += HL_STEP) bitDepths.push(d);
+      if (bitDepths[bitDepths.length - 1] < td) bitDepths.push(td);
+
+      function pipeAtBit(md, bitDepth) {
+        var bhaTop = bitDepth - bhaLen;
+        if (md < bhaTop) return dpDef;
+        var cursor = bitDepth;
+        for (var j = 0; j < bha.length; j++) {
+          var compTop = cursor - bha[j].len;
+          if (md >= compTop && md <= cursor) return bha[j];
+          cursor = compTop;
+        }
+        return dpDef;
+      }
+
+      function integHL(bitDepth, wob_N, dragSign) {
+        var STEP = 10;
+        var nodes = [];
+        for (var md = 0; md <= bitDepth; md += STEP) nodes.push(md);
+        if (nodes[nodes.length - 1] < bitDepth) nodes.push(bitDepth);
+        var F = -wob_N, Tq = 0;
+        for (var i = nodes.length - 2; i >= 0; i--) {
+          var mdBot = nodes[i + 1], mdTop = nodes[i];
+          var dMD = mdBot - mdTop;
+          if (dMD <= 0) continue;
+          var ia1 = interpSurv(surv, mdTop);
+          var ia2 = interpSurv(surv, mdBot);
+          var iAvg = (ia1.inc + ia2.inc) / 2 * Math.PI / 180;
+          var dInc = (ia2.inc - ia1.inc) * Math.PI / 180;
+          var dAz = (ia2.az - ia1.az) * Math.PI / 180;
+          var comp = pipeAtBit(mdTop, bitDepth);
+          var wEl = comp.wt * G * BF * dMD;
+          var geo = holeAt(mdTop, casings, ohTop, ohDiam_m, p);
+          var ff = geo.ff;
+          var t1 = F * dInc + wEl * Math.sin(iAvg);
+          var t2 = F * Math.sin(iAvg) * dAz;
+          var N = Math.sqrt(t1 * t1 + t2 * t2);
+          F += wEl * Math.cos(iAvg) + dragSign * ff * N;
+          if (dragSign === 0) Tq += ff * N * (comp.od_m / 2);
+        }
+        return { hl: (F + blockW) / 1000, tq: Tq };
+      }
+
+      return bitDepths.map(function (D) {
+        var to = integHL(D, 0, +1);
+        var rob = integHL(D, wobRot, 0);
+        var sl = integHL(D, wobSlid, -1);
+        return { md: D, hl_tripOut: to.hl, hl_rotOB: rob.hl, hl_slide: sl.hl, tq_rotOB: rob.tq };
+      });
+    }
+
+    // =============================================================
+    // EDR
+    // =============================================================
+    var edrData = null, rawHdrs = [], rawRows = [];
+
+    function handleEDR(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (e) { parseCSV(e.target.result); };
+      reader.readAsText(file);
+    }
+
+    function parseCSV(txt) {
+      var lines = txt.trim().split(/\r?\n/).filter(function (l) { return l.trim(); });
+      if (lines.length < 2) return;
+      var hi = 0;
+      for (var i = 0; i < Math.min(10, lines.length); i++) { if (/[a-zA-Z]/.test(lines[i])) { hi = i; break; } }
+      var del = lines[hi].includes('\t') ? '\t' : ',';
+      rawHdrs = lines[hi].split(del).map(function (h) { return h.trim().replace(/"/g, ''); });
+      rawRows = lines.slice(hi + 1).map(function (l) { return l.split(del).map(function (v) { return v.trim().replace(/"/g, ''); }); });
+      var sels = ['cDepth', 'cHL', 'cTQ', 'cWOB', 'cRPM'];
+      sels.forEach(function (id) {
+        document.getElementById(id).innerHTML = rawHdrs.map(function (h, i) {
+          return '<option value="' + i + '">' + h + '</option>';
+        }).join('');
+      });
+      var am = {
+        cDepth: ['bit depth', 'md', 'depth', 'measured'], cHL: ['hook load', 'hookload', 'hl', 'hook'],
+        cTQ: ['torque', 'surface torque'], cWOB: ['wob', 'weight on bit'], cRPM: ['rpm', 'rotary']
+      };
+      Object.keys(am).forEach(function (sid) {
+        var idx = rawHdrs.findIndex(function (h) { return am[sid].some(function (k) { return h.toLowerCase().includes(k); }); });
+        if (idx >= 0) document.getElementById(sid).value = idx;
+      });
+      document.getElementById('colMap').style.display = 'grid';
+      document.getElementById('edrBtns').style.display = 'flex';
+      document.getElementById('edrSt').textContent = rawRows.length + ' rows loaded — verify columns and apply';
+      document.getElementById('edrSt').style.display = 'block';
+      applyColMap();
+    }
+
+    function applyColMap() {
+      var di = +document.getElementById('cDepth').value;
+      var hi = +document.getElementById('cHL').value;
+      var ti = +document.getElementById('cTQ').value;
+      var du = document.getElementById('edrDepthU').value;
+      edrData = rawRows.map(function (r) {
+        var md = parseFloat(r[di]);
+        return { md_m: du === 'ft' ? md * FT : md, hl_kN: parseFloat(r[hi]), tq_Nm: parseFloat(r[ti]) };
+      }).filter(function (r) { return !isNaN(r.md_m) && !isNaN(r.hl_kN) && r.md_m > 0; })
+        .sort(function (a, b) { return a.md_m - b.md_m; });
+      document.getElementById('edrSt').textContent = edrData.length + ' valid EDR records mapped';
+    }
+
+    function clearEDR() {
+      edrData = null; rawHdrs = []; rawRows = [];
+      document.getElementById('edrSt').style.display = 'none';
+      document.getElementById('colMap').style.display = 'none';
+      document.getElementById('edrBtns').style.display = 'none';
+    }
+
+    function loadExEDR() {
+      var pts = [];
+      for (var md = 100; md <= 3488; md += 60) {
+        var f = md / 3488;
+        var hl = md < 730 ? 350 - f * 310 : md < 1554 ? 150 + Math.sin(f * 3) * 20 - f * 200 : 180 - f * 160;
+        pts.push({
+          md_m: md, hl_kN: Math.max(0, hl) + (Math.random() - 0.5) * 5,
+          tq_Nm: f * 12000 + Math.random() * 500
+        });
+      }
+      edrData = pts;
+      document.getElementById('edrSt').textContent = pts.length + ' synthetic EDR records loaded';
+      document.getElementById('edrSt').style.display = 'block';
+      setStatus('ok', 'Example EDR loaded — run model to overlay');
+    }
+
+    // =============================================================
+    // CALIBRATION
+    // =============================================================
+    var cachedSurv = null, cachedCas = null, cachedBHA = null, cachedPar = null;
+
+    function calcRMSE(f1, f2, f3) {
+      if (!cachedSurv || !edrData || !edrData.length) return null;
+      var hlRes = computeHookload(cachedSurv, cachedCas, cachedBHA, cachedPar, { ff1: f1, ff2: f2, ffOH: f3 });
+      var mdArr = hlRes.map(function (r) { return r.md; });
+      var hlArr = hlRes.map(function (r) { return r.hl_rotOB; });
+      var s = 0, n = 0;
+      edrData.forEach(function (ed) {
+        var bi = 0, bd = 1e9;
+        mdArr.forEach(function (m, i) { var d = Math.abs(m - ed.md_m); if (d < bd) { bd = d; bi = i; } });
+        if (bd < 200) { s += Math.pow(hlArr[bi] - ed.hl_kN, 2); n++; }
+      });
+      return n > 0 ? Math.sqrt(s / n) : null;
+    }
+
+    function onSlider() {
+      var f1 = +document.getElementById('sl1').value;
+      var f2 = +document.getElementById('sl2').value;
+      var f3 = +document.getElementById('sl3').value;
+      document.getElementById('v1').textContent = f1.toFixed(2);
+      document.getElementById('v2').textContent = f2.toFixed(2);
+      document.getElementById('v3').textContent = f3.toFixed(2);
+      if (cachedSurv && edrData) showRMSE(f1, f2, f3);
+    }
+
+    function showRMSE(f1, f2, f3) {
+      var rmse = calcRMSE(f1, f2, f3);
+      if (rmse === null) { document.getElementById('rmseBox').style.display = 'none'; return; }
+      var mean = edrData.reduce(function (s, r) { return s + r.hl_kN; }, 0) / edrData.length;
+      var pct = rmse / mean * 100;
+      var cls = pct < 5 ? 'color:var(--accent3)' : pct < 10 ? 'color:var(--yellow)' : 'color:var(--red)';
+      var disp = UNIT === 'metric' ? rmse.toFixed(2) + ' kN' : (rmse * KN2KLBF).toFixed(2) + ' klbf';
+      var qual = pct < 5 ? '<span style="color:var(--accent3)">Excellent fit</span>'
+        : pct < 10 ? '<span style="color:var(--yellow)">Acceptable — refine mu</span>'
+          : '<span style="color:var(--red)">Poor fit — adjust mu</span>';
+      document.getElementById('rmseBox').style.display = 'block';
+      document.getElementById('rmseBox').innerHTML =
+        'RMSE: <span style="' + cls + '">' + disp + ' (' + pct.toFixed(1) + '%)</span><br>'
+        + 'mu1=' + f1.toFixed(2) + '  mu2=' + f2.toFixed(2) + '  muOH=' + f3.toFixed(2) + '<br>' + qual;
+    }
+
+    function applySliders() {
+      document.getElementById('ff1').value = document.getElementById('sl1').value;
+      document.getElementById('ff2').value = document.getElementById('sl2').value;
+      document.getElementById('ffOH').value = document.getElementById('sl3').value;
+      runModel();
+    }
+
+    function autoCalib() {
+      if (!cachedSurv) { showErr('Run model first.'); return; }
+      if (!edrData || !edrData.length) { showErr('Load EDR data first.'); return; }
+      setStatus('run', 'Auto-calibrating mu — scanning 400 combinations...');
+      setTimeout(function () {
+        var range = [0.08, 0.10, 0.12, 0.15, 0.17, 0.20, 0.22, 0.25, 0.28, 0.30, 0.32, 0.35, 0.38, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70];
+        var best = Infinity, bf1 = 0.25, bf2 = 0.20, bf3 = 0.32;
+        for (var i = 0; i < range.length; i++)
+          for (var j = 0; j < range.length; j++)
+            for (var k = 0; k < range.length; k++) {
+              var rm = calcRMSE(range[i], range[j], range[k]);
+              if (rm !== null && rm < best) { best = rm; bf1 = range[i]; bf2 = range[j]; bf3 = range[k]; }
+            }
+        document.getElementById('sl1').value = bf1;
+        document.getElementById('sl2').value = bf2;
+        document.getElementById('sl3').value = bf3;
+        document.getElementById('v1').textContent = bf1.toFixed(2);
+        document.getElementById('v2').textContent = bf2.toFixed(2);
+        document.getElementById('v3').textContent = bf3.toFixed(2);
+        showRMSE(bf1, bf2, bf3);
+        setStatus('ok', 'Auto-calibrated: mu1=' + bf1.toFixed(2) + ' mu2=' + bf2.toFixed(2) + ' muOH=' + bf3.toFixed(2) + '  RMSE=' + best.toFixed(2) + ' kN');
+      }, 50);
+    }
+
+    // =============================================================
+    // RUN MODEL — orchestrates everything
+    // =============================================================
+    function runModel() {
+      setStatus('run', 'Computing effective tension and trajectory...');
+      hideErr();
+      try {
+        var surv = getSurvey();
+        if (surv.length < 2) throw new Error('Need at least 2 survey stations.');
+        var cas = getCasings();
+        var bha = getBHA();
+        var par = getParams();
+        if (par.td <= 0) throw new Error('Total Depth must be > 0.');
+        if (par.mudDens <= 0) throw new Error('Mud weight must be > 0.');
+
+        // Extend survey to TD if needed
+        if (surv[surv.length - 1].md < par.td) {
+          var last = surv[surv.length - 1];
+          surv.push({ md: par.td, inc: last.inc, az: last.az });
+        }
+
+        cachedSurv = surv.slice(); cachedCas = cas.slice(); cachedBHA = bha.slice(); cachedPar = Object.assign({}, par);
+
+        // ET model (fast — runs once at full TD)
+        var res = computeModel(surv, cas, bha, par);
+        // Trajectory at survey stations (for 3D plot)
+        var traj = minCurvature(surv);
+
+        // Display unit factors
+        var M = (UNIT === 'metric');
+        var df = M ? 1 : 1 / FT;
+        var dkN = M ? 1 : KN2KLBF;
+        var dNm = M ? 1 : NM2FTLBF / 1000;  // N.m -> kft.lbf
+        var depU = dU('depth'), forU = dU('force'), tqU = dU('torque');
+
+        // ET arrays (display units)
+        var mds = res.map(function (r) { return r.md * df; });
+        var etROB = res.map(function (r) { return r.etRotOB * dkN; });
+        var etSLD = res.map(function (r) { return r.etSlide * dkN; });
+        var etROff = res.map(function (r) { return r.etRotOff * dkN; });
+        var etTO = res.map(function (r) { return r.etTripOut * dkN; });
+        var etTI = res.map(function (r) { return r.etTripIn * dkN; });
+        var tqROB = res.map(function (r) { return r.torqRotOB * dNm; });
+        var tqROff = res.map(function (r) { return r.torqRotOff * dNm; });
+        var sfROB = res.map(function (r) { return r.sfRotOB * (M ? 1 : 1 / FT); });
+        var sfSLD = res.map(function (r) { return r.sfSlide * (M ? 1 : 1 / FT); });
+        var sfROff = res.map(function (r) { return r.sfRotOff * (M ? 1 : 1 / FT); });
+        var sfTO = res.map(function (r) { return r.sfTripOut * (M ? 1 : 1 / FT); });
+        var sfTI = res.map(function (r) { return r.sfTripIn * (M ? 1 : 1 / FT); });
+        var incArr = res.map(function (r) { return r.inc; });
+        var dlsArr = res.map(function (r) { return r.dls; });
+
+        // EDR overlay (display units)
+        var edrMD = null, edrHL = null, edrTQ = null;
+        if (edrData && edrData.length) {
+          edrMD = edrData.map(function (r) { return r.md_m * df; });
+          edrHL = edrData.map(function (r) { return r.hl_kN * dkN; });
+          edrTQ = edrData.map(function (r) { return r.tq_Nm * dNm; });
+        }
+
+        // Summary chips
+        var tdR = res[res.length - 1];
+        document.getElementById('chips').innerHTML =
+          '<span class="chip cb">ROT OB @ TD: ' + (tdR.etRotOB * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip co">SLIDE @ TD: ' + (tdR.etSlide * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cg">TRIP OUT @ TD: ' + (tdR.etTripOut * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cr">TRIP IN @ TD: ' + (tdR.etTripIn * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cp">TORQUE OB: ' + (tdR.torqRotOB * dNm).toFixed(0) + ' ' + tqU + '</span>';
+
+        // Render ET plots and 3D (fast)
+        renderAllCharts(mds, etROB, etSLD, etROff, etTO, etTI,
+          tqROB, tqROff, sfROB, sfSLD, sfROff, sfTO, sfTI,
+          incArr, dlsArr, edrMD, edrHL, edrTQ,
+          par.torqLim * dNm, depU, forU, tqU, res, traj, df);
+
+        setStatus('run', 'Computing hookload vs bit depth (may take a few seconds)...');
+
+        // Hookload (expensive — run deferred so UI can paint first)
+        setTimeout(function () {
+          try {
+            var hlRes = computeHookload(surv, cas, bha, par);
+            var hlMDs = hlRes.map(function (r) { return r.md * df; });
+            var hlTO = hlRes.map(function (r) { return r.hl_tripOut * dkN; });
+            var hlROB = hlRes.map(function (r) { return r.hl_rotOB * dkN; });
+            var hlSLD = hlRes.map(function (r) { return r.hl_slide * dkN; });
+            renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU);
+            renderHookloadTable(hlMDs, hlTO, hlROB, hlSLD, depU, forU);
+            setStatus('ok', 'Model complete — ' + res.length + ' ET stations, ' + hlRes.length + ' hookload steps. TD=' + (par.td * df).toFixed(0) + ' ' + depU);
+          } catch (e2) {
+            showErr('Hookload error: ' + e2.message);
+            setStatus('err', 'Hookload error: ' + e2.message);
+          }
+        }, 40);
+
+      } catch (e) {
+        showErr(e.message);
+        setStatus('err', 'Error: ' + e.message);
+      }
+    }
+
+    // =============================================================
+    // CHART INFRASTRUCTURE
+    // =============================================================
+    var charts = {};
+    function destroyCharts() {
+      Object.keys(charts).forEach(function (k) { try { charts[k].destroy(); } catch (e) { } });
+      charts = {};
+      if (typeof Plotly !== 'undefined') {
+        var el = document.getElementById('plotly3d');
+        if (el) Plotly.purge(el);
+      }
+    }
+
+    var CO = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { labels: { color: '#c8d8e8', font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
+        tooltip: {
+          bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
+          backgroundColor: '#161e28', borderColor: '#1e2d3d', borderWidth: 1, padding: 7
+        }
+      },
+      scales: {
+        x: { type: 'linear', ticks: { color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: 'rgba(30,45,61,.6)' } },
+        y: { ticks: { color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: 'rgba(30,45,61,.6)' } }
+      }
+    };
+
+    function axT(txt) { return { display: true, text: txt, color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 } }; }
+
+    function mkLine(lbl, data, xdata, color, dash, fillIt) {
+      return {
+        label: lbl,
+        data: xdata.map(function (x, i) { return { x: x, y: data[i] }; }),
+        borderColor: color,
+        backgroundColor: fillIt ? color.replace(')', ',0.1)').replace('rgb', 'rgba') : undefined,
+        borderWidth: 1.8, pointRadius: 0, fill: fillIt ? 'origin' : false,
+        tension: 0.3, borderDash: dash || [], parsing: false, type: 'line'
+      };
+    }
+
+    function mkScatter(lbl, xdata, ydata, color) {
+      return {
+        label: lbl,
+        data: xdata.map(function (x, i) { return { x: x, y: ydata[i] }; }),
+        borderColor: 'transparent', backgroundColor: color,
+        pointRadius: 3, showLine: false, type: 'scatter', parsing: false
+      };
+    }
+
+    // decimate array to at most n rows for tables
+    function decimate(arr, n) {
+      var step = Math.max(1, Math.floor(arr.length / n));
+      return arr.filter(function (_, i) { return i % step === 0 || i === arr.length - 1; });
+    }
+
+    // Build a results table inside a container element
+    function buildPanelTable(containerId, headers, rowData, cellFn, colors) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
+      var tbody = '<tbody>' + rowData.map(function (row) {
+        var cells = cellFn(row);
+        return '<tr>' + cells.map(function (c, i) {
+          var style = (colors && colors[i]) ? ' style="color:' + colors[i] + '"' : '';
+          return '<td' + style + '>' + c + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody>';
+      el.innerHTML = '<table class="ptbl">' + thead + tbody + '</table>';
+    }
+
+    // Builds one plot-panel div with chart canvas and table placeholder
+    function makePanelHTML(ppClass, ttl, chartId, tblId, chartClass) {
+      return '<div class="pp ' + ppClass + '">'
+        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span></div>'
+        + '<div class="pp-body has-tbl">'
+        + '<div class="pp-chart ' + (chartClass || '') + '"><canvas id="' + chartId + '"></canvas></div>'
+        + '<div class="pp-tbl ' + (chartClass || '') + '" id="' + tblId + '"></div>'
+        + '</div></div>';
+    }
+
+    function make3dPanelHTML(ttl, plotlyId, tblId) {
+      return '<div class="pp c-wh">'
+        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span></div>'
+        + '<div class="pp-body wide3d">'
+        + '<div class="pp-chart h3d"><div id="' + plotlyId + '" class="pp-plotly" style="width:100%;height:100%"></div></div>'
+        + '<div class="pp-tbl h3d" id="' + tblId + '"></div>'
+        + '</div></div>';
+    }
+
+    // =============================================================
+    // RENDER ALL CHARTS
+    // =============================================================
+    function renderAllCharts(mds, etROB, etSLD, etROff, etTO, etTI,
+      tqROB, tqROff, sfROB, sfSLD, sfROff, sfTO, sfTI,
+      incArr, dlsArr, edrMD, edrHL, edrTQ,
+      torqLimDisp, depU, forU, tqU, results, traj, df) {
+
+      destroyCharts();
+      document.getElementById('ph').style.display = 'none';
+
+      var area = document.getElementById('chartsArea');
+      area.innerHTML =
+        make3dPanelHTML(
+          '3D Well Trajectory — Minimum Curvature | Local East x North x TVD | Coloured by DLS',
+          'plotly3d', 'tbl_traj')
+        + makePanelHTML('c-bl',
+          'Effective Tension vs Measured Depth (' + forU + ') — 5 WellPlan Cases',
+          'c_et', 'tbl_et', 'tall')
+        + '<div id="hl_panel">'
+        + makePanelHTML('c-or',
+          'Hook Load vs Bit Depth (' + forU + ') — Surface Weight Indicator | Re-computed at each depth step',
+          'c_hl', 'tbl_hl', 'tall')
+        + '</div>'
+        + makePanelHTML('c-te',
+          'Side Force vs Measured Depth (kgf/m) — Normal Contact Force | 5 Cases',
+          'c_sf', 'tbl_sf', 'tall')
+        + makePanelHTML('c-pu',
+          'Surface Torque vs Measured Depth (' + tqU + ') — Rotating Cases + Limit',
+          'c_tq', 'tbl_tq', '')
+        + makePanelHTML('c-gr',
+          'Inclination and DLS vs Measured Depth',
+          'c_inc', 'tbl_inc', '');
+
+      var M = (UNIT === 'metric');
+
+      // ---- 1. PLOTLY 3D TRAJECTORY ----
+      var t_ew = traj.map(function (s) { return s.ew * df; });
+      var t_ns = traj.map(function (s) { return s.ns * df; });
+      var t_tvd = traj.map(function (s) { return s.tvd * df; });
+      var t_md = traj.map(function (s) { return s.md * df; });
+      var t_dls = traj.map(function (s) { return s.dls; });
+      var t_inc = traj.map(function (s) { return s.inc; });
+      var t_az = traj.map(function (s) { return s.az; });
+
+      var hoverTxt = traj.map(function (s, i) {
+        return 'MD: ' + (s.md * df).toFixed(1) + ' ' + depU
+          + '<br>TVD: ' + (s.tvd * df).toFixed(1) + ' ' + depU
+          + '<br>NS: ' + (s.ns * df).toFixed(1) + ' ' + depU
+          + '<br>EW: ' + (s.ew * df).toFixed(1) + ' ' + depU
+          + '<br>Inc: ' + s.inc.toFixed(2) + 'deg'
+          + '<br>Az: ' + s.az.toFixed(2) + 'deg'
+          + '<br>DLS: ' + s.dls.toFixed(3) + ' deg/30m';
+      });
+
+      Plotly.newPlot('plotly3d', [
+        {
+          type: 'scatter3d', mode: 'lines+markers',
+          x: t_ew, y: t_ns, z: t_tvd,
+          line: {
+            color: t_dls, colorscale: 'Viridis', width: 6,
+            colorbar: {
+              title: { text: 'DLS (deg/30m)', font: { size: 9, color: '#c8d8e8' } },
+              tickfont: { size: 8, color: '#c8d8e8' }, thickness: 10, len: 0.5,
+              bgcolor: 'rgba(0,0,0,0)', bordercolor: '#1e2d3d'
+            }
+          },
+          marker: { size: 3, color: t_dls, colorscale: 'Viridis' },
+          text: hoverTxt, hoverinfo: 'text', name: 'Wellbore'
+        },
+        {
+          type: 'scatter3d', mode: 'markers',
+          x: [t_ew[0]], y: [t_ns[0]], z: [0],
+          marker: { size: 10, color: '#39ff14', symbol: 'diamond' },
+          name: 'Surface', hoverinfo: 'skip'
+        },
+        {
+          type: 'scatter3d', mode: 'markers',
+          x: [t_ew[t_ew.length - 1]], y: [t_ns[t_ns.length - 1]], z: [t_tvd[t_tvd.length - 1]],
+          marker: { size: 10, color: '#ff4060', symbol: 'x' },
+          name: 'TD ' + t_md[t_md.length - 1].toFixed(0) + ' ' + depU, hoverinfo: 'skip'
+        }
+      ], {
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        scene: {
+          xaxis: { title: { text: 'Local East (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)' },
+          yaxis: { title: { text: 'Local North (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)' },
+          zaxis: { title: { text: 'TVD (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)', autorange: 'reversed' },
+          bgcolor: 'rgba(10,14,20,.9)',
+          camera: { eye: { x: 1.5, y: 1.4, z: 0.7 } },
+          aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: 0.6 }
+        },
+        legend: { font: { color: '#c8d8e8', size: 9 }, bgcolor: 'rgba(0,0,0,0)', bordercolor: '#1e2d3d', borderwidth: 1, x: 0, y: 1 },
+        margin: { l: 0, r: 0, t: 10, b: 0 },
+        font: { family: 'Share Tech Mono' }
+      }, { responsive: true });
+
+      // 3D table — trajectory data
+      buildPanelTable('tbl_traj',
+        ['MD (' + depU + ')', 'TVD (' + depU + ')', 'N+ (' + depU + ')', 'E+ (' + depU + ')', 'Inc (deg)', 'Az (deg)', 'DLS (d/30m)'],
+        decimate(traj, 80),
+        function (s) {
+          return [
+            (s.md * df).toFixed(1), (s.tvd * df).toFixed(2),
+            (s.ns * df).toFixed(2), (s.ew * df).toFixed(2),
+            s.inc.toFixed(2), s.az.toFixed(2), s.dls.toFixed(3)
+          ];
+        },
+        [null, 'var(--accent)', 'var(--accent3)', 'var(--accent2)', null, null, 'var(--yellow)']
+      );
+
+      // Display factor closures — available to all table callbacks below
+      function dkN() { return M ? 1 : KN2KLBF; }
+      function dNm() { return M ? 1 : NM2FTLBF / 1000; }
+
+      // ---- 2. EFFECTIVE TENSION ----
+      var etDS = [
+        mkLine('Tripping In', etTI, mds, '#ff4060', []),
+        mkLine('Tripping Out', etTO, mds, '#39ff14', []),
+        mkLine('Rotating OB', etROB, mds, '#00c8ff', []),
+        mkLine('Slide Drilling', etSLD, mds, '#ff6b35', [4, 3]),
+        mkLine('Rotating Off', etROff, mds, '#c084fc', [2, 4]),
+        {
+          label: 'Zero', data: mds.map(function (x) { return { x: x, y: 0 }; }), borderColor: 'rgba(255,255,255,.2)',
+          borderWidth: 1, borderDash: [2, 5], pointRadius: 0, fill: false, tension: 0, parsing: false, type: 'line'
+        }
+      ];
+      charts.et = new Chart(document.getElementById('c_et').getContext('2d'), {
+        type: 'line', data: { datasets: etDS },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + depU + ')') }),
+            y: Object.assign({}, CO.scales.y, { title: axT('Effective Tension (' + forU + ')') })
+          }
+        })
+      });
+
+      buildPanelTable('tbl_et',
+        ['MD', 'TVD', 'Trip In', 'Trip Out', 'Rot OB', 'Slide', 'Rot Off'],
+        decimate(results, 80),
+        function (r) {
+          return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
+          (r.etTripIn * dkN()).toFixed(1), (r.etTripOut * dkN()).toFixed(1),
+          (r.etRotOB * dkN()).toFixed(1), (r.etSlide * dkN()).toFixed(1),
+          (r.etRotOff * dkN()).toFixed(1)];
+        },
+        [null, null, 'var(--red)', 'var(--accent3)', 'var(--accent)', 'var(--accent2)', 'var(--purple)']
+      );
+
+      // ---- 3. HOOKLOAD placeholder (filled async) ----
+      document.getElementById('c_hl').getContext('2d'); // just ensure canvas exists
+
+      // ---- 4. SIDE FORCE ----
+      var sfDS = [
+        mkLine('Tripping In', sfTI, mds, '#ff4060', []),
+        mkLine('Tripping Out', sfTO, mds, '#39ff14', []),
+        mkLine('Rotating OB', sfROB, mds, '#00c8ff', []),
+        mkLine('Slide Drilling', sfSLD, mds, '#ff6b35', [4, 3]),
+        mkLine('Rotating Off', sfROff, mds, '#c084fc', [2, 4])
+      ];
+      charts.sf = new Chart(document.getElementById('c_sf').getContext('2d'), {
+        type: 'line', data: { datasets: sfDS },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + depU + ')') }),
+            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Side Force (kgf/m)') })
+          }
+        })
+      });
+
+      buildPanelTable('tbl_sf',
+        ['MD', 'Trip In', 'Trip Out', 'Rot OB', 'Slide', 'Rot Off'],
+        decimate(results, 80),
+        function (r) {
+          var sf = M ? 1 : 1 / FT;
+          return [(r.md * df).toFixed(0),
+          (r.sfTripIn * sf).toFixed(1), (r.sfTripOut * sf).toFixed(1),
+          (r.sfRotOB * sf).toFixed(1), (r.sfSlide * sf).toFixed(1),
+          (r.sfRotOff * sf).toFixed(1)];
+        },
+        [null, 'var(--red)', 'var(--accent3)', 'var(--accent)', 'var(--accent2)', 'var(--purple)']
+      );
+
+      // ---- 5. TORQUE ----
+      var tqDS = [
+        mkLine('Rotating OB', tqROB, mds, '#ff6b35', [], true),
+        mkLine('Rotating Off', tqROff, mds, '#c084fc', [2, 3]),
+        {
+          label: 'Limit', data: mds.map(function (x) { return { x: x, y: torqLimDisp }; }),
+          borderColor: '#ff4060', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: false, tension: 0, parsing: false, type: 'line'
+        }
+      ];
+      if (edrMD && edrTQ) tqDS.push(mkScatter('EDR Torque', edrMD, edrTQ, 'rgba(255,208,96,.7)'));
+      charts.tq = new Chart(document.getElementById('c_tq').getContext('2d'), {
+        type: 'line', data: { datasets: tqDS },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('MD (' + depU + ')') }),
+            y: Object.assign({}, CO.scales.y, { title: axT('Torque (' + tqU + ')') })
+          }
+        })
+      });
+
+      buildPanelTable('tbl_tq',
+        ['MD', 'TVD', 'Torque Rot OB', 'Torque Rot Off'],
+        decimate(results, 80),
+        function (r) {
+          return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
+          (r.torqRotOB * dNm()).toFixed(0), (r.torqRotOff * dNm()).toFixed(0)];
+        },
+        [null, null, 'var(--accent2)', 'var(--purple)']
+      );
+
+      // ---- 6. INCLINATION + DLS ----
+      charts.inc = new Chart(document.getElementById('c_inc').getContext('2d'), {
+        type: 'line',
+        data: {
+          datasets: [
+            mkLine('Inclination (deg)', incArr, mds, '#39ff14', [], true),
+            mkLine('DLS (deg/30m)', dlsArr, mds, '#ffd060', [3, 2])
+          ]
+        },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('MD (' + depU + ')') }),
+            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Inc (deg) / DLS (deg/30m)') })
+          }
+        })
+      });
+
+      buildPanelTable('tbl_inc',
+        ['MD', 'TVD', 'Inc (deg)', 'Az (deg)', 'DLS (d/30m)', 'Zone'],
+        decimate(results, 80),
+        function (r) {
+          return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
+          r.inc.toFixed(2), r.az.toFixed(2), r.dls.toFixed(3),
+          r.inCasing ? 'Cas' + r.ffidx : 'OH'];
+        },
+        [null, null, 'var(--accent3)', null, 'var(--yellow)', 'var(--text-dim)']
+      );
+
+    }
+
+    // Render hookload chart (called async after ET charts are shown)
+    function renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU) {
+      var hlDS = [
+        mkLine('Tripping Out', hlTO, hlMDs, '#39ff14', []),
+        mkLine('Rotating OB', hlROB, hlMDs, '#00c8ff', []),
+        mkLine('Slide Drilling', hlSLD, hlMDs, '#ff6b35', [4, 3])
+      ];
+      if (edrMD && edrHL) hlDS.push(mkScatter('EDR Measured', edrMD, edrHL, 'rgba(255,208,96,.7)'));
+      if (charts.hl) { try { charts.hl.destroy(); } catch (e) { } }
+      charts.hl = new Chart(document.getElementById('c_hl').getContext('2d'), {
+        type: 'line', data: { datasets: hlDS },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('Bit Depth (' + depU + ') — surface hookload as string is built') }),
+            y: Object.assign({}, CO.scales.y, { title: axT('Surface Hook Load (' + forU + ')') })
+          }
+        })
+      });
+    }
+
+    function renderHookloadTable(hlMDs, hlTO, hlROB, hlSLD, depU, forU) {
+      var step = Math.max(1, Math.floor(hlMDs.length / 80));
+      var rows = hlMDs.map(function (md, i) {
+        return { md: md, to: hlTO[i], rob: hlROB[i], sl: hlSLD[i] };
+      }).filter(function (_, i) { return i % step === 0 || i === hlMDs.length - 1; });
+
+      buildPanelTable('tbl_hl',
+        ['Bit Depth (' + depU + ')', 'Trip Out (' + forU + ')', 'Rot OB (' + forU + ')', 'Slide (' + forU + ')'],
+        rows,
+        function (r) {
+          return [r.md.toFixed(0), r.to.toFixed(1), r.rob.toFixed(1), r.sl.toFixed(1)];
+        },
+        [null, 'var(--accent3)', 'var(--accent)', 'var(--accent2)']
+      );
+    }
+
+    // =============================================================
+    // UI HELPERS
+    // =============================================================
+    function toggleSec(hdr) {
+      var body = hdr.nextElementSibling;
+      var tog = hdr.querySelector('.sec-tog');
+      var open = body.classList.toggle('open');
+      tog.classList.toggle('open', open);
+    }
+    function setStatus(t, m) {
+      document.getElementById('sdot').className = 'sdot ' + t;
+      document.getElementById('smsg').textContent = m;
+    }
+    function showErr(m) { var b = document.getElementById('errbox'); b.textContent = 'Error: ' + m; b.style.display = 'block'; }
+    function hideErr() { document.getElementById('errbox').style.display = 'none'; }
+
+    // Drag-and-drop on EDR zone
+    var dz = document.getElementById('dropZ');
+    dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', function () { dz.classList.remove('over'); });
+    dz.addEventListener('drop', function (e) {
+      e.preventDefault(); dz.classList.remove('over');
+      if (e.dataTransfer.files[0]) handleEDR(e.dataTransfer.files[0]);
+    });
+
+    // =============================================================
+    // INIT
+    // =============================================================
+    (function init() {
+      updateLabels();
+      loadCNRL();
+      loadCNRLCas();
+      loadCNRLBHA();
+      document.getElementById('sl1').value = 0.25;
+      document.getElementById('sl2').value = 0.20;
+      document.getElementById('sl3').value = 0.32;
+      document.getElementById('v1').textContent = '0.25';
+      document.getElementById('v2').textContent = '0.20';
+      document.getElementById('v3').textContent = '0.32';
+    })();
+  </script>
+</body>
+
+</html>
+
