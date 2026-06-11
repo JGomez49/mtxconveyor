@@ -1404,6 +1404,12 @@
                     const today = new Date();
                     const oneYearLater = new Date(today);
                     oneYearLater.setFullYear(today.getFullYear() + 1);
+
+                    const sevenMonthsLater = new Date(today);
+                    sevenMonthsLater.setMonth(today.getMonth() + 7);
+
+                    oneYearLater.setFullYear(today.getFullYear() + 1);
+
                     const FixedEndOfLastYear = new Date("2025-12-31");
                     const FixedEndOfThisYear = new Date("2026-12-31");
                     const FixedEndOfNextYear = new Date("2027-12-31");
@@ -1521,32 +1527,32 @@
 
 
 
-                            case isForcedInSetupQueue:
-                                colors.push("#ff4c4c"); // IN-SETUP-QUEUE override
-                                if (countable) colorCounts.red++;
-                                if (countableForThisYear) colorCounts.redThisYear++;
-                                if (countableForNextYear) colorCounts.redNextYear++;
-                                break;
+                            // case isForcedInSetupQueue:
+                            //     colors.push("#ff4c4c"); // IN-SETUP-QUEUE override
+                            //     if (countable) colorCounts.red++;
+                            //     if (countableForThisYear) colorCounts.redThisYear++;
+                            //     if (countableForNextYear) colorCounts.redNextYear++;
+                            //     break;
 
 
 
 
-                            case isForcedInDesignQueue:
-                                colors.push("#ff4c4c"); // IN-DESIGN-QUEUE override
-                                if (countable) colorCounts.red++;
-                                if (countableForThisYear) colorCounts.redThisYear++;
-                                if (countableForNextYear) colorCounts.redNextYear++;
-                                break;
+                            // case isForcedInDesignQueue:
+                            //     colors.push("#ff4c4c"); // IN-DESIGN-QUEUE override
+                            //     if (countable) colorCounts.red++;
+                            //     if (countableForThisYear) colorCounts.redThisYear++;
+                            //     if (countableForNextYear) colorCounts.redNextYear++;
+                            //     break;
 
 
 
 
-                            case isForcedInBlackOpsQueue:
-                                colors.push("#ff4c4c"); // IN-BLACK-OPS-QUEUE override
-                                if (countable) colorCounts.red++;
-                                if (countableForThisYear) colorCounts.redThisYear++;
-                                if (countableForNextYear) colorCounts.redNextYear++;
-                                break;
+                            // case isForcedInBlackOpsQueue:
+                            //     colors.push("#ff4c4c"); // IN-BLACK-OPS-QUEUE override
+                            //     if (countable) colorCounts.red++;
+                            //     if (countableForThisYear) colorCounts.redThisYear++;
+                            //     if (countableForNextYear) colorCounts.redNextYear++;
+                            //     break;
 
 
 
@@ -1561,7 +1567,7 @@
 
 
 
-                            case (dpNo && !rigToAvoid.includes(rig) && dpReq != ""): // DP-NO and Rig filter and DpReq not empty
+                            case (isForcedInSetupQueue || isForcedInDesignQueue || isForcedInBlackOpsQueue)||(dpNo && !rigToAvoid.includes(rig) && dpReq != ""):
                                 colors.push("#ff4c4c");
                                 if (countable) colorCounts.red++;
                                 if (countableForThisYear) colorCounts.redThisYear++;
@@ -1619,7 +1625,9 @@
 
                 // Date boundaries
                 const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-                const maxDate = oneYearLater;
+                const maxDate = sevenMonthsLater; // oneYearLater; 
+                // limit to 7 months for better zooming experience, since many bars extend beyond 1 year and make the chart too compressed. 
+                // The one-year line is still shown as a reference, but the x-axis max is set to 7 months to allow better visibility of bars and details.
 
                 // Canvas for Gantt
                 const canvas = document.createElement("canvas");
