@@ -89,7 +89,7 @@
 
                             <h4>BlackOps Queue</h4>
 
-                            <table class="table table-hover _table-striped table-dark table-sm" _style="color: red;">
+                            <table class="table table-hover _table-striped table-dark table-sm" _style="color: red;" id="InBlackOpsQueueTable">
                                 <thead>
                                     <tr>
                                         <th scope="col">ID</th>
@@ -195,7 +195,7 @@
 
                             <h4>Design Queue</h4>
 
-                            <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;">
+                            <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InDesignQueueTable">
                                 <thead>
                                     <tr>
                                         <th scope="col">ID</th>
@@ -302,7 +302,7 @@
 
                             <h4>Setup Queue</h4>
 
-                            <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;">
+                            <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InSetupQueueTable">
                                 <thead>
                                     <tr>
                                         <th scope="col">ID</th>
@@ -1140,7 +1140,7 @@
         </div>
     </div>
 
-    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+    <% if (user.role == '_admin') { %>
         <p id="scheduleUpdateText"></p>
         <button class="btn btn-info my-2" onclick="renderChartsFromTable()">📊 Show Schedule</button>
         <div id="chartDiv" class="m-3 bg-dark"></div>
@@ -1191,6 +1191,9 @@
 
         document.getElementById("scheduleUpdateText").innerText = "Updated on: <%= schedule.length > 0 ? schedule[1].uploadedDate : 'N/A' %>";
 
+
+
+
         function getInProgressSites() {
             const table = document.getElementById("InProgressTable");
             if (!table) return new Set();
@@ -1210,10 +1213,100 @@
                 }
             });
 
+            // console.log("Sites in In Progress Table:", siteSet);
             return siteSet;
         }
 
+
+
+
+
+        function getInSetupQueueSites() {
+            const table = document.getElementById("InSetupQueueTable");
+            if (!table) return new Set();
+
+            // const rows = Array.from(table.querySelectorAll("tbody tr"));
+            const rows = Array.from(table.querySelectorAll("tr"));
+            const siteSet = new Set();
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if (!cells.length) return;
+
+                // ⚠️ Adjust index if Site column is not the first one
+                const siteValue = cells[3]?.innerText.trim();
+                if (siteValue) {
+                    siteSet.add(siteValue.slice(0, 14)); // normalize like everywhere else
+                }
+            });
+
+            //console.log("Sites in Setup Queue:", siteSet);
+            return siteSet;
+        }
+
+
+
+
+
+        function getInDesignQueueSites() {
+            const table = document.getElementById("InDesignQueueTable");
+            if (!table) return new Set();
+
+            // const rows = Array.from(table.querySelectorAll("tbody tr"));
+            const rows = Array.from(table.querySelectorAll("tr"));
+            const siteSet = new Set();
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if (!cells.length) return;
+
+                // ⚠️ Adjust index if Site column is not the first one
+                const siteValue = cells[3]?.innerText.trim();
+                if (siteValue) {
+                    siteSet.add(siteValue.slice(0, 14)); // normalize like everywhere else
+                }
+            });
+
+            //console.log("Sites in Design Queue:", siteSet);
+            return siteSet;
+        }
+
+
+
+
+        function getInBlackOpsQueueSites() {
+            const table = document.getElementById("InBlackOpsQueueTable");
+            if (!table) return new Set();
+
+            // const rows = Array.from(table.querySelectorAll("tbody tr"));
+            const rows = Array.from(table.querySelectorAll("tr"));
+            const siteSet = new Set();
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if (!cells.length) return;
+
+                // ⚠️ Adjust index if Site column is not the first one
+                const siteValue = cells[3]?.innerText.trim();
+                if (siteValue) {
+                    siteSet.add(siteValue.slice(0, 14)); // normalize like everywhere else
+                }
+            });
+
+            //console.log("Sites in Black Ops Queue:", siteSet);
+            return siteSet;
+        }
+
+
+
+
+
+
         const inProgressSites = getInProgressSites();
+        const inSetupQueueSites = getInSetupQueueSites();
+        const inDesignQueueSites = getInDesignQueueSites();
+        const inBlackOpsQueueSites = getInBlackOpsQueueSites();
+
         const table = document.getElementById("csvTable");
         const rows = Array.from(table.querySelectorAll("tbody tr"));
         const vpMap = {};
@@ -1337,7 +1430,11 @@
                         const dpReq = siteObj.dpReq;
 
                         const siteKey = siteObj.site.slice(0, 14);
+                        
                         const isInProgressTable = inProgressSites.has(siteKey);
+                        const isInSetupQueueTable = inSetupQueueSites.has(siteKey);
+                        const isInDesignQueueTable = inDesignQueueSites.has(siteKey);
+                        const isInBlackOpsQueueTable = inBlackOpsQueueSites.has(siteKey);
 
                         datasets.push({
                             y: rig,
@@ -1383,8 +1480,9 @@
                             //if (countableForNextYear){console.log("Start Date:", start);}
 
                         const isForcedInProgress = isInProgressTable === true;
-
-                        
+                        const isForcedInSetupQueue = isInSetupQueueTable === true;
+                        const isForcedInDesignQueue = isInDesignQueueTable === true;
+                        const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
 
                         // if(drillok === "NO-Drill" && geook === "NO-Geo"){
                         //     colorOfBorder = "#FFFFFF"; // white border for NO-Drill/NO-Geo
@@ -1412,12 +1510,45 @@
                                 if (countableForNextYear) colorCounts.greenNextYear++;
                                 break;
 
+
+
                             case isForcedInProgress:
                                 colors.push("#ffff00"); // IN-PROGRESS override
                                 if (countable) colorCounts.yellow++;
                                 if (countableForThisYear) colorCounts.yellowThisYear++;
                                 if (countableForNextYear) colorCounts.yellowNextYear++;
                                 break;
+
+
+
+                            case isForcedInSetupQueue:
+                                colors.push("#ff4c4c"); // IN-SETUP-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
+
+
+
+
+                            case isForcedInDesignQueue:
+                                colors.push("#ff4c4c"); // IN-DESIGN-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
+
+
+
+
+                            case isForcedInBlackOpsQueue:
+                                colors.push("#ff4c4c"); // IN-BLACK-OPS-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
+
+
 
                             case type === "PRELIM - IR":
                                 colors.push("#000000");
@@ -1426,12 +1557,21 @@
                                 if (countableForNextYear) colorCounts.blackNextYear++;
                                 break;
 
-                            case dpNo && !rigToAvoid.includes(rig) && dpReq != "": // DP-NO and Rig filter and DpReq not empty
+
+
+
+
+                            case (dpNo && !rigToAvoid.includes(rig) && dpReq != ""): // DP-NO and Rig filter and DpReq not empty
                                 colors.push("#ff4c4c");
                                 if (countable) colorCounts.red++;
                                 if (countableForThisYear) colorCounts.redThisYear++;
                                 if (countableForNextYear) colorCounts.redNextYear++;
                                 break;
+
+
+
+
+
 
                             case type === "EXEC":
                                 colors.push("#B11FDF");
@@ -2150,7 +2290,7 @@
             // yaxis: { title: "DP Days" },
             yaxis: {
                 title: "Days",
-                range: [0, 60],      // 👈 LIMIT DAYS
+                range: [0, 30],      // 👈 LIMIT DAYS for DP DAYS per revision
                 fixedrange: false    // 👈 prevents zooming beyond this range
             },
             xaxis: { title: "Version" },
