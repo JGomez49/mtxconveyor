@@ -475,6 +475,7 @@ notesCrtl.uploadSchedule = async (req, res) => {
         start: row[7] ? new Date(row[7]) : null,
         site: row[8] || "",
         well: row[9] || "",
+        geo: row[10] || "",
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null, // if uploaded from job context
       };
@@ -679,6 +680,8 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
         dpReq: row[17] || "",
         //dpReqDate: row[17] ? new Date(row[17]) : null,
         group: row[27] || "",
+
+        geo: row[23] || "Geo Unknown",
 
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null, // if uploaded from job context

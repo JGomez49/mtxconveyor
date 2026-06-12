@@ -1033,6 +1033,7 @@
                                                         <th>ETS</th>
                                                         <th>Group</th>
                                                         <th>DpReq</th>
+                                                        <th>Geo</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1052,6 +1053,7 @@
                                                             <td><%= item.ETS %></td>
                                                             <td><%= item.group %></td>
                                                             <td><%= item.dpReq %></td>
+                                                            <td><%= item.geo %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -1327,6 +1329,9 @@
             const ETS = cells[11]?.innerText.trim();
             const group = cells[12]?.innerText.trim().substring(0, 2);
             const dpReq = cells[13]?.innerText.trim();
+            const geo = cells[14]?.innerText.trim();
+
+            // console.log("Parsed row:", { rig, drillok, geook, dp, type, duration, vp, start, site, well, dpCompany, ETS, group, dpReq, geo });
 
             // if (!start) return;
             // if (!vpMap[vp]) vpMap[vp] = {};
@@ -1339,7 +1344,7 @@
 
             vpMap[vp][group][rig].push({
                 rig, drillok, geook, dp, type, duration,
-                vp, start, site, well, dpCompany, ETS, group, dpReq,
+                vp, start, site, well, dpCompany, ETS, group, dpReq, geo,
             });
 
         });
@@ -1414,14 +1419,16 @@
                     const FixedEndOfThisYear = new Date("2026-12-31");
                     const FixedEndOfNextYear = new Date("2027-12-31");
 
-                    const TargetDate = new Date("2026-08-31");
+                    const TargetDate = new Date("2026-08-31"); //<------------------------------------- Budget Target
 
                 rigs.forEach(rig => {
 
                     // vpMap[vp][rig].forEach(siteObj => {
                     vpMap[vp][group][rig].forEach(siteObj => {
 
-                        //console.log("Processing siteObj:", siteObj.start);
+
+                        // console.log("Processing siteObj:", siteObj);
+
 
                         const start = new Date(siteObj.start);
                         if (isNaN(start)) return; // skip invalid dates
@@ -1434,6 +1441,8 @@
                         const rig = siteObj.rig;
                         const group = siteObj.group;
                         const dpReq = siteObj.dpReq;
+
+                        const geo = siteObj.geo;
 
                         const siteKey = siteObj.site.slice(0, 14);
                         
@@ -1461,6 +1470,7 @@
                                 type: type,
                                 group: siteObj.group,
                                 dpReq: dpReq,
+                                geo: siteObj.geo,
                             }
                         });
 
@@ -1527,32 +1537,32 @@
 
 
 
-                            // case isForcedInSetupQueue:
-                            //     colors.push("#ff4c4c"); // IN-SETUP-QUEUE override
-                            //     if (countable) colorCounts.red++;
-                            //     if (countableForThisYear) colorCounts.redThisYear++;
-                            //     if (countableForNextYear) colorCounts.redNextYear++;
-                            //     break;
+                            case isForcedInSetupQueue:
+                                colors.push("#ff4c4c"); // IN-SETUP-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
 
 
 
 
-                            // case isForcedInDesignQueue:
-                            //     colors.push("#ff4c4c"); // IN-DESIGN-QUEUE override
-                            //     if (countable) colorCounts.red++;
-                            //     if (countableForThisYear) colorCounts.redThisYear++;
-                            //     if (countableForNextYear) colorCounts.redNextYear++;
-                            //     break;
+                            case isForcedInDesignQueue:
+                                colors.push("#ff4c4c"); // IN-DESIGN-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
 
 
 
 
-                            // case isForcedInBlackOpsQueue:
-                            //     colors.push("#ff4c4c"); // IN-BLACK-OPS-QUEUE override
-                            //     if (countable) colorCounts.red++;
-                            //     if (countableForThisYear) colorCounts.redThisYear++;
-                            //     if (countableForNextYear) colorCounts.redNextYear++;
-                            //     break;
+                            case isForcedInBlackOpsQueue:
+                                colors.push("#ff4c4c"); // IN-BLACK-OPS-QUEUE override
+                                if (countable) colorCounts.red++;
+                                if (countableForThisYear) colorCounts.redThisYear++;
+                                if (countableForNextYear) colorCounts.redNextYear++;
+                                break;
 
 
 
@@ -1567,7 +1577,7 @@
 
 
 
-                            case (isForcedInSetupQueue || isForcedInDesignQueue || isForcedInBlackOpsQueue)||(dpNo && !rigToAvoid.includes(rig) && dpReq != ""):
+                            case (dpNo && !rigToAvoid.includes(rig) && dpReq != ""):
                                 colors.push("#ff4c4c");
                                 if (countable) colorCounts.red++;
                                 if (countableForThisYear) colorCounts.redThisYear++;
@@ -1687,17 +1697,18 @@
                                         `Site: ${d.Site}`, 
                                         `Well: ${d.Well}`,  
                                         `ETS: ${d.ETS}`,  
-                                        `VP: ${d.VP}`,
+                                        // `VP: ${d.VP}`,
                                         `Start: ${d.Start}`,
-                                        `Rig: ${d.Rig}`,
-                                        `Duration: ${d.Duration} days`,
-                                        `DP: ${d.DP}`,
+                                        // `Rig: ${d.Rig}`,
                                         `Type: ${d.type}`,
-                                        `DP Company: ${d.dpCompany}`,
                                         `DrillOK: ${d.drillok}`,
                                         `GeoOK: ${d.geook}`,
-                                        `Group: ${d.group}`,
-                                        `DpReq: ${d.dpReq}`,
+                                        // `Group: ${d.group}`,
+                                        `DP Company: ${d.dpCompany}`,
+                                        `Dp Requested: ${d.dpReq}`,
+                                        `DP Received: ${d.DP}`,
+                                        `Duration: ${d.Duration} days`,
+                                        `Geo: ${d.geo}`,
                                     ];
                                     }
                                 }

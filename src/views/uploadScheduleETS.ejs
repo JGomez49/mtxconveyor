@@ -298,6 +298,8 @@
         const dpReqIdx = 17; // DP Request Date column index
         const groupIdx = 27; // Group column index
 
+        const geoIdx = 23; // headers.findIndex(h => h.toLowerCase() === "responsible geology"); //23
+
 
 
       // Extract rows and clean dates
@@ -316,7 +318,7 @@
           if(cells[geookIdx] != '') { cells[geookIdx] = "YES-Geo" }
           if(cells[geookIdx] == '') { cells[geookIdx] = "NO-Geo" }
           
-          if(cells[dpIdx] != '') { cells[dpIdx] = "YES-DP" } // DP Received Date <-------------
+          // if(cells[dpIdx] != '') { cells[dpIdx] = "YES-DP" } // DP Received Date <------------
 
           return cells;
         });
