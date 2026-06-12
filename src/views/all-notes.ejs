@@ -1475,7 +1475,7 @@
                         });
 
                         const rigToAvoid = ["PRECISION 183", "PRECISION183", "PD183", "PD 183"];
-                        const dpYes = dpValue === "YES" || dpValue === "YES-DP";
+                        const dpYes = dpValue === "YES" || dpValue === "YES-DP" || dpValue !== "";
                         const dpNo  = !dpValue || dpValue === "NO" || dpValue === "NO-DP" || dpValue === "";
 
                         const countable =
@@ -1596,12 +1596,16 @@
                                 if (countableForNextYear) colorCounts.purpleNextYear++;
                                 break;
 
+
+
                             case dpYes:
                                 colors.push("#0084c7");
                                 if (countable) colorCounts.blue++;
                                 if (countableForThisYear) colorCounts.blueThisYear++;
                                 if (countableForNextYear) colorCounts.blueNextYear++;
                                 break;
+
+
 
                             case dpReq === "" || dpReq === " ":
                                 colors.push("#C0C0C0");
