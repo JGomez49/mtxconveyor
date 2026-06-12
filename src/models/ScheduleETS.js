@@ -24,6 +24,7 @@ const ScheduleETSSchema = new Schema(
 
     geo: { type: String, default: "" },
     // dpReceived: { type: String, default: "" },
+    version: { type: String, default: "" },
 
     user: { type: Schema.Types.ObjectId, ref: "User" },
     uploadedDate: { type: Date, default: Date.now },

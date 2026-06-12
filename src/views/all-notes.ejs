@@ -40,6 +40,8 @@
 </div>
 
 
+<!-- <pre><%= notes[2].poc %></pre> -->
+
 
 <div class="container_ p-4">
 
@@ -1034,6 +1036,7 @@
                                                         <th>Group</th>
                                                         <th>DpReq</th>
                                                         <th>Geo</th>
+                                                        <th>Version</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1054,6 +1057,7 @@
                                                             <td><%= item.group %></td>
                                                             <td><%= item.dpReq %></td>
                                                             <td><%= item.geo %></td>
+                                                            <td><%= item.version %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -1330,6 +1334,7 @@
             const group = cells[12]?.innerText.trim().substring(0, 2);
             const dpReq = cells[13]?.innerText.trim();
             const geo = cells[14]?.innerText.trim();
+            const version = cells[15]?.innerText.trim();
 
             // console.log("Parsed row:", { rig, drillok, geook, dp, type, duration, vp, start, site, well, dpCompany, ETS, group, dpReq, geo });
 
@@ -1344,7 +1349,7 @@
 
             vpMap[vp][group][rig].push({
                 rig, drillok, geook, dp, type, duration,
-                vp, start, site, well, dpCompany, ETS, group, dpReq, geo,
+                vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
             });
 
         });
@@ -1443,6 +1448,7 @@
                         const dpReq = siteObj.dpReq;
 
                         const geo = siteObj.geo;
+                        const version = siteObj.version;
 
                         const siteKey = siteObj.site.slice(0, 14);
                         
@@ -1471,6 +1477,7 @@
                                 group: siteObj.group,
                                 dpReq: dpReq,
                                 geo: siteObj.geo,
+                                version: siteObj.version,
                             }
                         });
 
@@ -1614,6 +1621,8 @@
                                 if (countableForNextYear) colorCounts.silverNextYear++;
                                 break;
 
+                                
+
                             default:
                                 colors.push("#FFFFFF");
                                 if (countable) colorCounts.white++;
@@ -1713,6 +1722,7 @@
                                         `DP Received: ${d.DP}`,
                                         `Duration: ${d.Duration} days`,
                                         `Geo: ${d.geo}`,
+                                        `Version: ${d.version}`,
                                     ];
                                     }
                                 }
