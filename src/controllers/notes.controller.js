@@ -9,6 +9,7 @@ const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
 const DPStats = require("../models/DPStats");
+const WellboreTrajectory = require("../models/WellboreTrajectory");
 
 //const ScheduleETS = require("../models/ScheduleETS");
 
@@ -225,7 +226,8 @@ notesCrtl.renderEditForm = async(req,res)=>{
     // res.send('Edit note...');
     let user = await User.findById(req.session.passport.user);
     const note = await Note.findById(req.params.id);
-    res.render('edit-note.ejs', {note, user});
+    const wellboreTrajectories = await WellboreTrajectory.find({noteId: note._id}).select('-survey').sort({wellName: 1});
+    res.render('edit-note.ejs', {note, user, wellboreTrajectories});
 }
 
 
@@ -325,7 +327,8 @@ notesCrtl.renderJob = async (req,res)=>{
     let noteid = req.params.id;
     let note = await Note.findById(noteid);
     let log = await Log.find({noteid}).sort({createdAt: 'desc'});
-    res.render('job.ejs', {note, user, log})
+    let wellboreTrajectories = await WellboreTrajectory.find({noteId: noteid});
+    res.render('job.ejs', {note, user, log, wellboreTrajectories})
 }
 
 
@@ -659,7 +662,7 @@ notesCrtl.uploadScheduleETS = async (req, res) => {
     if (!data || !Array.isArray(data) || data.length <= 1) {
       return res.status(400).json({ error: "No schedule data received" });
     }
-
+    
     // remove header row
     const rows = data.slice(1);
 
@@ -811,3 +814,86 @@ notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{
 
 
 module.exports = notesCrtl;
+
+
+// ---------------------------------------------------------------------
+// Wellbore 3D Trajectories (per job/note)
+// ---------------------------------------------------------------------
+
+// POST /notes/wellboreTrajectory/upload/:id  (id = noteId)
+notesCrtl.uploadWellboreTrajectory = async (req, res) => {
+  try{
+    const noteId = req.params.id;
+    const { data } = req.body;
+
+    if(!noteId){
+      return res.status(400).json({ error: "Missing note id" });
+    }
+    if(!data || !Array.isArray(data) || data.length === 0){
+      return res.status(400).json({ error: "No wellbore trajectory data received" });
+    }
+
+    const note = await Note.findById(noteId);
+    if(!note){
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const docs = data.map(well => ({
+      noteId: noteId,
+      wellName: well.wellName || "",
+      source: well.source || "",
+      pad: well.pad || "",
+      colorHex: well.colorHex || "",
+      surveyCount: well.surveyCount || (well.survey ? well.survey.length : 0),
+      survey: well.survey || [],
+      user: req.user ? req.user._id : null,
+      uploadedDate: new Date(),
+    }));
+
+    // Upsert by noteId + wellName + source so re-uploading the same wells updates them
+    const ops = docs.map(doc => ({
+      updateOne: {
+        filter: { noteId: doc.noteId, wellName: doc.wellName, source: doc.source },
+        update: { $set: doc },
+        upsert: true,
+      }
+    }));
+
+    const result = await WellboreTrajectory.bulkWrite(ops);
+
+    console.log("<<<< WellboreTrajectory uploaded for note " + noteId + " >>>>");
+    res.json({ success: true, count: docs.length, result });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// DELETE /notes/wellboreTrajectory/:id  (id = WellboreTrajectory document _id)
+notesCrtl.deleteWellboreTrajectory = async (req, res) => {
+  try{
+    const trajectoryId = req.params.id;
+    const deleted = await WellboreTrajectory.findByIdAndDelete(trajectoryId);
+    if(!deleted){
+      return res.status(404).json({ error: "Trajectory not found" });
+    }
+    res.json({ success: true });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// GET /notes/wellboreTrajectory/list/:id  (id = noteId) - metadata only (no survey points)
+notesCrtl.listWellboreTrajectories = async (req, res) => {
+  try{
+    const noteId = req.params.id;
+    const trajectories = await WellboreTrajectory.find({noteId}).select('-survey').sort({wellName: 1});
+    res.json({ success: true, trajectories });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};

@@ -31,6 +31,9 @@ const {
     renderUploadPadAC,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
+    uploadWellboreTrajectory,
+    deleteWellboreTrajectory,
+    listWellboreTrajectories,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -146,6 +149,11 @@ router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
 
 //Get Upload AC with risk reports
 router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
+
+//Wellbore 3D Trajectory (per job/note)
+router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);
+router.delete('/notes/wellboreTrajectory/:id', isAuthenticated, deleteWellboreTrajectory);
+router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTrajectories);
 
 
 //Get Upload Frac Planes form

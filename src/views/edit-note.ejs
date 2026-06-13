@@ -1,6 +1,10 @@
 
 <%- include ('partials/header.ejs') %>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <script>
     document.title =  'ID<%= note.mtxJobId %> - <%= note.customerJobNumber %>';
 </script>
@@ -129,6 +133,297 @@
                         </form>
                     </div>
                 </div>
+
+                <!-- ================= WELLBORE 3D TRAJECTORY (techy theme, scoped) ================= -->
+                <style>
+                    .wbt-root {
+                        --wbt-bg: #0a0e14;
+                        --wbt-panel: #111820;
+                        --wbt-panel2: #161e28;
+                        --wbt-border: #1e2d3d;
+                        --wbt-accent: #00c8ff;
+                        --wbt-accent2: #ff6b35;
+                        --wbt-accent3: #39ff14;
+                        --wbt-text: #c8d8e8;
+                        --wbt-text-dim: #5a7080;
+                        --wbt-text-bright: #e8f4ff;
+                        --wbt-red: #ff4060;
+                        --wbt-mono: 'Share Tech Mono', monospace;
+                        --wbt-sans: 'Barlow', sans-serif;
+                        --wbt-cond: 'Barlow Condensed', sans-serif;
+                    }
+                    .wbt-root{
+                        background: var(--wbt-bg);
+                        color: var(--wbt-text);
+                        font-family: var(--wbt-sans);
+                        border-radius: 6px;
+                        padding: 14px;
+                        margin: 10px 0;
+                        position: relative;
+                        overflow: hidden;
+                        border: 1px solid var(--wbt-border);
+                    }
+                    .wbt-root::before{
+                        content:'';
+                        position:absolute; inset:0;
+                        background-image: linear-gradient(rgba(0,200,255,.03) 1px, transparent 1px),
+                                          linear-gradient(90deg, rgba(0,200,255,.03) 1px, transparent 1px);
+                        background-size: 30px 30px;
+                        pointer-events:none; z-index:0;
+                    }
+                    .wbt-root > *{ position:relative; z-index:1; }
+                    .wbt-title{
+                        font-family: var(--wbt-cond);
+                        font-size: 15px; font-weight:700; letter-spacing:1.5px;
+                        color: var(--wbt-text-bright); text-transform:uppercase;
+                        margin-bottom: 10px; display:flex; align-items:center; gap:8px;
+                    }
+                    .wbt-title .wbt-dot{
+                        width:8px; height:8px; border-radius:50%; background:var(--wbt-accent);
+                        box-shadow:0 0 8px var(--wbt-accent);
+                    }
+                    .wbt-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:10px; }
+                    .wbt-field{ display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px; }
+                    .wbt-field label{
+                        font-family: var(--wbt-cond); font-size:10px; letter-spacing:1px;
+                        text-transform:uppercase; color: var(--wbt-text-dim);
+                    }
+                    .wbt-field input[type=file], .wbt-field input[type=text]{
+                        background: var(--wbt-panel2); border:1px solid var(--wbt-border);
+                        color: var(--wbt-text); border-radius:3px; padding:6px 8px; font-size:12px;
+                        font-family: var(--wbt-mono);
+                    }
+                    .wbt-btn{
+                        font-family: var(--wbt-cond); font-size:11px; font-weight:600; letter-spacing:1.5px;
+                        text-transform:uppercase; padding:7px 14px; border-radius:3px; border:1px solid var(--wbt-border);
+                        cursor:pointer; transition: all .15s; background: transparent; color: var(--wbt-text-dim);
+                    }
+                    .wbt-btn:hover{ border-color: var(--wbt-accent); color: var(--wbt-accent); }
+                    .wbt-btn-save{
+                        background: linear-gradient(135deg, var(--wbt-accent2), #ff8c55);
+                        color:#fff; border:none;
+                    }
+                    .wbt-btn-save:hover{ box-shadow:0 3px 14px rgba(255,107,53,.4); color:#fff; }
+                    .wbt-btn-save:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
+                    .wbt-btn-del{
+                        background: transparent; color: var(--wbt-red); border:1px solid rgba(255,64,96,.3);
+                    }
+                    .wbt-btn-del:hover{ border-color: var(--wbt-red); box-shadow:0 0 8px rgba(255,64,96,.3); }
+                    .wbt-status{ font-family: var(--wbt-mono); font-size:11px; color: var(--wbt-text-dim); margin:6px 0; }
+
+                    .wbt-viewer-wrap{ position:relative; border-radius:4px; overflow:hidden; border:1px solid var(--wbt-border); margin-bottom:10px; }
+                    .wbt-viewer{ width:100%; height:46vh; display:block; background: var(--wbt-bg); }
+                    .wbt-panel{
+                        position:absolute; background: rgba(17,24,32,0.92); border:1px solid var(--wbt-border);
+                        border-radius:4px; padding:8px 10px; font-size:11px; color: var(--wbt-text);
+                        backdrop-filter: blur(4px); max-height:90%; overflow:auto;
+                    }
+                    .wbt-controls{ top:10px; left:10px; max-width:200px; }
+                    .wbt-legend{ top:10px; right:10px; max-height:38vh; }
+                    .wbt-panel h6{
+                        margin:0 0 6px; font-size:10px; color: var(--wbt-text-dim);
+                        text-transform:uppercase; letter-spacing:1px; font-family: var(--wbt-cond);
+                    }
+                    .wbt-panel label{ display:flex; align-items:center; gap:6px; margin:4px 0; cursor:pointer; }
+                    .wbt-panel select, .wbt-panel input[type=range]{ width:100%; background:var(--wbt-panel2); color:var(--wbt-text); border:1px solid var(--wbt-border); border-radius:3px; }
+                    .wbt-section{ margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--wbt-border); }
+                    .wbt-section:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+                    .wbt-swatch{ width:10px; height:10px; border-radius:2px; display:inline-block; flex-shrink:0; }
+                    .wbt-legend-item{ display:flex; align-items:center; gap:6px; margin:3px 0; }
+
+                    .wbt-list{ font-family: var(--wbt-mono); font-size:11px; }
+                    .wbt-list-item{
+                        display:flex; align-items:center; justify-content:space-between; gap:8px;
+                        background: var(--wbt-panel2); border:1px solid var(--wbt-border); border-radius:3px;
+                        padding:6px 10px; margin-bottom:6px;
+                    }
+                    .wbt-list-item .wbt-name{ display:flex; align-items:center; gap:8px; }
+
+                    .wbt-table-wrap{ max-height:240px; overflow:auto; margin-bottom:10px; border:1px solid var(--wbt-border); border-radius:4px; }
+                    .wbt-table{ width:100%; border-collapse:collapse; font-family: var(--wbt-mono); font-size:10.5px; }
+                    .wbt-table th, .wbt-table td{ padding:4px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--wbt-border); }
+                    .wbt-table th{ position:sticky; top:0; background: var(--wbt-panel2); color: var(--wbt-text-dim); font-weight:600; }
+                    .wbt-table td:first-child, .wbt-table th:first-child{ text-align:left; }
+                    .wbt-table tr:hover td{ background: rgba(0,200,255,.05); }
+
+                    /* Accordion */
+                    .wbt-accordion-item{ border:1px solid var(--wbt-border); border-radius:4px; margin-bottom:8px; overflow:hidden; }
+                    .wbt-accordion-header{
+                        display:flex; align-items:center; justify-content:space-between; gap:8px;
+                        padding:8px 12px; background: var(--wbt-panel2); cursor:pointer;
+                        font-family: var(--wbt-cond); font-size:12px; font-weight:700;
+                        letter-spacing:1px; text-transform:uppercase; color: var(--wbt-text-bright);
+                        transition: background .15s;
+                    }
+                    .wbt-accordion-header:hover{ background: rgba(0,200,255,.06); }
+                    .wbt-accordion-header .wbt-acc-icon{
+                        font-family: var(--wbt-mono); color: var(--wbt-accent); transition: transform .2s;
+                    }
+                    .wbt-accordion-header.collapsed .wbt-acc-icon{ transform: rotate(-90deg); }
+                    .wbt-accordion-body{ padding:10px; }
+                    .wbt-accordion-body.collapsed{ display:none; }
+
+                    /* Download row */
+                    .wbt-actions-row{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+
+                    /* Dashboard */
+                    .wbt-dash-title{
+                        font-family: var(--wbt-cond); font-size: 13px; font-weight:700; letter-spacing:1.5px;
+                        color: var(--wbt-text-bright); text-transform:uppercase;
+                        margin: 14px 0 8px; display:flex; align-items:center; gap:8px;
+                        border-top: 1px solid var(--wbt-border); padding-top: 12px;
+                    }
+                    .wbt-dash-title .wbt-dot{
+                        width:8px; height:8px; border-radius:50%; background:var(--wbt-accent2);
+                        box-shadow:0 0 8px var(--wbt-accent2);
+                    }
+                    .wbt-dash-grid{
+                        display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                        gap:8px;
+                    }
+                    .wbt-dash-card{
+                        background: var(--wbt-panel2); border:1px solid var(--wbt-border); border-radius:4px;
+                        padding:8px 10px;
+                    }
+                    .wbt-dash-card-title{
+                        display:flex; align-items:center; gap:8px; margin-bottom:6px;
+                        font-family: var(--wbt-cond); font-size:11px; font-weight:700; letter-spacing:1px;
+                        text-transform:uppercase; color: var(--wbt-text-bright);
+                    }
+                    .wbt-dash-card-title .wbt-swatch{ width:10px; height:10px; }
+                    .wbt-metric-grid{
+                        display:grid; grid-template-columns: 1fr 1fr; gap:3px 10px;
+                        font-family: var(--wbt-mono); font-size:10px;
+                    }
+                    .wbt-metric-label{ color: var(--wbt-text-dim); }
+                    .wbt-metric-value{ color: var(--wbt-text-bright); text-align:right; font-weight:600; }
+                    .wbt-metric-full{ grid-column: 1 / -1; border-top:1px solid var(--wbt-border); margin-top:3px; padding-top:3px; }
+                    .wbt-highlight-row{ display:flex; gap:6px; margin-bottom:8px; }
+                    .wbt-highlight-box{
+                        flex:1; background: rgba(0,200,255,.06); border:1px solid var(--wbt-accent);
+                        border-radius:3px; padding:4px 6px; text-align:center;
+                    }
+                    .wbt-highlight-box:nth-child(2){ border-color: var(--wbt-accent2); background: rgba(255,107,53,.06); }
+                    .wbt-highlight-box:nth-child(3){ border-color: var(--wbt-accent3); background: rgba(57,255,20,.06); }
+                    .wbt-highlight-label{
+                        font-family: var(--wbt-cond); font-size:9px; letter-spacing:1px; text-transform:uppercase;
+                        color: var(--wbt-text-dim); margin-bottom:2px;
+                    }
+                    .wbt-highlight-value{
+                        font-family: var(--wbt-mono); font-size:13px; font-weight:700; color: var(--wbt-text-bright);
+                    }
+                    .wbt-highlight-extra{
+                        font-family: var(--wbt-mono); font-size:9px; color: var(--wbt-text-dim); margin-top:1px;
+                    }
+
+                </style>
+
+                <div class="wbt-root" id="wbtRoot">
+                    <div class="wbt-title"><span class="wbt-dot"></span> Wellbore 3D Trajectory</div>
+
+                    <!-- Existing trajectories list -->
+                    <div class="wbt-section">
+                        <div class="wbt-field" style="margin-bottom:6px;">
+                            <label>Saved Wellbores for this Job</label>
+                        </div>
+                        <div class="wbt-list" id="wbtSavedList">
+                            <% if (wellboreTrajectories && wellboreTrajectories.length) { %>
+                                <% wellboreTrajectories.forEach(function(t){ %>
+                                    <div class="wbt-list-item" data-id="<%= t._id %>">
+                                        <span class="wbt-name">
+                                            <span class="wbt-swatch" style="background: <%= t.colorHex || '#00c8ff' %>;"></span>
+                                            <%= t.wellName %> <span style="color: var(--wbt-text-dim);">(<%= t.surveyCount %> pts)</span>
+                                        </span>
+                                        <button type="button" class="wbt-btn wbt-btn-del wbt-delete-btn" data-id="<%= t._id %>">Delete</button>
+                                    </div>
+                                <% }) %>
+                            <% } else { %>
+                                <div class="wbt-status" id="wbtNoSaved">No wellbore trajectories saved for this job yet.</div>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <!-- Upload / replace -->
+                    <div class="wbt-section">
+                        <div class="wbt-row">
+                            <div class="wbt-field">
+                                <label>Trajectory Folder (.csv files)</label>
+                                <input type="file" id="wbtFolderInput" accept=".csv" webkitdirectory directory multiple>
+                            </div>
+                            <div class="wbt-field">
+                                <label>Pad Name (optional)</label>
+                                <input type="text" id="wbtPadName" placeholder="e.g. 13-28-075-06W4 Pad T" value="<%= note.wells || '' %>">
+                            </div>
+                            <div class="wbt-field" style="flex:0 0 auto; min-width:140px;">
+                                <label>&nbsp;</label>
+                                <button type="button" class="wbt-btn wbt-btn-save" id="wbtSaveBtn" disabled>Save to Database</button>
+                            </div>
+                        </div>
+                        <div class="wbt-status" id="wbtStatus">Select a folder to preview wellbore trajectories.</div>
+                    </div>
+
+                    <!-- 3D viewer -->
+                    <div class="wbt-viewer-wrap">
+                        <canvas class="wbt-viewer" id="wbtViewer"></canvas>
+
+                        <div class="wbt-panel wbt-controls">
+                            <div class="wbt-section">
+                                <h6>Visibility</h6>
+                                <label><input type="checkbox" id="wbtToggleAxes" checked> Axes</label>
+                                <label><input type="checkbox" id="wbtToggleCurtains" checked> Curtains</label>
+                                <label><input type="checkbox" id="wbtToggleLegend" checked> Legend</label>
+                                <label><input type="checkbox" id="wbtToggleGrid" checked> Grid</label>
+                            </div>
+                            <div class="wbt-section">
+                                <h6>Rotation Axis</h6>
+                                <select id="wbtRotationAxis">
+                                    <option value="none">Free orbit</option>
+                                    <option value="x">X (East-West)</option>
+                                    <option value="y">Y (Vertical/TVD)</option>
+                                    <option value="z">Z (North-South)</option>
+                                </select>
+                            </div>
+                            <div class="wbt-section">
+                                <h6>Line Thickness</h6>
+                                <input type="range" id="wbtLineThickness" min="0.5" max="5" step="0.1" value="0.5">
+                            </div>
+                            <div class="wbt-section">
+                                <h6>Wellbores</h6>
+                                <div id="wbtWellList" style="max-height:120px; overflow:auto;"></div>
+                            </div>
+                            <div class="wbt-section">
+                                <button type="button" class="wbt-btn" id="wbtResetView" style="width:100%;">Reset View</button>
+                            </div>
+                        </div>
+
+                        <div class="wbt-panel wbt-legend" id="wbtLegendPanel">
+                            <h6>Legend</h6>
+                            <div id="wbtLegendList"></div>
+                        </div>
+                    </div>
+
+                    <!-- Actions: Excel export -->
+                    <div class="wbt-actions-row">
+                        <button type="button" class="wbt-btn" id="wbtExportExcel">
+                            Download Pad Trajectories (Excel)
+                        </button>
+                    </div>
+
+                    <!-- Trajectories accordion -->
+                    <div class="wbt-accordion-item">
+                        <div class="wbt-accordion-header collapsed" id="wbtAccordionHeader">
+                            <span>Trajectories</span>
+                            <span class="wbt-acc-icon">&#9660;</span>
+                        </div>
+                        <div class="wbt-accordion-body collapsed" id="wbtTables"></div>
+                    </div>
+
+                    <!-- Pad technical dashboard -->
+                    <div class="wbt-dash-title"><span class="wbt-dot"></span> Pad Trajectory Summary</div>
+                    <div class="wbt-dash-grid" id="wbtDashboard"></div>
+                </div>
+                <!-- ================= END WELLBORE 3D TRAJECTORY ================= -->
+
 
 
 
@@ -953,6 +1248,877 @@
         };
 
     </script>
+
+    <!-- ================= WELLBORE 3D TRAJECTORY SCRIPT ================= -->
+    <script>
+    (function(){
+        const NOTE_ID = "<%= note._id %>";
+        const colors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
+
+        let scene, camera, renderer, controls;
+        let group, axesHelper, gridHelper, curtainGroup;
+        let wellsData = [];
+
+        function initScene(){
+            const canvas = document.getElementById('wbtViewer');
+            if(!canvas) return;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0e14);
+
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 1000000);
+
+            renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(window.devicePixelRatio || 1);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+
+            group = new THREE.Group();
+            scene.add(group);
+
+            axesHelper = new THREE.AxesHelper(200);
+            group.add(axesHelper);
+
+            gridHelper = new THREE.GridHelper(2000, 20, 0x1e2d3d, 0x161e28);
+            group.add(gridHelper);
+
+            curtainGroup = new THREE.Group();
+            group.add(curtainGroup);
+
+            animate();
+            window.addEventListener('resize', onResize);
+            setupWbtUI();
+        }
+
+        function onResize(){
+            const canvas = document.getElementById('wbtViewer');
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            if(w === 0 || h === 0) return;
+            camera.aspect = w/h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        function animate(){
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // ---------------- CSV parsing ----------------
+        function parseCSV(text){
+            const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if(lines.length < 2) return null;
+            const headers = lines[0].split(',').map(h => h.trim());
+            const rows = [];
+            for(let i=1; i<lines.length; i++){
+                const parts = lines[i].split(',');
+                if(parts.length < headers.length) continue;
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h] = (parts[idx] !== undefined ? parts[idx] : '').trim();
+                });
+                rows.push(row);
+            }
+            return {headers, rows};
+        }
+
+        function num(v){
+            const n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // X = Eastings, Y = -TVD (low side, only TVD goes down), Z = -Northings
+        // (Z is negated so that increasing North appears in the correct map
+        // direction in Three.js's right-handed coordinate system when viewed
+        // from above with +Y as up.)
+        function toVec3(row){
+            const east = num(row['Eastings']);
+            const north = num(row['Northings']);
+            const tvd = num(row['TVD']);
+            return new THREE.Vector3(east, -tvd, -north);
+        }
+
+        // ---------------- Thick line (tube mesh) ----------------
+        function buildWellLine(rows, color){
+            const points = [];
+            rows.forEach(r => points.push(toVec3(r)));
+
+            const curve = new THREE.CatmullRomCurve3(points);
+            const baseRadius = Math.max(1, estimateScale(points) * 0.004);
+            const tubularSegments = Math.max(2, points.length * 2);
+            const geometry = new THREE.TubeGeometry(curve, tubularSegments, baseRadius, 6, false);
+
+            const material = new THREE.MeshBasicMaterial({color});
+            const line = new THREE.Mesh(geometry, material);
+            line.userData.curve = curve;
+            line.userData.baseRadius = baseRadius;
+            line.userData.tubularSegments = tubularSegments;
+            return {line, points};
+        }
+
+        function estimateScale(points){
+            if(points.length === 0) return 100;
+            const box = new THREE.Box3();
+            points.forEach(p => box.expandByPoint(p));
+            const size = box.getSize(new THREE.Vector3());
+            return Math.max(size.x, size.y, size.z, 10);
+        }
+
+        // ---------------- Curtains ----------------
+        function buildCurtains(allPoints){
+            const grp = new THREE.Group();
+            if(allPoints.length === 0) return grp;
+
+            const box = new THREE.Box3();
+            allPoints.forEach(p => box.expandByPoint(p));
+
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            const boxGeo = new THREE.BoxGeometry(size.x || 1, size.y || 1, size.z || 1);
+            const edges = new THREE.EdgesGeometry(boxGeo);
+            const lineMat = new THREE.LineBasicMaterial({color: 0x00c8ff, transparent:true, opacity:0.35});
+            const boxLines = new THREE.LineSegments(edges, lineMat);
+            boxLines.position.copy(center);
+            grp.add(boxLines);
+
+            const ewGeo = new THREE.PlaneGeometry(size.x || 1, size.y || 1);
+            const ewMat = new THREE.MeshBasicMaterial({color:0x1e2d3d, transparent:true, opacity:0.12, side:THREE.DoubleSide});
+            const ewWall = new THREE.Mesh(ewGeo, ewMat);
+            ewWall.position.set(center.x, center.y, box.max.z);
+            grp.add(ewWall);
+
+            const nsGeo = new THREE.PlaneGeometry(size.z || 1, size.y || 1);
+            const nsMat = new THREE.MeshBasicMaterial({color:0x1e2d3d, transparent:true, opacity:0.12, side:THREE.DoubleSide});
+            const nsWall = new THREE.Mesh(nsGeo, nsMat);
+            nsWall.rotation.y = Math.PI/2;
+            nsWall.position.set(box.min.x, center.y, center.z);
+            grp.add(nsWall);
+
+            return grp;
+        }
+
+        function clearScene(){
+            while(group.children.length){
+                group.remove(group.children[0]);
+            }
+            group.add(axesHelper);
+            group.add(gridHelper);
+            curtainGroup = new THREE.Group();
+            group.add(curtainGroup);
+        }
+
+        function fitCameraToObject(points){
+            if(points.length === 0) return;
+            const box = new THREE.Box3();
+            points.forEach(p => box.expandByPoint(p));
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z, 10);
+
+            controls.target.copy(center);
+            camera.position.set(center.x + maxDim, center.y - maxDim*0.6, center.z + maxDim);
+            camera.near = maxDim/1000;
+            camera.far = maxDim*100;
+            camera.updateProjectionMatrix();
+            controls.update();
+        }
+
+        // ---------------- Tables ----------------
+        const displayCols = ['Well','MD','Incl','Azim','TVD','Sub-Sea','Vert. Sec.','Local N','Local E','Dogleg','Northings','Eastings','Latitude','Longitude','Comments'];
+
+        function renderTable(name, data, color){
+            const wrap = document.createElement('div');
+            wrap.className = 'wbt-table-wrap';
+
+            const header = document.createElement('div');
+            header.style.padding = '6px 10px';
+            header.style.fontFamily = 'var(--wbt-cond)';
+            header.style.fontSize = '11px';
+            header.style.letterSpacing = '1px';
+            header.style.textTransform = 'uppercase';
+            header.style.color = 'var(--wbt-text-bright)';
+            header.style.background = 'var(--wbt-panel2)';
+            header.style.borderBottom = '1px solid var(--wbt-border)';
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.style.gap = '8px';
+
+            const sw = document.createElement('span');
+            sw.className = 'wbt-swatch';
+            sw.style.background = '#' + color.toString(16).padStart(6,'0');
+            header.appendChild(sw);
+            header.appendChild(document.createTextNode(name + ' (' + data.rows.length + ' rows)'));
+            wrap.appendChild(header);
+
+            const table = document.createElement('table');
+            table.className = 'wbt-table';
+
+            const cols = displayCols.filter(c => data.headers.includes(c));
+
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            cols.forEach(c => {
+                const th = document.createElement('th');
+                th.textContent = c;
+                trh.appendChild(th);
+            });
+            thead.appendChild(trh);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            data.rows.forEach(r => {
+                const tr = document.createElement('tr');
+                cols.forEach(c => {
+                    const td = document.createElement('td');
+                    td.textContent = r[c] !== undefined ? r[c] : '';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+
+            wrap.appendChild(table);
+            document.getElementById('wbtTables').appendChild(wrap);
+        }
+
+        // ---------------- MongoDB document builder ----------------
+        const fieldMap = {
+            'Well':'well', 'MD':'md', 'Incl':'incl', 'Azim':'azim', 'TVD':'tvd',
+            'Sub-Sea':'subSea', 'Vert. Sec.':'vertSec', 'Local N':'localN', 'Local E':'localE',
+            'Dogleg':'dogleg', 'Northings':'northing', 'Eastings':'easting',
+            'Latitude':'latitude', 'Longitude':'longitude', 'Comments':'comments'
+        };
+
+        function buildMongoDocuments(){
+            const padName = document.getElementById('wbtPadName').value.trim();
+            return wellsData.map(w => {
+                const survey = w.rows.map(r => {
+                    const doc = {};
+                    Object.keys(fieldMap).forEach(csvKey => {
+                        const dbKey = fieldMap[csvKey];
+                        const raw = r[csvKey];
+                        if(raw === undefined) return;
+                        if(csvKey === 'Well' || csvKey === 'Comments'){
+                            doc[dbKey] = raw;
+                        } else {
+                            doc[dbKey] = num(raw);
+                        }
+                    });
+                    const v = toVec3(r);
+                    doc.position = {x: v.x, y: v.y, z: v.z};
+                    return doc;
+                });
+
+                return {
+                    wellName: w.name,
+                    source: w.fileName,
+                    pad: padName,
+                    colorHex: '#' + w.color.toString(16).padStart(6,'0'),
+                    surveyCount: survey.length,
+                    survey: survey
+                };
+            });
+        }
+
+        // ---------------- Main load handler ----------------
+        async function loadFiles(files){
+            clearScene();
+            document.getElementById('wbtTables').innerHTML = '';
+            const legendList = document.getElementById('wbtLegendList');
+            legendList.innerHTML = '';
+            wellsData = [];
+            document.getElementById('wbtSaveBtn').disabled = true;
+
+            const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+            if(csvFiles.length === 0){
+                document.getElementById('wbtStatus').textContent = 'No CSV files found in selected folder.';
+                return;
+            }
+
+            document.getElementById('wbtStatus').textContent = `Loading ${csvFiles.length} file(s)...`;
+
+            let allPoints = [];
+            let colorIdx = 0;
+
+            for(const file of csvFiles){
+                const text = await file.text();
+                const data = parseCSV(text);
+                if(!data || data.rows.length === 0) continue;
+
+                const wellName = data.rows[0]['Well'] || file.name;
+                const color = colors[colorIdx % colors.length];
+                colorIdx++;
+
+                const {line, points} = buildWellLine(data.rows, color);
+                group.add(line);
+                allPoints = allPoints.concat(points);
+
+                wellsData.push({name: wellName, fileName: file.name, headers: data.headers, rows: data.rows, color, mesh: line});
+
+                const item = document.createElement('div');
+                item.className = 'wbt-legend-item';
+                const sw = document.createElement('span');
+                sw.className = 'wbt-swatch';
+                sw.style.background = '#' + color.toString(16).padStart(6,'0');
+                item.appendChild(sw);
+                item.appendChild(document.createTextNode(wellName));
+                legendList.appendChild(item);
+
+                renderTable(wellName, data, color);
+            }
+
+            const curtains = buildCurtains(allPoints);
+            curtainGroup.add(curtains);
+
+            buildWbtWellList();
+            applyWbtLineThickness();
+            fitCameraToObject(allPoints);
+            applyWbtVisibility();
+            document.getElementById('wbtStatus').textContent = `Loaded ${wellsData.length} wellbore(s). Review, then click "Save to Database".`;
+            document.getElementById('wbtSaveBtn').disabled = wellsData.length === 0;
+
+            // Dashboard + accordion + Excel export
+            // Convert raw CSV rows (keyed by header names) to db-style keys (well/md/incl/...)
+            const wellsForDashboard = wellsData.map(w => ({
+                name: w.name,
+                color: w.color,
+                survey: w.rows.map(r => {
+                    const doc = {};
+                    Object.keys(fieldMap).forEach(csvKey => {
+                        const dbKey = fieldMap[csvKey];
+                        const raw = r[csvKey];
+                        if(raw === undefined) return;
+                        doc[dbKey] = (csvKey === 'Well' || csvKey === 'Comments') ? raw : num(raw);
+                    });
+                    return doc;
+                })
+            }));
+            wbtRenderDashboard(wellsForDashboard);
+            wbtSetupAccordion();
+
+            const padLabel = document.getElementById('wbtPadName').value.trim() || 'Pad';
+            const exportBtn = document.getElementById('wbtExportExcel');
+            if(exportBtn){
+                exportBtn.onclick = () => wbtExportToExcel(wellsForDashboard, padLabel);
+            }
+        }
+
+        // ---------------- Wellbore visibility list ----------------
+        function buildWbtWellList(){
+            const container = document.getElementById('wbtWellList');
+            container.innerHTML = '';
+            wellsData.forEach((w) => {
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = true;
+                cb.addEventListener('change', () => {
+                    w.mesh.visible = cb.checked;
+                });
+                const sw = document.createElement('span');
+                sw.className = 'wbt-swatch';
+                sw.style.background = '#' + w.color.toString(16).padStart(6,'0');
+                label.appendChild(cb);
+                label.appendChild(sw);
+                label.appendChild(document.createTextNode(w.name));
+                container.appendChild(label);
+            });
+        }
+
+        // ---------------- Line thickness ----------------
+        function applyWbtLineThickness(){
+            const factor = parseFloat(document.getElementById('wbtLineThickness').value);
+            wellsData.forEach(w => {
+                const mesh = w.mesh;
+                const {curve, baseRadius, tubularSegments} = mesh.userData;
+                mesh.geometry.dispose();
+                mesh.geometry = new THREE.TubeGeometry(curve, tubularSegments, baseRadius * factor, 6, false);
+            });
+        }
+
+        // ---------------- Visibility toggles ----------------
+        function applyWbtVisibility(){
+            axesHelper.visible = document.getElementById('wbtToggleAxes').checked;
+            gridHelper.visible = document.getElementById('wbtToggleGrid').checked;
+            curtainGroup.visible = document.getElementById('wbtToggleCurtains').checked;
+            document.getElementById('wbtLegendPanel').style.display =
+                document.getElementById('wbtToggleLegend').checked ? 'block' : 'none';
+        }
+
+        // ---------------- Save to DB ----------------
+        async function saveToDatabase(){
+            const docs = buildMongoDocuments();
+            if(docs.length === 0) return;
+
+            const btn = document.getElementById('wbtSaveBtn');
+            const status = document.getElementById('wbtStatus');
+            btn.disabled = true;
+            status.textContent = 'Saving to database...';
+
+            try{
+                const res = await fetch('/notes/wellboreTrajectory/upload/' + NOTE_ID, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ data: docs })
+                });
+                const result = await res.json();
+                if(res.ok){
+                    status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) to database.`;
+                    refreshSavedList();
+                } else {
+                    status.textContent = 'Error saving: ' + (result.error || res.statusText);
+                }
+            } catch(err){
+                status.textContent = 'Error saving: ' + err.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // ---------------- Saved list refresh / delete ----------------
+        async function refreshSavedList(){
+            const container = document.getElementById('wbtSavedList');
+            try{
+                const res = await fetch('/notes/wellboreTrajectory/list/' + NOTE_ID);
+                const result = await res.json();
+                if(!res.ok) return;
+
+                container.innerHTML = '';
+                if(!result.trajectories || result.trajectories.length === 0){
+                    const div = document.createElement('div');
+                    div.className = 'wbt-status';
+                    div.id = 'wbtNoSaved';
+                    div.textContent = 'No wellbore trajectories saved for this job yet.';
+                    container.appendChild(div);
+                    return;
+                }
+
+                result.trajectories.forEach(t => {
+                    const item = document.createElement('div');
+                    item.className = 'wbt-list-item';
+                    item.dataset.id = t._id;
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'wbt-name';
+                    const sw = document.createElement('span');
+                    sw.className = 'wbt-swatch';
+                    sw.style.background = t.colorHex || '#00c8ff';
+                    nameSpan.appendChild(sw);
+                    nameSpan.appendChild(document.createTextNode(t.wellName + ' '));
+                    const countSpan = document.createElement('span');
+                    countSpan.style.color = 'var(--wbt-text-dim)';
+                    countSpan.textContent = '(' + t.surveyCount + ' pts)';
+                    nameSpan.appendChild(countSpan);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'wbt-btn wbt-btn-del wbt-delete-btn';
+                    delBtn.dataset.id = t._id;
+                    delBtn.textContent = 'Delete';
+
+                    item.appendChild(nameSpan);
+                    item.appendChild(delBtn);
+                    container.appendChild(item);
+                });
+
+                attachDeleteHandlers();
+            } catch(err){
+                console.error('Failed to refresh saved trajectories list', err);
+            }
+        }
+
+        async function deleteTrajectory(id, itemEl){
+            if(!confirm('Delete this wellbore trajectory from the database? This cannot be undone.')) return;
+            try{
+                const res = await fetch('/notes/wellboreTrajectory/' + id, { method: 'DELETE' });
+                const result = await res.json();
+                if(res.ok){
+                    itemEl.remove();
+                    const container = document.getElementById('wbtSavedList');
+                    if(!container.querySelector('.wbt-list-item')){
+                        const div = document.createElement('div');
+                        div.className = 'wbt-status';
+                        div.textContent = 'No wellbore trajectories saved for this job yet.';
+                        container.appendChild(div);
+                    }
+                } else {
+                    alert('Error deleting: ' + (result.error || res.statusText));
+                }
+            } catch(err){
+                alert('Error deleting: ' + err.message);
+            }
+        }
+
+        function attachDeleteHandlers(){
+            document.querySelectorAll('.wbt-delete-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const item = btn.closest('.wbt-list-item');
+                    deleteTrajectory(btn.dataset.id, item);
+                };
+            });
+        }
+
+        // ---------------- UI wiring ----------------
+        function setupWbtUI(){
+            ['wbtToggleAxes','wbtToggleCurtains','wbtToggleLegend','wbtToggleGrid'].forEach(id => {
+                document.getElementById(id).addEventListener('change', applyWbtVisibility);
+            });
+            applyWbtVisibility();
+
+            document.getElementById('wbtLineThickness').addEventListener('input', applyWbtLineThickness);
+
+            document.getElementById('wbtRotationAxis').addEventListener('change', (e) => {
+                const axis = e.target.value;
+                if(axis === 'none'){
+                    controls.minPolarAngle = 0;
+                    controls.maxPolarAngle = Math.PI;
+                    controls.minAzimuthAngle = -Infinity;
+                    controls.maxAzimuthAngle = Infinity;
+                    controls.enableRotate = true;
+                    return;
+                }
+                controls.enableRotate = true;
+                if(axis === 'y'){
+                    controls.minPolarAngle = controls.getPolarAngle();
+                    controls.maxPolarAngle = controls.getPolarAngle();
+                    controls.minAzimuthAngle = -Infinity;
+                    controls.maxAzimuthAngle = Infinity;
+                } else if(axis === 'x' || axis === 'z'){
+                    controls.minAzimuthAngle = controls.getAzimuthalAngle();
+                    controls.maxAzimuthAngle = controls.getAzimuthalAngle();
+                    controls.minPolarAngle = 0;
+                    controls.maxPolarAngle = Math.PI;
+                }
+            });
+
+            document.getElementById('wbtResetView').addEventListener('click', () => {
+                let allPoints = [];
+                wellsData.forEach(w => w.rows.forEach(r => allPoints.push(toVec3(r))));
+                fitCameraToObject(allPoints);
+                document.getElementById('wbtRotationAxis').value = 'none';
+                controls.enableRotate = true;
+                controls.minPolarAngle = 0;
+                controls.maxPolarAngle = Math.PI;
+                controls.minAzimuthAngle = -Infinity;
+                controls.maxAzimuthAngle = Infinity;
+            });
+
+            document.getElementById('wbtSaveBtn').addEventListener('click', saveToDatabase);
+
+            document.getElementById('wbtFolderInput').addEventListener('change', (e) => loadFiles(e.target.files));
+
+            attachDeleteHandlers();
+        }
+
+
+        // ---------------- Pad Trajectory Dashboard & Excel Export ----------------
+        // All values are used as-stored (same units as the survey tables - metric).
+        // No unit conversion is applied; dashboard figures match the table figures.
+        //
+        // Comment-based station identification (case-insensitive substring match,
+        // tolerant of repeated/decorated text e.g. "ICP - ICP", "sKOP - sKOP"):
+        //   - "SC"   -> Surface Casing point
+        //   - "KOP"  -> Kick-off Point (start of build)
+        //   - "ICP"  -> End of build / start of lateral section
+        //   - "LP"   -> Landing Point (fallback for end of build if no ICP)
+        //   - "START TANG" -> start of tangent section
+        //   - "END TANG"   -> end of tangent section
+        // If none of KOP/ICP/LP comments are present, fall back to:
+        //   - KOP: first station where Incl > 0
+        //   - ICP/Landing: first station where Incl == 90, else first where Incl >= 88
+        //
+        // DLS (Dogleg Severity): taken directly from the survey's Dogleg column,
+        // same units as shown in the trajectory tables.
+        //
+        // DDI (Directional Difficulty Index, Oag & Williams 2000):
+        //   DDI = log10( MD * AHD * Tortuosity / TVD ), with Tortuosity = sum of
+        //   Dogleg values along the well and AHD = horizontal displacement
+        //   (Pythagorean theorem on Northing/Easting). All inputs used as-stored.
+        //   Source: Oag, A.W. and Williams, M., "The Directional Difficulty Index -
+        //   A New Approach to Performance Benchmarking", IADC/SPE 59196, 2000.
+        //   Typical values range 5.5-7.0; thresholds defined for feet-based MD/TVD
+        //   in the original paper, so absolute classification bands may not map
+        //   directly when inputs are in meters - DDI is shown as a relative figure.
+
+        function wbtFindByComment(survey, patterns){
+            return survey.find(r => {
+                const c = (r.comments || '').toUpperCase();
+                return patterns.some(p => c.includes(p));
+            });
+        }
+
+        function wbtComputeMetrics(wellName, survey){
+            if(!survey || survey.length === 0) return null;
+
+            const first = survey[0];
+            const last = survey[survey.length - 1];
+
+            // Surface Casing
+            const sc = wbtFindByComment(survey, ['SC']);
+
+            // KOP: comment match first, else first Incl > 0
+            let kop = wbtFindByComment(survey, ['KOP']);
+            if(!kop) kop = survey.find(r => num(r.incl) > 0);
+            if(!kop) kop = first;
+
+            // ICP: "ICP" comment, else "LP" comment, else Incl==90, else Incl>=88
+            let icp = wbtFindByComment(survey, ['ICP']);
+            let icpSource = 'ICP (comment)';
+            if(!icp){
+                icp = wbtFindByComment(survey, ['LP']);
+                icpSource = 'LP (comment)';
+            }
+            if(!icp){
+                icp = survey.find(r => num(r.incl) === 90);
+                icpSource = 'Incl = 90 deg';
+            }
+            if(!icp){
+                icp = survey.find(r => num(r.incl) >= 88);
+                icpSource = 'Incl >= 88 deg';
+            }
+            if(!icp){
+                icp = last;
+                icpSource = 'TD (no landing found)';
+            }
+
+            // Tangent section: "START TANG" / "END TANG" comments
+            const tangentStart = wbtFindByComment(survey, ['START TANG']);
+            const tangentEnd = wbtFindByComment(survey, ['END TANG']);
+            let tangent = null;
+            if(tangentStart || tangentEnd){
+                const tFirst = tangentStart || tangentEnd;
+                const tLast = tangentEnd || tangentStart;
+                tangent = {
+                    mdStart: num(tFirst.md),
+                    mdEnd: num(tLast.md),
+                    inclFirst: num(tFirst.incl),
+                    inclLast: num(tLast.incl),
+                };
+            }
+
+            // Max DLS in build section (KOP to ICP) and lateral section (ICP to TD)
+            let maxDlsBuild = 0, maxDlsLateral = 0, tortuosity = 0;
+            survey.forEach(r => {
+                const dls = num(r.dogleg);
+                const md = num(r.md);
+                tortuosity += dls;
+                if(md >= num(kop.md) && md <= num(icp.md)){
+                    if(dls > maxDlsBuild) maxDlsBuild = dls;
+                }
+                if(md >= num(icp.md)){
+                    if(dls > maxDlsLateral) maxDlsLateral = dls;
+                }
+            });
+
+            const totalMD = num(last.md);
+            const totalTVD = num(last.tvd);
+            const lateralLength = totalMD - num(icp.md);
+
+            const dN = num(last.northing) - num(first.northing);
+            const dE = num(last.easting) - num(first.easting);
+            const ahd = Math.sqrt(dN*dN + dE*dE);
+            let closureAz = Math.atan2(dE, dN) * 180 / Math.PI;
+            if(closureAz < 0) closureAz += 360;
+
+            let ddi = null;
+            if(totalTVD > 0 && ahd > 0 && tortuosity > 0 && totalMD > 0){
+                ddi = Math.log10((totalMD * ahd * tortuosity) / totalTVD);
+            }
+
+            return {
+                wellName,
+                sc: sc ? {md: num(sc.md), tvd: num(sc.tvd)} : null,
+                kopMD: num(kop.md),
+                icpMD: num(icp.md),
+                icpTVD: num(icp.tvd),
+                icpSource,
+                totalMD, totalTVD,
+                lateralLength,
+                lateralDisplacement: ahd,
+                closureAz,
+                maxDlsBuild, maxDlsLateral,
+                finalIncl: num(last.incl),
+                finalAzim: num(last.azim),
+                tangent: tangent ? {
+                    mdStart: tangent.mdStart, mdEnd: tangent.mdEnd,
+                    length: tangent.mdEnd - tangent.mdStart,
+                    inclFirst: tangent.inclFirst, inclLast: tangent.inclLast,
+                } : null,
+                ddi,
+            };
+        }
+
+        function wbtFormatNum(v, decimals){
+            if(v === null || v === undefined || isNaN(v)) return '-';
+            return v.toFixed(decimals !== undefined ? decimals : 1);
+        }
+
+        function wbtRenderDashboard(wellsForDashboard){
+            // wellsForDashboard: array of {name, color, survey}
+            const container = document.getElementById('wbtDashboard');
+            if(!container) return;
+            container.innerHTML = '';
+
+            wellsForDashboard.forEach(w => {
+                const metrics = wbtComputeMetrics(w.name, w.survey);
+                if(!metrics) return;
+
+                const card = document.createElement('div');
+                card.className = 'wbt-dash-card';
+
+                const title = document.createElement('div');
+                title.className = 'wbt-dash-card-title';
+                const sw = document.createElement('span');
+                sw.className = 'wbt-swatch';
+                sw.style.background = '#' + w.color.toString(16).padStart(6,'0');
+                title.appendChild(sw);
+                title.appendChild(document.createTextNode(metrics.wellName));
+                card.appendChild(title);
+
+                // Highlighted key points: SC, ICP, TD
+                const highlights = document.createElement('div');
+                highlights.className = 'wbt-highlight-row';
+
+                function addHighlight(label, mdVal, extra){
+                    const box = document.createElement('div');
+                    box.className = 'wbt-highlight-box';
+                    const lab = document.createElement('div');
+                    lab.className = 'wbt-highlight-label';
+                    lab.textContent = label;
+                    const val = document.createElement('div');
+                    val.className = 'wbt-highlight-value';
+                    val.textContent = (mdVal === null || mdVal === undefined) ? '-' : wbtFormatNum(mdVal) + ' m';
+                    box.appendChild(lab);
+                    box.appendChild(val);
+                    if(extra){
+                        const ex = document.createElement('div');
+                        ex.className = 'wbt-highlight-extra';
+                        ex.textContent = extra;
+                        box.appendChild(ex);
+                    }
+                    highlights.appendChild(box);
+                }
+
+                addHighlight('SC (MD)', metrics.sc ? metrics.sc.md : null, metrics.sc ? ('TVD ' + wbtFormatNum(metrics.sc.tvd) + ' m') : 'Not found');
+                addHighlight('ICP (MD)', metrics.icpMD, 'TVD ' + wbtFormatNum(metrics.icpTVD) + ' m');
+                addHighlight('TD (MD)', metrics.totalMD, 'TVD ' + wbtFormatNum(metrics.totalTVD) + ' m');
+
+                card.appendChild(highlights);
+
+                const grid = document.createElement('div');
+                grid.className = 'wbt-metric-grid';
+
+                function addMetric(label, value, full){
+                    const l = document.createElement('div');
+                    l.className = 'wbt-metric-label' + (full ? ' wbt-metric-full' : '');
+                    l.textContent = label;
+                    const v = document.createElement('div');
+                    v.className = 'wbt-metric-value' + (full ? ' wbt-metric-full' : '');
+                    v.textContent = value;
+                    grid.appendChild(l);
+                    grid.appendChild(v);
+                }
+
+                addMetric('KOP (MD)', wbtFormatNum(metrics.kopMD) + ' m');
+                addMetric('Landing basis', metrics.icpSource);
+
+                if(metrics.tangent){
+                    addMetric('Tangent MD', wbtFormatNum(metrics.tangent.mdStart) + ' - ' + wbtFormatNum(metrics.tangent.mdEnd) + ' m');
+                    addMetric('Tangent Incl', wbtFormatNum(metrics.tangent.inclFirst, 1) + ' - ' + wbtFormatNum(metrics.tangent.inclLast, 1) + ' deg');
+                } else {
+                    addMetric('Tangent Section', 'NO', true);
+                }
+
+                addMetric('Lateral Length', wbtFormatNum(metrics.lateralLength) + ' m');
+                addMetric('Lateral Displacement', wbtFormatNum(metrics.lateralDisplacement) + ' m');
+                addMetric('Max DLS - Build', wbtFormatNum(metrics.maxDlsBuild, 2));
+                addMetric('Max DLS - Lateral', wbtFormatNum(metrics.maxDlsLateral, 2));
+                addMetric('Closure Azimuth', wbtFormatNum(metrics.closureAz, 1) + ' deg');
+                addMetric('Final Incl / Azim', wbtFormatNum(metrics.finalIncl, 1) + ' / ' + wbtFormatNum(metrics.finalAzim, 1) + ' deg');
+                addMetric('DDI (Oag & Williams)', wbtFormatNum(metrics.ddi, 2), true);
+
+                card.appendChild(grid);
+                container.appendChild(card);
+            });
+        }
+
+        // ---------------- Accordion toggle ----------------
+        function wbtSetupAccordion(){
+            const header = document.getElementById('wbtAccordionHeader');
+            const body = document.getElementById('wbtTables');
+            if(!header || !body) return;
+            header.addEventListener('click', () => {
+                header.classList.toggle('collapsed');
+                body.classList.toggle('collapsed');
+            });
+        }
+
+        // ---------------- Excel export (one workbook, one tab per wellbore) ----------------
+        // Values exported as-stored (same units as the on-screen trajectory tables).
+        const wbtExcelCols = [
+            {key:'well', label:'Well'},
+            {key:'md', label:'MD'},
+            {key:'incl', label:'Incl'},
+            {key:'azim', label:'Azim'},
+            {key:'tvd', label:'TVD'},
+            {key:'subSea', label:'Sub-Sea'},
+            {key:'vertSec', label:'Vert. Sec.'},
+            {key:'localN', label:'Local N'},
+            {key:'localE', label:'Local E'},
+            {key:'dogleg', label:'Dogleg'},
+            {key:'northing', label:'Northings'},
+            {key:'easting', label:'Eastings'},
+            {key:'latitude', label:'Latitude'},
+            {key:'longitude', label:'Longitude'},
+            {key:'comments', label:'Comments'},
+        ];
+
+        function wbtExportToExcel(wellsForExport, padLabel){
+            if(typeof XLSX === 'undefined'){
+                alert('Excel export library failed to load.');
+                return;
+            }
+            const wb = XLSX.utils.book_new();
+
+            wellsForExport.forEach(w => {
+                const header = wbtExcelCols.map(c => c.label);
+                const rows = (w.survey || []).map(r => wbtExcelCols.map(c => {
+                    const val = r[c.key];
+                    return (val !== undefined && val !== null) ? val : '';
+                }));
+                const sheetData = [header, ...rows];
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+                let sheetName = (w.name || 'Well').replace(/[\\\/\?\*\[\]:]/g, '-').substring(0, 31);
+                if(!sheetName) sheetName = 'Well';
+                let finalName = sheetName;
+                let counter = 1;
+                while(wb.SheetNames.includes(finalName)){
+                    finalName = sheetName.substring(0, 28) + '_' + counter;
+                    counter++;
+                }
+
+                XLSX.utils.book_append_sheet(wb, ws, finalName);
+            });
+
+            const filename = (padLabel ? padLabel.replace(/[^a-z0-9\-_ ]/gi, '_') : 'Pad') + '_Trajectories.xlsx';
+            XLSX.writeFile(wb, filename);
+        }
+
+
+
+        initScene();
+    })();
+    </script>
+    <!-- ================= END WELLBORE 3D TRAJECTORY SCRIPT ================= -->
+
     <!-- ----------------------------------------------------------------------------------------------- -->
 
     <%- include ('partials/footer.ejs') %>
