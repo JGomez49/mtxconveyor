@@ -34,6 +34,9 @@ const {
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     listWellboreTrajectories,
+    addFracPlane,
+    updateFracPlane,
+    deleteFracPlane,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -154,6 +157,11 @@ router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);
 router.delete('/notes/wellboreTrajectory/:id', isAuthenticated, deleteWellboreTrajectory);
 router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTrajectories);
+
+//FracPlane CRUD (sub-documents inside WellboreTrajectory)
+router.post('/notes/fracPlane/:trajectoryId', isAuthenticated, addFracPlane);
+router.put('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, updateFracPlane);
+router.delete('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, deleteFracPlane);
 
 
 //Get Upload Frac Planes form

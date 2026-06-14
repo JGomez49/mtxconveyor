@@ -305,6 +305,25 @@
                     }
                     .wbt-highlight-box:nth-child(2){ border-color: var(--wbt-accent2); background: rgba(255,107,53,.06); }
                     .wbt-highlight-box:nth-child(3){ border-color: var(--wbt-accent3); background: rgba(57,255,20,.06); }
+                    .wbt-pad-summary{
+                        display:flex; flex-wrap:wrap; gap:6px; padding:8px 0 10px;
+                    }
+                    .wbt-pad-stat{
+                        background: var(--wbt-panel2); border:1px solid var(--wbt-accent);
+                        border-radius:3px; padding:4px 12px; text-align:center; min-width:100px;
+                    }
+                    .wbt-pad-stat-label{
+                        font-family: var(--wbt-cond); font-size:9px; letter-spacing:1px;
+                        text-transform:uppercase; color: var(--wbt-text-dim);
+                    }
+                    .wbt-pad-stat-value{
+                        font-family: var(--wbt-mono); font-size:14px; font-weight:700;
+                        color: var(--wbt-accent);
+                    }
+                    .wbt-hl-sc   { border-color: #58a6ff !important; background: rgba(88,166,255,.06) !important; }
+                    .wbt-hl-icp  { border-color: var(--wbt-accent2) !important; background: rgba(255,107,53,.06) !important; }
+                    .wbt-hl-td   { border-color: var(--wbt-accent3) !important; background: rgba(57,255,20,.06) !important; }
+
                     .wbt-highlight-label{
                         font-family: var(--wbt-cond); font-size:9px; letter-spacing:1px; text-transform:uppercase;
                         color: var(--wbt-text-dim); margin-bottom:2px;
@@ -315,6 +334,91 @@
                     .wbt-highlight-extra{
                         font-family: var(--wbt-mono); font-size:9px; color: var(--wbt-text-dim); margin-top:1px;
                     }
+
+
+                    /* ── FracPlane Controller ── */
+                    .wbt-fp-root{
+                        background: var(--wbt-panel2); border:1px solid var(--wbt-border);
+                        border-radius:4px; padding:10px 12px; margin:10px 0;
+                    }
+                    .wbt-fp-title{
+                        font-family: var(--wbt-cond); font-size:12px; font-weight:700;
+                        letter-spacing:1.5px; text-transform:uppercase;
+                        color: var(--wbt-text-bright); margin-bottom:8px;
+                        display:flex; align-items:center; gap:8px;
+                    }
+                    .wbt-fp-title .wbt-dot{ width:7px; height:7px; border-radius:50%; background:#ffd060; box-shadow:0 0 7px #ffd060; }
+                    .wbt-fp-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:8px; }
+                    .wbt-fp-field{ display:flex; flex-direction:column; gap:3px; }
+                    .wbt-fp-field label{
+                        font-family: var(--wbt-cond); font-size:9px; letter-spacing:1px;
+                        text-transform:uppercase; color: var(--wbt-text-dim);
+                    }
+                    .wbt-fp-field input, .wbt-fp-field select{
+                        background: var(--wbt-bg); border:1px solid var(--wbt-border);
+                        color: var(--wbt-text); border-radius:3px; padding:4px 6px;
+                        font-size:12px; font-family: var(--wbt-mono); width:100%;
+                    }
+                    .wbt-fp-field input:focus, .wbt-fp-field select:focus{
+                        outline:none; border-color: var(--wbt-accent);
+                    }
+                    .wbt-fp-field.w60{ width:60px; }
+                    .wbt-fp-field.w80{ width:80px; }
+                    .wbt-fp-field.w100{ width:100px; }
+                    .wbt-fp-field.w160{ width:160px; }
+                    .wbt-fp-btns{ display:flex; gap:6px; flex-wrap:wrap; }
+                    .wbt-fp-btn{
+                        font-family: var(--wbt-cond); font-size:10px; font-weight:700;
+                        letter-spacing:1px; text-transform:uppercase; padding:5px 10px;
+                        border-radius:3px; border:1px solid var(--wbt-border);
+                        cursor:pointer; transition: all .15s; background: transparent;
+                        color: var(--wbt-text-dim);
+                    }
+                    .wbt-fp-btn:hover{ border-color: var(--wbt-accent); color: var(--wbt-accent); }
+                    .wbt-fp-btn-add{ border-color: var(--wbt-accent3); color: var(--wbt-accent3); }
+                    .wbt-fp-btn-add:hover{ background: rgba(57,255,20,.08); border-color: var(--wbt-accent3); color: var(--wbt-accent3); }
+                    .wbt-fp-btn-upd{ border-color: #ffd060; color: #ffd060; }
+                    .wbt-fp-btn-upd:hover{ background: rgba(255,208,96,.08); border-color: #ffd060; color: #ffd060; }
+                    .wbt-fp-btn-del{ border-color: var(--wbt-red); color: var(--wbt-red); }
+                    .wbt-fp-btn-del:hover{ background: rgba(255,64,96,.08); border-color: var(--wbt-red); color: var(--wbt-red); }
+                    .wbt-fp-btn:disabled{ opacity:.35; cursor:not-allowed; }
+                    .wbt-fp-status{ font-family: var(--wbt-mono); font-size:10px; color: var(--wbt-text-dim); margin-top:6px; }
+
+                    /* FracPlane list (per trajectory) in accordion */
+                    .wbt-fp-list{ margin-top:6px; }
+                    .wbt-fp-list-item{
+                        display:flex; align-items:center; gap:8px;
+                        padding:3px 8px; border-radius:3px; cursor:pointer;
+                        font-family: var(--wbt-mono); font-size:10px;
+                        border:1px solid transparent; transition: border-color .12s;
+                    }
+                    .wbt-fp-list-item:hover{ border-color: var(--wbt-border); background: rgba(0,200,255,.04); }
+                    .wbt-fp-list-item.active{ border-color: #ffd060; background: rgba(255,208,96,.06); }
+                    .wbt-fp-list-item .wbt-fp-lbl{ color: var(--wbt-text-bright); flex:1; }
+                    .wbt-fp-list-item .wbt-fp-meta{ color: var(--wbt-text-dim); }
+
+
+                    /* FracPlane accordion wrapper */
+                    .wbt-fp-accordion-wrap{ margin:10px 0; }
+                    .wbt-fp-acc-header{
+                        display:flex; align-items:center; justify-content:space-between;
+                        padding:8px 12px; background: var(--wbt-panel2);
+                        border:1px solid var(--wbt-border); border-radius:4px;
+                        cursor:pointer; font-family:var(--wbt-cond); font-size:12px;
+                        font-weight:700; letter-spacing:1px; text-transform:uppercase;
+                        color: var(--wbt-text-bright); transition: background .15s;
+                    }
+                    .wbt-fp-acc-header:hover{ background: rgba(255,208,96,.06); border-color:#ffd060; }
+                    .wbt-fp-acc-icon{ font-family:var(--wbt-mono); color:#ffd060; transition:transform .2s; }
+                    .wbt-fp-acc-header.collapsed .wbt-fp-acc-icon{ transform:rotate(-90deg); }
+                    .wbt-fp-acc-body{ border:1px solid var(--wbt-border); border-top:none; border-radius:0 0 4px 4px; padding:10px; }
+                    .wbt-fp-acc-body.collapsed{ display:none; }
+                    /* Excel button blue */
+                    .wbt-btn-excel{
+                        background: linear-gradient(135deg,#1a6fc4,#2196f3);
+                        color:#fff !important; border:none !important;
+                    }
+                    .wbt-btn-excel:hover{ box-shadow:0 3px 14px rgba(33,150,243,.45); color:#fff !important; }
 
                 </style>
 
@@ -385,7 +489,7 @@
                             </div>
                             <div class="wbt-section">
                                 <h6>Line Thickness</h6>
-                                <input type="range" id="wbtLineThickness" min="0.5" max="5" step="0.1" value="0.5">
+                                <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.1">
                             </div>
                             <div class="wbt-section">
                                 <h6>Wellbores</h6>
@@ -402,9 +506,109 @@
                         </div>
                     </div>
 
+
+                    <!-- ── FracPlane Controller Panel (accordion) ── -->
+                    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+                    <div class="wbt-fp-accordion-wrap">
+                        <div class="wbt-fp-acc-header" id="wbtFPAccHeader">
+                            <span><span class="wbt-dot" style="background:#ffd060;box-shadow:0 0 7px #ffd060;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Frac Planes</span>
+                            <span class="wbt-fp-acc-icon">&#9660;</span>
+                        </div>
+                        <div class="wbt-fp-acc-body collapsed" id="wbtFPAccBody">
+                        <div class="wbt-fp-root" id="wbtFPRoot">
+                            <!-- Row 1: Well + Label + MD + Geometry type -->
+                            <div class="wbt-fp-row">
+                                <div class="wbt-fp-field w160">
+                                    <label>Wellbore</label>
+                                    <select id="wbtFPWell"></select>
+                                </div>
+                                <div class="wbt-fp-field w80">
+                                    <label>Label</label>
+                                    <input type="text" id="wbtFPLabel" placeholder="FP-1">
+                                </div>
+                                <div class="wbt-fp-field w80">
+                                    <label>MD (m)</label>
+                                    <input type="number" id="wbtFPMD" value="500" step="0.1">
+                                </div>
+                                <div class="wbt-fp-field w100">
+                                    <label>Geometry</label>
+                                    <select id="wbtFPGeometry" onchange="wbtFPOnGeomChange()">
+                                        <option value="box">Box</option>
+                                        <option value="cylinder">Cylinder</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Box inputs -->
+                            <div class="wbt-fp-row" id="wbtFPBoxInputs">
+                                <div class="wbt-fp-field w60">
+                                    <label>DX (m)</label>
+                                    <input type="number" id="wbtFPDX" value="10" step="0.5">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>DY (m)</label>
+                                    <input type="number" id="wbtFPDY" value="10" step="0.5">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>DZ (m)</label>
+                                    <input type="number" id="wbtFPDZ" value="10" step="0.5">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Roll X°</label>
+                                    <input type="number" id="wbtFPAX" value="0" step="1">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Pitch Y°</label>
+                                    <input type="number" id="wbtFPAY" value="0" step="1">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Yaw Z°</label>
+                                    <input type="number" id="wbtFPAZ" value="0" step="1">
+                                </div>
+                            </div>
+
+                            <!-- Cylinder inputs (hidden by default) -->
+                            <div class="wbt-fp-row" id="wbtFPCylInputs" style="display:none">
+                                <div class="wbt-fp-field w80">
+                                    <label>Radius (m)</label>
+                                    <input type="number" id="wbtFPRadius" value="10" step="0.5" min="0.1">
+                                </div>
+                                <div class="wbt-fp-field w80">
+                                    <label>Distance (m)</label>
+                                    <input type="number" id="wbtFPDist" value="30" step="0.5" min="0.1">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Roll X°</label>
+                                    <input type="number" id="wbtFPCAX" value="0" step="1">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Pitch Y°</label>
+                                    <input type="number" id="wbtFPCAY" value="0" step="1">
+                                </div>
+                                <div class="wbt-fp-field w60">
+                                    <label>Yaw Z°</label>
+                                    <input type="number" id="wbtFPCAZ" value="0" step="1">
+                                </div>
+                            </div>
+
+                            <div class="wbt-fp-btns">
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-add" id="wbtFPAddBtn">+ ADD</button>
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-upd" id="wbtFPUpdBtn" disabled>UPDATE</button>
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-del" id="wbtFPDelBtn" disabled>DELETE</button>
+                                <button type="button" class="wbt-fp-btn" id="wbtFPClearBtn">CLEAR</button>
+                            </div>
+                            <div class="wbt-fp-status" id="wbtFPStatus">Select a wellbore and enter parameters to add a Frac Plane.</div>
+                            <div class="wbt-fp-list" id="wbtFPList"></div>
+                        </div>
+                        </div>
+                    </div>
+                    <% } %>
+
+
+
                     <!-- Actions: Excel export -->
                     <div class="wbt-actions-row">
-                        <button type="button" class="wbt-btn" id="wbtExportExcel">
+                        <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportExcel">
                             Download Pad Trajectories (Excel)
                         </button>
                     </div>
@@ -420,6 +624,7 @@
 
                     <!-- Pad technical dashboard -->
                     <div class="wbt-dash-title"><span class="wbt-dot"></span> Pad Trajectory Summary</div>
+                    <div class="wbt-pad-summary" id="wbtPadSummary"></div>
                     <div class="wbt-dash-grid" id="wbtDashboard"></div>
                 </div>
                 <!-- ================= END WELLBORE 3D TRAJECTORY ================= -->
@@ -1267,7 +1472,7 @@
             scene.background = new THREE.Color(0x0a0e14);
 
             const w = canvas.clientWidth, h = canvas.clientHeight;
-            camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 1000000);
+            camera = new THREE.PerspectiveCamera(20, w/h, 0.1, 1000000);
 
             renderer = new THREE.WebGLRenderer({canvas, antialias:true});
             renderer.setSize(w, h);
@@ -1293,6 +1498,7 @@
             animate();
             window.addEventListener('resize', onResize);
             setupWbtUI();
+            wbtFPInit();
         }
 
         function onResize(){
@@ -1423,7 +1629,7 @@
             const maxDim = Math.max(size.x, size.y, size.z, 10);
 
             controls.target.copy(center);
-            camera.position.set(center.x + maxDim, center.y - maxDim*0.6, center.z + maxDim);
+            camera.position.set(center.x + maxDim, center.y + maxDim*0.5, center.z + maxDim);
             camera.near = maxDim/1000;
             camera.far = maxDim*100;
             camera.updateProjectionMatrix();
@@ -1485,6 +1691,11 @@
             table.appendChild(tbody);
 
             wrap.appendChild(table);
+            // Convert raw CSV rows to db-keyed objects for Steer Index calculation
+            const surveyForSteer = data.rows.map(r => ({
+                md: num(r['MD']), dogleg: num(r['Dogleg'])
+            }));
+            wbtRenderSteerRow(wrap, name, surveyForSteer, color);
             document.getElementById('wbtTables').appendChild(wrap);
         }
 
@@ -1672,6 +1883,7 @@
                 if(res.ok){
                     status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) to database.`;
                     refreshSavedList();
+                    wbtFPLoadSaved(); // refresh FP selector with new trajectoryIds
                 } else {
                     status.textContent = 'Error saving: ' + (result.error || res.statusText);
                 }
@@ -1819,33 +2031,29 @@
 
 
         // ---------------- Pad Trajectory Dashboard & Excel Export ----------------
-        // All values are used as-stored (same units as the survey tables - metric).
-        // No unit conversion is applied; dashboard figures match the table figures.
+        // All values used as-stored (same units as trajectory tables).
+        // No unit conversion applied.
         //
-        // Comment-based station identification (case-insensitive substring match,
-        // tolerant of repeated/decorated text e.g. "ICP - ICP", "sKOP - sKOP"):
-        //   - "SC"   -> Surface Casing point
-        //   - "KOP"  -> Kick-off Point (start of build)
-        //   - "ICP"  -> End of build / start of lateral section
-        //   - "LP"   -> Landing Point (fallback for end of build if no ICP)
-        //   - "START TANG" -> start of tangent section
-        //   - "END TANG"   -> end of tangent section
-        // If none of KOP/ICP/LP comments are present, fall back to:
-        //   - KOP: first station where Incl > 0
-        //   - ICP/Landing: first station where Incl == 90, else first where Incl >= 88
+        // Comment-based station identification (case-insensitive, tolerant of
+        // repeated/decorated text e.g. "sKOP - sKOP", "ICP - ", "ICP -ICP"):
+        //   SC         -> Surface Casing point
+        //   KOP        -> Kick-off Point (start of build)
+        //   ICP        -> End of build / start of lateral
+        //   LP         -> Landing Point (fallback if no ICP)
+        //   START TANG -> Start of tangent section
+        //   END TANG   -> End of tangent section
+        // Fallbacks when comments absent:
+        //   KOP  -> first station where Incl > 0
+        //   ICP  -> first Incl == 90, else first Incl >= 88, else TD
         //
-        // DLS (Dogleg Severity): taken directly from the survey's Dogleg column,
-        // same units as shown in the trajectory tables.
+        // Steer Index (reproduced exactly from uploadDPI.ejs):
+        //   effort = sum over all intervals of max(DLS - 1, 0)^2 * dMD
+        //   steer_index = effort / total_MD
+        //   Source: same formula used in DPI dashboard.
         //
-        // DDI (Directional Difficulty Index, Oag & Williams 2000):
-        //   DDI = log10( MD * AHD * Tortuosity / TVD ), with Tortuosity = sum of
-        //   Dogleg values along the well and AHD = horizontal displacement
-        //   (Pythagorean theorem on Northing/Easting). All inputs used as-stored.
-        //   Source: Oag, A.W. and Williams, M., "The Directional Difficulty Index -
-        //   A New Approach to Performance Benchmarking", IADC/SPE 59196, 2000.
-        //   Typical values range 5.5-7.0; thresholds defined for feet-based MD/TVD
-        //   in the original paper, so absolute classification bands may not map
-        //   directly when inputs are in meters - DDI is shown as a relative figure.
+        // DDI (Oag & Williams, IADC/SPE 59196, 2000):
+        //   DDI = log10( MD * AHD * Tortuosity / TVD )
+        //   Tortuosity = sum of Dogleg values, AHD = horizontal displacement.
 
         function wbtFindByComment(survey, patterns){
             return survey.find(r => {
@@ -1854,60 +2062,75 @@
             });
         }
 
+        // Steer effort (from uploadDPI.ejs - computeSteerEffortFullPath)
+        function wbtComputeSteerEffort(survey){
+            if(!survey || survey.length < 2) return null;
+            let tot = 0;
+            for(let i = 1; i < survey.length; i++){
+                const dls = num(survey[i].dogleg);
+                const md  = num(survey[i].md);
+                const mdp = num(survey[i-1].md);
+                if(!isFinite(dls) || !isFinite(md) || !isFinite(mdp)) continue;
+                const dMD = md - mdp;
+                if(dMD <= 0) continue;
+                const above = Math.max(dls - 1, 0);
+                tot += (above * above) * dMD;
+            }
+            return tot;
+        }
+
+        function wbtNormalizeClamp(val, lo, hi){
+            if(!isFinite(val) || !isFinite(lo) || !isFinite(hi) || hi === lo) return null;
+            return Math.min(Math.max((val - lo) / (hi - lo), 0), 1);
+        }
+
         function wbtComputeMetrics(wellName, survey){
             if(!survey || survey.length === 0) return null;
 
             const first = survey[0];
-            const last = survey[survey.length - 1];
+            const last  = survey[survey.length - 1];
 
             // Surface Casing
             const sc = wbtFindByComment(survey, ['SC']);
 
-            // KOP: comment match first, else first Incl > 0
+            // KOP
             let kop = wbtFindByComment(survey, ['KOP']);
             if(!kop) kop = survey.find(r => num(r.incl) > 0);
             if(!kop) kop = first;
 
-            // ICP: "ICP" comment, else "LP" comment, else Incl==90, else Incl>=88
+            // ICP / Landing
             let icp = wbtFindByComment(survey, ['ICP']);
             let icpSource = 'ICP (comment)';
-            if(!icp){
-                icp = wbtFindByComment(survey, ['LP']);
-                icpSource = 'LP (comment)';
-            }
-            if(!icp){
-                icp = survey.find(r => num(r.incl) === 90);
-                icpSource = 'Incl = 90 deg';
-            }
-            if(!icp){
-                icp = survey.find(r => num(r.incl) >= 88);
-                icpSource = 'Incl >= 88 deg';
-            }
-            if(!icp){
-                icp = last;
-                icpSource = 'TD (no landing found)';
-            }
+            if(!icp){ icp = wbtFindByComment(survey, ['LP']); icpSource = 'LP (comment)'; }
+            if(!icp){ icp = survey.find(r => num(r.incl) === 90); icpSource = 'Incl = 90°'; }
+            if(!icp){ icp = survey.find(r => num(r.incl) >= 88); icpSource = 'Incl ≥ 88°'; }
+            if(!icp){ icp = last; icpSource = 'TD (no landing found)'; }
 
-            // Tangent section: "START TANG" / "END TANG" comments
+            // Tangent section
             const tangentStart = wbtFindByComment(survey, ['START TANG']);
-            const tangentEnd = wbtFindByComment(survey, ['END TANG']);
+            const tangentEnd   = wbtFindByComment(survey, ['END TANG']);
             let tangent = null;
             if(tangentStart || tangentEnd){
-                const tFirst = tangentStart || tangentEnd;
-                const tLast = tangentEnd || tangentStart;
+                const tS = tangentStart || tangentEnd;
+                const tE = tangentEnd   || tangentStart;
                 tangent = {
-                    mdStart: num(tFirst.md),
-                    mdEnd: num(tLast.md),
-                    inclFirst: num(tFirst.incl),
-                    inclLast: num(tLast.incl),
+                    mdStart : num(tS.md),
+                    mdEnd   : num(tE.md),
+                    tvdStart: num(tS.tvd),
+                    tvdEnd  : num(tE.tvd),
+                    inclFirst: num(tS.incl),
+                    inclLast : num(tE.incl),
                 };
+                tangent.length = tangent.mdEnd - tangent.mdStart;
+                // delta TVD from End Tangent to ICP
+                tangent.deltaTVDtoICP = num(icp.tvd) - tangent.tvdEnd;
             }
 
-            // Max DLS in build section (KOP to ICP) and lateral section (ICP to TD)
+            // Max DLS in build (KOP→ICP) and lateral (ICP→TD)
             let maxDlsBuild = 0, maxDlsLateral = 0, tortuosity = 0;
             survey.forEach(r => {
                 const dls = num(r.dogleg);
-                const md = num(r.md);
+                const md  = num(r.md);
                 tortuosity += dls;
                 if(md >= num(kop.md) && md <= num(icp.md)){
                     if(dls > maxDlsBuild) maxDlsBuild = dls;
@@ -1917,27 +2140,33 @@
                 }
             });
 
-            const totalMD = num(last.md);
+            const totalMD  = num(last.md);
             const totalTVD = num(last.tvd);
             const lateralLength = totalMD - num(icp.md);
 
             const dN = num(last.northing) - num(first.northing);
-            const dE = num(last.easting) - num(first.easting);
+            const dE = num(last.easting)  - num(first.easting);
             const ahd = Math.sqrt(dN*dN + dE*dE);
             let closureAz = Math.atan2(dE, dN) * 180 / Math.PI;
             if(closureAz < 0) closureAz += 360;
 
+            // DDI (Oag & Williams 2000)
             let ddi = null;
             if(totalTVD > 0 && ahd > 0 && tortuosity > 0 && totalMD > 0){
                 ddi = Math.log10((totalMD * ahd * tortuosity) / totalTVD);
             }
 
+            // Steer Index (same formula as uploadDPI.ejs)
+            let steerIndex = null;
+            const effort = wbtComputeSteerEffort(survey);
+            if(isFinite(effort) && totalMD > 0) steerIndex = effort / totalMD;
+
             return {
                 wellName,
-                sc: sc ? {md: num(sc.md), tvd: num(sc.tvd)} : null,
-                kopMD: num(kop.md),
-                icpMD: num(icp.md),
-                icpTVD: num(icp.tvd),
+                sc      : sc ? {md: num(sc.md), tvd: num(sc.tvd)} : null,
+                kopMD   : num(kop.md),
+                icpMD   : num(icp.md),
+                icpTVD  : num(icp.tvd),
                 icpSource,
                 totalMD, totalTVD,
                 lateralLength,
@@ -1946,25 +2175,35 @@
                 maxDlsBuild, maxDlsLateral,
                 finalIncl: num(last.incl),
                 finalAzim: num(last.azim),
-                tangent: tangent ? {
-                    mdStart: tangent.mdStart, mdEnd: tangent.mdEnd,
-                    length: tangent.mdEnd - tangent.mdStart,
-                    inclFirst: tangent.inclFirst, inclLast: tangent.inclLast,
-                } : null,
+                tangent,
                 ddi,
+                steerIndex,
             };
         }
 
-        function wbtFormatNum(v, decimals){
-            if(v === null || v === undefined || isNaN(v)) return '-';
-            return v.toFixed(decimals !== undefined ? decimals : 1);
-        }
+        function wbtFmt(v, d){ return (v === null || v === undefined || isNaN(v)) ? '-' : v.toFixed(d !== undefined ? d : 1); }
 
         function wbtRenderDashboard(wellsForDashboard){
-            // wellsForDashboard: array of {name, color, survey}
             const container = document.getElementById('wbtDashboard');
             if(!container) return;
             container.innerHTML = '';
+
+            // Compute pad averages for Steer Index and DDI
+            const validMetrics = wellsForDashboard.map(w => wbtComputeMetrics(w.name, w.survey)).filter(Boolean);
+            const padAvgSteer = validMetrics.filter(m => m.steerIndex !== null).reduce((s,m,_,a) => s + m.steerIndex/a.length, 0) || null;
+            const padAvgDDI   = validMetrics.filter(m => m.ddi   !== null).reduce((s,m,_,a) => s + m.ddi/a.length, 0)   || null;
+
+            // Pad summary bar
+            const summary = document.getElementById('wbtPadSummary');
+            if(summary){
+                summary.innerHTML = '';
+                function padStat(lbl, val){
+                    summary.innerHTML += `<div class="wbt-pad-stat"><div class="wbt-pad-stat-label">${lbl}</div><div class="wbt-pad-stat-value">${val}</div></div>`;
+                }
+                padStat('Wells', validMetrics.length);
+                padStat('Avg DDI', wbtFmt(padAvgDDI, 2));
+                padStat('Avg Steer Index', wbtFmt(padAvgSteer, 2));
+            }
 
             wellsForDashboard.forEach(w => {
                 const metrics = wbtComputeMetrics(w.name, w.survey);
@@ -1973,6 +2212,7 @@
                 const card = document.createElement('div');
                 card.className = 'wbt-dash-card';
 
+                // Card header
                 const title = document.createElement('div');
                 title.className = 'wbt-dash-card-title';
                 const sw = document.createElement('span');
@@ -1982,67 +2222,55 @@
                 title.appendChild(document.createTextNode(metrics.wellName));
                 card.appendChild(title);
 
-                // Highlighted key points: SC, ICP, TD
+                // Highlighted key points: SC / ICP / TD
                 const highlights = document.createElement('div');
                 highlights.className = 'wbt-highlight-row';
-
-                function addHighlight(label, mdVal, extra){
-                    const box = document.createElement('div');
-                    box.className = 'wbt-highlight-box';
-                    const lab = document.createElement('div');
-                    lab.className = 'wbt-highlight-label';
-                    lab.textContent = label;
-                    const val = document.createElement('div');
-                    val.className = 'wbt-highlight-value';
-                    val.textContent = (mdVal === null || mdVal === undefined) ? '-' : wbtFormatNum(mdVal) + ' m';
-                    box.appendChild(lab);
-                    box.appendChild(val);
-                    if(extra){
-                        const ex = document.createElement('div');
-                        ex.className = 'wbt-highlight-extra';
-                        ex.textContent = extra;
-                        box.appendChild(ex);
-                    }
-                    highlights.appendChild(box);
+                function addHL(lbl, mdVal, tvdVal, found){
+                    highlights.innerHTML += `
+                        <div class="wbt-highlight-box wbt-hl-${lbl.toLowerCase().split(' ')[0]}">
+                            <div class="wbt-highlight-label">${lbl}</div>
+                            <div class="wbt-highlight-value">${mdVal !== null && mdVal !== undefined ? wbtFmt(mdVal) + ' m' : '—'}</div>
+                            <div class="wbt-highlight-extra">${found !== false ? 'TVD ' + (tvdVal !== null ? wbtFmt(tvdVal) + ' m' : '—') : 'Not found'}</div>
+                        </div>`;
                 }
-
-                addHighlight('SC (MD)', metrics.sc ? metrics.sc.md : null, metrics.sc ? ('TVD ' + wbtFormatNum(metrics.sc.tvd) + ' m') : 'Not found');
-                addHighlight('ICP (MD)', metrics.icpMD, 'TVD ' + wbtFormatNum(metrics.icpTVD) + ' m');
-                addHighlight('TD (MD)', metrics.totalMD, 'TVD ' + wbtFormatNum(metrics.totalTVD) + ' m');
-
+                addHL('SC',  metrics.sc   ? metrics.sc.md  : null, metrics.sc  ? metrics.sc.tvd  : null, !!metrics.sc);
+                addHL('ICP', metrics.icpMD, metrics.icpTVD, true);
+                addHL('TD',  metrics.totalMD, metrics.totalTVD, true);
                 card.appendChild(highlights);
 
+                // Metric grid
                 const grid = document.createElement('div');
                 grid.className = 'wbt-metric-grid';
-
-                function addMetric(label, value, full){
+                function m(lbl, val, full){
                     const l = document.createElement('div');
                     l.className = 'wbt-metric-label' + (full ? ' wbt-metric-full' : '');
-                    l.textContent = label;
+                    l.textContent = lbl;
                     const v = document.createElement('div');
                     v.className = 'wbt-metric-value' + (full ? ' wbt-metric-full' : '');
-                    v.textContent = value;
-                    grid.appendChild(l);
-                    grid.appendChild(v);
+                    v.textContent = val;
+                    grid.appendChild(l); grid.appendChild(v);
                 }
 
-                addMetric('KOP (MD)', wbtFormatNum(metrics.kopMD) + ' m');
-                addMetric('Landing basis', metrics.icpSource);
+                m('KOP (MD)', wbtFmt(metrics.kopMD) + ' m');
+                m('Landing basis', metrics.icpSource);
 
                 if(metrics.tangent){
-                    addMetric('Tangent MD', wbtFormatNum(metrics.tangent.mdStart) + ' - ' + wbtFormatNum(metrics.tangent.mdEnd) + ' m');
-                    addMetric('Tangent Incl', wbtFormatNum(metrics.tangent.inclFirst, 1) + ' - ' + wbtFormatNum(metrics.tangent.inclLast, 1) + ' deg');
+                    m('Tangent MD', wbtFmt(metrics.tangent.mdStart) + ' – ' + wbtFmt(metrics.tangent.mdEnd) + ' m');
+                    m('Tangent Length', wbtFmt(metrics.tangent.length) + ' m');
+                    m('Tangent Incl', wbtFmt(metrics.tangent.inclFirst,1) + ' – ' + wbtFmt(metrics.tangent.inclLast,1) + '°');
+                    m('ΔTvD End Tang→ICP', wbtFmt(metrics.tangent.deltaTVDtoICP,2) + ' m');
                 } else {
-                    addMetric('Tangent Section', 'NO', true);
+                    m('Tangent Section', 'NO', true);
                 }
 
-                addMetric('Lateral Length', wbtFormatNum(metrics.lateralLength) + ' m');
-                addMetric('Lateral Displacement', wbtFormatNum(metrics.lateralDisplacement) + ' m');
-                addMetric('Max DLS - Build', wbtFormatNum(metrics.maxDlsBuild, 2));
-                addMetric('Max DLS - Lateral', wbtFormatNum(metrics.maxDlsLateral, 2));
-                addMetric('Closure Azimuth', wbtFormatNum(metrics.closureAz, 1) + ' deg');
-                addMetric('Final Incl / Azim', wbtFormatNum(metrics.finalIncl, 1) + ' / ' + wbtFormatNum(metrics.finalAzim, 1) + ' deg');
-                addMetric('DDI (Oag & Williams)', wbtFormatNum(metrics.ddi, 2), true);
+                m('Lateral Length', wbtFmt(metrics.lateralLength) + ' m');
+                m('Lateral Displacement', wbtFmt(metrics.lateralDisplacement) + ' m');
+                m('Max DLS – Build',   wbtFmt(metrics.maxDlsBuild, 2));
+                m('Max DLS – Lateral', wbtFmt(metrics.maxDlsLateral, 2));
+                m('Closure Azimuth', wbtFmt(metrics.closureAz, 1) + '°');
+                m('Final Incl / Azim', wbtFmt(metrics.finalIncl,1) + '° / ' + wbtFmt(metrics.finalAzim,1) + '°');
+                m('DDI (Oag & Williams)', wbtFmt(metrics.ddi, 2));
+                m('Steer Index', wbtFmt(metrics.steerIndex, 3));
 
                 card.appendChild(grid);
                 container.appendChild(card);
@@ -2052,7 +2280,7 @@
         // ---------------- Accordion toggle ----------------
         function wbtSetupAccordion(){
             const header = document.getElementById('wbtAccordionHeader');
-            const body = document.getElementById('wbtTables');
+            const body   = document.getElementById('wbtTables');
             if(!header || !body) return;
             header.addEventListener('click', () => {
                 header.classList.toggle('collapsed');
@@ -2060,8 +2288,27 @@
             });
         }
 
-        // ---------------- Excel export (one workbook, one tab per wellbore) ----------------
-        // Values exported as-stored (same units as the on-screen trajectory tables).
+        // Per-well Steer Index row rendered at top of each table (inside accordion)
+        function wbtRenderSteerRow(container, wellName, survey, color){
+            const effort = wbtComputeSteerEffort(survey);
+            const totalMD = survey.length ? num(survey[survey.length-1].md) : 0;
+            const si = (isFinite(effort) && totalMD > 0) ? effort / totalMD : null;
+            const siNorm = wbtNormalizeClamp(si, 0.5, 6.0);
+            const hex = '#' + color.toString(16).padStart(6,'0');
+
+            const bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;align-items:center;gap:12px;padding:4px 10px;' +
+                'background:var(--wbt-panel2);border-bottom:1px solid var(--wbt-border);' +
+                'font-family:var(--wbt-mono);font-size:10px;color:var(--wbt-text-dim);';
+            bar.innerHTML =
+                `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${hex};flex-shrink:0"></span>` +
+                `<span style="color:var(--wbt-text-bright);font-size:11px;font-family:var(--wbt-cond);letter-spacing:1px;text-transform:uppercase">${wellName}</span>` +
+                `<span>Steer Index: <b style="color:var(--wbt-accent)">${si !== null ? si.toFixed(3) : '—'}</b></span>` +
+                `<span>Norm: <b style="color:var(--wbt-accent2)">${siNorm !== null ? siNorm.toFixed(3) : '—'}</b></span>`;
+            container.insertBefore(bar, container.firstChild);
+        }
+
+        // ---------------- Excel export ----------------
         const wbtExcelCols = [
             {key:'well', label:'Well'},
             {key:'md', label:'MD'},
@@ -2081,38 +2328,418 @@
         ];
 
         function wbtExportToExcel(wellsForExport, padLabel){
-            if(typeof XLSX === 'undefined'){
-                alert('Excel export library failed to load.');
-                return;
-            }
+            if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
             const wb = XLSX.utils.book_new();
-
             wellsForExport.forEach(w => {
-                const header = wbtExcelCols.map(c => c.label);
-                const rows = (w.survey || []).map(r => wbtExcelCols.map(c => {
-                    const val = r[c.key];
-                    return (val !== undefined && val !== null) ? val : '';
-                }));
-                const sheetData = [header, ...rows];
+                const sheetData = [
+                    wbtExcelCols.map(c => c.label),
+                    ...(w.survey || []).map(r => wbtExcelCols.map(c => {
+                        const v = r[c.key];
+                        return (v !== undefined && v !== null) ? v : '';
+                    }))
+                ];
                 const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-                let sheetName = (w.name || 'Well').replace(/[\\\/\?\*\[\]:]/g, '-').substring(0, 31);
-                if(!sheetName) sheetName = 'Well';
-                let finalName = sheetName;
-                let counter = 1;
-                while(wb.SheetNames.includes(finalName)){
-                    finalName = sheetName.substring(0, 28) + '_' + counter;
-                    counter++;
-                }
-
-                XLSX.utils.book_append_sheet(wb, ws, finalName);
+                let name = (w.name || 'Well').replace(/[\\\/\?\*\[\]:]/g,'-').substring(0,31) || 'Well';
+                let final = name, n = 1;
+                while(wb.SheetNames.includes(final)) final = name.substring(0,28) + '_' + n++;
+                XLSX.utils.book_append_sheet(wb, ws, final);
             });
-
-            const filename = (padLabel ? padLabel.replace(/[^a-z0-9\-_ ]/gi, '_') : 'Pad') + '_Trajectories.xlsx';
-            XLSX.writeFile(wb, filename);
+            const fname = (padLabel||'Pad').replace(/[^a-z0-9\-_ ]/gi,'_') + '_Trajectories.xlsx';
+            XLSX.writeFile(wb, fname);
         }
 
 
+
+
+        // ================================================================
+        // FRACPLANE CONTROLLER v2 — Box + Cylinder geometries
+        // ================================================================
+        // Position interpolation: linear interpolation of Northing/Easting/TVD
+        // between bracketing survey stations (option a, as agreed).
+        //
+        // Cylinder axis: the wellbore tangent unit vector at the given MD,
+        // computed from interpolated incl/azim using standard direction cosines
+        // (SPE/ISCWSA convention). User Roll/Pitch/Yaw offsets are applied on
+        // top of this default axis via THREE.Euler.
+        //
+        // Three.js CylinderGeometry default axis is Y.
+        // We compute the quaternion that rotates Y → wellboreTangent,
+        // then apply the user's Roll/Pitch/Yaw offsets on top.
+
+        let wbtFPActiveTrajId  = null;
+        let wbtFPActiveFPId    = null;
+        let wbtFPMeshes        = {};   // { trajectoryId: [THREE.Object3D, ...] }
+
+        // ── Geometry-type toggle ──
+        function wbtFPOnGeomChange(){
+            const geom = document.getElementById('wbtFPGeometry').value;
+            document.getElementById('wbtFPBoxInputs').style.display = geom === 'box'      ? '' : 'none';
+            document.getElementById('wbtFPCylInputs').style.display = geom === 'cylinder' ? '' : 'none';
+        }
+
+        // ── Accordion toggle ──
+        function wbtFPSetupAccordion(){
+            const hdr = document.getElementById('wbtFPAccHeader');
+            const bdy = document.getElementById('wbtFPAccBody');
+            if(!hdr || !bdy) return;
+            hdr.addEventListener('click', () => {
+                hdr.classList.toggle('collapsed');
+                bdy.classList.toggle('collapsed');
+            });
+        }
+
+        // ── Client-side interpolation (mirrors server logic) ──
+        function wbtInterpolateAtMD(survey, targetMD){
+            const D2R = Math.PI / 180;
+            if(!survey || survey.length === 0) return { center:{x:0,y:0,z:0}, tangent:{x:0,y:-1,z:0} };
+
+            function toResult(s){
+                const incl = num(s.incl||0)*D2R, azim = num(s.azim||0)*D2R;
+                return {
+                    center: { x: num(s.easting), y: -num(s.tvd), z: -num(s.northing) },
+                    tangent: {
+                        x:  Math.sin(incl)*Math.sin(azim),
+                        y: -Math.cos(incl),
+                        z: -Math.sin(incl)*Math.cos(azim),
+                    },
+                };
+            }
+
+            const n = num(targetMD);
+            if(n <= num(survey[0].md)) return toResult(survey[0]);
+            const last = survey[survey.length-1];
+            if(n >= num(last.md)) return toResult(last);
+
+            for(let i = 1; i < survey.length; i++){
+                const s0 = survey[i-1], s1 = survey[i];
+                const md0 = num(s0.md), md1 = num(s1.md);
+                if(n >= md0 && n <= md1){
+                    const t = (md1-md0) === 0 ? 0 : (n-md0)/(md1-md0);
+                    const east  = num(s0.easting)  + t*(num(s1.easting)  - num(s0.easting));
+                    const tvd   = num(s0.tvd)      + t*(num(s1.tvd)      - num(s0.tvd));
+                    const north = num(s0.northing) + t*(num(s1.northing) - num(s0.northing));
+                    const incl  = (num(s0.incl||0) + t*(num(s1.incl||0)-num(s0.incl||0)))*D2R;
+                    const azim  = (num(s0.azim||0) + t*(num(s1.azim||0)-num(s0.azim||0)))*D2R;
+                    return {
+                        center: { x: east, y: -tvd, z: -north },
+                        tangent: {
+                            x:  Math.sin(incl)*Math.sin(azim),
+                            y: -Math.cos(incl),
+                            z: -Math.sin(incl)*Math.cos(azim),
+                        },
+                    };
+                }
+            }
+            return toResult(last);
+        }
+
+        // ── 3D mesh builders ──
+
+        // Box: wireframe EdgesGeometry, center at fp.center, half-dims dx/dy/dz
+        function wbtBuildBoxMesh(fp, color){
+            const geo   = new THREE.BoxGeometry(fp.dx*2, fp.dy*2, fp.dz*2);
+            const edges = new THREE.EdgesGeometry(geo);
+            const mat   = new THREE.LineBasicMaterial({ color: color || 0xffd060 });
+            const mesh  = new THREE.LineSegments(edges, mat);
+            mesh.position.set(fp.center.x, fp.center.y, fp.center.z);
+            const D2R = Math.PI/180;
+            mesh.rotation.set((fp.ax||0)*D2R, (fp.ay||0)*D2R, (fp.az||0)*D2R, 'XYZ');
+            return mesh;
+        }
+
+        // Cylinder: wireframe, axis aligned to wellbore tangent + user offsets.
+        // THREE.CylinderGeometry's natural axis is Y.
+        // We:
+        //  1. Compute quaternion Q that rotates Y → tangent vector
+        //  2. Apply user Roll/Pitch/Yaw as an additional Euler on top
+        // The cylinder extends distance/2 each side of center (MD point is center).
+        function wbtBuildCylinderMesh(fp, color){
+            const radius   = fp.radius   || 10;
+            const distance = fp.distance || 30;
+
+            const geo   = new THREE.CylinderGeometry(radius, radius, distance, 16, 1, true);
+            const edges = new THREE.EdgesGeometry(geo);
+            const mat   = new THREE.LineBasicMaterial({ color: color || 0xffd060 });
+            const mesh  = new THREE.LineSegments(edges, mat);
+
+            mesh.position.set(fp.center.x, fp.center.y, fp.center.z);
+
+            // Step 1: rotate default Y-axis to wellbore tangent
+            const tang = fp.tangent || {x:0, y:-1, z:0};
+            const tangVec = new THREE.Vector3(tang.x, tang.y, tang.z).normalize();
+            const yAxis   = new THREE.Vector3(0, 1, 0);
+            const qTang   = new THREE.Quaternion().setFromUnitVectors(yAxis, tangVec);
+            mesh.quaternion.copy(qTang);
+
+            // Step 2: apply user Roll/Pitch/Yaw offsets on top
+            const D2R = Math.PI/180;
+            const qOffset = new THREE.Quaternion().setFromEuler(
+                new THREE.Euler((fp.ax||0)*D2R, (fp.ay||0)*D2R, (fp.az||0)*D2R, 'XYZ')
+            );
+            mesh.quaternion.multiply(qOffset);
+
+            return mesh;
+        }
+
+        function wbtClearFPMeshes(trajectoryId){
+            if(!wbtFPMeshes[trajectoryId]) return;
+            wbtFPMeshes[trajectoryId].forEach(m => group.remove(m));
+            wbtFPMeshes[trajectoryId] = [];
+        }
+
+        function wbtRenderFPMeshes(trajectoryId, fracPlanes, wellColor){
+            wbtClearFPMeshes(trajectoryId);
+            wbtFPMeshes[trajectoryId] = [];
+            if(!fracPlanes || fracPlanes.length === 0) return;
+
+            fracPlanes.forEach(fp => {
+                if(!fp.center) return;
+                const mesh = (fp.geometry === 'cylinder')
+                    ? wbtBuildCylinderMesh(fp, wellColor || 0xffd060)
+                    : wbtBuildBoxMesh(fp, wellColor || 0xffd060);
+                mesh.userData.fpId = String(fp._id);
+                group.add(mesh);
+                wbtFPMeshes[trajectoryId].push(mesh);
+            });
+        }
+
+        // ── Form helpers ──
+        function wbtFPReadForm(){
+            const geom = document.getElementById('wbtFPGeometry').value;
+            return {
+                label:    document.getElementById('wbtFPLabel').value.trim(),
+                geometry: geom,
+                md:       Number(document.getElementById('wbtFPMD').value),
+                dx:       Number(document.getElementById('wbtFPDX').value),
+                dy:       Number(document.getElementById('wbtFPDY').value),
+                dz:       Number(document.getElementById('wbtFPDZ').value),
+                ax:       Number(geom==='box'      ? document.getElementById('wbtFPAX').value  : document.getElementById('wbtFPCAX').value),
+                ay:       Number(geom==='box'      ? document.getElementById('wbtFPAY').value  : document.getElementById('wbtFPCAY').value),
+                az:       Number(geom==='box'      ? document.getElementById('wbtFPAZ').value  : document.getElementById('wbtFPCAZ').value),
+                radius:   Number(document.getElementById('wbtFPRadius').value),
+                distance: Number(document.getElementById('wbtFPDist').value),
+            };
+        }
+
+        function wbtFPFillForm(fp){
+            document.getElementById('wbtFPLabel').value    = fp.label    || '';
+            document.getElementById('wbtFPGeometry').value = fp.geometry || 'box';
+            document.getElementById('wbtFPMD').value       = fp.md       || 0;
+            document.getElementById('wbtFPDX').value       = fp.dx       || 10;
+            document.getElementById('wbtFPDY').value       = fp.dy       || 10;
+            document.getElementById('wbtFPDZ').value       = fp.dz       || 10;
+            document.getElementById('wbtFPAX').value       = fp.ax       || 0;
+            document.getElementById('wbtFPAY').value       = fp.ay       || 0;
+            document.getElementById('wbtFPAZ').value       = fp.az       || 0;
+            document.getElementById('wbtFPRadius').value   = fp.radius   || 10;
+            document.getElementById('wbtFPDist').value     = fp.distance || 30;
+            document.getElementById('wbtFPCAX').value      = fp.ax       || 0;
+            document.getElementById('wbtFPCAY').value      = fp.ay       || 0;
+            document.getElementById('wbtFPCAZ').value      = fp.az       || 0;
+            wbtFPOnGeomChange();
+        }
+
+        function wbtFPClearForm(){
+            document.getElementById('wbtFPLabel').value    = '';
+            document.getElementById('wbtFPGeometry').value = 'box';
+            document.getElementById('wbtFPMD').value       = 500;
+            document.getElementById('wbtFPDX').value       = 10;
+            document.getElementById('wbtFPDY').value       = 10;
+            document.getElementById('wbtFPDZ').value       = 10;
+            document.getElementById('wbtFPAX').value       = 0;
+            document.getElementById('wbtFPAY').value       = 0;
+            document.getElementById('wbtFPAZ').value       = 0;
+            document.getElementById('wbtFPRadius').value   = 10;
+            document.getElementById('wbtFPDist').value     = 30;
+            document.getElementById('wbtFPCAX').value      = 0;
+            document.getElementById('wbtFPCAY').value      = 0;
+            document.getElementById('wbtFPCAZ').value      = 0;
+            wbtFPOnGeomChange();
+            wbtFPActiveFPId = null;
+            document.getElementById('wbtFPUpdBtn').disabled = true;
+            document.getElementById('wbtFPDelBtn').disabled = true;
+            document.querySelectorAll('.wbt-fp-list-item').forEach(el => el.classList.remove('active'));
+        }
+
+        function wbtFPSetStatus(msg, ok){
+            const el = document.getElementById('wbtFPStatus');
+            if(!el) return;
+            el.textContent = msg;
+            el.style.color = ok === false ? 'var(--wbt-red)' : ok === true ? 'var(--wbt-accent3)' : 'var(--wbt-text-dim)';
+        }
+
+        // ── FracPlane list ──
+        function wbtFPRebuildList(fracPlanes, trajectoryId, wellColor){
+            const listEl = document.getElementById('wbtFPList');
+            listEl.innerHTML = '';
+            if(!fracPlanes || fracPlanes.length === 0){
+                listEl.innerHTML = '<div style="font-family:var(--wbt-mono);font-size:10px;color:var(--wbt-text-dim);padding:4px 0">No frac planes defined for this wellbore.</div>';
+                return;
+            }
+            fracPlanes.forEach(fp => {
+                const geomTag = fp.geometry === 'cylinder' ? 'CYL' : 'BOX';
+                const details = fp.geometry === 'cylinder'
+                    ? `R:${fp.radius} L:${fp.distance}`
+                    : `DX:${fp.dx} DY:${fp.dy} DZ:${fp.dz}`;
+                const item = document.createElement('div');
+                item.className = 'wbt-fp-list-item';
+                item.dataset.fpid = String(fp._id);
+                item.innerHTML =
+                    `<span style="font-family:var(--wbt-mono);font-size:9px;color:#ffd060;border:1px solid #ffd06060;padding:1px 4px;border-radius:2px">${geomTag}</span>` +
+                    `<span class="wbt-fp-lbl">${fp.label||'(no label)'} &nbsp;MD:${fp.md}m</span>` +
+                    `<span class="wbt-fp-meta">${details} | R:${fp.ax} P:${fp.ay} Y:${fp.az}</span>`;
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.wbt-fp-list-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    wbtFPActiveFPId = String(fp._id);
+                    wbtFPFillForm(fp);
+                    document.getElementById('wbtFPUpdBtn').disabled = false;
+                    document.getElementById('wbtFPDelBtn').disabled = false;
+                });
+                listEl.appendChild(item);
+            });
+        }
+
+        // ── CRUD API calls ──
+        async function wbtFPAdd(){
+            if(!wbtFPActiveTrajId){ wbtFPSetStatus('Select a wellbore first.', false); return; }
+            const body = wbtFPReadForm();
+            wbtFPSetStatus('Adding...');
+            try{
+                const res = await fetch('/notes/fracPlane/' + wbtFPActiveTrajId, {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtFPSetStatus('Frac plane added.', true);
+                await wbtFPRefresh(wbtFPActiveTrajId);
+                wbtFPClearForm();
+            } catch(e){ wbtFPSetStatus('Error: ' + e.message, false); }
+        }
+
+        async function wbtFPUpdate(){
+            if(!wbtFPActiveTrajId || !wbtFPActiveFPId){ wbtFPSetStatus('Select a frac plane to update.', false); return; }
+            const body = wbtFPReadForm();
+            wbtFPSetStatus('Updating...');
+            try{
+                const res = await fetch('/notes/fracPlane/' + wbtFPActiveTrajId + '/' + wbtFPActiveFPId, {
+                    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtFPSetStatus('Frac plane updated.', true);
+                await wbtFPRefresh(wbtFPActiveTrajId);
+            } catch(e){ wbtFPSetStatus('Error: ' + e.message, false); }
+        }
+
+        async function wbtFPDelete(){
+            if(!wbtFPActiveTrajId || !wbtFPActiveFPId){ wbtFPSetStatus('Select a frac plane to delete.', false); return; }
+            if(!confirm('Delete this frac plane? This cannot be undone.')) return;
+            wbtFPSetStatus('Deleting...');
+            try{
+                const res = await fetch('/notes/fracPlane/' + wbtFPActiveTrajId + '/' + wbtFPActiveFPId, { method:'DELETE' });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtFPSetStatus('Frac plane deleted.', true);
+                wbtFPActiveFPId = null;
+                document.getElementById('wbtFPUpdBtn').disabled = true;
+                document.getElementById('wbtFPDelBtn').disabled = true;
+                await wbtFPRefresh(wbtFPActiveTrajId);
+                wbtFPClearForm();
+            } catch(e){ wbtFPSetStatus('Error: ' + e.message, false); }
+        }
+
+        async function wbtFPRefresh(trajectoryId){
+            try{
+                const res = await fetch('/notes/wellboreTrajectory/list/' + WBT_NOTE_ID);
+                const data = await res.json();
+                if(!res.ok) return;
+                const traj = (data.trajectories||[]).find(t => String(t._id) === String(trajectoryId));
+                if(!traj) return;
+                const wellColor = wbtGetColorForTraj(trajectoryId);
+                wbtRenderFPMeshes(trajectoryId, traj.fracPlanes||[], wellColor);
+                wbtFPRebuildList(traj.fracPlanes||[], trajectoryId, wellColor);
+            } catch(e){ console.error('wbtFPRefresh', e); }
+        }
+
+        // ── Well selector ──
+        function wbtFPPopulateWellSelector(trajList){
+            const sel = document.getElementById('wbtFPWell');
+            if(!sel) return;
+            sel.innerHTML = '<option value="">— Select wellbore —</option>';
+            trajList.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        function wbtFPOnWellChange(trajList){
+            const sel = document.getElementById('wbtFPWell');
+            const id  = sel.value;
+            if(!id){ wbtFPActiveTrajId = null; wbtFPClearForm(); document.getElementById('wbtFPList').innerHTML=''; return; }
+            wbtFPActiveTrajId = id;
+            wbtFPClearForm();
+            const traj = trajList.find(t => t.id === id);
+            if(traj){
+                wbtRenderFPMeshes(id, traj.fracPlanes||[], traj.color);
+                wbtFPRebuildList(traj.fracPlanes||[], id, traj.color);
+            }
+            wbtFPSetStatus('Wellbore selected. Enter parameters and click + ADD.');
+        }
+
+        function wbtFPSetupButtons(){
+            document.getElementById('wbtFPAddBtn').addEventListener('click', wbtFPAdd);
+            document.getElementById('wbtFPUpdBtn').addEventListener('click', wbtFPUpdate);
+            document.getElementById('wbtFPDelBtn').addEventListener('click', wbtFPDelete);
+            document.getElementById('wbtFPClearBtn').addEventListener('click', wbtFPClearForm);
+            wbtFPSetupAccordion();
+            wbtFPOnGeomChange(); // set initial visibility
+        }
+
+
+        // ── FracPlane glue (edit-note.ejs) ──
+        const WBT_NOTE_ID = "<%- note._id %>";
+
+        let wbtSavedTrajs = []; // populated from DB on load + after upload
+
+        function wbtGetColorForTraj(trajectoryId){
+            const t = wbtSavedTrajs.find(x => String(x.id) === String(trajectoryId));
+            return t ? t.color : 0xffd060;
+        }
+
+        async function wbtFPLoadSaved(){
+            try{
+                const res = await fetch('/notes/wellboreTrajectory/list/' + WBT_NOTE_ID);
+                const data = await res.json();
+                if(!res.ok || !data.trajectories) return;
+                wbtSavedTrajs = data.trajectories.map(t => ({
+                    id:         String(t._id),
+                    name:       t.wellName,
+                    color:      t.colorHex ? parseInt(t.colorHex.replace('#',''), 16) : 0xffd060,
+                    fracPlanes: t.fracPlanes || [],
+                    survey:     [], // survey not loaded here (too large); interpolation is server-side
+                }));
+                wbtFPPopulateWellSelector(wbtSavedTrajs);
+                // Re-render existing fracPlanes if wellsData already loaded
+                wbtSavedTrajs.forEach(t => {
+                    if(t.fracPlanes.length > 0) wbtRenderFPMeshes(t.id, t.fracPlanes, t.color);
+                });
+                const sel = document.getElementById('wbtFPWell');
+                sel.removeEventListener('change', wbtFPWellChangeHandler);
+                sel.addEventListener('change', wbtFPWellChangeHandler);
+            } catch(e){ console.error('wbtFPLoadSaved', e); }
+        }
+
+        function wbtFPWellChangeHandler(){
+            wbtFPOnWellChange(wbtSavedTrajs);
+        }
+
+        function wbtFPInit(){
+            wbtFPSetupButtons();
+            wbtFPLoadSaved();
+        }
 
         initScene();
     })();

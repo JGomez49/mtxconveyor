@@ -897,3 +897,142 @@ notesCrtl.listWellboreTrajectories = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// ---------------------------------------------------------------------
+// FracPlane CRUD  (fracPlanes sub-array inside WellboreTrajectory)
+// ---------------------------------------------------------------------
+
+// Linear interpolation of position AND tangent at a given MD.
+// Position: interpolated Northing/Easting/TVD → viewer world coords.
+// Tangent: interpolated incl/azim → direction cosines in viewer frame.
+//   tx =  sin(incl)*sin(azim)   (Easting / +X)
+//   ty = -cos(incl)              (-TVD   / +Y going down)
+//   tz = -sin(incl)*cos(azim)   (-North / +Z)
+// Source: standard wellbore direction cosine convention (SPE/ISCWSA).
+function interpolateSurveyAtMD(survey, targetMD){
+  const D2R = Math.PI / 180;
+  if(!survey || survey.length === 0) return { center:{x:0,y:0,z:0}, tangent:{x:0,y:-1,z:0} };
+
+  function toResult(s){
+    const incl = (s.incl || 0) * D2R, azim = (s.azim || 0) * D2R;
+    return {
+      center: { x: s.easting, y: -s.tvd, z: -s.northing },
+      tangent: {
+        x:  Math.sin(incl) * Math.sin(azim),
+        y: -Math.cos(incl),
+        z: -Math.sin(incl) * Math.cos(azim),
+      },
+    };
+  }
+
+  const n = Number(targetMD);
+  if(n <= survey[0].md) return toResult(survey[0]);
+  if(n >= survey[survey.length-1].md) return toResult(survey[survey.length-1]);
+
+  for(let i = 1; i < survey.length; i++){
+    const s0 = survey[i-1], s1 = survey[i];
+    if(n >= s0.md && n <= s1.md){
+      const dMD = s1.md - s0.md;
+      const t = dMD === 0 ? 0 : (n - s0.md) / dMD;
+      const east   = s0.easting  + t * (s1.easting  - s0.easting);
+      const tvd    = s0.tvd      + t * (s1.tvd      - s0.tvd);
+      const north  = s0.northing + t * (s1.northing - s0.northing);
+      const incl   = ((s0.incl || 0) + t * ((s1.incl || 0) - (s0.incl || 0))) * D2R;
+      const azim   = ((s0.azim || 0) + t * ((s1.azim || 0) - (s0.azim || 0))) * D2R;
+      return {
+        center: { x: east, y: -tvd, z: -north },
+        tangent: {
+          x:  Math.sin(incl) * Math.sin(azim),
+          y: -Math.cos(incl),
+          z: -Math.sin(incl) * Math.cos(azim),
+        },
+      };
+    }
+  }
+  return toResult(survey[survey.length-1]);
+}
+
+// POST /notes/fracPlane/:trajectoryId  — add a new fracPlane
+notesCrtl.addFracPlane = async (req, res) => {
+  try{
+    const { trajectoryId } = req.params;
+    const { label, geometry, md, dx, dy, dz, ax, ay, az, radius, distance } = req.body;
+
+    const traj = await WellboreTrajectory.findById(trajectoryId);
+    if(!traj) return res.status(404).json({ error: "Trajectory not found" });
+
+    const { center, tangent } = interpolateSurveyAtMD(traj.survey, Number(md));
+
+    const newFP = {
+      label: label || "", geometry: geometry || 'box',
+      md: Number(md),
+      dx: Number(dx)||10, dy: Number(dy)||10, dz: Number(dz)||10,
+      ax: Number(ax)||0,  ay: Number(ay)||0,  az: Number(az)||0,
+      radius: Number(radius)||10, distance: Number(distance)||30,
+      center, tangent, createdAt: new Date(),
+    };
+
+    traj.fracPlanes.push(newFP);
+    await traj.save();
+
+    const saved = traj.fracPlanes[traj.fracPlanes.length - 1];
+    console.log(`<<<< FracPlane added to ${traj.wellName} >>>>`);
+    res.json({ success: true, fracPlane: saved });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /notes/fracPlane/:trajectoryId/:fracPlaneId  — update a fracPlane
+notesCrtl.updateFracPlane = async (req, res) => {
+  try{
+    const { trajectoryId, fracPlaneId } = req.params;
+    const { label, geometry, md, dx, dy, dz, ax, ay, az, radius, distance } = req.body;
+
+    const traj = await WellboreTrajectory.findById(trajectoryId);
+    if(!traj) return res.status(404).json({ error: "Trajectory not found" });
+
+    const fp = traj.fracPlanes.id(fracPlaneId);
+    if(!fp) return res.status(404).json({ error: "FracPlane not found" });
+
+    const { center, tangent } = interpolateSurveyAtMD(traj.survey, Number(md));
+
+    fp.label    = label !== undefined ? label : fp.label;
+    fp.geometry = geometry || fp.geometry;
+    fp.md       = Number(md);
+    fp.dx = Number(dx)||10; fp.dy = Number(dy)||10; fp.dz = Number(dz)||10;
+    fp.ax = Number(ax)||0;  fp.ay = Number(ay)||0;  fp.az = Number(az)||0;
+    fp.radius   = Number(radius)||10;
+    fp.distance = Number(distance)||30;
+    fp.center   = center;
+    fp.tangent  = tangent;
+
+    await traj.save();
+    console.log(`<<<< FracPlane updated in ${traj.wellName} >>>>`);
+    res.json({ success: true, fracPlane: fp });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE /notes/fracPlane/:trajectoryId/:fracPlaneId  — delete a fracPlane
+notesCrtl.deleteFracPlane = async (req, res) => {
+  try{
+    const { trajectoryId, fracPlaneId } = req.params;
+
+    const traj = await WellboreTrajectory.findById(trajectoryId);
+    if(!traj) return res.status(404).json({ error: "Trajectory not found" });
+
+    traj.fracPlanes.pull({ _id: fracPlaneId });
+    await traj.save();
+
+    console.log(`<<<< FracPlane deleted from ${traj.wellName} >>>>`);
+    res.json({ success: true });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
