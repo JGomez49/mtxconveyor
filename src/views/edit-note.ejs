@@ -211,20 +211,44 @@
                     .wbt-btn-del:hover{ border-color: var(--wbt-red); box-shadow:0 0 8px rgba(255,64,96,.3); }
                     .wbt-status{ font-family: var(--wbt-mono); font-size:11px; color: var(--wbt-text-dim); margin:6px 0; }
 
-                    .wbt-viewer-wrap{ position:relative; border-radius:4px; overflow:hidden; border:1px solid var(--wbt-border); margin-bottom:10px; }
-                    .wbt-viewer{ width:100%; height:46vh; display:block; background: var(--wbt-bg); }
+                                        /* ── Viewer layout: sidebar + canvas ── */
+                    .wbt-viewer-outer{
+                        display:flex; gap:0; border:1px solid var(--wbt-border);
+                        border-radius:4px; overflow:hidden; margin-bottom:10px;
+                    }
+                    .wbt-sidebar{
+                        width:220px; min-width:220px; flex-shrink:0;
+                        background: rgba(17,24,32,0.97); border-right:1px solid var(--wbt-border);
+                        padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:0; min-height:50vh;
+                        font-size:11px; color:var(--wbt-text);
+                    }
+                    .wbt-sidebar h6{
+                        margin:0 0 5px; font-size:10px; color:var(--wbt-text-dim);
+                        text-transform:uppercase; letter-spacing:1px;
+                        font-family:var(--wbt-cond);
+                    }
+                    .wbt-sidebar .wbt-section{ margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--wbt-border); }
+                    .wbt-sidebar .wbt-section:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+                    .wbt-sidebar label{ display:flex; align-items:center; gap:7px; margin:7px 0; cursor:pointer; }
+                    .wbt-sidebar select, .wbt-sidebar input[type=range]{
+                        width:100%; background:var(--wbt-panel2); color:var(--wbt-text);
+                        border:1px solid var(--wbt-border); border-radius:3px;
+                    }
+                    .wbt-viewer-canvas-wrap{ position:relative; flex:1; min-width:0; display:flex; flex-direction:column; }
+                    .wbt-viewer-wrap{ display:none; } /* legacy, replaced by wbt-viewer-outer */
+                    .wbt-viewer{ width:100%; flex:1; min-height:50vh; display:block; background: var(--wbt-bg); }
                     .wbt-panel{
                         position:absolute; background: rgba(17,24,32,0.92); border:1px solid var(--wbt-border);
                         border-radius:4px; padding:8px 10px; font-size:11px; color: var(--wbt-text);
                         backdrop-filter: blur(4px); max-height:90%; overflow:auto;
                     }
-                    .wbt-controls{ top:10px; left:10px; max-width:200px; }
-                    .wbt-legend{ top:10px; right:10px; max-height:38vh; }
+                    .wbt-controls{ display:none; } /* replaced by .wbt-sidebar */
+                    .wbt-legend{ top:10px; right:10px; max-height:50vh; }
                     .wbt-panel h6{
                         margin:0 0 6px; font-size:10px; color: var(--wbt-text-dim);
                         text-transform:uppercase; letter-spacing:1px; font-family: var(--wbt-cond);
                     }
-                    .wbt-panel label{ display:flex; align-items:center; gap:6px; margin:4px 0; cursor:pointer; }
+                    .wbt-panel label{ display:flex; align-items:center; gap:7px; margin:7px 0; cursor:pointer; }
                     .wbt-panel select, .wbt-panel input[type=range]{ width:100%; background:var(--wbt-panel2); color:var(--wbt-text); border:1px solid var(--wbt-border); border-radius:3px; }
                     .wbt-section{ margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--wbt-border); }
                     .wbt-section:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
@@ -278,22 +302,22 @@
                         box-shadow:0 0 8px var(--wbt-accent2);
                     }
                     .wbt-dash-grid{
-                        display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                        display:grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
                         gap:8px;
                     }
                     .wbt-dash-card{
                         background: var(--wbt-panel2); border:1px solid var(--wbt-border); border-radius:4px;
-                        padding:8px 10px;
+                        padding:8px 10px; overflow:hidden;
                     }
                     .wbt-dash-card-title{
                         display:flex; align-items:center; gap:8px; margin-bottom:6px;
-                        font-family: var(--wbt-cond); font-size:11px; font-weight:700; letter-spacing:1px;
+                        font-family: var(--wbt-cond); font-size:12px; font-weight:700; letter-spacing:1px;
                         text-transform:uppercase; color: var(--wbt-text-bright);
                     }
                     .wbt-dash-card-title .wbt-swatch{ width:10px; height:10px; }
                     .wbt-metric-grid{
-                        display:grid; grid-template-columns: 1fr 1fr; gap:3px 10px;
-                        font-family: var(--wbt-mono); font-size:10px;
+                        display:grid; grid-template-columns: 1fr 1fr; gap:4px 10px;
+                        font-family: var(--wbt-mono); font-size:11px;
                     }
                     .wbt-metric-label{ color: var(--wbt-text-dim); }
                     .wbt-metric-value{ color: var(--wbt-text-bright); text-align:right; font-weight:600; }
@@ -326,10 +350,10 @@
 
                     .wbt-highlight-label{
                         font-family: var(--wbt-cond); font-size:9px; letter-spacing:1px; text-transform:uppercase;
-                        color: var(--wbt-text-dim); margin-bottom:2px;
+                        color: var(--wbt-text-dim); margin-bottom:1px;
                     }
                     .wbt-highlight-value{
-                        font-family: var(--wbt-mono); font-size:13px; font-weight:700; color: var(--wbt-text-bright);
+                        font-family: var(--wbt-mono); font-size:14px; font-weight:700; color: var(--wbt-text-bright);
                     }
                     .wbt-highlight-extra{
                         font-family: var(--wbt-mono); font-size:9px; color: var(--wbt-text-dim); margin-top:1px;
@@ -420,6 +444,11 @@
                     }
                     .wbt-btn-excel:hover{ box-shadow:0 3px 14px rgba(33,150,243,.45); color:#fff !important; }
 
+                    /* Formation mesh list in controls panel */
+                    .wbt-fm-item{ display:flex; align-items:center; gap:6px; margin:3px 0; cursor:pointer; }
+                    .wbt-fm-item label{ display:flex; align-items:center; gap:5px; cursor:pointer; font-family:var(--wbt-mono); font-size:10px; color:var(--wbt-text); }
+                    .wbt-fm-dot{ width:8px; height:8px; border-radius:50%; background:#39ff14; flex-shrink:0; }
+
                 </style>
 
                 <div class="wbt-root" id="wbtRoot">
@@ -467,16 +496,21 @@
                     </div>
 
                     <!-- 3D viewer -->
-                    <div class="wbt-viewer-wrap">
-                        <canvas class="wbt-viewer" id="wbtViewer"></canvas>
+                    <!-- ── 3D Viewer: sidebar + canvas ── -->
+                    <div class="wbt-viewer-outer">
 
-                        <div class="wbt-panel wbt-controls">
+                        <!-- Left sidebar controls -->
+                        <div class="wbt-sidebar">
                             <div class="wbt-section">
                                 <h6>Visibility</h6>
                                 <label><input type="checkbox" id="wbtToggleAxes" checked> Axes</label>
                                 <label><input type="checkbox" id="wbtToggleCurtains" checked> Curtains</label>
-                                <label><input type="checkbox" id="wbtToggleLegend" checked> Legend</label>
+                                <label><input type="checkbox" id="wbtToggleLegend"> Legend</label>
                                 <label><input type="checkbox" id="wbtToggleGrid" checked> Grid</label>
+                            </div>
+                            <div class="wbt-section">
+                                <h6>Formations</h6>
+                                <div id="wbtFormationList" style="max-height:140px;overflow-y:auto;"></div>
                             </div>
                             <div class="wbt-section">
                                 <h6>Rotation Axis</h6>
@@ -492,18 +526,27 @@
                                 <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.1">
                             </div>
                             <div class="wbt-section">
+                                <h6>Marker Size</h6>
+                                <input type="range" id="wbtMarkerSize" min="0.1" max="3" step="0.05" value="0.4">
+                            </div>
+                            <div class="wbt-section">
                                 <h6>Wellbores</h6>
-                                <div id="wbtWellList" style="max-height:120px; overflow:auto;"></div>
+                                <div id="wbtWellList" style="max-height:160px;overflow-y:auto;"></div>
                             </div>
                             <div class="wbt-section">
                                 <button type="button" class="wbt-btn" id="wbtResetView" style="width:100%;">Reset View</button>
                             </div>
                         </div>
 
-                        <div class="wbt-panel wbt-legend" id="wbtLegendPanel">
-                            <h6>Legend</h6>
-                            <div id="wbtLegendList"></div>
+                        <!-- Canvas + legend overlay -->
+                        <div class="wbt-viewer-canvas-wrap">
+                            <canvas class="wbt-viewer" id="wbtViewer"></canvas>
+                            <div class="wbt-panel wbt-legend" id="wbtLegendPanel">
+                                <h6>Legend</h6>
+                                <div id="wbtLegendList"></div>
+                            </div>
                         </div>
+
                     </div>
 
 
@@ -1495,6 +1538,13 @@
             curtainGroup = new THREE.Group();
             group.add(curtainGroup);
 
+            wbtFormationGroup = new THREE.Group();
+            group.add(wbtFormationGroup);
+
+            wbtMarkerGroup = new THREE.Group();
+            group.add(wbtMarkerGroup);
+            wbtInitTooltip();
+
             animate();
             window.addEventListener('resize', onResize);
             setupWbtUI();
@@ -1618,6 +1668,13 @@
             group.add(gridHelper);
             curtainGroup = new THREE.Group();
             group.add(curtainGroup);
+            wbtFormations = [];
+            wbtFormationGroup = new THREE.Group();
+            group.add(wbtFormationGroup);
+            wbtClearMarkers();
+            wbtMarkerGroup = new THREE.Group();
+            group.add(wbtMarkerGroup);
+            wbtFormPlaneData = [];
         }
 
         function fitCameraToObject(points){
@@ -1745,6 +1802,8 @@
             const legendList = document.getElementById('wbtLegendList');
             legendList.innerHTML = '';
             wellsData = [];
+            wbtTubeMeshData = [];
+            wbtClearMarkers();
             document.getElementById('wbtSaveBtn').disabled = true;
 
             const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
@@ -1770,6 +1829,15 @@
                 const {line, points} = buildWellLine(data.rows, color);
                 group.add(line);
                 allPoints = allPoints.concat(points);
+
+                // Convert raw CSV rows to db-keyed survey for tooltip raycasting
+                const surveyForTooltip = data.rows.map(r => ({
+                    md: num(r['MD']), incl: num(r['Incl']), azim: num(r['Azim']),
+                    tvd: num(r['TVD']), subSea: num(r['Sub-Sea']), dogleg: num(r['Dogleg']),
+                    northing: num(r['Northings']), easting: num(r['Eastings']),
+                    comments: r['Comments'] || '',
+                }));
+                wbtTubeMeshData.push({ mesh: line, name: wellName, colorHex: '#' + color.toString(16).padStart(6,'0'), survey: surveyForTooltip });
 
                 wellsData.push({name: wellName, fileName: file.name, headers: data.headers, rows: data.rows, color, mesh: line});
 
@@ -1819,6 +1887,22 @@
             if(exportBtn){
                 exportBtn.onclick = () => wbtExportToExcel(wellsForDashboard, padLabel);
             }
+
+            // Geological formations + markers
+            if(wellsData.length > 0 && allPoints.length > 0){
+                wbtPadBBox = new THREE.Box3();
+                allPoints.forEach(p => wbtPadBBox.expandByPoint(p));
+                const firstRows = wellsData[0].rows || [];
+                const allComments = wbtExtractFormations(firstRows, 'Comments', 'TVD');
+                // Pass first survey as db-keyed for subSea lookup
+                const firstSurveyDB = wbtTubeMeshData[0] ? wbtTubeMeshData[0].survey : [];
+                wbtBuildFormations(allComments, wbtPadBBox, firstSurveyDB);
+
+                // Build sphere markers for all wellbores (use db-keyed survey)
+                const scaleEst = Math.max(wbtPadBBox.max.x - wbtPadBBox.min.x, wbtPadBBox.max.z - wbtPadBBox.min.z, 100);
+                wbtClearMarkers();
+                wbtTubeMeshData.forEach(td => wbtBuildMarkersForSurvey(td.survey, scaleEst));
+            }
         }
 
         // ---------------- Wellbore visibility list ----------------
@@ -1859,6 +1943,8 @@
             axesHelper.visible = document.getElementById('wbtToggleAxes').checked;
             gridHelper.visible = document.getElementById('wbtToggleGrid').checked;
             curtainGroup.visible = document.getElementById('wbtToggleCurtains').checked;
+            // Formation visibility is per-mesh (checkbox per formation), not a global toggle;
+            // the formationGroup itself stays visible — individual meshes are toggled.
             document.getElementById('wbtLegendPanel').style.display =
                 document.getElementById('wbtToggleLegend').checked ? 'block' : 'none';
         }
@@ -1985,6 +2071,11 @@
             applyWbtVisibility();
 
             document.getElementById('wbtLineThickness').addEventListener('input', applyWbtLineThickness);
+
+            document.getElementById('wbtMarkerSize').addEventListener('input', (e) => {
+                wbtMarkerScale = parseFloat(e.target.value);
+                wbtRebuildAllMarkers();
+            });
 
             document.getElementById('wbtRotationAxis').addEventListener('change', (e) => {
                 const axis = e.target.value;
@@ -2739,6 +2830,440 @@
         function wbtFPInit(){
             wbtFPSetupButtons();
             wbtFPLoadSaved();
+        }
+
+        // ================================================================
+        // TRAJECTORY MARKERS (SC, Start Tang, End Tang, LP, ICP)
+        // ================================================================
+        // Each keyword detection uses the same comment-matching rules as
+        // wbtIsReservedComment. One sphere per occurrence per wellbore.
+        // Colors: SC=blue(#58a6ff), ICP=orange(#ff6b35), LP=yellow(#ffd060),
+        //         Start Tang / End Tang = purple(#c084fc).
+
+        const WBT_MARKER_DEFS = [
+            { key: 'SC',         color: 0x58a6ff, label: 'SC' },
+            { key: 'ICP',        color: 0xff6b35, label: 'ICP' },
+            { key: 'LP',         color: 0xffd060, label: 'LP' },
+            { key: 'START TANG', color: 0xc084fc, label: 'Start Tang' },
+            { key: 'END TANG',   color: 0xc084fc, label: 'End Tang' },
+        ];
+
+        let wbtMarkerGroup = new THREE.Group();
+        // markerData: array of {mesh, label, md, tvd} for raycasting
+        let wbtMarkerData  = [];
+        // Scale factor for marker spheres (1.0 = base size, 0.4 = 60% smaller default)
+        let wbtMarkerScale = 0.4;
+        let wbtPadScale    = 100;  // estimated pad extent, set when markers are built
+
+        function wbtAddMarkerGroup(){
+            group.add(wbtMarkerGroup);
+        }
+
+        function wbtClearMarkers(){
+            while(wbtMarkerGroup.children.length) wbtMarkerGroup.remove(wbtMarkerGroup.children[0]);
+            wbtMarkerData = [];
+        }
+
+        // Build sphere markers for one wellbore's survey (db-keyed fields).
+        // Radius = wbtMarkerScale * base, where base = max(padScale*0.0024, 0.8).
+        // (base at scale=1.0 was max(padScale*0.006,2); new default wbtMarkerScale=0.4
+        //  gives 40% of that = max(padScale*0.0024, 0.8) — 60% smaller.)
+        function wbtComputeMarkerRadius(){
+            return Math.max(wbtPadScale * 0.006 * wbtMarkerScale,
+                            0.8 * wbtMarkerScale);
+        }
+
+        function wbtBuildMarkersForSurvey(survey, scale){
+            wbtPadScale = scale || wbtPadScale;
+            const radius = wbtComputeMarkerRadius();
+
+            survey.forEach(row => {
+                const raw = (row.comments || '').toUpperCase().trim();
+                if(!raw) return;
+
+                WBT_MARKER_DEFS.forEach(def => {
+                    if(!raw.includes(def.key)) return;
+                    const pos = wbtInterpolateAtMD(survey, num(row.md));
+                    const geo = new THREE.SphereGeometry(radius, 8, 8);
+                    const mat = new THREE.MeshBasicMaterial({ color: def.color });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(pos.center.x, pos.center.y, pos.center.z);
+                    mesh.userData.isMarker = true;
+                    mesh.userData.label  = def.label;
+                    mesh.userData.md     = num(row.md);
+                    mesh.userData.tvd    = num(row.tvd);
+                    mesh.userData.subSea = num(row.subSea);
+                    wbtMarkerGroup.add(mesh);
+                    wbtMarkerData.push({ mesh, label: def.label, md: num(row.md), tvd: num(row.tvd) });
+                });
+            });
+        }
+
+        // Rebuild all markers at new size (called by slider)
+        function wbtRebuildAllMarkers(){
+            wbtClearMarkers();
+            if(typeof WELLBORES !== 'undefined'){
+                // job.ejs path
+                WELLBORES.forEach(well => wbtBuildMarkersForSurvey(well.survey || [], wbtPadScale));
+            } else {
+                // edit-note.ejs path — use wbtTubeMeshData
+                (wbtTubeMeshData || []).forEach(td => wbtBuildMarkersForSurvey(td.survey, wbtPadScale));
+            }
+        }
+
+        // ================================================================
+        // TOOLTIP
+        // ================================================================
+        // Shows on hover over:
+        //   - Wellbore tube mesh → closest survey station's MD/Incl/Azim/TVD/TVDss/DLS/N/E
+        //   - Formation invisible plane → formation name + TVD + TVDss
+        //   - Marker sphere → label + MD + TVD
+        // Uses Raycaster on mousemove.
+
+        let wbtTooltipEl = null;
+        let wbtRaycaster = null;
+        let wbtMouseVec  = new THREE.Vector2();
+
+        // Per-wellbore data needed for raycasting tooltip
+        // [{mesh: THREE.Mesh, survey: [...], color}]
+        let wbtTubeMeshData = [];
+
+        // Formation invisible planes for raycasting
+        // [{mesh: THREE.Mesh, name, tvd, subSea}]
+        let wbtFormPlaneData = [];
+
+        function wbtInitTooltip(){
+            wbtTooltipEl = document.createElement('div');
+            Object.assign(wbtTooltipEl.style, {
+                position: 'fixed',
+                background: 'rgba(10,14,20,0.95)',
+                border: '1px solid #1e2d3d',
+                borderRadius: '4px',
+                padding: '8px 10px',
+                fontFamily: "'Share Tech Mono', monospace",
+                fontSize: '11px',
+                color: '#c8d8e8',
+                pointerEvents: 'none',
+                display: 'none',
+                zIndex: '9999',
+                maxWidth: '240px',
+                lineHeight: '1.6',
+                backdropFilter: 'blur(4px)',
+            });
+            document.body.appendChild(wbtTooltipEl);
+
+            wbtRaycaster = new THREE.Raycaster();
+            wbtRaycaster.params.Line = { threshold: 2 };
+
+            const canvas = document.getElementById('wbtViewer');
+            canvas.addEventListener('mousemove', wbtOnMouseMove);
+            canvas.addEventListener('mouseleave', () => { wbtTooltipEl.style.display = 'none'; });
+        }
+
+        function wbtShowTooltip(html, clientX, clientY){
+            wbtTooltipEl.innerHTML = html;
+            wbtTooltipEl.style.display = 'block';
+            const tw = wbtTooltipEl.offsetWidth, th = wbtTooltipEl.offsetHeight;
+            let x = clientX + 14, y = clientY - 10;
+            if(x + tw > window.innerWidth)  x = clientX - tw - 14;
+            if(y + th > window.innerHeight) y = clientY - th - 10;
+            wbtTooltipEl.style.left = x + 'px';
+            wbtTooltipEl.style.top  = y + 'px';
+        }
+
+        function wbtFmtN(v, d){ return (v===null||v===undefined||isNaN(v)) ? '-' : Number(v).toFixed(d!==undefined?d:2); }
+
+        function wbtFindClosestStation(survey, worldPos){
+            // Find survey station whose 3D world position is closest to worldPos
+            let best = null, bestDist = Infinity;
+            survey.forEach(row => {
+                const east  = num(row.easting  || row.localE || 0);
+                const tvd   = num(row.tvd || 0);
+                const north = num(row.northing || row.localN || 0);
+                const wx = east, wy = -tvd, wz = -north;
+                const dx = wx - worldPos.x, dy = wy - worldPos.y, dz = wz - worldPos.z;
+                const d = dx*dx + dy*dy + dz*dz;
+                if(d < bestDist){ bestDist = d; best = row; }
+            });
+            return best;
+        }
+
+        function wbtOnMouseMove(e){
+            const canvas = document.getElementById('wbtViewer');
+            const rect = canvas.getBoundingClientRect();
+            wbtMouseVec.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+            wbtMouseVec.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+
+            wbtRaycaster.setFromCamera(wbtMouseVec, camera);
+
+            // 1. Check marker spheres first (highest priority)
+            const markerMeshes = wbtMarkerData.map(m => m.mesh);
+            if(markerMeshes.length > 0){
+                const mHits = wbtRaycaster.intersectObjects(markerMeshes);
+                if(mHits.length > 0){
+                    const hit = mHits[0].object;
+                    wbtShowTooltip(
+                        `<span style="color:#ffd060;font-family:var(--wbt-cond,sans-serif);letter-spacing:1px;text-transform:uppercase">${hit.userData.label}</span><br>` +
+                        `MD: <b>${wbtFmtN(hit.userData.md,2)} m</b><br>` +
+                        `TVD: <b>${wbtFmtN(hit.userData.tvd,2)} m</b><br>` +
+                        (hit.userData.subSea ? `TVDss: <b>${wbtFmtN(hit.userData.subSea,2)} m</b>` : ''),
+                        e.clientX, e.clientY
+                    );
+                    return;
+                }
+            }
+
+            // 2. Check tube meshes
+            const tubeMeshes = wbtTubeMeshData.map(t => t.mesh);
+            if(tubeMeshes.length > 0){
+                const hits = wbtRaycaster.intersectObjects(tubeMeshes);
+                if(hits.length > 0){
+                    const hitMesh = hits[0].object;
+                    const hitPoint = hits[0].point;
+                    const td = wbtTubeMeshData.find(t => t.mesh === hitMesh);
+                    if(td && td.survey){
+                        const st = wbtFindClosestStation(td.survey, hitPoint);
+                        if(st){
+                            wbtShowTooltip(
+                                `<span style="color:${td.colorHex || '#00c8ff'};font-family:var(--wbt-cond,sans-serif);font-size:10px;letter-spacing:1px;text-transform:uppercase">${td.name}</span><br>` +
+                                `MD: <b>${wbtFmtN(st.md,2)} m</b><br>` +
+                                `Incl: <b>${wbtFmtN(st.incl,2)}°</b> &nbsp; Azim: <b>${wbtFmtN(st.azim,2)}°</b><br>` +
+                                `TVD: <b>${wbtFmtN(st.tvd,2)} m</b> &nbsp; TVDss: <b>${wbtFmtN(st.subSea,2)} m</b><br>` +
+                                `DLS: <b>${wbtFmtN(st.dogleg,3)}</b><br>` +
+                                `N: <b>${wbtFmtN(st.northing,2)}</b> &nbsp; E: <b>${wbtFmtN(st.easting,2)}</b>`,
+                                e.clientX, e.clientY
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 3. Check formation invisible planes
+            if(wbtFormPlaneData.length > 0){
+                const planeMeshes = wbtFormPlaneData.map(p => p.mesh);
+                const pHits = wbtRaycaster.intersectObjects(planeMeshes);
+                if(pHits.length > 0){
+                    const pd = wbtFormPlaneData.find(p => p.mesh === pHits[0].object);
+                    if(pd && pd.visible){
+                        wbtShowTooltip(
+                            `<span style="color:#39ff14;font-family:var(--wbt-cond,sans-serif);letter-spacing:1px;text-transform:uppercase">Formation</span><br>` +
+                            `<b>${pd.name}</b><br>` +
+                            `TVD: <b>${wbtFmtN(pd.tvd,2)} m</b><br>` +
+                            `TVDss: <b>${wbtFmtN(pd.subSea,2)} m</b>`,
+                            e.clientX, e.clientY
+                        );
+                        return;
+                    }
+                }
+            }
+
+            wbtTooltipEl.style.display = 'none';
+        }
+
+        // ================================================================
+        // INVISIBLE PLANES FOR FORMATION RAYCASTING
+        // ================================================================
+        // A large transparent PlaneGeometry at each formation's Y level.
+        // Only responds to raycasting when the formation mesh is visible.
+
+        function wbtBuildInvisiblePlane(tvd, bbox, formationEntry){
+            const cx = (bbox.min.x + bbox.max.x) / 2;
+            const cz = (bbox.min.z + bbox.max.z) / 2;
+            const sx = (bbox.max.x - bbox.min.x) * 1.2 || 200;
+            const sz = (bbox.max.z - bbox.min.z) * 1.2 || 200;
+
+            const geo = new THREE.PlaneGeometry(sx, sz);
+            const mat = new THREE.MeshBasicMaterial({
+                visible: false,
+                side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.set(cx, -tvd, cz);
+            group.add(mesh);
+
+            // Compute TVDss: use subSea of closest survey station in first wellbore
+            // We store it on wbtFormPlaneData at build time
+            return mesh;
+        }
+
+        // ================================================================
+        // GEOLOGICAL FORMATIONS
+        // ================================================================
+        // Formations are detected from the Comments column of the FIRST
+        // wellbore in the loaded list (UI order). Any comment that does NOT
+        // contain one of the reserved keywords below is treated as a
+        // geological formation name. All non-empty comments are included in
+        // the show/hide list so the user can optionally reveal any entry.
+        //
+        // Reserved keywords (case-insensitive, substring match):
+        const WBT_RESERVED_KEYWORDS = ['SC','KOP','ICP','LP','START TANG','END TANG'];
+        // TD is the last point - no comment needed; any unique remaining
+        // comments that survive keyword filtering are classified as formations.
+        //
+        // Each formation mesh is a horizontal flat grid at Y = -TVD,
+        // spanning the overall pad bounding box (same as curtain extents),
+        // rendered as thin LineSegments in neon-green (#39ff14) at low opacity.
+
+        let wbtFormationGroup = new THREE.Group(); // parent for all formation meshes
+        let wbtFormations = [];  // [{name, tvd, mesh, visible}]
+        let wbtPadBBox = null;   // THREE.Box3 of all well points — set in loadWellbores/loadFiles
+
+        function wbtIsReservedComment(comment){
+            const upper = (comment || '').toUpperCase().trim();
+            if(!upper) return true; // empty → skip
+            return WBT_RESERVED_KEYWORDS.some(k => upper.includes(k));
+        }
+
+        // Build a flat horizontal grid mesh at world Y = -tvd,
+        // spanning xMin→xMax (Easting) and zMin→zMax (-Northing).
+        // Returns a THREE.LineSegments object.
+        function wbtBuildFormationMesh(tvd, bbox){
+            const xMin = bbox.min.x, xMax = bbox.max.x;
+            const zMin = bbox.min.z, zMax = bbox.max.z;
+            const y    = -tvd;
+
+            const xRange = xMax - xMin || 100;
+            const zRange = zMax - zMin || 100;
+
+            // Grid resolution: aim for ~15 lines in each direction
+            const LINES = 15;
+            const xStep = xRange / LINES;
+            const zStep = zRange / LINES;
+
+            const positions = [];
+
+            // Lines parallel to Z axis (varying X)
+            for(let i = 0; i <= LINES; i++){
+                const x = xMin + i * xStep;
+                positions.push(x, y, zMin,  x, y, zMax);
+            }
+            // Lines parallel to X axis (varying Z)
+            for(let j = 0; j <= LINES; j++){
+                const z = zMin + j * zStep;
+                positions.push(xMin, y, z,  xMax, y, z);
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+            const mat = new THREE.LineBasicMaterial({
+                color: 0x39ff14,
+                transparent: true,
+                opacity: 0.18,
+            });
+
+            return new THREE.LineSegments(geo, mat);
+        }
+
+        // Extract formations from the first wellbore's survey comments.
+        // survey: array of {comments, tvd} (raw CSV rows or db-keyed objects).
+        // commentKey / tvdKey: field names (differ between edit-note raw CSV and job DB rows)
+        function wbtExtractFormations(survey, commentKey, tvdKey){
+            const seen = {};
+            const result = [];
+            (survey || []).forEach(row => {
+                const raw = (row[commentKey] || '').trim();
+                if(!raw) return;
+                // Normalise: strip trailing " - <repeat>" e.g. "sKOP - sKOP" → "sKOP"
+                let name = raw.replace(/\s*-\s*\S*$/, '').trim() || raw;
+                // Deduplicate by normalised name
+                const key = name.toUpperCase();
+                if(seen[key]) return;
+                seen[key] = true;
+                const tvd = parseFloat(row[tvdKey]) || 0;
+                const isFormation = !wbtIsReservedComment(name);
+                result.push({ name, tvd, isFormation });
+            });
+            return result;
+        }
+
+        // Build/rebuild all formation meshes from the allComments list.
+        // allComments: [{name, tvd, isFormation}]
+        // Only entries where isFormation===true get a horizontal mesh,
+        // but ALL entries appear in the show/hide panel (user decides).
+        function wbtBuildFormations(allComments, bbox, firstSurvey){
+            // Remove old meshes and invisible planes
+            wbtFormations.forEach(f => {
+                if(f.mesh) wbtFormationGroup.remove(f.mesh);
+                if(f.planeMesh) group.remove(f.planeMesh);
+            });
+            wbtFormations = [];
+            wbtFormPlaneData = [];
+
+            allComments.forEach(entry => {
+                let mesh = null, planeMesh = null;
+                // Formations hidden by default (visible: false)
+                const defaultVisible = false;
+
+                // Compute TVDss: find closest survey station by TVD
+                let subSea = 0;
+                if(firstSurvey && firstSurvey.length > 0){
+                    // subSea from the station matching this comment, or closest TVD
+                    const matchRow = firstSurvey.find(r => {
+                        const raw = (r.comments || r.Comments || '').trim();
+                        const name = raw.replace(/\s*-\s*\S*$/, '').trim() || raw;
+                        return name.toUpperCase() === entry.name.toUpperCase();
+                    });
+                    if(matchRow) subSea = num(matchRow.subSea || matchRow['Sub-Sea'] || 0);
+                }
+
+                if(entry.isFormation && bbox){
+                    mesh = wbtBuildFormationMesh(entry.tvd, bbox);
+                    mesh.visible = defaultVisible;
+                    wbtFormationGroup.add(mesh);
+
+                    // Invisible plane for raycasting tooltip
+                    planeMesh = wbtBuildInvisiblePlane(entry.tvd, bbox, entry);
+                    wbtFormPlaneData.push({
+                        mesh: planeMesh, name: entry.name, tvd: entry.tvd, subSea,
+                        get visible(){ return mesh.visible; }
+                    });
+                }
+                wbtFormations.push({ ...entry, mesh, planeMesh, visible: defaultVisible, subSea });
+            });
+
+            wbtBuildFormationListUI();
+        }
+
+        function wbtBuildFormationListUI(){
+            const container = document.getElementById('wbtFormationList');
+            if(!container) return;
+            container.innerHTML = '';
+
+            if(wbtFormations.length === 0){
+                container.innerHTML = '<div style="color:var(--wbt-text-dim);font-family:var(--wbt-mono);font-size:10px">No formations detected</div>';
+                return;
+            }
+
+            wbtFormations.forEach((f, idx) => {
+                const item = document.createElement('div');
+                item.className = 'wbt-fm-item';
+
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = f.visible; // false by default for formations
+                cb.addEventListener('change', () => {
+                    wbtFormations[idx].visible = cb.checked;
+                    if(f.mesh) f.mesh.visible = cb.checked;
+                });
+
+                const dot = document.createElement('span');
+                dot.className = 'wbt-fm-dot';
+                // Non-formation comments get a grey dot
+                if(!f.isFormation) dot.style.background = '#5a7080';
+
+                label.appendChild(cb);
+                label.appendChild(dot);
+                label.appendChild(document.createTextNode(
+                    f.name + (f.isFormation ? '' : '') +
+                    ' (' + (f.tvd || 0).toFixed(1) + 'm)'
+                ));
+                item.appendChild(label);
+                container.appendChild(item);
+            });
         }
 
         initScene();
