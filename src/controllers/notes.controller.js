@@ -539,8 +539,11 @@ notesCrtl.findSite = async (req, res) => {
     // Fetch logs for this note
     const log = await Log.find({ noteid: project._id }).sort({ createdAt: "desc" });
 
+    // Fetch wellbore trajectories for this note
+    const wellboreTrajectories = await WellboreTrajectory.find({noteId: project._id});
+
     // Render job page with the single note
-    res.render("job.ejs", { note: project, user, log });
+    res.render("job.ejs", { note: project, user, log, wellboreTrajectories });
 
   } catch (err) {
     console.error("Error in findSite:", err);

@@ -46,7 +46,8 @@
                 
 
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
-                <% if (wellboreTrajectories && wellboreTrajectories.length) { %>
+                <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
+                <% if (_wbt && _wbt.length) { %>
                 <style>
                     .wbt-root {
                         --wbt-bg: #0a0e14;
@@ -1600,11 +1601,11 @@
 
 
 
-    <% if (wellboreTrajectories && wellboreTrajectories.length) { %>
+    <% if (_wbt && _wbt.length) { %>
     <!-- ================= WELLBORE 3D TRAJECTORY SCRIPT (read-only) ================= -->
     <script>
     (function(){
-        const WELLBORES = <%- JSON.stringify(wellboreTrajectories) %>;
+        const WELLBORES = <%- JSON.stringify(_wbt) %>;
         const fallbackColors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
 
         let scene, camera, renderer, controls;
