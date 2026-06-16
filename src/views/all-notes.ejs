@@ -1184,6 +1184,7 @@
 <script>
 
     let chartInstances = [];
+    let compiledRows   = []; // accumulates one entry per VP+group for the compiled summary table
 
     function parseDate(value) {
         const parsed = Date.parse(value);
@@ -1892,6 +1893,29 @@
                     colorCounts.silverNextYear +
                     colorCounts.blackNextYear;
 
+                // Accumulate for the compiled summary table at the bottom of the page
+                compiledRows.push({
+                    vp, group,
+                    blueThisYear:   colorCounts.blueThisYear,
+                    greenThisYear:  colorCounts.greenThisYear,
+                    blackThisYear:  colorCounts.blackThisYear,
+                    yellowThisYear: colorCounts.yellowThisYear,
+                    purpleThisYear: colorCounts.purpleThisYear,
+                    redThisYear:    colorCounts.redThisYear,
+                    whiteThisYear:  colorCounts.whiteThisYear,
+                    silverThisYear: colorCounts.silverThisYear,
+                    totalThisYear:  totalBarsThisYear,
+                    blueNextYear:   colorCounts.blueNextYear,
+                    greenNextYear:  colorCounts.greenNextYear,
+                    blackNextYear:  colorCounts.blackNextYear,
+                    yellowNextYear: colorCounts.yellowNextYear,
+                    purpleNextYear: colorCounts.purpleNextYear,
+                    redNextYear:    colorCounts.redNextYear,
+                    whiteNextYear:  colorCounts.whiteNextYear,
+                    silverNextYear: colorCounts.silverNextYear,
+                    totalNextYear:  totalBarsNextYear,
+                });
+
                 // Summary Table
                     // Blue:    "#0084c7"   : DP-YES
                     // Green:   "#4caf50"   : FINAL 
@@ -2139,9 +2163,101 @@
             
             });
         });
+
+        // ── Compiled Summary Table (all VPs + groups) ──
+        renderCompiledSummary(compiledRows);
     }
 
     //// window.addEventListener("DOMContentLoaded", renderChartsFromTable);
+
+    // ── Compiled Summary Table ──────────────────────────────────────────────
+    // Renders one row per VP+group plus a TOTAL row into #compiledSummaryDiv.
+    function renderCompiledSummary(rows) {
+        const container = document.getElementById('compiledSummaryDiv');
+        if (!container || rows.length === 0) return;
+
+        const cols = [
+            { key: 'blueThisYear',   label: 'DP-YES',          bg: '#0084c7', fg: '#020202' },
+            { key: 'greenThisYear',  label: 'FINAL',            bg: '#4caf50', fg: '#020202' },
+            { key: 'blackThisYear',  label: 'NEED INFO',        bg: '#000000', fg: '#ffffff' },
+            { key: 'yellowThisYear', label: 'IN PROGRESS',      bg: '#ffff00', fg: '#020202' },
+            { key: 'purpleThisYear', label: 'HANDED OVER',      bg: '#B11FDF', fg: '#1a1a1a' },
+            { key: 'redThisYear',    label: 'IN QUEUE',         bg: '#ff4c4c', fg: '#ffffff' },
+            { key: 'whiteThisYear',  label: 'ERRORS',           bg: '#ffffff', fg: '#020202' },
+            { key: 'silverThisYear', label: 'NOT REQUESTED',    bg: '#C0C0C0', fg: '#020202' },
+        ];
+        const colsNY = cols.map(c => ({ ...c, key: c.key.replace('ThisYear','NextYear') }));
+
+        // Grand totals
+        const totTY = { blueThisYear:0, greenThisYear:0, blackThisYear:0, yellowThisYear:0,
+                         purpleThisYear:0, redThisYear:0, whiteThisYear:0, silverThisYear:0, totalThisYear:0 };
+        const totNY = { blueNextYear:0, greenNextYear:0, blackNextYear:0, yellowNextYear:0,
+                         purpleNextYear:0, redNextYear:0, whiteNextYear:0, silverNextYear:0, totalNextYear:0 };
+        rows.forEach(r => {
+            Object.keys(totTY).forEach(k => totTY[k] += (r[k] || 0));
+            Object.keys(totNY).forEach(k => totNY[k] += (r[k] || 0));
+        });
+
+        // Build header
+        const thStyle = (bg, fg) =>
+            `style="text-align:center;background-color:${bg};color:${fg};font-size:0.75rem;padding:4px 6px;"`;
+
+        let thead = `
+            <thead>
+                <tr>
+                    <th rowspan="2" style="vertical-align:middle;text-align:center;font-size:0.8rem;">VP</th>
+                    <th rowspan="2" style="vertical-align:middle;text-align:center;font-size:0.8rem;">GROUP</th>
+                    <th colspan="${cols.length + 1}" style="text-align:center;background:#1a1a2e;color:#58a6ff;font-size:0.75rem;">
+                        THIS YEAR (${new Date().getFullYear()})
+                    </th>
+                    <th colspan="${colsNY.length + 1}" style="text-align:center;background:#1a1a2e;color:#c084fc;font-size:0.75rem;">
+                        NEXT YEAR (${new Date().getFullYear() + 1} — BUDGET)
+                    </th>
+                </tr>
+                <tr>
+                    ${cols.map(c => `<th ${thStyle(c.bg, c.fg)}>${c.label}</th>`).join('')}
+                    <th style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;">TOTAL</th>
+                    ${colsNY.map(c => `<th ${thStyle(c.bg, c.fg)}>${c.label}</th>`).join('')}
+                    <th style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;">TOTAL</th>
+                </tr>
+            </thead>`;
+
+        // Build rows
+        const tdStyle = 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+        let tbody = '<tbody>';
+        rows.forEach(r => {
+            tbody += `<tr>
+                <td ${tdStyle}>${r.vp || '—'}</td>
+                <td ${tdStyle}>${r.group || '—'}</td>
+                ${cols.map(c => `<td ${tdStyle}>${r[c.key] || 0}</td>`).join('')}
+                <td ${tdStyle}><b>${r.totalThisYear || 0}</b></td>
+                ${colsNY.map(c => `<td ${tdStyle}>${r[c.key] || 0}</td>`).join('')}
+                <td ${tdStyle}><b>${r.totalNextYear || 0}</b></td>
+            </tr>`;
+        });
+
+        // Grand total row
+        tbody += `<tr style="border-top:2px solid #58a6ff;font-weight:bold;background:#111827;">
+            <td ${tdStyle} colspan="2">GRAND TOTAL</td>
+            ${cols.map(c => `<td ${tdStyle}>${totTY[c.key] || 0}</td>`).join('')}
+            <td ${tdStyle}><b>${totTY.totalThisYear}</b></td>
+            ${colsNY.map(c => `<td ${tdStyle}>${totNY[c.key] || 0}</td>`).join('')}
+            <td ${tdStyle}><b>${totNY.totalNextYear}</b></td>
+        </tr>`;
+        tbody += '</tbody>';
+
+        container.innerHTML = `
+            <h4 style="color:#58a6ff;margin:24px 0 8px;letter-spacing:1px;">
+                📊 COMPILED JOB STATUS SUMMARY — ALL VPs
+            </h4>
+            <div style="overflow-x:auto;">
+                <table class="table table-dark table-sm table-bordered table-hover"
+                       style="min-width:900px;font-size:0.8rem;">
+                    ${thead}
+                    ${tbody}
+                </table>
+            </div>`;
+    }
 
 
 </script>
@@ -2341,6 +2457,9 @@
 
 
 
+
+<!-- Compiled Job Status Summary (all VPs) — populated by renderCompiledSummary() -->
+<div id="compiledSummaryDiv" class="m-3"></div>
 
 <%- include ('partials/footer.ejs') %>
 
