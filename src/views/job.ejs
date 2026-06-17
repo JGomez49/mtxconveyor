@@ -505,12 +505,7 @@
                     </div>
 
                     <!-- Pad technical dashboard -->
-                    <div class="wbt-dash-title" style="justify-content:space-between;">
-                        <span><span class="wbt-dot"></span> Pad Trajectory Summary</span>
-                        <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportDashboard" style="font-size:10px;padding:5px 10px;">
-                            Download Dashboard (Excel)
-                        </button>
-                    </div>
+                    <div class="wbt-dash-title"><span class="wbt-dot"></span> Pad Trajectory Summary</div>
                     <div class="wbt-pad-summary" id="wbtPadSummary"></div>
                     <div class="wbt-dash-grid" id="wbtDashboard"></div>
                 </div>
@@ -2169,9 +2164,6 @@
 
         function wbtFmt(v, d){ return (v === null || v === undefined || isNaN(v)) ? '-' : v.toFixed(d !== undefined ? d : 1); }
 
-        // Stored after each wbtRenderDashboard call for Excel export
-        let wbtLastDashboardMetrics = [];
-
         function wbtRenderDashboard(wellsForDashboard){
             const container = document.getElementById('wbtDashboard');
             if(!container) return;
@@ -2181,15 +2173,6 @@
             const validMetrics = wellsForDashboard.map(w => wbtComputeMetrics(w.name, w.survey)).filter(Boolean);
             const padAvgSteer = validMetrics.filter(m => m.steerIndex !== null).reduce((s,m,_,a) => s + m.steerIndex/a.length, 0) || null;
             const padAvgDDI   = validMetrics.filter(m => m.ddi   !== null).reduce((s,m,_,a) => s + m.ddi/a.length, 0)   || null;
-
-            // Store for Excel export and wire button
-            wbtLastDashboardMetrics = validMetrics.map((m, idx) => ({
-                ...m, color: (wellsForDashboard[idx] || {}).color || 0
-            }));
-            const dashExportBtn = document.getElementById('wbtExportDashboard');
-            if(dashExportBtn){
-                dashExportBtn.onclick = () => wbtExportDashboardExcel(wbtLastDashboardMetrics);
-            }
 
             // Pad summary bar
             const summary = document.getElementById('wbtPadSummary');
@@ -2276,103 +2259,6 @@
         }
 
         // ---------------- Accordion toggle ----------------
-        // ── Dashboard Excel Export ──
-        // One tab per wellbore, each containing all computed metrics as a
-        // vertical key→value table (metric name in col A, value in col B).
-        function wbtExportDashboardExcel(metrics){
-            if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
-            if(!metrics || metrics.length === 0){ alert('No dashboard data to export.'); return; }
-
-            const wb = XLSX.utils.book_new();
-
-            metrics.forEach(m => {
-                const rows = [
-                    ['Metric', 'Value'],
-                    ['Well Name', m.wellName || ''],
-                    [''],
-                    ['── KEY POINTS ──', ''],
-                    ['SC (MD)', m.sc ? m.sc.md : 'Not found'],
-                    ['SC (TVD)', m.sc ? m.sc.tvd : 'Not found'],
-                    ['KOP (MD)', m.kopMD],
-                    ['ICP / Landing (MD)', m.icpMD],
-                    ['ICP / Landing (TVD)', m.icpTVD],
-                    ['Landing basis', m.icpSource || ''],
-                    ['TD (Total MD)', m.totalMD],
-                    ['TD (Total TVD)', m.totalTVD],
-                    [''],
-                    ['── TRAJECTORY ──', ''],
-                    ['Lateral Length (m)', m.lateralLength],
-                    ['Lateral Displacement (m)', m.lateralDisplacement],
-                    ['Closure Azimuth (deg)', m.closureAz],
-                    ['Final Inclination (deg)', m.finalIncl],
-                    ['Final Azimuth (deg)', m.finalAzim],
-                    [''],
-                    ['── DLS ──', ''],
-                    ['Max DLS - Build', m.maxDlsBuild],
-                    ['Max DLS - Lateral', m.maxDlsLateral],
-                    [''],
-                    ['── TANGENT ──', ''],
-                    ['Tangent MD Start (m)', m.tangent ? m.tangent.mdStart : 'NO'],
-                    ['Tangent MD End (m)', m.tangent ? m.tangent.mdEnd : 'NO'],
-                    ['Tangent Length (m)', m.tangent ? m.tangent.length : 'NO'],
-                    ['Tangent Incl Start (deg)', m.tangent ? m.tangent.inclFirst : 'NO'],
-                    ['Tangent Incl End (deg)', m.tangent ? m.tangent.inclLast : 'NO'],
-                    ['ΔTvD End Tang → ICP (m)', m.tangent ? m.tangent.deltaTVDtoICP : 'NO'],
-                    [''],
-                    ['── DIFFICULTY INDICES ──', ''],
-                    ['DDI (Oag & Williams)', m.ddi !== null ? m.ddi : '-'],
-                    ['Steer Index', m.steerIndex !== null ? m.steerIndex : '-'],
-                ];
-
-                const ws = XLSX.utils.aoa_to_sheet(rows);
-
-                // Column widths
-                ws['!cols'] = [{wch: 30}, {wch: 22}];
-
-                // Sanitize sheet name (max 31 chars, no invalid chars)
-                let sheetName = (m.wellName || 'Well').replace(/[\\\/\?\*\[\]:]/g, '-').substring(0, 31) || 'Well';
-                let finalName = sheetName;
-                let counter = 1;
-                while(wb.SheetNames.includes(finalName)){
-                    finalName = sheetName.substring(0, 28) + '_' + counter++;
-                }
-
-                XLSX.utils.book_append_sheet(wb, ws, finalName);
-            });
-
-            // Also add a summary sheet with all wells side by side
-            const summaryRows = [
-                ['Metric', ...metrics.map(m => m.wellName || 'Well')],
-                ['SC MD', ...metrics.map(m => m.sc ? m.sc.md : '')],
-                ['SC TVD', ...metrics.map(m => m.sc ? m.sc.tvd : '')],
-                ['KOP MD', ...metrics.map(m => m.kopMD)],
-                ['ICP MD', ...metrics.map(m => m.icpMD)],
-                ['ICP TVD', ...metrics.map(m => m.icpTVD)],
-                ['Landing basis', ...metrics.map(m => m.icpSource || '')],
-                ['Total MD', ...metrics.map(m => m.totalMD)],
-                ['Total TVD', ...metrics.map(m => m.totalTVD)],
-                ['Lateral Length (m)', ...metrics.map(m => m.lateralLength)],
-                ['Lateral Displacement (m)', ...metrics.map(m => m.lateralDisplacement)],
-                ['Closure Azimuth (deg)', ...metrics.map(m => m.closureAz)],
-                ['Final Incl (deg)', ...metrics.map(m => m.finalIncl)],
-                ['Final Azim (deg)', ...metrics.map(m => m.finalAzim)],
-                ['Max DLS - Build', ...metrics.map(m => m.maxDlsBuild)],
-                ['Max DLS - Lateral', ...metrics.map(m => m.maxDlsLateral)],
-                ['Tangent MD Start (m)', ...metrics.map(m => m.tangent ? m.tangent.mdStart : 'NO')],
-                ['Tangent MD End (m)', ...metrics.map(m => m.tangent ? m.tangent.mdEnd : 'NO')],
-                ['Tangent Length (m)', ...metrics.map(m => m.tangent ? m.tangent.length : 'NO')],
-                ['ΔTvD End Tang → ICP (m)', ...metrics.map(m => m.tangent ? m.tangent.deltaTVDtoICP : 'NO')],
-                ['DDI (Oag & Williams)', ...metrics.map(m => m.ddi !== null ? m.ddi : '')],
-                ['Steer Index', ...metrics.map(m => m.steerIndex !== null ? m.steerIndex : '')],
-            ];
-            const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-            wsSummary['!cols'] = [{wch:28}, ...metrics.map(() => ({wch:20}))];
-            XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-
-            const padLabel = (WELLBORES[0] && WELLBORES[0].pad) ? WELLBORES[0].pad.replace(/[^a-z0-9\-_ ]/gi,'_') : 'Pad';
-            XLSX.writeFile(wb, padLabel + '_Dashboard.xlsx');
-        }
-
         function wbtSetupAccordion(){
             const header = document.getElementById('wbtAccordionHeader');
             const body   = document.getElementById('wbtTables');
