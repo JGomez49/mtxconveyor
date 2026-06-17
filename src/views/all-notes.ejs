@@ -6,11 +6,15 @@
 
 <%- include ('partials/header.ejs') %>
 
+<!-- Page-scoped theme override (Slate dark by default, Flatly light when toggled) -->
+<link id="allNotesTheme" rel="stylesheet" href="">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
 <style>
     .pie-row {
     display: flex;
     gap: 24px;
-    flex-wrap: wrap;        /* allows wrapping on small screens */
+    flex-wrap: wrap;
     justify-content: center;
     margin-top: 16px;
     }
@@ -18,10 +22,116 @@
         max-width: 300px;
         max-height: 300px;
     }
+    .light-mode .pie-chart {
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    /* ── Theme toggle switch ── */
+    .an-theme-wrap{
+        display:inline-flex; align-items:center; gap:.4rem;
+        font-size:12px; vertical-align:middle;
+    }
+
+    /* ── Light mode overrides ── */
+    /* These override Bootstrap/Bootswatch classes hardcoded in the template */
+    .light-mode body{ background:#f5f7fa !important; color:#212529 !important; }
+    .light-mode .bg-dark{ background-color:#f0f2f5 !important; }
+    .light-mode .table-dark{
+        --bs-table-bg:#fff;
+        --bs-table-striped-bg:#f5f5f5;
+        --bs-table-hover-bg:#e9ecef;
+        --bs-table-color:#212529;
+        --bs-table-border-color:#dee2e6;
+        color:#212529 !important;
+    }
+    .light-mode .accordion-button.bg-dark{
+        background-color:#e9ecef !important;
+        color:#212529 !important;
+    }
+    .light-mode .accordion-button.bg-dark:not(.collapsed){
+        background-color:#dde1e7 !important;
+    }
+    .light-mode .accordion-button::after{
+        filter: invert(1) grayscale(1) brightness(0);
+    }
+    .light-mode .accordion-body.bg-dark{ background-color:#f8f9fa !important; }
+    .light-mode .accordion-header.bg-dark{ background-color:#e9ecef !important; }
+    .light-mode .accordion-item{ border-color:#dee2e6 !important; }
+    /* chart backgrounds */
+    .light-mode #chartDiv{ background-color:#f8f9fa !important; }
+    /* compiled summary table */
+    .light-mode .table-dark th, .light-mode .table-dark td{ color:#212529 !important; }
+    /* heading/text that uses text-light or white */
+    .light-mode h1,.light-mode h2,.light-mode h3,.light-mode h4,
+    .light-mode h5,.light-mode h6{ color:#212529 !important; }
+    .light-mode .text-white,.light-mode [style*="color: white"],
+    .light-mode [style*="color:white"]{ color:#212529 !important; }
+    /* card/container backgrounds */
+    .light-mode .card{ background:#fff !important; border-color:#dee2e6 !important; }
+    .light-mode .card-header{ background:#f0f2f5 !important; }
+    /* nav stays as bootswatch Flatly handles it */
+    /* Execution accordion — override inline black background in light mode */
+    .light-mode #execAccordionBtn{ background-color:#2c3e50 !important; }
+    .light-mode #execAccordionBtn h4{ color:#e74c3c !important; }
+
+    /* ── Accordion title h4 colours in light mode ──
+       Each section has a distinct colour that works against the light #e9ecef bg */
+    .light-mode .accordion-button h4[style*="color: white"],
+    .light-mode .accordion-button h4[style*="color:white"]{ color:#495057 !important; }
+    .light-mode .accordion-button h4[style*="color:aqua"],
+    .light-mode .accordion-button h4[style*="color: aqua"]{ color:#0077a8 !important; }
+    .light-mode .accordion-button h4[style*="color:chartreuse"],
+    .light-mode .accordion-button h4[style*="color: chartreuse"]{ color:#2e7d32 !important; }
+    .light-mode .accordion-button h4[style*="color: grey"],
+    .light-mode .accordion-button h4[style*="color:grey"],
+    .light-mode .accordion-button h4[style*="color: gray"],
+    .light-mode .accordion-button h4[style*="color:gray"]{ color:#6c757d !important; }
+    .light-mode .accordion-button h4[style*="color: orange"],
+    .light-mode .accordion-button h4[style*="color:orange"]{ color:#e65100 !important; }
+    .light-mode .accordion-button h4[style*="color: blue"],
+    .light-mode .accordion-button h4[style*="color:blue"]{ color:#1565c0 !important; }
+    .light-mode .accordion-button h4[style*="color: black"],
+    .light-mode .accordion-button h4[style*="color:black"]{ color:#212529 !important; }
+    .light-mode .accordion-button h4[style*="color: blueviolet"],
+    .light-mode .accordion-button h4[style*="color:blueviolet"]{ color:#6a1b9a !important; }
+
+    /* ── Table row white text → dark in light mode ── */
+    .light-mode tr[style*="color: white"],
+    .light-mode tr[style*="color:white"]{ color:#212529 !important; }
+
+    /* ── Compiled summary TIME RANGE header cell ── */
+    .light-mode th[style*="background-color:#transparent"],
+    .light-mode th[style*="background-color: #transparent"]{ color:#212529 !important; }
+
+    /* ── Schedule/DP Stats h4 with inline color: blue / blueviolet ── */
+    .light-mode h4[style*="color: blue"],
+    .light-mode h4[style*="color:blue"]{ color:#1565c0 !important; }
+    .light-mode h4[style*="color: blueviolet"],
+    .light-mode h4[style*="color:blueviolet"]{ color:#6a1b9a !important; }
+    .light-mode h4[style*="color:#58a6ff"]{ color:#0056b3 !important; }
+
+    /* ── Compiled summary THIS YEAR / NEXT YEAR group headers ── */
+    .light-mode th[style*="background:#1a1a2e"]{ background:#2c3e50 !important; }
+    /* ── Table rows with very dark inline background ── */
+    .light-mode tr[style*="background-color: #1a1a1a"],
+    .light-mode tr[style*="background-color:#1a1a1a"]{ background-color:#343a40 !important; }
+
+    /* ── NEED INFO column header: black bg → dark slate in light mode ── */
+    .light-mode th[style*="background-color:#000000"],
+    .light-mode th[style*="background-color: #000000"]{ background-color:#37474f !important; color:#fff !important; }
+
+    /* ── chartreuse/orange used elsewhere as inline styles ── */
+    .light-mode [style*="color:chartreuse"],
+    .light-mode [style*="color: chartreuse"]{ color:#2e7d32 !important; }
+    .light-mode h4[style*="color: grey"],
+    .light-mode h4[style*="color:grey"]{ color:#6c757d !important; }
 </style>
 
 
 <div id="navbar" class="p-2">
+
+
     <% if (user.name != 'Guest') { %>
 
         <% if (user.role == 'admin') { %>
@@ -57,6 +167,14 @@
 
     <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
         <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
+        &nbsp;
+        <span class="an-theme-wrap" id="anThemeWrap">
+            <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
+            <div class="form-check form-switch m-0" style="min-height:unset;">
+                <input class="form-check-input" type="checkbox" role="switch" id="anThemeSwitch" style="cursor:pointer;">
+            </div>
+            <i class="bi bi-sun-fill" style="font-size:13px;color:#aaa;"></i>
+        </span>
         <!-- <pre><%= notes %></pre> -->
          
     <% } %>
@@ -544,7 +662,7 @@
             <% if (user.role == 'admin' || user.role == 'leader'|| user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
-                        <button class="accordion-button collapsed bg-dark_" style="background-color: black;"
+                        <button id="execAccordionBtn" class="accordion-button collapsed bg-dark_" style="background-color: black;"
                                 type="button" 
                                 data-bs-toggle="collapse" 
                                 data-bs-target="#collapseTwo" 
@@ -1192,6 +1310,12 @@
         return null;
     }
 
+    // Theme-aware color helpers for Chart.js (pie charts)
+    function anIsLight(){ return document.body.classList.contains('light-mode'); }
+    function anChartColor(){ return anIsLight() ? '#333' : '#fff'; }
+    function anChartBg(){   return anIsLight() ? '#f8f9fa' : 'transparent'; }
+    function anGridColor(){  return anIsLight() ? '#ccc' : '#333'; }
+
     function renderChartsFromTable() {
 
         // appendNoteIds() // Note IDs are added
@@ -1691,14 +1815,14 @@
                                 min: minDate,
                                 // max: oneYearLater,
                                 max: maxDate,
-                                ticks: { color: "#ccc" },
-                                grid: { color: "#333" }
+                                ticks: { color: anChartColor() },
+                                grid: { color: anGridColor() }
                             },
                             y: {
                                 type: "category",
                                 labels: rigs,
-                                ticks: { color: "#ccc", font: { weight: "bold" } },
-                                grid: { color: "#333" }
+                                ticks: { color: anChartColor(), font: { weight: "bold" } },
+                                grid: { color: anGridColor() }
                             }
                         },
                         plugins: {
@@ -1849,7 +1973,18 @@
                             }
                         }
                     },
-                    plugins: [ChartDataLabels]
+                    plugins: [ChartDataLabels, {
+                        id: 'anChartBgPlugin',
+                        beforeDraw: (chart) => {
+                            if(!anIsLight()) return; // dark mode: keep canvas transparent
+                            const ctx2 = chart.canvas.getContext('2d');
+                            ctx2.save();
+                            ctx2.globalCompositeOperation = 'destination-over';
+                            ctx2.fillStyle = '#ffffff';
+                            ctx2.fillRect(0, 0, chart.width, chart.height);
+                            ctx2.restore();
+                        }
+                    }]
                 });
 
                 chartInstances.push(chart);
@@ -2071,10 +2206,10 @@
                             title: {
                                 display: true,
                                 text: `This Year: ${totalBarsThisYear} Wells`,
-                                color: "#fff",
+                                color: anChartColor(),
                                 font: { size: 16, weight: "normal" }
                             },
-                            legend: { position: "bottom", labels: { color: "#fff" } },
+                            legend: { position: "bottom", labels: { color: anChartColor() } },
                             datalabels: {
                                 color: "#000",
                                 font: { size: 12, weight: "normal" },
@@ -2143,10 +2278,10 @@
                             title: {
                                 display: true,
                                 text: `Next Year (Budget): ${totalBarsNextYear} Wells`,
-                                color: "#fff",
+                                color: anChartColor(),
                                 font: { size: 16, weight: "normal" }
                             },
-                            legend: { position: "bottom", labels: { color: "#fff" } },
+                            legend: { position: "bottom", labels: { color: anChartColor() } },
                             datalabels: {
                                 color: "#000",
                                 font: { size: 12, weight: "normal" },
@@ -2198,32 +2333,61 @@
             Object.keys(totNY).forEach(k => totNY[k] += (r[k] || 0));
         });
 
-        // Build header
-        const thStyle = (bg, fg) =>
-            `style="text-align:center;background-color:${bg};color:${fg};font-size:0.75rem;padding:4px 6px;"`;
+        // Build header — colours adapt to current theme
+        const isLightMode = document.body.classList.contains('light-mode');
+        const thStyle = (bg, fg) => {
+            // In light mode: keep coloured bg but ensure text is always readable
+            // For very dark backgrounds (#000, #1a1a...) switch to a lighter tint
+            let useBg = bg, useFg = fg;
+            if(isLightMode){
+                if(bg === '#000000' || bg === '#1a1a2e') { useBg = '#37474f'; useFg = '#fff'; }
+                // fg that is very dark on already-dark bg: keep white
+                // fg that is near-black on a light bg: keep dark
+            }
+            return `style="text-align:center;background-color:${useBg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
+        };
+
+        const grpBg    = isLightMode ? '#2c3e50'  : '#1a1a2e';
+        const grpTYFg  = isLightMode ? '#58a6ff'  : '#58a6ff';
+        const grpNYFg  = isLightMode ? '#c084fc'  : '#c084fc';
+        const vhStyle  = isLightMode
+            ? 'vertical-align:middle;text-align:center;font-size:0.8rem;background:#e9ecef;color:#212529;'
+            : 'vertical-align:middle;text-align:center;font-size:0.8rem;';
+        const totalHdr = isLightMode
+            ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
+            : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
 
         let thead = `
             <thead>
                 <tr>
-                    <th rowspan="2" style="vertical-align:middle;text-align:center;font-size:0.8rem;">VP</th>
-                    <th rowspan="2" style="vertical-align:middle;text-align:center;font-size:0.8rem;">GROUP</th>
-                    <th colspan="${cols.length + 1}" style="text-align:center;background:#1a1a2e;color:#58a6ff;font-size:0.75rem;">
+                    <th rowspan="2" style="${vhStyle}">VP</th>
+                    <th rowspan="2" style="${vhStyle}">GROUP</th>
+                    <th colspan="${cols.length + 1}" 
+                        style="text-align:center;
+                        background:${grpBg};
+                        color:${grpTYFg};
+                        font-size:0.75rem;">
                         THIS YEAR (${new Date().getFullYear()})
                     </th>
-                    <th colspan="${colsNY.length + 1}" style="text-align:center;background:#1a1a2e;color:#c084fc;font-size:0.75rem;">
+                    <th colspan="${colsNY.length + 1}" style="text-align:center;background:${grpBg};color:${grpNYFg};font-size:0.75rem;">
                         NEXT YEAR (${new Date().getFullYear() + 1} — BUDGET)
                     </th>
                 </tr>
                 <tr>
                     ${cols.map(c => `<th ${thStyle(c.bg, c.fg)}>${c.label}</th>`).join('')}
-                    <th style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;">TOTAL</th>
+                    <th ${totalHdr}>TOTAL</th>
                     ${colsNY.map(c => `<th ${thStyle(c.bg, c.fg)}>${c.label}</th>`).join('')}
-                    <th style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;">TOTAL</th>
+                    <th ${totalHdr}>TOTAL</th>
                 </tr>
             </thead>`;
 
         // Build rows
-        const tdStyle = 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+        const tdStyle = isLightMode
+            ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
+            : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+        const grandTotalStyle = isLightMode
+            ? 'style="border-top:2px solid #0056b3;font-weight:bold;background:#dde3ea;"'
+            : 'style="border-top:2px solid #58a6ff;font-weight:bold;background:#111827;"';
         let tbody = '<tbody>';
         rows.forEach(r => {
             tbody += `<tr>
@@ -2237,7 +2401,7 @@
         });
 
         // Grand total row
-        tbody += `<tr style="border-top:2px solid #58a6ff;font-weight:bold;background:#111827;">
+        tbody += `<tr ${grandTotalStyle}>
             <td ${tdStyle} colspan="2">GRAND TOTAL</td>
             ${cols.map(c => `<td ${tdStyle}>${totTY[c.key] || 0}</td>`).join('')}
             <td ${tdStyle}><b>${totTY.totalThisYear}</b></td>
@@ -2248,7 +2412,7 @@
 
         container.innerHTML = `
             <h4 style="color:#58a6ff;margin:24px 0 8px;letter-spacing:1px;">
-                📊 COMPILED JOB STATUS SUMMARY — ALL VPs
+                COMPILED JOB STATUS SUMMARY — ALL VPs
             </h4>
             <div style="overflow-x:auto;">
                 <table class="table table-dark table-sm table-bordered table-hover"
@@ -2460,6 +2624,43 @@
 
 <!-- Compiled Job Status Summary (all VPs) — populated by renderCompiledSummary() -->
 <div id="compiledSummaryDiv" class="m-3"></div>
+
+<script>
+(function(){
+    const DARK_THEME  = 'https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.css';
+    const LIGHT_THEME = 'https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css';
+    const LS_KEY = 'anThemePreference';
+
+    const themeLink = document.getElementById('allNotesTheme');
+    const sw        = document.getElementById('anThemeSwitch');
+
+    function applyTheme(light){
+        if(light){
+            document.body.classList.add('light-mode');
+            themeLink.href = LIGHT_THEME;
+            sw.checked = true;
+        } else {
+            document.body.classList.remove('light-mode');
+            themeLink.href = DARK_THEME;
+            sw.checked = false;
+        }
+        // Plotly charts: update background to match theme
+        document.querySelectorAll('[id^="chartDiv"] canvas').forEach(function(c){
+            // Charts redraw themselves; just ensure container colour is updated via CSS
+        });
+    }
+
+    // Load saved preference (default: dark)
+    const saved = localStorage.getItem(LS_KEY);
+    applyTheme(saved === 'light');
+
+    sw.addEventListener('change', function(){
+        const light = sw.checked;
+        localStorage.setItem(LS_KEY, light ? 'light' : 'dark');
+        applyTheme(light);
+    });
+})();
+</script>
 
 <%- include ('partials/footer.ejs') %>
 
