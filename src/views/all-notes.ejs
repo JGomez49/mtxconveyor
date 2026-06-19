@@ -77,6 +77,10 @@ body.light-mode::before { opacity: 0; }
 
 /* everything above the grid */
 body > *, #navbar, .container_, .row, .accordion { position: relative; z-index: 1; }
+/* Navbar must sit above all page content so dropdowns are never obscured */
+#navbar { z-index: 1050 !important; }
+.navbar { z-index: 1050 !important; }
+.navbar .dropdown-menu { z-index: 1060 !important; }
 
 /* ════════════════════════════════════════════════════════
    NAVBAR  (Bootstrap nav — keep structure, restyle)
@@ -287,26 +291,37 @@ canvas {
     text-transform: uppercase !important;
     color: var(--an-text-dim) !important;
     border-color: var(--an-border) !important;
-    background: var(--an-panel2) !important;
     padding: 6px 8px !important;
+}
+/* Default panel background only for th WITHOUT an inline background-color */
+.table th:not([style*="background"]) {
+    background: var(--an-panel2) !important;
 }
 .table td {
     border-color: var(--an-border) !important;
     padding: 5px 8px !important;
     vertical-align: middle !important;
 }
-/* keep coloured th backgrounds (status headers) readable */
+/* Status header th: let inline background-color show, just fix font */
 .table th[style*="background-color"] {
     font-family: var(--an-cond) !important;
     font-size: 9px !important;
     letter-spacing: 1px !important;
+    background-color: unset;   /* allow inline to win */
 }
-/* Need Info black header */
+/* Force each status background-color through — inline styles need !important to beat Bootstrap */
+.table th[style*="background-color:#4caf50"] { background-color:#4caf50 !important; color:#020202 !important; }
+.table th[style*="background-color:#B11FDF"] { background-color:#B11FDF !important; color:#ffffff !important; }
+.table th[style*="background-color:#0084c7"] { background-color:#0084c7 !important; color:#020202 !important; }
+.table th[style*="background-color:#ffff00"] { background-color:#ffff00 !important; color:#020202 !important; }
+.table th[style*="background-color:#ff4c4c"] { background-color:#ff4c4c !important; color:#ffffff !important; }
+.table th[style*="background-color:#37474f"] { background-color:#37474f !important; color:#ffffff !important; }
+.table th[style*="background-color:#C0C0C0"],
+.table th[style*="background-color:#c0C0C0"] { background-color:#C0C0C0 !important; color:#020202 !important; }
+.table th[style*="background-color:#c0392b"] { background-color:#c0392b !important; color:#ffffff !important; }
+/* Need Info - also handle old #000000 just in case */
 .table th[style*="background-color:#000000"],
-.table th[style*="background-color: #000000"] {
-    background-color: #1a2535 !important;
-    border: 1px solid var(--an-border) !important;
-}
+.table th[style*="background-color: #000000"] { background-color:#37474f !important; color:#ffffff !important; }
 /* table rows with inline white color */
 tr[style*="color: white"],
 tr[style*="color:white"] { color: var(--an-text) !important; }
@@ -465,7 +480,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     <!-- <h1 style="color: whitesmoke;">Jobs</h1> -->
 
     <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
-        <a class="btn btn-warning btn-block my-2" href="/notes/add">New Job</a>
+        <a class="btn btn-warning my-2" href="/notes/add">+ New Job</a>
         &nbsp;
         <span class="an-theme-wrap" id="anThemeWrap">
             <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
@@ -2370,41 +2385,41 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 <table>
                     <thead>
                         <tr>
-                            <th class="text-center" style="color:white; background-color:#transparent"> TIME RANGE </th>
-                            <th class="text-center" style="color:#020202; background-color:#0084c7"> DP-YES </th>
+                            <th class="text-center" style="color:white; background-color:transparent"> TIME RANGE </th>
                             <th class="text-center" style="color:#020202; background-color:#4caf50"> FINAL </th>
-                            <th class="text-center" style="color:#FFFFFF; background-color:#000000"> NEED INFO </th>
-                            <th class="text-center" style="color:#020202; background-color:#ffff00"> IN PROGRESS </th>
                             <th class="text-center" style="color:#1a1a1a; background-color:#B11FDF"> HANDED OVER </th>
+                            <th class="text-center" style="color:#020202; background-color:#0084c7"> DP-YES </th>
+                            <th class="text-center" style="color:#020202; background-color:#ffff00"> IN PROGRESS </th>
                             <th class="text-center" style="color:#FFFFFF; background-color:#ff4c4c"> IN QUEUE </th>
-                            <th class="text-center" style="color:#020202; background-color:#FFFFFF"> ERRORS </th>
-                            <th class="text-center" style="color:#020202; background-color:#c0C0C0"> NOT REQUESTED </th>
-                            <th class="text-center" style="color:#FFFFFF; background-color:#transparent"> TOTAL </th>
+                            <th class="text-center" style="color:#FFFFFF; background-color:#37474f"> NEED INFO </th>
+                            <th class="text-center" style="color:#020202; background-color:#C0C0C0"> NOT REQUESTED </th>
+                            <th class="text-center" style="color:#FFFFFF; background-color:#c0392b"> ERRORS </th>
+                            <th class="text-center" style="color:white; background-color:transparent"> TOTAL </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="text-center"> This Year </td>
-                            <td class="text-center">${colorCounts.blueThisYear}</td>
                             <td class="text-center">${colorCounts.greenThisYear}</td>
-                            <td class="text-center">${colorCounts.blackThisYear}</td>
-                            <td class="text-center">${colorCounts.yellowThisYear}</td>
                             <td class="text-center">${colorCounts.purpleThisYear}</td>
+                            <td class="text-center">${colorCounts.blueThisYear}</td>
+                            <td class="text-center">${colorCounts.yellowThisYear}</td>
                             <td class="text-center">${colorCounts.redThisYear}</td>
-                            <td class="text-center">${colorCounts.whiteThisYear}</td>
+                            <td class="text-center">${colorCounts.blackThisYear}</td>
                             <td class="text-center">${colorCounts.silverThisYear}</td>
+                            <td class="text-center">${colorCounts.whiteThisYear}</td>
                             <td class="text-center"><b>${totalBarsThisYear}</b></td>
                         </tr>
                         <tr>
                             <td class="text-center"> Next Year (Budget) </td>
-                            <td class="text-center">${colorCounts.blueNextYear}</td>
                             <td class="text-center">${colorCounts.greenNextYear}</td>
-                            <td class="text-center">${colorCounts.blackNextYear}</td>
-                            <td class="text-center">${colorCounts.yellowNextYear}</td>
                             <td class="text-center">${colorCounts.purpleNextYear}</td>
+                            <td class="text-center">${colorCounts.blueNextYear}</td>
+                            <td class="text-center">${colorCounts.yellowNextYear}</td>
                             <td class="text-center">${colorCounts.redNextYear}</td>
-                            <td class="text-center">${colorCounts.whiteNextYear}</td>
+                            <td class="text-center">${colorCounts.blackNextYear}</td>
                             <td class="text-center">${colorCounts.silverNextYear}</td>
+                            <td class="text-center">${colorCounts.whiteNextYear}</td>
                             <td class="text-center"><b>${totalBarsNextYear}</b></td>
                         </tr>
                     </tbody>
@@ -2611,14 +2626,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         if (!container || rows.length === 0) return;
 
         const cols = [
-            { key: 'blueThisYear',   label: 'DP-YES',          bg: '#0084c7', fg: '#020202' },
             { key: 'greenThisYear',  label: 'FINAL',            bg: '#4caf50', fg: '#020202' },
-            { key: 'blackThisYear',  label: 'NEED INFO',        bg: '#000000', fg: '#ffffff' },
+            { key: 'purpleThisYear', label: 'HANDED OVER',      bg: '#B11FDF', fg: '#ffffff' },
+            { key: 'blueThisYear',   label: 'DP-YES',           bg: '#0084c7', fg: '#020202' },
             { key: 'yellowThisYear', label: 'IN PROGRESS',      bg: '#ffff00', fg: '#020202' },
-            { key: 'purpleThisYear', label: 'HANDED OVER',      bg: '#B11FDF', fg: '#1a1a1a' },
             { key: 'redThisYear',    label: 'IN QUEUE',         bg: '#ff4c4c', fg: '#ffffff' },
-            { key: 'whiteThisYear',  label: 'ERRORS',           bg: '#ffffff', fg: '#020202' },
+            { key: 'blackThisYear',  label: 'NEED INFO',        bg: '#37474f', fg: '#ffffff' },
             { key: 'silverThisYear', label: 'NOT REQUESTED',    bg: '#C0C0C0', fg: '#020202' },
+            { key: 'whiteThisYear',  label: 'ERRORS',           bg: '#c0392b', fg: '#ffffff' },
         ];
         const colsNY = cols.map(c => ({ ...c, key: c.key.replace('ThisYear','NextYear') }));
 
@@ -2887,26 +2902,48 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             days.push(Number(row.cells[1].innerText.trim()));
         });
 
+        // Sort paired arrays by numeric suffix of version label (P0 < P1 < P2 ...)
+        const paired = versions.map((v, i) => ({ v, d: days[i] }));
+        paired.sort((a, b) => {
+            const na = parseInt(a.v.replace(/\D/g, ''), 10);
+            const nb = parseInt(b.v.replace(/\D/g, ''), 10);
+            return (isNaN(na) ? 999 : na) - (isNaN(nb) ? 999 : nb);
+        });
+        const sortedVersions = paired.map(p => p.v);
+        const sortedDays     = paired.map(p => p.d);
+
+        const isLight = document.body.classList.contains('light-mode');
+        const fontColor  = isLight ? '#1a2535' : '#c8d8e8';
+        const axisColor  = isLight ? '#2c3e50' : '#5a7080';
+        const gridColor  = isLight ? '#aabbcc' : '#1e2d3d';
         Plotly.newPlot("dpBoxPlot", [{
-            y: days,
-            x: versions,
+            y: sortedDays,
+            x: sortedVersions,
             type: "box",
             boxpoints: "outliers",
             marker: { color: "#0084c7" }
         }], {
-            title: "DP Timing Statistics",
-            // yaxis: { title: "DP Days" },
+            title: { text: "DP Timing Statistics", font: { color: fontColor, size: 14 } },
             yaxis: {
-                title: "Days",
-                range: [0, 30],      // 👈 LIMIT DAYS for DP DAYS per revision
-                fixedrange: false    // 👈 prevents zooming beyond this range
+                title: { text: "Days", font: { color: axisColor } },
+                range: [0, 30],
+                fixedrange: false,
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                zerolinecolor: gridColor,
             },
-            xaxis: { title: "Version" },
-            // paper_bgcolor: "#111",
-            // plot_bgcolor: "#111",
-            paper_bgcolor : 'rgba(0,0,0,0)',
-            plot_bgcolor : 'rgba(0,0,0,0)',
-            font: { color: "#fff" },
+            xaxis: {
+                title: { text: "Version", font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                categoryorder: 'array',
+                categoryarray: sortedVersions,
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor:  'rgba(0,0,0,0)',
+            font: { color: fontColor },
         });
     }
 </script>
