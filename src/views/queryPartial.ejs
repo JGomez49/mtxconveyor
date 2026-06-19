@@ -1,181 +1,362 @@
 
-
 <%- include ('partials/header.ejs') %>
 
-    <div class="container_ P-4_ mx-4">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
-        <h1 style="color: black;">MTX Query Jobs</h1>
+<style>
+/* ── CSS variables ── */
+:root {
+    --qp-bg:          #0a0e14;
+    --qp-panel:       #111820;
+    --qp-border:      #1e2d3d;
+    --qp-accent:      #00c8ff;
+    --qp-accent2:     #ff6b35;
+    --qp-text:        #c8d8e8;
+    --qp-text-dim:    #5a7080;
+    --qp-text-bright: #e8f4ff;
+    --qp-row-hover:   rgba(0,200,255,.06);
+    --qp-mono:        'Share Tech Mono', monospace;
+    --qp-cond:        'Barlow Condensed', sans-serif;
+    --qp-sans:        'Barlow', sans-serif;
+}
+body.qp-light {
+    --qp-bg:          #f0f4f8;
+    --qp-panel:       #ffffff;
+    --qp-border:      #c8d4de;
+    --qp-accent:      #0077a8;
+    --qp-accent2:     #c04010;
+    --qp-text:        #2c3e50;
+    --qp-text-dim:    #607080;
+    --qp-text-bright: #111820;
+    --qp-row-hover:   rgba(0,119,168,.07);
+}
 
-        <!-- <pre><%= notes %></pre> -->
-        <%= user.role %>
+/* ── Base ── */
+body {
+    background: var(--qp-bg) !important;
+    color: var(--qp-text) !important;
+    font-family: var(--qp-sans) !important;
+    transition: background .2s, color .2s;
+}
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+        linear-gradient(rgba(0,200,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+    transition: opacity .2s;
+}
+body.qp-light::before { opacity: 0; }
+body > * { position: relative; z-index: 1; }
 
-        <a class="btn btn-danger btn-block my-2" href="/notes">Cancel</a>
+/* ── Navbar ── */
+.navbar, .navbar.bg-dark, nav.navbar {
+    background: var(--qp-panel) !important;
+    border-bottom: 1px solid var(--qp-border) !important;
+    z-index: 1050 !important;
+}
+.navbar .dropdown-menu { z-index: 1060 !important; }
+.navbar-brand, .nav-link {
+    color: var(--qp-text) !important;
+    font-family: var(--qp-cond) !important;
+    font-size: 12px !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+.nav-link:hover { color: var(--qp-accent) !important; }
 
-        <div class="row">
+/* ── Page header ── */
+.qp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0 10px;
+}
+.qp-title {
+    font-family: var(--qp-cond);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--qp-text-bright);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.qp-title-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--qp-accent);
+    box-shadow: 0 0 8px var(--qp-accent);
+}
 
-            <table class="table table-hover _table-striped table-dark table-sm">
-                
-                <thead>
-                    <tr>
-                        <th scope="col">ID</th>
-                        <th scope="col">Task</th>
-                        <th scope="col">V.</th>
-                        <th scope="col">Project</th>
-                        <th scope="col">Wells</th>
-                        <th scope="col">Area</th>
-                        <!-- <th scope="col">Budget</th> -->
-                        <th scope="col">Rig</th>
-                        <th scope="col">D.E</th>
-                        <th scope="col">Geo</th>
-                        <!-- <th scope="col">Resp.</th> -->
-                        <!-- <th scope="col">Prio.</th> -->
-                        <th scope="col">Created</th>
-                        <th scope="col">Due</th>
-                        <th scope="col">Status</th>
-                    </tr>
-                </thead>
+/* ── Buttons ── */
+.btn {
+    font-family: var(--qp-cond) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    border-radius: 3px !important;
+    padding: 6px 14px !important;
+    transition: all .15s !important;
+}
+.btn-danger {
+    background: transparent !important;
+    border: 1px solid var(--qp-accent2) !important;
+    color: var(--qp-accent2) !important;
+}
+.btn-danger:hover {
+    background: var(--qp-accent2) !important;
+    color: #fff !important;
+}
 
+/* ── Theme toggle ── */
+.qp-theme-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 12px;
+    background: var(--qp-panel);
+    border: 1px solid var(--qp-border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    transition: background .2s, border-color .2s;
+}
+.qp-theme-wrap .bi-moon-stars-fill { color: var(--qp-accent); }
+.qp-theme-wrap .bi-sun-fill        { color: var(--qp-accent2); }
+.form-check-input:checked {
+    background-color: var(--qp-accent) !important;
+    border-color:     var(--qp-accent) !important;
+}
 
-                <tbody>
+/* ── Table ── */
+.qp-table-wrap {
+    border: 1px solid var(--qp-border);
+    border-radius: 4px;
+    overflow: hidden;
+    overflow-x: auto;
+}
+table.qp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--qp-mono);
+    font-size: 11px;
+}
+table.qp-table thead tr {
+    background: var(--qp-panel);
+    border-bottom: 2px solid var(--qp-border);
+}
+table.qp-table thead th {
+    font-family: var(--qp-cond);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--qp-text-dim);
+    padding: 8px 10px;
+    white-space: nowrap;
+    border-right: 1px solid var(--qp-border);
+}
+table.qp-table thead th:last-child { border-right: none; }
+table.qp-table tbody tr {
+    border-bottom: 1px solid var(--qp-border);
+    cursor: pointer;
+    transition: background .1s;
+}
+table.qp-table tbody tr:hover { background: var(--qp-row-hover); }
+table.qp-table tbody td,
+table.qp-table tbody th {
+    padding: 6px 10px;
+    color: var(--qp-text);
+    border-right: 1px solid var(--qp-border);
+    vertical-align: middle;
+}
+table.qp-table tbody td:last-child,
+table.qp-table tbody th:last-child { border-right: none; }
 
-                    <% notes.forEach(note=> { %>
+/* Wellbores column — highlight with accent if populated */
+.qp-wellbores-val {
+    color: var(--qp-accent);
+    font-weight: 600;
+    font-size: 12px;
+}
+.qp-wellbores-empty { color: var(--qp-text-dim); }
 
-                        <% if (user.role == 'admin') { %>
-                            <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                <th scope="row"><small>
+/* Status badge */
+.qp-status {
+    display: inline-block;
+    font-family: var(--qp-cond);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+.qp-status-inprogress  { background: rgba(255,208,96,.15);  color: #ffd060; border: 1px solid rgba(255,208,96,.3);  }
+.qp-status-final       { background: rgba(57,255,20,.12);   color: #39ff14; border: 1px solid rgba(57,255,20,.3);   }
+.qp-status-needinfo    { background: rgba(255,64,96,.12);   color: #ff4060; border: 1px solid rgba(255,64,96,.3);   }
+.qp-status-handedover  { background: rgba(192,132,252,.15); color: #c084fc; border: 1px solid rgba(192,132,252,.3); }
+.qp-status-inqueue     { background: rgba(255,107,53,.12);  color: #ff6b35; border: 1px solid rgba(255,107,53,.3);  }
+.qp-status-dpyes       { background: rgba(0,200,255,.12);   color: #00c8ff; border: 1px solid rgba(0,200,255,.3);   }
+.qp-status-archived    { background: rgba(90,112,128,.12);  color: #5a7080; border: 1px solid rgba(90,112,128,.3);  }
+.qp-status-billed      { background: rgba(57,255,20,.08);   color: #2e7d32; border: 1px solid rgba(57,255,20,.2);   }
+.qp-status-other       { background: rgba(90,112,128,.10);  color: var(--qp-text-dim); border: 1px solid var(--qp-border); }
 
-                                        <% if (note.responsible == "Camilo") { %>
-                                            <span class="dotCamilo"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Johanna") { %>
-                                            <span class="dotJohanna"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Daniel") { %>
-                                            <span class="dotDaniel"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Pablo") { %>
-                                            <span class="dotPablo"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Sammy") { %>
-                                            <span class="dotSammy"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Polita") { %>
-                                            <span class="dotPolita"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "John") { %>
-                                            <span class="dotJohn"></span>
-                                        <% } %>
-                                        <% if (note.responsible == "Orphan") { %>
-                                            <span class="dotOrphan"></span>
-                                        <% } %>
-                                    
-                                    <%= note.mtxJobId %></small>
-                                </th>
-                                <td><%= note.title %></td>
-                                <td><%= note.customerJobNumber %></td>
-                                <td><%= note.project %></td>
-                                <td><%= note.wells %></td>
-                                <td><%= note.area %></td>
-                                <!-- <td><%= note.budget %></td> -->
-                                <td><%= note.rig %></td>
-                                <td><%= note.poc %></td>
-                                <td><%= note.geologist %></td>
-                                <!-- <td><%= note.responsible %></td> -->
-                                <!-- <td><%= note.priority %></td> -->
-                                <td><small><%= note.created %></small></td>
-                                <td><small><%= note.dueDate %></small></td>
-                                <td><%= note.status %></td>
-                            </tr>
-                        <% } %>
+/* Responsible colour dots */
+.dotCamilo  { width:7px;height:7px;border-radius:50%;background:#ff6b35;display:inline-block;margin-right:4px; }
+.dotJohanna { width:7px;height:7px;border-radius:50%;background:#c084fc;display:inline-block;margin-right:4px; }
+.dotDaniel  { width:7px;height:7px;border-radius:50%;background:#00c8ff;display:inline-block;margin-right:4px; }
+.dotPablo   { width:7px;height:7px;border-radius:50%;background:#ffd060;display:inline-block;margin-right:4px; }
+.dotSammy   { width:7px;height:7px;border-radius:50%;background:#39ff14;display:inline-block;margin-right:4px; }
+.dotPolita  { width:7px;height:7px;border-radius:50%;background:#ff4060;display:inline-block;margin-right:4px; }
+.dotJohn    { width:7px;height:7px;border-radius:50%;background:#79c0ff;display:inline-block;margin-right:4px; }
+.dotOrphan  { width:7px;height:7px;border-radius:50%;background:#5a7080;display:inline-block;margin-right:4px; }
+</style>
 
+<div class="mx-4 my-2">
 
-
-
-
-                        <% if (user.role == 'leader') { %>
-                            <% if ((note.status != 'Archived') && (note.status != 'Billed')) { %>
-                                <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                    <th scope="row"><small><%= note.mtxJobId %></small></th>
-                                    <td><%= note.title %></td>
-                                    <td><%= note.customerJobNumber %></td>
-                                    <td><%= note.project %></td>
-                                    <td><%= note.wells %></td>
-                                    <td><%= note.area %></td>
-                                    <!-- <td><%= note.budget %></td> -->
-                                    <td><%= note.rig %></td>
-                                    <td><%= note.poc %></td>
-                                    <td><%= note.geologist %></td>
-                                    <!-- <td><%= note.responsible %></td> -->
-                                    <!-- <td><%= note.priority %></td> -->
-                                    <td><small><%= note.created %></small></td>
-                                    <td><small><%= note.dueDate %></small></td>
-                                    <td><%= note.status %></td>
-                                </tr>
-                            <% } %>
-                        <% } %>
-
-
-
-
-                        
-                        <% if (user.role == 'user') { %>
-                            <% if ((note.status != 'Billed')) { %>
-                                <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                    <th scope="row"><small><%= note.mtxJobId %></small></th>
-                                    <td><%= note.title %></td>
-                                    <td><%= note.customerJobNumber %></td>
-                                    <td><%= note.project %></td>
-                                    <td><%= note.wells %></td>
-                                    <td><%= note.area %></td>
-                                    <!-- <td><%= note.budget %></td> -->
-                                    <td><%= note.rig %></td>
-                                    <td><%= note.poc %></td>
-                                    <td><%= note.geologist %></td>
-                                    <!-- <td><%= note.responsible %></td> -->
-                                    <!-- <td><%= note.priority %></td> -->
-                                    <td><small><%= note.created %></small></td>
-                                    <td><small><%= note.dueDate %></small></td>
-                                    <td><%= note.status %></td>
-                                </tr>
-                            <% } %>
-                        <% } %>
-
-
-                        
-                        <% if (user.role == 'viewer') { %>
-                            <% if ((note.status != 'Archived') && (note.status != 'Billed')) { %>
-                                <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                    <th scope="row"><small><%= note.mtxJobId %></small></th>
-                                    <td><%= note.title %></td>
-                                    <td><%= note.customerJobNumber %></td>
-                                    <td><%= note.project %></td>
-                                    <td><%= note.wells %></td>
-                                    <td><%= note.area %></td>
-                                    <!-- <td><%= note.budget %></td> -->
-                                    <td><%= note.rig %></td>
-                                    <td><%= note.poc %></td>
-                                    <td><%= note.geologist %></td>
-                                    <!-- <td><%= note.responsible %></td> -->
-                                    <!-- <td><%= note.priority %></td> -->
-                                    <td><small><%= note.created %></small></td>
-                                    <td><small><%= note.dueDate %></small></td>
-                                    <td><%= note.status %></td>
-                                </tr>
-                            <% } %>
-                        <% } %>
-                        
-
-
-
-                    <% }) %>
-
-                </tbody>
-
-            </table>
-
+    <!-- Page header -->
+    <div class="qp-header">
+        <div class="qp-title">
+            <span class="qp-title-dot"></span>
+            MTX Query Jobs
         </div>
-
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span class="qp-theme-wrap" id="qpThemeWrap">
+                <i class="bi bi-moon-stars-fill" style="font-size:13px;"></i>
+                <div class="form-check form-switch m-0" style="min-height:unset;">
+                    <input class="form-check-input" type="checkbox" role="switch" id="qpThemeSwitch" style="cursor:pointer;">
+                </div>
+                <i class="bi bi-sun-fill" style="font-size:13px;"></i>
+            </span>
+            <a class="btn btn-danger" href="/notes">← Back</a>
+        </div>
     </div>
 
+    <!-- Table -->
+    <div class="qp-table-wrap">
+        <table class="qp-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Task</th>
+                    <th>V.</th>
+                    <th>Project</th>
+                    <th>Wells</th>
+                    <th>Wellbores</th>
+                    <th>Version</th>
+                    <th>Cum. Wellbores</th>
+                    <th>Area</th>
+                    <th>Rig</th>
+                    <th>D.E</th>
+                    <th>Geo</th>
+                    <th>Due</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% notes.forEach(note => {
 
-    <%- include ('partials/footer.ejs') %>
+                    // Determine if this role should see this note
+                    const isAdmin   = user.role === 'admin';
+                    const isLeader  = user.role === 'leader' && note.status !== 'Archived' && note.status !== 'Billed';
+                    const isUser    = user.role === 'user'   && note.status !== 'Billed';
+                    const isViewer  = user.role === 'viewer' && note.status !== 'Archived' && note.status !== 'Billed';
+                    if (!isAdmin && !isLeader && !isUser && !isViewer) return;
+
+                    // Status badge class
+                    const statusMap = {
+                        'In Progress':'qp-status-inprogress','FINAL':'qp-status-final',
+                        'Need Info':'qp-status-needinfo','Handed Over':'qp-status-handedover',
+                        'In Queue':'qp-status-inqueue','DP-YES':'qp-status-dpyes',
+                        'Archived':'qp-status-archived','Billed':'qp-status-billed'
+                    };
+                    const statusClass = statusMap[note.status] || 'qp-status-other';
+                %>
+                    <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                        <th scope="row" style="white-space:nowrap;">
+                            <% if (note.responsible === 'Camilo')  { %><span class="dotCamilo"></span><% } %>
+                            <% if (note.responsible === 'Johanna') { %><span class="dotJohanna"></span><% } %>
+                            <% if (note.responsible === 'Daniel')  { %><span class="dotDaniel"></span><% } %>
+                            <% if (note.responsible === 'Pablo')   { %><span class="dotPablo"></span><% } %>
+                            <% if (note.responsible === 'Sammy')   { %><span class="dotSammy"></span><% } %>
+                            <% if (note.responsible === 'Polita')  { %><span class="dotPolita"></span><% } %>
+                            <% if (note.responsible === 'John')    { %><span class="dotJohn"></span><% } %>
+                            <% if (note.responsible === 'Orphan')  { %><span class="dotOrphan"></span><% } %>
+                            <small><%= note.mtxJobId %></small>
+                        </th>
+                        <td><%= note.title %></td>
+                        <td><%= note.customerJobNumber %></td>
+                        <td><%= note.project %></td>
+                        <td><%= note.wells %></td>
+                        <td>
+                            <% if (note.trajWells != null) { %>
+                                <span class="qp-wellbores-val"><%= note.trajWells %></span>
+                            <% } else { %>
+                                <span class="qp-wellbores-empty">—</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <%
+                                const _vMatch = (note.customerJobNumber || '').match(/P(\d+)/i);
+                                const _vNum   = _vMatch ? _vMatch[1] : null;
+                            %>
+                            <% if (_vNum) { %>
+                                <span class="qp-wellbores-val"><%= _vNum %></span>
+                            <% } else { %>
+                                <span class="qp-wellbores-empty">—</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <%
+                                const _cumWell = (note.trajWells != null && _vNum != null)
+                                    ? note.trajWells * parseInt(_vNum)
+                                    : null;
+                            %>
+                            <% if (_cumWell != null) { %>
+                                <span class="qp-wellbores-val"><%= _cumWell %></span>
+                            <% } else { %>
+                                <span class="qp-wellbores-empty">—</span>
+                            <% } %>
+                        </td>
+                        <td><%= note.area %></td>
+                        <td><%= note.rig %></td>
+                        <td><%= note.poc %></td>
+                        <td><%= note.geologist %></td>
+                        <td><small><%= note.dueDate %></small></td>
+                        <td><span class="qp-status <%= statusClass %>"><%= note.status %></span></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+(function(){
+    const LS_KEY = 'qpThemePreference';
+    const sw     = document.getElementById('qpThemeSwitch');
+
+    function applyTheme(light){
+        document.body.classList.toggle('qp-light', light);
+        sw.checked = light;
+    }
+
+    applyTheme(localStorage.getItem(LS_KEY) === 'light');
+
+    sw.addEventListener('change', function(){
+        localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
+        applyTheme(sw.checked);
+    });
+})();
+</script>
+
+<%- include ('partials/footer.ejs') %>

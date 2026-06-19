@@ -37,6 +37,7 @@ const {
     addFracPlane,
     updateFracPlane,
     deleteFracPlane,
+    savePadStats,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated} = require('../helpers/auth');
@@ -162,6 +163,7 @@ router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTr
 router.post('/notes/fracPlane/:trajectoryId', isAuthenticated, addFracPlane);
 router.put('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, updateFracPlane);
 router.delete('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, deleteFracPlane);
+router.patch('/notes/padStats/:id', isAuthenticated, savePadStats);
 
 
 //Get Upload Frac Planes form

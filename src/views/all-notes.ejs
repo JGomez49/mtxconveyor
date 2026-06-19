@@ -499,10 +499,76 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         <div class="accordion accordion-flush my-4 small" id="accordionExample">
 
 
-            <!-- <div id="dpBoxPlot" style="width:100%; max-width:100%;"></div> -->
+            <!-- ── DP Timing Statistics: filter sidebar + plot ── -->
+            <style>
+                .dpts-outer{
+                    display:flex; gap:0; border:1px solid var(--an-border, #1e2d3d);
+                    border-radius:4px; overflow:hidden; margin-bottom:14px;
+                }
+                .dpts-sidebar{
+                    width:230px; min-width:230px; flex-shrink:0;
+                    background: var(--an-panel, #111820);
+                    border-right:1px solid var(--an-border, #1e2d3d);
+                    padding:10px; overflow-y:auto; max-height:560px;
+                    font-family: var(--an-mono, monospace); font-size:11px;
+                    color: var(--an-text, #c8d8e8);
+                }
+                .dpts-sidebar h6{
+                    margin:10px 0 5px; font-size:10px;
+                    color: var(--an-text-dim, #5a7080);
+                    text-transform:uppercase; letter-spacing:1px;
+                    font-family: var(--an-cond, sans-serif);
+                    border-bottom:1px solid var(--an-border, #1e2d3d);
+                    padding-bottom:4px;
+                }
+                .dpts-sidebar h6:first-child{ margin-top:0; }
+                .dpts-filter-group{ max-height:120px; overflow-y:auto; margin-bottom:4px; }
+                .dpts-filter-group label{
+                    display:flex; align-items:center; gap:6px;
+                    margin:3px 0; cursor:pointer; font-size:10.5px;
+                }
+                .dpts-filter-group input[type=checkbox]{ cursor:pointer; flex-shrink:0; }
+                .dpts-plot-wrap{ flex:1; min-width:0; padding:8px; }
+                .dpts-reset-btn{
+                    width:100%; margin-top:8px;
+                    font-family: var(--an-cond, sans-serif); font-size:10px;
+                    font-weight:700; letter-spacing:1px; text-transform:uppercase;
+                    padding:5px; border-radius:3px;
+                    border:1px solid var(--an-border, #1e2d3d);
+                    background:transparent; color: var(--an-text-dim, #5a7080);
+                    cursor:pointer;
+                }
+                .dpts-reset-btn:hover{ border-color:#00c8ff; color:#00c8ff; }
+            </style>
+            <div class="dpts-outer">
+                <div class="dpts-sidebar" id="dptsSidebar">
+                    <h6>AFE Timing Year</h6>
+                    <div class="dpts-filter-group" id="dptsAfeYear"></div>
 
+                    <h6>Play Type</h6>
+                    <div class="dpts-filter-group" id="dptsPlayType"></div>
 
-            <div id="dpBoxPlot" style="width:100%;"></div>
+                    <h6>DP Received Year</h6>
+                    <div class="dpts-filter-group" id="dptsReceivedYear"></div>
+
+                    <h6>DP Requested Year</h6>
+                    <div class="dpts-filter-group" id="dptsRequestedYear"></div>
+
+                    <h6>DP Type</h6>
+                    <div class="dpts-filter-group" id="dptsDpType"></div>
+
+                    <h6>DP Company</h6>
+                    <div class="dpts-filter-group" id="dptsDpCompany"></div>
+
+                    <h6>DP Current Plan</h6>
+                    <div class="dpts-filter-group" id="dptsCurrentPlan"></div>
+
+                    <button type="button" class="dpts-reset-btn" id="dptsResetBtn">Reset Filters</button>
+                </div>
+                <div class="dpts-plot-wrap">
+                    <div id="dpBoxPlot" style="width:100%;"></div>
+                </div>
+            </div>
 
 
             
@@ -1537,7 +1603,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         </button>
                                     </h2>
                                     <div id="collapseTable" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
-                                        <div class="accordion-body">
+                                        <div class="accordion-body" style="overflow-x:auto;">
                                             <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
 
                                                 <!-- <button class="btn btn-info my-2" onclick="renderDPStatsBoxPlot();">📊 Show Stats</button>
@@ -1547,11 +1613,37 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                             <% } %>
                                             <table 
                                                 id="DPStatsTable" 
-                                                class="table table-dark table-striped table-bordered">
+                                                class="table table-dark table-striped table-bordered table-sm">
                                                 <thead>
                                                     <tr>
                                                         <th>DP Version</th>
                                                         <th>DP Days</th>
+                                                        <th>ETS ID</th>
+                                                        <th>BH Location</th>
+                                                        <th>Prospect Name</th>
+                                                        <th>Explor Core Area</th>
+                                                        <th>Field Name</th>
+                                                        <th>Well Type</th>
+                                                        <th>Op / Non-Op</th>
+                                                        <th>AFE Timing Year</th>
+                                                        <th>Play Type</th>
+                                                        <th>Province</th>
+                                                        <th>DP Proposed # of Wellbores (All Plans)</th>
+                                                        <th>DP Proposed Total Drilled Meters (All Plans)</th>
+                                                        <th>DP Proposed Total Lateral Length (All Plans)</th>
+                                                        <th>DP Received Date (All Plans)</th>
+                                                        <th>DP Request Date (All Plans)</th>
+                                                        <th>DP Revised Survey No (All Plans)</th>
+                                                        <th>DP Type (All Plans)</th>
+                                                        <th>DP Company Name (All Plans)</th>
+                                                        <th>DP Current Plan (All Plans)</th>
+                                                        <th>DP Design/Plan No (All Plans)</th>
+                                                        <th>DP Drill Approved (All Plans)</th>
+                                                        <th>DP Geol Approved (All Plans)</th>
+                                                        <th>DP Justification (All Plans)</th>
+                                                        <th>DP Proposed # of Wellbores</th>
+                                                        <th>DP Proposed Total Drilled Meters</th>
+                                                        <th>DP Proposed Total Lateral Length</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1559,6 +1651,32 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <tr>
                                                             <td><%= item.dpVersion %></td>
                                                             <td><%= item.dpDays %></td>
+                                                            <td><%= item.etsId ?? '' %></td>
+                                                            <td><%= item.bhLocation ?? '' %></td>
+                                                            <td><%= item.prospectName ?? '' %></td>
+                                                            <td><%= item.explorCoreArea ?? '' %></td>
+                                                            <td><%= item.fieldName ?? '' %></td>
+                                                            <td><%= item.wellType ?? '' %></td>
+                                                            <td><%= item.opNonOp ?? '' %></td>
+                                                            <td><%= item.afeTimingYear ?? '' %></td>
+                                                            <td><%= item.playType ?? '' %></td>
+                                                            <td><%= item.province ?? '' %></td>
+                                                            <td><%= item.dpProposedWellboresAllPlans ?? '' %></td>
+                                                            <td><%= item.dpProposedTotalDrilledMetersAllPlans ?? '' %></td>
+                                                            <td><%= item.dpProposedTotalLateralLengthAllPlans ?? '' %></td>
+                                                            <td><%= item.dpReceivedDateAllPlans ? item.dpReceivedDateAllPlans.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.dpRequestDateAllPlans ? item.dpRequestDateAllPlans.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.dpRevisedSurveyNoAllPlans ?? '' %></td>
+                                                            <td><%= item.dpTypeAllPlans ?? '' %></td>
+                                                            <td><%= item.dpCompanyNameAllPlans ?? '' %></td>
+                                                            <td><%= item.dpCurrentPlanAllPlans ?? '' %></td>
+                                                            <td><%= item.dpDesignPlanNoAllPlans ?? '' %></td>
+                                                            <td><%= item.dpDrillApprovedAllPlans ? item.dpDrillApprovedAllPlans.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.dpGeolApprovedAllPlans ? item.dpGeolApprovedAllPlans.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.dpJustificationAllPlans ?? '' %></td>
+                                                            <td><%= item.dpProposedWellbores ?? '' %></td>
+                                                            <td><%= item.dpProposedTotalDrilledMeters ?? '' %></td>
+                                                            <td><%= item.dpProposedTotalLateralLength ?? '' %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -2893,29 +3011,148 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 <script>
-    function renderDPStatsBoxPlot() {
-        const versions = [];
-        const days = [];
+    // Column indices in #DPStatsTable (0-based), matching the <thead> order
+    const DPTS_COL = {
+        version:      0,
+        days:         1,
+        afeYear:      9,
+        playType:     10,
+        receivedDate: 15,
+        requestDate:  16,
+        dpType:       18,
+        dpCompany:    19,
+        currentPlan:  20,
+    };
 
+    // Filters whose checked state defaults to a specific set of values
+    const DPTS_DEFAULT_CHECKED = {
+        dptsDpType:    ['PRELIM'],
+        dptsDpCompany: ['CNRL'],
+    };
+
+    let dptsAllRows = [];     // cached full row data, built once per table render
+    let dptsFiltersBuilt = false;
+
+    function dptsExtractYear(dateStr){
+        if(!dateStr) return '';
+        const m = String(dateStr).match(/^(\d{4})/);
+        return m ? m[1] : '';
+    }
+
+    function dptsReadTableRows(){
+        const rows = [];
         document.querySelectorAll("#DPStatsTable tbody tr").forEach(row => {
-            versions.push(row.cells[0].innerText.trim());
-            days.push(Number(row.cells[1].innerText.trim()));
+            const cells = row.cells;
+            if(!cells || cells.length < 21) return;
+            rows.push({
+                version:      cells[DPTS_COL.version].innerText.trim(),
+                days:         Number(cells[DPTS_COL.days].innerText.trim()) || 0,
+                afeYear:      cells[DPTS_COL.afeYear].innerText.trim(),
+                playType:     cells[DPTS_COL.playType].innerText.trim(),
+                receivedYear: dptsExtractYear(cells[DPTS_COL.receivedDate].innerText.trim()),
+                requestYear:  dptsExtractYear(cells[DPTS_COL.requestDate].innerText.trim()),
+                dpType:       cells[DPTS_COL.dpType].innerText.trim(),
+                dpCompany:    cells[DPTS_COL.dpCompany].innerText.trim(),
+                currentPlan:  cells[DPTS_COL.currentPlan].innerText.trim(),
+            });
         });
+        return rows;
+    }
 
-        // Sort paired arrays by numeric suffix of version label (P0 < P1 < P2 ...)
-        const paired = versions.map((v, i) => ({ v, d: days[i] }));
-        paired.sort((a, b) => {
-            const na = parseInt(a.v.replace(/\D/g, ''), 10);
-            const nb = parseInt(b.v.replace(/\D/g, ''), 10);
+    // Build one filter group's checkboxes from unique values present in dptsAllRows
+    function dptsBuildFilterGroup(containerId, fieldKey, defaultChecked){
+        const container = document.getElementById(containerId);
+        if(!container) return;
+        container.innerHTML = '';
+
+        const values = [...new Set(dptsAllRows.map(r => r[fieldKey]).filter(v => v !== ''))];
+        values.sort();
+
+        if(values.length === 0){
+            container.innerHTML = '<div style="color:var(--an-text-dim,#5a7080);font-size:9.5px;">No data</div>';
+            return;
+        }
+
+        values.forEach(v => {
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = v;
+            cb.dataset.field = fieldKey;
+            cb.checked = defaultChecked ? defaultChecked.includes(v) : true;
+            cb.addEventListener('change', dptsApplyFiltersAndRender);
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(v));
+            container.appendChild(label);
+        });
+    }
+
+    function dptsBuildAllFilters(){
+        dptsBuildFilterGroup('dptsAfeYear',       'afeYear',      null);
+        dptsBuildFilterGroup('dptsPlayType',      'playType',     null);
+        dptsBuildFilterGroup('dptsReceivedYear',  'receivedYear', null);
+        dptsBuildFilterGroup('dptsRequestedYear', 'requestYear',  null);
+        dptsBuildFilterGroup('dptsDpType',        'dpType',       DPTS_DEFAULT_CHECKED.dptsDpType);
+        dptsBuildFilterGroup('dptsDpCompany',     'dpCompany',    DPTS_DEFAULT_CHECKED.dptsDpCompany);
+        dptsBuildFilterGroup('dptsCurrentPlan',   'currentPlan',  null);
+        dptsFiltersBuilt = true;
+
+        const resetBtn = document.getElementById('dptsResetBtn');
+        if(resetBtn && !resetBtn.dataset.wired){
+            resetBtn.dataset.wired = '1';
+            resetBtn.addEventListener('click', () => {
+                dptsBuildAllFilters();   // rebuild = restores defaults (PRELIM/CNRL checked, rest checked)
+                dptsApplyFiltersAndRender();
+            });
+        }
+    }
+
+    // Returns the set of checked values for a given field across the sidebar
+    function dptsGetCheckedValues(fieldKey){
+        const checked = [];
+        document.querySelectorAll(`#dptsSidebar input[type=checkbox][data-field="${fieldKey}"]:checked`).forEach(cb => {
+            checked.push(cb.value);
+        });
+        return checked;
+    }
+
+    function dptsApplyFiltersAndRender(){
+        const fAfeYear      = dptsGetCheckedValues('afeYear');
+        const fPlayType     = dptsGetCheckedValues('playType');
+        const fReceivedYear = dptsGetCheckedValues('receivedYear');
+        const fRequestYear  = dptsGetCheckedValues('requestYear');
+        const fDpType       = dptsGetCheckedValues('dpType');
+        const fDpCompany    = dptsGetCheckedValues('dpCompany');
+        const fCurrentPlan  = dptsGetCheckedValues('currentPlan');
+
+        const filtered = dptsAllRows.filter(r =>
+            fAfeYear.includes(r.afeYear) &&
+            fPlayType.includes(r.playType) &&
+            fReceivedYear.includes(r.receivedYear) &&
+            fRequestYear.includes(r.requestYear) &&
+            fDpType.includes(r.dpType) &&
+            fDpCompany.includes(r.dpCompany) &&
+            fCurrentPlan.includes(r.currentPlan)
+        );
+
+        dptsRenderPlot(filtered);
+    }
+
+    function dptsRenderPlot(rows){
+        // Sort by numeric suffix of version label (P0 < P1 < P2 ...)
+        const sorted = [...rows].sort((a, b) => {
+            const na = parseInt(a.version.replace(/\D/g, ''), 10);
+            const nb = parseInt(b.version.replace(/\D/g, ''), 10);
             return (isNaN(na) ? 999 : na) - (isNaN(nb) ? 999 : nb);
         });
-        const sortedVersions = paired.map(p => p.v);
-        const sortedDays     = paired.map(p => p.d);
+        const sortedVersions = sorted.map(r => r.version);
+        const sortedDays     = sorted.map(r => r.days);
 
         const isLight = document.body.classList.contains('light-mode');
         const fontColor  = isLight ? '#1a2535' : '#c8d8e8';
         const axisColor  = isLight ? '#2c3e50' : '#5a7080';
         const gridColor  = isLight ? '#aabbcc' : '#1e2d3d';
+
         Plotly.newPlot("dpBoxPlot", [{
             y: sortedDays,
             x: sortedVersions,
@@ -2923,7 +3160,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             boxpoints: "outliers",
             marker: { color: "#0084c7" }
         }], {
-            title: { text: "DP Timing Statistics", font: { color: fontColor, size: 14 } },
+            title: { text: `DP Timing Statistics (${rows.length} records)`, font: { color: fontColor, size: 14 } },
             yaxis: {
                 title: { text: "Days", font: { color: axisColor } },
                 range: [0, 30],
@@ -2945,6 +3182,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             plot_bgcolor:  'rgba(0,0,0,0)',
             font: { color: fontColor },
         });
+    }
+
+    function renderDPStatsBoxPlot() {
+        dptsAllRows = dptsReadTableRows();
+        if(!dptsFiltersBuilt){
+            dptsBuildAllFilters();
+        }
+        dptsApplyFiltersAndRender();
     }
 </script>
 

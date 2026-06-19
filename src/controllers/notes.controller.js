@@ -740,14 +740,47 @@ notesCrtl.uploadDPStats = async (req, res) => {
       return res.status(400).json({ error: "No DPStats data received" });
     }
 
-    // remove header row
-    const rows = data.slice(2);
+    // remove header row — data rows start at index 1
+    const rows = data.slice(1);
 
-    // Map rows into objects
+    // Row layout (28 columns): [0]=DP Version, [1]=DP Days, then 26 raw source columns
+    // in the same order as SRC_COLS in uploadDPStats.ejs.
+    const toNum  = (v) => (v === "" || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+    const toDate = (v) => (v === "" || v === null || v === undefined) ? null : new Date(v);
+    const toStr  = (v) => (v === null || v === undefined) ? "" : String(v);
+
     const DPStatsDocs = rows.map((row) => {
       return {
         dpVersion: row[0] || "P0",
         dpDays: Number(row[1]) || 0,
+
+        etsId:                                toNum(row[2]),
+        bhLocation:                           toStr(row[3]),
+        prospectName:                         toStr(row[4]),
+        explorCoreArea:                       toStr(row[5]),
+        fieldName:                            toStr(row[6]),
+        wellType:                             toStr(row[7]),
+        opNonOp:                              toStr(row[8]),
+        afeTimingYear:                        toStr(row[9]),
+        playType:                             toStr(row[10]),
+        province:                             toStr(row[11]),
+        dpProposedWellboresAllPlans:          toNum(row[12]),
+        dpProposedTotalDrilledMetersAllPlans: toNum(row[13]),
+        dpProposedTotalLateralLengthAllPlans: toNum(row[14]),
+        dpReceivedDateAllPlans:               toDate(row[15]),
+        dpRequestDateAllPlans:                toDate(row[16]),
+        dpRevisedSurveyNoAllPlans:            toStr(row[17]),
+        dpTypeAllPlans:                       toStr(row[18]),
+        dpCompanyNameAllPlans:                toStr(row[19]),
+        dpCurrentPlanAllPlans:                toStr(row[20]),
+        dpDesignPlanNoAllPlans:               toStr(row[21]),
+        dpDrillApprovedAllPlans:              toDate(row[22]),
+        dpGeolApprovedAllPlans:               toDate(row[23]),
+        dpJustificationAllPlans:              toStr(row[24]),
+        dpProposedWellbores:                  toNum(row[25]),
+        dpProposedTotalDrilledMeters:         toNum(row[26]),
+        dpProposedTotalLateralLength:         toNum(row[27]),
+
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null,
       };
@@ -1038,4 +1071,19 @@ notesCrtl.deleteFracPlane = async (req, res) => {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
+};
+// PATCH /notes/padStats/:id — save trajectory pad summary stats to the note
+notesCrtl.savePadStats = async (req, res) => {
+    try {
+        const { trajWells, trajAvgDDI, trajAvgSteerIndex } = req.body;
+        await Note.findByIdAndUpdate(req.params.id, {
+            trajWells:         trajWells         ?? null,
+            trajAvgDDI:        trajAvgDDI        ?? null,
+            trajAvgSteerIndex: trajAvgSteerIndex ?? null,
+        });
+        res.json({ success: true });
+    } catch(error){
+        console.error('savePadStats error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };

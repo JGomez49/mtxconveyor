@@ -765,6 +765,25 @@
                     </div>
                 <% } %>
 
+                <% if (note.trajWells != null) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white" style="min-width:160px;">Traj. Wells</span>
+                        <input value="<%= note.trajWells %>" readonly type="text" class="form-control bg-dark text-white">
+                    </div>
+                <% } %>
+                <% if (note.trajAvgDDI != null) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white" style="min-width:160px;">Avg DDI</span>
+                        <input value="<%= note.trajAvgDDI %>" readonly type="text" class="form-control bg-dark text-white">
+                    </div>
+                <% } %>
+                <% if (note.trajAvgSteerIndex != null) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white" style="min-width:160px;">Avg Steer Index</span>
+                        <input value="<%= note.trajAvgSteerIndex %>" readonly type="text" class="form-control bg-dark text-white">
+                    </div>
+                <% } %>
+
 
 
 
@@ -2190,6 +2209,17 @@
             if(dashExportBtn){
                 dashExportBtn.onclick = () => wbtExportDashboardExcel(wbtLastDashboardMetrics);
             }
+
+            // Auto-save pad summary stats to the note in MongoDB
+            fetch('/notes/padStats/<%- note._id %>', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    trajWells:         validMetrics.length,
+                    trajAvgDDI:        padAvgDDI        !== null ? parseFloat(padAvgDDI.toFixed(2))        : null,
+                    trajAvgSteerIndex: padAvgSteer      !== null ? parseFloat(padAvgSteer.toFixed(3))      : null,
+                })
+            }).catch(err => console.warn('padStats save failed:', err));
 
             // Pad summary bar
             const summary = document.getElementById('wbtPadSummary');

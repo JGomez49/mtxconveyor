@@ -1,6 +1,5 @@
 
 
-
 <%- include ('partials/header.ejs') %>
 
     <div class="_container bg-dark">
@@ -9,7 +8,12 @@
 
         <p class="mb-4 m-4">USER: <%= user.name %></p>
 
-        <!-- <pre><%= note %></pre> -->
+        <p class="mx-4" style="color:#aaa;">
+            Upload the raw "Report" export (.xlsx). DP Version is extracted from
+            <b>DP Design/Plan No (All Plans)</b> and DP Days is computed as
+            <b>DP Received Date (All Plans) − DP Request Date (All Plans)</b>.
+            All other columns are stored as-is for reference.
+        </p>
 
         <div class="row m-4">
 
@@ -52,7 +56,7 @@
                     </button>
                 </h2>
                 <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
-                    <div class="accordion-body">
+                    <div class="accordion-body" style="overflow-x:auto;">
                       <table
                         id="dpStatsTable"
                         class="table table-dark table-striped table-bordered table-sm">
@@ -83,20 +87,37 @@
 
     <script>
 
+        // ── Source column headers (raw "Report" export) — order matters ──
+        // Index positions are 0-based, matching the columns in the uploaded file.
+        const SRC_COLS = [
+            "ETS ID", "BH Location", "Prospect Name", "Explor Core Area", "Field Name",
+            "Well Type", "Op / Non-Op", "AFE Timing Year", "Play Type", "Province",
+            "DP Proposed # of Wellbores (All Plans)", "DP Proposed Total Drilled Meters (All Plans)",
+            "DP Proposed Total Lateral Length (All Plans)", "DP Received Date (All Plans)",
+            "DP Request Date (All Plans)", "DP Revised Survey No (All Plans)", "DP Type (All Plans)",
+            "DP Company Name (All Plans)", "DP Current Plan (All Plans)", "DP Design/Plan No (All Plans)",
+            "DP Drill Approved (All Plans)", "DP Geol Approved (All Plans)", "DP Justification (All Plans)",
+            "DP Proposed # of Wellbores", "DP Proposed Total Drilled Meters", "DP Proposed Total Lateral Length"
+        ];
+        const COL = {
+            dpReceivedDate: 13,  // column N (0-indexed)
+            dpRequestDate:  14,  // column O
+            dpDesignPlanNo: 19,  // column T
+        };
+
+        // Final table layout: DP Version, DP Days first (box plot depends on these
+        // being columns 0 and 1), then all raw source columns.
+        const OUT_HEADERS = ["DP Version", "DP Days", ...SRC_COLS];
+
         function normalizeP(value) {
-            if (value === null || value === undefined) {
+            if (value === null || value === undefined || value === "") {
                 return "P0";
             }
-
             const text = String(value).toUpperCase();
-
-            // Look for first "P<number>"
             const match = text.match(/P\s*(\d+)/);
-
             if (!match) {
                 return "P0";
             }
-
             return "P" + Number(match[1]);
         }
 
@@ -104,6 +125,30 @@
             const na = parseInt(a.replace("P", ""), 10);
             const nb = parseInt(b.replace("P", ""), 10);
             return na - nb;
+        }
+
+        // Excel serial date -> JS Date (xlsx.js can also give JS Date directly
+        // when cellDates:true is used, which we do below)
+        function toDateSafe(v) {
+            if (v instanceof Date) return v;
+            if (typeof v === "number") {
+                // Excel serial date fallback
+                return new Date(Math.round((v - 25569) * 86400 * 1000));
+            }
+            if (typeof v === "string" && v.trim() !== "") {
+                const d = new Date(v);
+                if (!isNaN(d)) return d;
+            }
+            return null;
+        }
+
+        function daysBetween(received, requested) {
+            const dRec = toDateSafe(received);
+            const dReq = toDateSafe(requested);
+            if (!dRec || !dReq) return 0;
+            const diffMs = dRec - dReq;
+            const days = Math.round(diffMs / 86400000);
+            return days < 0 ? 0 : days;
         }
 
         document.getElementById("excelFileDPStats").addEventListener("change", handleExcelUpload);
@@ -117,40 +162,52 @@
 
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: "array" });
+                const workbook = XLSX.read(data, { type: "array", cellDates: true });
 
-                // Use FIRST sheet
-                const sheetName = workbook.SheetNames[0];
+                // Use "Report" sheet if present, else first sheet
+                const sheetName = workbook.SheetNames.includes("Report")
+                    ? "Report" : workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
 
-                // Convert to array-of-arrays
-                let rows = XLSX.utils.sheet_to_json(worksheet, {
+                // Convert to array-of-arrays, raw values, header in row 1
+                let rawRows = XLSX.utils.sheet_to_json(worksheet, {
                     header: 1,
                     blankrows: false,
                     defval: ""
                 });
 
-                if (!rows.length) {
+                if (!rawRows.length) {
                     alert("❌ Excel file is empty");
                     return;
                 }
 
-                // ✅ --- NORMALIZE 1st COLUMN (index 0), SKIP HEADER ---
-                for (let i = 0; i < rows.length; i++) {
-                    rows[i][0] = normalizeP(rows[i][0]);
-                    if (rows[i][1] < 0){rows[i][1] = 0};
-                }
+                // Drop header row from source (row 0)
+                rawRows.shift();
 
-                // ✅ --- SORT BY NORMALIZED P VALUE, KEEP HEADER ---
-                const header = rows.shift();
+                // Build output rows: [DP Version, DP Days, ...26 raw columns]
+                let outRows = rawRows.map(row => {
+                    const dpVersion = normalizeP(row[COL.dpDesignPlanNo]);
+                    const dpDays = daysBetween(row[COL.dpReceivedDate], row[COL.dpRequestDate]);
 
-                rows.sort((a, b) => compareP(a[0], b[0]));
+                    // Format dates for display; keep everything else as-is
+                    const formatted = row.map((cell, idx) => {
+                        if (cell instanceof Date) {
+                            return cell.toISOString().slice(0, 10);
+                        }
+                        return cell;
+                    });
 
-                rows.unshift(header);
+                    return [dpVersion, dpDays, ...formatted];
+                });
 
-                renderExcelTable(rows);
+                // Sort by normalized P version
+                outRows.sort((a, b) => compareP(a[0], b[0]));
 
-                console.log("📄 Excel data preview:", rows.slice(0, 5));
+                const finalRows = [OUT_HEADERS, ...outRows];
+
+                renderExcelTable(finalRows);
+
+                console.log("📄 Excel data preview:", finalRows.slice(0, 5));
             };
 
             reader.readAsArrayBuffer(file);

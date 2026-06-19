@@ -24,6 +24,11 @@ const NoteConveyorSchema = new Schema({
     budget: {type: String},
     created: {type: String},
 
+    // Trajectory pad summary (auto-saved from 3D viewer dashboard)
+    trajWells:           {type: Number, default: null},
+    trajAvgDDI:          {type: Number, default: null},
+    trajAvgSteerIndex:   {type: Number, default: null},
+
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
     checkOffsetWellsInfo: {type: String, defaultValue: "No"},
