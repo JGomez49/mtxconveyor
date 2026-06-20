@@ -16,6 +16,7 @@ const NoteConveyorSchema = new Schema({
     status: {type: String},
     dueDate: {type: String},
     rig: {type: String},
+    group: {type: String},
     project: {type: String},
     poc: {type: String},
     geologist: {type: String},

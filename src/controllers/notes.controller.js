@@ -586,7 +586,7 @@ notesCrtl.syncDueDates = async (req, res) => {
     const notes = await Note.find().lean();
     const schedule = await Schedule.find().lean();
 
-    // Build a map of schedule sites → { start, rig }
+    // Build a map of schedule sites → { start, rig, group }
     const scheduleMap = {};
     schedule.forEach(sch => {
       if (sch.site && sch.start) {
@@ -595,13 +595,14 @@ notesCrtl.syncDueDates = async (req, res) => {
           const isoDate = new Date(sch.start).toISOString().split("T")[0]; // YYYY-MM-DD
           scheduleMap[key] = {
             start: isoDate,
-            rig: sch.rig || null
+            rig: sch.rig || null,
+            group: sch.group || null,
           };
         }
       }
     });
 
-    // Loop through notes and update dueDate + rig
+    // Loop through notes and update dueDate + rig + group
     let updatedCount = 0;
     for (let note of notes) {
       const key = note.project?.slice(0, 14);
@@ -612,11 +613,14 @@ notesCrtl.syncDueDates = async (req, res) => {
         if (scheduleMap[key].rig) {
           updateFields.rig = scheduleMap[key].rig;
         }
+        if (scheduleMap[key].group) {
+          updateFields.group = scheduleMap[key].group;
+        }
 
         await Note.findByIdAndUpdate(note._id, updateFields);
         updatedCount++;
         console.log(
-          `✅ Updated Note ${note._id} → dueDate = ${updateFields.dueDate}, rig = ${updateFields.rig || "unchanged"}`
+          `✅ Updated Note ${note._id} → dueDate = ${updateFields.dueDate}, rig = ${updateFields.rig || "unchanged"}, group = ${updateFields.group || "unchanged"}`
         );
       }
     }

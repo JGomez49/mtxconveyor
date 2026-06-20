@@ -439,6 +439,15 @@ body.light-mode th[style*="background-color: #transparent"] { color: var(--an-te
 body.light-mode .text-white,
 body.light-mode [style*="color: white"],
 body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
+
+/* The accordion wrapper has a "small" class shrinking all its text to 87.5%.
+   ID/Due cells additionally wrap their value in <small>, compounding the
+   shrink further. Neutralize the inner <small> so ID/Due match the rest
+   of the columns at the accordion's base font size. */
+.accordion.small table small,
+.accordion.small table th small {
+    font-size: 1em !important;
+}
 </style>
 
 
@@ -642,6 +651,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <th scope="col">D.E</th>
                                         <th scope="col">Geo</th>
                                         <th scope="col">Rig</th>
+                                        <th scope="col">Group</th>
                                         <!-- <th scope="col">Resp.</th> -->
                                         <!-- <th scope="col">Created</th> -->
                                         <th scope="col">Due</th>
@@ -720,6 +730,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                     <td><%= note.poc %></td>
                                                     <td><%= note.geologist %></td>
                                                     <td><%= note.rig %></td>
+                                                    <td><%= note.group ?? '' %></td>
                                                     <!-- <td><%= note.responsible %></td> -->
                                                     <!-- <td><small><%= note.created %></small></td> -->
                                                     <td><small><%= note.dueDate %></small></td>
@@ -749,6 +760,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <th scope="col">D.E</th>
                                         <th scope="col">Geo</th>
                                         <th scope="col">Rig</th>
+                                        <th scope="col">Group</th>
                                         <!-- <th scope="col">Resp.</th> -->
                                         <!-- <th scope="col">Created</th> -->
                                         <th scope="col">Due</th>
@@ -826,6 +838,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                     <td><%= note.poc %></td>
                                                     <td><%= note.geologist %></td>
                                                     <td><%= note.rig %></td>
+                                                    <td><%= note.group ?? '' %></td>
                                                     <!-- <td><%= note.responsible %></td> -->
                                                     <!-- <td><small><%= note.created %></small></td> -->
                                                     <td><small><%= note.dueDate %></small></td>
@@ -1886,6 +1899,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 const colorOfBorder = "#000000";
                 const datasets = [];
                 const colors = [];
+                const borderColors = [];
+                const borderWidths = [];
+                const glowFlags = [];
                 const colorCounts = { 
                     blue: 0, 
                     red: 0, 
@@ -2135,6 +2151,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 break;
                         }
 
+                        // Glowing highlight border for fully-approved bars
+                        // (DrillOK = Yes AND GeoOK = Yes), drawn via a thicker
+                        // bright border; the actual glow effect is applied in
+                        // CSS via a canvas drop-shadow filter toggle below.
+                        const isFullyApproved =
+                            String(drillok).trim().toUpperCase() === "YES-DRILL" &&
+                            String(geook).trim().toUpperCase() === "YES-GEO";
+                        borderColors.push(isFullyApproved ? "#39ff14" : colorOfBorder);
+                        borderWidths.push(isFullyApproved ? 3 : 1);
+                        glowFlags.push(isFullyApproved);
+
 
                     });
                 });
@@ -2172,8 +2199,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             borderRadius: 6,
                             borderSkipped: false,
                             //borderColor: "#000",
-                            borderColor: colorOfBorder,
-                            borderWidth: 1,
+                            borderColor: borderColors,
+                            borderWidth: borderWidths,
                             parsing: { xAxisKey: "x", yAxisKey: "y" },
                         }]
                     },
@@ -2362,6 +2389,35 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             ctx2.fillStyle = '#ffffff';
                             ctx2.fillRect(0, 0, chart.width, chart.height);
                             ctx2.restore();
+                        }
+                    }, {
+                        // Draws a glowing outline around bars where DrillOK = Yes
+                        // AND GeoOK = Yes (fully approved), by re-stroking each
+                        // flagged bar with a blurred shadow, twice for intensity.
+                        id: 'anGlowApprovedPlugin',
+                        afterDatasetsDraw: (chart) => {
+                            const meta = chart.getDatasetMeta(0);
+                            if(!meta || !meta.data) return;
+                            const ctx2 = chart.ctx;
+                            meta.data.forEach((bar, i) => {
+                                if(!glowFlags[i]) return;
+                                const { x, y, base, height } = bar.getProps(['x', 'y', 'base', 'height'], true);
+                                const rectX = Math.min(x, base);
+                                const rectW = Math.abs(x - base);
+                                const barH  = height || 16;
+                                const rectY = y - barH / 2;
+
+                                ctx2.save();
+                                ctx2.shadowColor = '#39ff14';
+                                ctx2.shadowBlur = 14;
+                                ctx2.strokeStyle = '#39ff14';
+                                ctx2.lineWidth = 2;
+                                ctx2.strokeRect(rectX, rectY, rectW, barH);
+                                // second pass for stronger glow
+                                ctx2.shadowBlur = 20;
+                                ctx2.strokeRect(rectX, rectY, rectW, barH);
+                                ctx2.restore();
+                            });
                         }
                     }]
                 });
