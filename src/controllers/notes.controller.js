@@ -781,6 +781,15 @@ notesCrtl.uploadDPStats = async (req, res) => {
         dpProposedTotalDrilledMeters:         toNum(row[26]),
         dpProposedTotalLateralLength:         toNum(row[27]),
 
+        // New columns (32-column format) — gracefully empty/null for older uploads
+        rig:                                  toStr(row[28]),
+        rigDuration:                          toNum(row[29]),
+        scheduled:                            toStr(row[30]),
+        siteName:                             toStr(row[31]),
+        spudDate:                             toDate(row[32]),
+        rigReleaseDate:                       toDate(row[33]),
+        estStartDate:                         toDate(row[34]),
+
         user: req.user ? req.user._id : null,
         noteId: req.params.id || null,
       };

@@ -37,6 +37,15 @@ const DPStatsSchema = new Schema(
     dpProposedTotalDrilledMeters:       { type: Number },
     dpProposedTotalLateralLength:       { type: Number },
 
+    // ── New columns added in the 32-column export format ──
+    rig:                                { type: String },
+    rigDuration:                        { type: Number },
+    scheduled:                          { type: String },
+    siteName:                           { type: String },
+    spudDate:                           { type: Date },
+    rigReleaseDate:                     { type: Date },
+    estStartDate:                       { type: Date },
+
     user: { type: Schema.Types.ObjectId, ref: "User" },
     noteId: { type: Schema.Types.ObjectId, ref: "NoteConveyor" },
     uploadedDate: { type: Date, default: Date.now },

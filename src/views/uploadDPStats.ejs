@@ -89,6 +89,10 @@
 
         // ── Source column headers (raw "Report" export) — order matters ──
         // Index positions are 0-based, matching the columns in the uploaded file.
+        // Supports the legacy 26-column format, the 32-column format, and the
+        // current 33-column format (adds "Est. Start Date" at the end). Older
+        // files are auto-padded so the output table always has the full
+        // 33-column layout.
         const SRC_COLS = [
             "ETS ID", "BH Location", "Prospect Name", "Explor Core Area", "Field Name",
             "Well Type", "Op / Non-Op", "AFE Timing Year", "Play Type", "Province",
@@ -97,8 +101,11 @@
             "DP Request Date (All Plans)", "DP Revised Survey No (All Plans)", "DP Type (All Plans)",
             "DP Company Name (All Plans)", "DP Current Plan (All Plans)", "DP Design/Plan No (All Plans)",
             "DP Drill Approved (All Plans)", "DP Geol Approved (All Plans)", "DP Justification (All Plans)",
-            "DP Proposed # of Wellbores", "DP Proposed Total Drilled Meters", "DP Proposed Total Lateral Length"
+            "DP Proposed # of Wellbores", "DP Proposed Total Drilled Meters", "DP Proposed Total Lateral Length",
+            "Rig", "Rig Duration", "Scheduled", "Site Name", "Spud Date", "Rig Release Date",
+            "Est. Start Date"
         ];
+        const SRC_COLS_COUNT = SRC_COLS.length; // 33
         const COL = {
             dpReceivedDate: 13,  // column N (0-indexed)
             dpRequestDate:  14,  // column O
@@ -184,13 +191,18 @@
                 // Drop header row from source (row 0)
                 rawRows.shift();
 
-                // Build output rows: [DP Version, DP Days, ...26 raw columns]
+                // Build output rows: [DP Version, DP Days, ...32 raw columns]
                 let outRows = rawRows.map(row => {
                     const dpVersion = normalizeP(row[COL.dpDesignPlanNo]);
                     const dpDays = daysBetween(row[COL.dpReceivedDate], row[COL.dpRequestDate]);
 
+                    // Pad row to full column count (handles older 26-column files
+                    // gracefully — missing trailing columns become empty strings)
+                    const padded = row.slice(0, SRC_COLS_COUNT);
+                    while (padded.length < SRC_COLS_COUNT) padded.push("");
+
                     // Format dates for display; keep everything else as-is
-                    const formatted = row.map((cell, idx) => {
+                    const formatted = padded.map(cell => {
                         if (cell instanceof Date) {
                             return cell.toISOString().slice(0, 10);
                         }

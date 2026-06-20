@@ -1577,6 +1577,13 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <th>DP Proposed # of Wellbores</th>
                                                         <th>DP Proposed Total Drilled Meters</th>
                                                         <th>DP Proposed Total Lateral Length</th>
+                                                        <th>Rig</th>
+                                                        <th>Rig Duration</th>
+                                                        <th>Scheduled</th>
+                                                        <th>Site Name</th>
+                                                        <th>Spud Date</th>
+                                                        <th>Rig Release Date</th>
+                                                        <th>Est. Start Date</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1610,6 +1617,13 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <td><%= item.dpProposedWellbores ?? '' %></td>
                                                             <td><%= item.dpProposedTotalDrilledMeters ?? '' %></td>
                                                             <td><%= item.dpProposedTotalLateralLength ?? '' %></td>
+                                                            <td><%= item.rig ?? '' %></td>
+                                                            <td><%= item.rigDuration ?? '' %></td>
+                                                            <td><%= item.scheduled ?? '' %></td>
+                                                            <td><%= item.siteName ?? '' %></td>
+                                                            <td><%= item.spudDate ? item.spudDate.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.rigReleaseDate ? item.rigReleaseDate.toISOString().slice(0,10) : '' %></td>
+                                                            <td><%= item.estStartDate ? item.estStartDate.toISOString().slice(0,10) : '' %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -2956,13 +2970,24 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         dpType:       18,
         dpCompany:    19,
         currentPlan:  20,
+        rig:          28,
+        estStartDate: 34,
     };
 
     // Filters whose checked state defaults to a specific set of values
     const DPTS_DEFAULT_CHECKED = {
-        dptsDpType:    ['PRELIM'],
+        dptsDpType:    ['PRELIM', 'EXEC'],
         dptsDpCompany: ['CNRL'],
     };
+
+    // Year filters default to checked for (current year - 2) and any future year;
+    // older years start unchecked. Returns true if `v` (a year string) should be checked.
+    function dptsYearDefaultChecked(v){
+        const year = parseInt(v, 10);
+        if(isNaN(year)) return true;
+        const cutoff = new Date().getFullYear() - 2;
+        return year >= cutoff;
+    }
 
     let dptsAllRows = [];     // cached full row data, built once per table render
     let dptsFiltersBuilt = false;
@@ -2991,6 +3016,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 dpType:       cells[DPTS_COL.dpType].innerText.trim(),
                 dpCompany:    cells[DPTS_COL.dpCompany].innerText.trim(),
                 currentPlan:  cells[DPTS_COL.currentPlan].innerText.trim(),
+                rig:          cells.length > DPTS_COL.rig ? cells[DPTS_COL.rig].innerText.trim() : '',
+                estStartDateFull: cells.length > DPTS_COL.estStartDate ? cells[DPTS_COL.estStartDate].innerText.trim() : '',
             });
         });
         return rows;
@@ -3016,7 +3043,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             cb.type = 'checkbox';
             cb.value = v;
             cb.dataset.field = fieldKey;
-            cb.checked = defaultChecked ? defaultChecked.includes(v) : true;
+            if(typeof defaultChecked === 'function'){
+                cb.checked = defaultChecked(v);
+            } else {
+                cb.checked = defaultChecked ? defaultChecked.includes(v) : true;
+            }
             cb.addEventListener('change', dptsApplyFiltersAndRender);
             label.appendChild(cb);
             label.appendChild(document.createTextNode(v));
@@ -3025,10 +3056,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     }
 
     function dptsBuildAllFilters(){
-        dptsBuildFilterGroup('dptsAfeYear',       'afeYear',      null);
+        dptsBuildFilterGroup('dptsAfeYear',       'afeYear',      dptsYearDefaultChecked);
         dptsBuildFilterGroup('dptsPlayType',      'playType',     null);
-        dptsBuildFilterGroup('dptsReceivedYear',  'receivedYear', null);
-        dptsBuildFilterGroup('dptsRequestedYear', 'requestYear',  null);
+        dptsBuildFilterGroup('dptsReceivedYear',  'receivedYear', dptsYearDefaultChecked);
+        dptsBuildFilterGroup('dptsRequestedYear', 'requestYear',  dptsYearDefaultChecked);
         dptsBuildFilterGroup('dptsDpType',        'dpType',       DPTS_DEFAULT_CHECKED.dptsDpType);
         dptsBuildFilterGroup('dptsDpCompany',     'dpCompany',    DPTS_DEFAULT_CHECKED.dptsDpCompany);
         dptsBuildFilterGroup('dptsCurrentPlan',   'currentPlan',  null);
@@ -3073,8 +3104,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         );
 
         dptsRenderPlot(filtered);
-        dptsRenderMonthlyPlot(filtered);
-        dptsRenderBacklogPlot(filtered);
         dptsRenderWellboresMonthlyPlot(filtered);
         dptsRenderWellboresBacklogPlot(filtered);
     }
@@ -3140,185 +3169,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             label: `${DPTS_MONTH_NAMES[month-1]} ${year}`,
             sortKey: year * 100 + month,
         };
-    }
-
-    // Shared helper: bucket rows into {labels, reqVals, recVals} aligned by month, sorted chronologically
-    function dptsBucketByMonth(rows){
-        const requestedCounts = {};
-        const receivedCounts  = {};
-
-        rows.forEach(r => {
-            const reqK = dptsMonthKey(r.requestDateFull);
-            if(reqK){
-                if(!requestedCounts[reqK.key]) requestedCounts[reqK.key] = { label: reqK.label, sortKey: reqK.sortKey, count: 0 };
-                requestedCounts[reqK.key].count++;
-            }
-            const recK = dptsMonthKey(r.receivedDateFull);
-            if(recK){
-                if(!receivedCounts[recK.key]) receivedCounts[recK.key] = { label: recK.label, sortKey: recK.sortKey, count: 0 };
-                receivedCounts[recK.key].count++;
-            }
-        });
-
-        const allKeys = [...new Set([...Object.keys(requestedCounts), ...Object.keys(receivedCounts)])];
-        allKeys.sort((a, b) => {
-            const sa = requestedCounts[a]?.sortKey ?? receivedCounts[a]?.sortKey;
-            const sb = requestedCounts[b]?.sortKey ?? receivedCounts[b]?.sortKey;
-            return sa - sb;
-        });
-
-        const labels  = allKeys.map(k => (requestedCounts[k] || receivedCounts[k]).label);
-        const reqVals = allKeys.map(k => requestedCounts[k] ? requestedCounts[k].count : 0);
-        const recVals = allKeys.map(k => receivedCounts[k]  ? receivedCounts[k].count  : 0);
-
-        return { labels, reqVals, recVals };
-    }
-
-    function dptsRenderMonthlyPlot(rows){
-        const { labels, reqVals, recVals } = dptsBucketByMonth(rows);
-
-        const isLight = document.body.classList.contains('light-mode');
-        const fontColor = isLight ? '#1a2535' : '#c8d8e8';
-        const axisColor = isLight ? '#2c3e50' : '#5a7080';
-        const gridColor = isLight ? '#aabbcc' : '#1e2d3d';
-
-        const el = document.getElementById('dpMonthlyPlot');
-        if(!el) return;
-
-        Plotly.newPlot('dpMonthlyPlot', [
-            {
-                x: labels, y: reqVals, type: 'bar', name: 'DP Requested',
-                marker: { color: '#ff6b35' },
-            },
-            {
-                x: labels, y: recVals, type: 'bar', name: 'DP Received',
-                marker: { color: '#0084c7' },
-            },
-        ], {
-            title: { text: `DP Requests vs Received by Month (${rows.length} records)`, font: { color: fontColor, size: 14 } },
-            barmode: 'group',
-            yaxis: {
-                title: { text: 'Count', font: { color: axisColor } },
-                color: fontColor,
-                tickfont: { color: fontColor },
-                gridcolor: gridColor,
-                zerolinecolor: gridColor,
-                rangemode: 'tozero',
-            },
-            xaxis: {
-                title: { text: 'Month', font: { color: axisColor } },
-                color: fontColor,
-                tickfont: { color: fontColor, size: 10 },
-                gridcolor: gridColor,
-                categoryorder: 'array',
-                categoryarray: labels,
-                tickangle: -45,
-            },
-            legend: {
-                font: { color: fontColor },
-                orientation: 'h',
-                y: 1.12,
-            },
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor:  'rgba(0,0,0,0)',
-            font: { color: fontColor },
-            margin: { b: 90 },
-        });
-    }
-
-    // ── DP Backlog per month (Received − Requested) ────────────────────────
-    // Shows both:
-    //  - Monthly delta (received - requested in that month alone) as a bar
-    //  - Cumulative running backlog (sum of all deltas up to that month) as a
-    //    filled area, green where the cumulative value is >= 0, red where < 0.
-    function dptsRenderBacklogPlot(rows){
-        const { labels, reqVals, recVals } = dptsBucketByMonth(rows);
-
-        const monthlyDelta = labels.map((_, i) => recVals[i] - reqVals[i]);
-
-        // Running cumulative backlog
-        let running = 0;
-        const cumulative = monthlyDelta.map(d => { running += d; return running; });
-
-        // Split cumulative into positive-only and negative-only series so each
-        // can be filled with a different color. Where the segment doesn't apply,
-        // the value is null so Plotly breaks the fill there. To get a clean
-        // crossing at zero, each series carries 0 at the points adjacent to a
-        // sign change (so the fill visually touches the zero line).
-        const posSeries = new Array(cumulative.length).fill(null);
-        const negSeries = new Array(cumulative.length).fill(null);
-
-        for(let i = 0; i < cumulative.length; i++){
-            const v = cumulative[i];
-            if(v >= 0){
-                posSeries[i] = v;
-                // bring neighbouring negative series down to 0 for a clean crossing
-                if(i > 0 && cumulative[i-1] < 0) negSeries[i] = 0;
-            } else {
-                negSeries[i] = v;
-                if(i > 0 && cumulative[i-1] >= 0) posSeries[i] = 0;
-            }
-        }
-
-        const isLight = document.body.classList.contains('light-mode');
-        const fontColor = isLight ? '#1a2535' : '#c8d8e8';
-        const axisColor = isLight ? '#2c3e50' : '#5a7080';
-        const gridColor = isLight ? '#aabbcc' : '#1e2d3d';
-
-        const el = document.getElementById('dpBacklogPlot');
-        if(!el) return;
-
-        Plotly.newPlot('dpBacklogPlot', [
-            {
-                x: labels, y: monthlyDelta, type: 'bar', name: 'Monthly Δ (Received − Requested)',
-                marker: {
-                    color: monthlyDelta.map(d => d >= 0 ? 'rgba(57,255,20,0.55)' : 'rgba(255,64,96,0.55)')
-                },
-                opacity: 0.7,
-            },
-            {
-                x: labels, y: posSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Backlog (+)',
-                line: { color: '#39ff14', width: 2 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(57,255,20,0.25)',
-                connectgaps: false,
-            },
-            {
-                x: labels, y: negSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Backlog (−)',
-                line: { color: '#ff4060', width: 2 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(255,64,96,0.25)',
-                connectgaps: false,
-            },
-        ], {
-            title: { text: `DP Backlog by Month — Cumulative (Received − Requested)`, font: { color: fontColor, size: 14 } },
-            yaxis: {
-                title: { text: 'Backlog (count)', font: { color: axisColor } },
-                color: fontColor,
-                tickfont: { color: fontColor },
-                gridcolor: gridColor,
-                zerolinecolor: gridColor,
-                zerolinewidth: 2,
-            },
-            xaxis: {
-                title: { text: 'Month', font: { color: axisColor } },
-                color: fontColor,
-                tickfont: { color: fontColor, size: 10 },
-                gridcolor: gridColor,
-                categoryorder: 'array',
-                categoryarray: labels,
-                tickangle: -45,
-            },
-            legend: {
-                font: { color: fontColor },
-                orientation: 'h',
-                y: 1.12,
-            },
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor:  'rgba(0,0,0,0)',
-            font: { color: fontColor },
-            margin: { b: 90 },
-        });
     }
 
     // ── Shared helper: bucket WELLBORE COUNTS (not row counts) by month ───
@@ -3444,11 +3294,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
         Plotly.newPlot('dpWellboresBacklogPlot', [
             {
-                x: labels, y: monthlyDelta, type: 'bar', name: 'Monthly Δ (Received − Requested)',
+                x: labels, y: monthlyDelta, type: 'bar', name: 'Monthly Backlog (Received − Requested)',
                 marker: {
-                    color: monthlyDelta.map(d => d >= 0 ? 'rgba(57,255,20,0.55)' : 'rgba(255,64,96,0.55)')
+                    color: monthlyDelta.map(d => d >= 0 ? 'rgba(57,255,20,0.75)' : 'rgba(255,64,96,0.75)')
                 },
-                opacity: 0.7,
             },
             {
                 x: labels, y: posSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Wellbore Backlog (+)',
@@ -3456,6 +3305,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 fill: 'tozeroy',
                 fillcolor: 'rgba(57,255,20,0.25)',
                 connectgaps: false,
+                visible: 'legendonly',
             },
             {
                 x: labels, y: negSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Wellbore Backlog (−)',
@@ -3463,9 +3313,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 fill: 'tozeroy',
                 fillcolor: 'rgba(255,64,96,0.25)',
                 connectgaps: false,
+                visible: 'legendonly',
             },
         ], {
-            title: { text: `DP Wellbore Backlog by Month — Cumulative (Received − Requested)`, font: { color: fontColor, size: 14 } },
+            title: { text: `DP Wellbore Backlog by Month (Received − Requested)`, font: { color: fontColor, size: 14 } },
             yaxis: {
                 title: { text: 'Backlog (wellbores)', font: { color: axisColor } },
                 color: fontColor,
@@ -3494,6 +3345,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             margin: { b: 90 },
         });
     }
+
 
 
     function renderDPStatsBoxPlot() {
@@ -3525,7 +3377,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     width:230px; min-width:230px; flex-shrink:0;
                     background: var(--an-panel, #111820);
                     border-right:1px solid var(--an-border, #1e2d3d);
-                    padding:10px; overflow-y:auto; max-height:560px;
+                    padding:10px;
                     font-family: var(--an-mono, monospace); font-size:11px;
                     color: var(--an-text, #c8d8e8);
                 }
@@ -3538,7 +3390,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     padding-bottom:4px;
                 }
                 .dpts-sidebar h6:first-child{ margin-top:0; }
-                .dpts-filter-group{ max-height:120px; overflow-y:auto; margin-bottom:4px; }
+                .dpts-filter-group{ margin-bottom:4px; }
                 .dpts-filter-group label{
                     display:flex; align-items:center; gap:6px;
                     margin:3px 0; cursor:pointer; font-size:10.5px;
@@ -3583,8 +3435,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 </div>
                 <div class="dpts-plot-wrap">
                     <div id="dpBoxPlot" style="width:100%;"></div>
-                    <div id="dpMonthlyPlot" style="width:100%;margin-top:18px;"></div>
-                    <div id="dpBacklogPlot" style="width:100%;margin-top:18px;"></div>
                     <div id="dpWellboresMonthlyPlot" style="width:100%;margin-top:18px;"></div>
                     <div id="dpWellboresBacklogPlot" style="width:100%;margin-top:18px;"></div>
                 </div>
