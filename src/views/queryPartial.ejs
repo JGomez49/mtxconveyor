@@ -236,6 +236,7 @@ table.qp-table tbody th:last-child { border-right: none; }
                 </div>
                 <i class="bi bi-sun-fill" style="font-size:13px;"></i>
             </span>
+            <%- include('partials/fontSwitcher.ejs') %>
             <a class="btn btn-danger" href="/notes">← Back</a>
         </div>
     </div>
@@ -342,7 +343,7 @@ table.qp-table tbody th:last-child { border-right: none; }
 
 <script>
 (function(){
-    const LS_KEY = 'qpThemePreference';
+    const LS_KEY = 'mtxThemePreference';
     const sw     = document.getElementById('qpThemeSwitch');
 
     function applyTheme(light){

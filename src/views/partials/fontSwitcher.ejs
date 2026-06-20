@@ -1,0 +1,115 @@
+<!-- ════════════════════════════════════════════════════════
+     SITE-WIDE FONT SWITCHER
+     Include this partial once per page, near the theme toggle.
+     Applies a chosen font family to <body> via a data attribute,
+     persisted in localStorage under 'mtxFontPreference'.
+     ════════════════════════════════════════════════════════ -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<style>
+    /* ── Font stacks per option, applied as CSS variable overrides ── */
+    body[data-font="techy"] {
+        --mtx-font-sans: 'Barlow', sans-serif;
+        --mtx-font-cond: 'Barlow Condensed', sans-serif;
+        --mtx-font-mono: 'Share Tech Mono', monospace;
+    }
+    body[data-font="inter"] {
+        --mtx-font-sans: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mtx-font-cond: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mtx-font-mono: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body[data-font="serif"] {
+        --mtx-font-sans: Georgia, "Times New Roman", Times, serif;
+        --mtx-font-cond: Georgia, "Times New Roman", Times, serif;
+        --mtx-font-mono: Georgia, "Times New Roman", Times, serif;
+    }
+    body[data-font="slate"] {
+        --mtx-font-sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --mtx-font-cond: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --mtx-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    /* ── Apply the chosen font to general UI text ──
+       Pages that define --an-sans/--an-cond/--an-mono or --wbt-sans/--wbt-cond/--wbt-mono
+       get those variables redirected to the chosen font stack. The wellbore 3D
+       viewer's internal monospace data styling is intentionally left untouched
+       (it uses fixed Share Tech Mono for technical readability regardless of
+       the general UI font preference). */
+    body[data-font] {
+        --an-sans: var(--mtx-font-sans);
+        --an-cond: var(--mtx-font-cond);
+        --an-mono: var(--mtx-font-mono);
+        font-family: var(--mtx-font-sans) !important;
+    }
+    body[data-font] h1, body[data-font] h2, body[data-font] h3,
+    body[data-font] h4, body[data-font] h5, body[data-font] h6,
+    body[data-font] .navbar-brand, body[data-font] .nav-link,
+    body[data-font] .btn, body[data-font] .qp-title, body[data-font] .accordion-button {
+        font-family: var(--mtx-font-cond) !important;
+    }
+    body[data-font] table, body[data-font] code, body[data-font] pre {
+        font-family: var(--mtx-font-mono) !important;
+    }
+
+    /* ── Font switcher dropdown styling (matches theme toggle pill) ── */
+    .mtx-font-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        font-size: 12px;
+        background: var(--an-panel, #111820);
+        border: 1px solid var(--an-border, #1e2d3d);
+        border-radius: 20px;
+        padding: 3px 10px;
+        transition: background .2s, border-color .2s;
+    }
+    .mtx-font-wrap .bi-fonts { color: var(--an-accent, #00c8ff); font-size: 13px; }
+    .mtx-font-select {
+        background: transparent;
+        border: none;
+        color: var(--an-text, #c8d8e8);
+        font-size: 11px;
+        font-family: inherit;
+        cursor: pointer;
+        outline: none;
+        max-width: 110px;
+    }
+    .mtx-font-select option {
+        background: var(--an-panel, #111820);
+        color: var(--an-text, #c8d8e8);
+    }
+</style>
+
+<span class="mtx-font-wrap" id="mtxFontWrap">
+    <i class="bi bi-fonts"></i>
+    <select class="mtx-font-select" id="mtxFontSelect" title="Choose UI font">
+        <option value="techy">Techy</option>
+        <option value="inter">Inter</option>
+        <option value="serif">Serif</option>
+        <option value="slate">Slate (original)</option>
+    </select>
+</span>
+
+<script>
+(function(){
+    const LS_KEY = 'mtxFontPreference';
+    const DEFAULT_FONT = 'techy';   // leaves current look unchanged by default
+    const sel = document.getElementById('mtxFontSelect');
+
+    function applyFont(font){
+        document.body.setAttribute('data-font', font);
+        if(sel) sel.value = font;
+    }
+
+    // Apply saved preference immediately (default: techy = current behaviour)
+    applyFont(localStorage.getItem(LS_KEY) || DEFAULT_FONT);
+
+    if(sel){
+        sel.addEventListener('change', function(){
+            localStorage.setItem(LS_KEY, sel.value);
+            applyFont(sel.value);
+        });
+    }
+})();
+</script>
