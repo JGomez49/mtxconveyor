@@ -2657,86 +2657,38 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             ctx2.fillRect(0, 0, chart.width, chart.height);
                             ctx2.restore();
                         }
+                    }, {
+                        // Draws a green diagonal triangle in the top-right corner
+                        // of each bar where DrillOK=YES-Drill AND GeoOK=YES-Geo,
+                        // like a "folded corner" approval badge.
+                        id: 'anCornerTrianglePlugin',
+                        afterDatasetsDraw: (chart) => {
+                            const meta = chart.getDatasetMeta(0);
+                            if(!meta || !meta.data) return;
+                            const ctx2 = chart.ctx;
+                            const TRI = 12; // triangle leg size in px
+                            meta.data.forEach((bar, i) => {
+                                if(!glowFlags[i]) return;
+                                const { x, y, base, height } = bar.getProps(
+                                    ['x', 'y', 'base', 'height'], true
+                                );
+                                const barRight = Math.max(x, base);
+                                const barTop   = y - (height || 16) / 2;
+                                ctx2.save();
+                                ctx2.beginPath();
+                                ctx2.moveTo(barRight,       barTop);
+                                ctx2.lineTo(barRight - TRI, barTop);
+                                ctx2.lineTo(barRight,       barTop + TRI);
+                                ctx2.closePath();
+                                ctx2.fillStyle = '#39ff14';
+                                ctx2.fill();
+                                ctx2.restore();
+                            });
+                        }
                     }]
                 });
 
                 chartInstances.push(chart);
-
-                // ── Pulsing LED dot overlay for fully-approved bars ──────────────
-                // Create a transparent overlay canvas stacked exactly over the
-                // Chart.js canvas. An RAF loop redraws green dots at the top-right
-                // corner of each approved bar, toggling brightness every 0.5s to
-                // simulate a blinking LED (on = bright green, off = dim green).
-                if(glowFlags.some(Boolean)){
-                    const ledCanvas = document.createElement('canvas');
-                    ledCanvas.width  = canvas.width;
-                    ledCanvas.height = canvas.height;
-                    ledCanvas.style.cssText = [
-                        'position:absolute',
-                        'top:0',
-                        'left:0',
-                        'pointer-events:none',
-                        'z-index:10',
-                    ].join(';');
-
-                    // Wrap both canvases in a relative-position container
-                    const wrapper = document.createElement('div');
-                    wrapper.style.cssText = 'position:relative;display:block;width:' + canvas.width + 'px;height:' + canvas.height + 'px;';
-                    canvas.parentNode.insertBefore(wrapper, canvas);
-                    wrapper.appendChild(canvas);
-                    wrapper.appendChild(ledCanvas);
-
-                    const ledCtx = ledCanvas.getContext('2d');
-                    const DOT_R   = 5;    // dot radius px
-                    const DOT_PAD = 6;    // padding from bar edge
-                    const PERIOD  = 500;  // blink period ms
-
-                    function drawLedDots(timestamp){
-                        ledCtx.clearRect(0, 0, ledCanvas.width, ledCanvas.height);
-                        const phase = Math.floor(timestamp / PERIOD) % 2; // 0=on, 1=off
-                        const alpha = phase === 0 ? 1.0 : 0.15;
-
-                        const meta = chart.getDatasetMeta(0);
-                        if(!meta || !meta.data) return;
-
-                        meta.data.forEach((bar, i) => {
-                            if(!glowFlags[i]) return;
-                            const { x, y, base, height } = bar.getProps(
-                                ['x', 'y', 'base', 'height'], true
-                            );
-                            const barRight = Math.max(x, base);
-                            const barTop   = y - (height || 16) / 2;
-                            const dotX     = barRight - DOT_PAD - DOT_R;
-                            const dotY     = barTop   + DOT_PAD + DOT_R;
-
-                            // outer glow ring (only on "on" phase)
-                            if(phase === 0){
-                                ledCtx.save();
-                                ledCtx.beginPath();
-                                ledCtx.arc(dotX, dotY, DOT_R + 3, 0, Math.PI * 2);
-                                ledCtx.fillStyle = 'rgba(57,255,20,0.25)';
-                                ledCtx.fill();
-                                ledCtx.restore();
-                            }
-
-                            // main dot
-                            ledCtx.save();
-                            ledCtx.beginPath();
-                            ledCtx.arc(dotX, dotY, DOT_R, 0, Math.PI * 2);
-                            ledCtx.fillStyle = `rgba(57,255,20,${alpha})`;
-                            ledCtx.shadowColor = phase === 0 ? '#39ff14' : 'transparent';
-                            ledCtx.shadowBlur  = phase === 0 ? 8 : 0;
-                            ledCtx.fill();
-                            ledCtx.restore();
-                        });
-
-                        requestAnimationFrame(drawLedDots);
-                    }
-
-                    requestAnimationFrame(drawLedDots);
-                }
-
-
 
 
 
