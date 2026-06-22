@@ -1,114 +1,253 @@
 <!-- ════════════════════════════════════════════════════════
-     SITE-WIDE FONT SWITCHER
-     Include this partial once per page, near the theme toggle.
-     Applies a chosen font family to <body> via a data attribute,
-     persisted in localStorage under 'mtxFontPreference'.
+     SITE-WIDE FONT + SIZE SWITCHER
+     Applies font family via body[data-font] and font size
+     via body[data-size] CSS attribute selectors.
+     Persists in localStorage: mtxFontPreference, mtxSizePreference
      ════════════════════════════════════════════════════════ -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&family=Nunito:wght@300;400;600;700&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700&family=Source+Code+Pro:wght@300;400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
 <style>
-    /* ── Font stacks per option, applied as CSS variable overrides ── */
-    body[data-font="techy"] {
-        --mtx-font-sans: 'Barlow', sans-serif;
-        --mtx-font-cond: 'Barlow Condensed', sans-serif;
-        --mtx-font-mono: 'Share Tech Mono', monospace;
-    }
-    body[data-font="inter"] {
-        --mtx-font-sans: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
-        --mtx-font-cond: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
-        --mtx-font-mono: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    body[data-font="serif"] {
-        --mtx-font-sans: Georgia, "Times New Roman", Times, serif;
-        --mtx-font-cond: Georgia, "Times New Roman", Times, serif;
-        --mtx-font-mono: Georgia, "Times New Roman", Times, serif;
-    }
-    body[data-font="slate"] {
-        --mtx-font-sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --mtx-font-cond: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --mtx-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    }
+/* ── Font stacks ── */
+body[data-font="techy"] {
+    --mtx-font-sans: 'Barlow', sans-serif;
+    --mtx-font-cond: 'Barlow Condensed', sans-serif;
+    --mtx-font-mono: 'Share Tech Mono', monospace;
+}
+body[data-font="inter"] {
+    --mtx-font-sans: 'Inter', -apple-system, "Segoe UI", sans-serif;
+    --mtx-font-cond: 'Inter', -apple-system, "Segoe UI", sans-serif;
+    --mtx-font-mono: 'Inter', monospace;
+}
+body[data-font="roboto"] {
+    --mtx-font-sans: 'Roboto', sans-serif;
+    --mtx-font-cond: 'Roboto', sans-serif;
+    --mtx-font-mono: 'Roboto', monospace;
+}
+body[data-font="opensans"] {
+    --mtx-font-sans: 'Open Sans', sans-serif;
+    --mtx-font-cond: 'Open Sans', sans-serif;
+    --mtx-font-mono: 'Open Sans', monospace;
+}
+body[data-font="nunito"] {
+    --mtx-font-sans: 'Nunito', sans-serif;
+    --mtx-font-cond: 'Nunito', sans-serif;
+    --mtx-font-mono: 'Nunito', sans-serif;
+}
+body[data-font="rajdhani"] {
+    --mtx-font-sans: 'Rajdhani', sans-serif;
+    --mtx-font-cond: 'Rajdhani', sans-serif;
+    --mtx-font-mono: 'Rajdhani', sans-serif;
+}
+body[data-font="orbitron"] {
+    --mtx-font-sans: 'Orbitron', sans-serif;
+    --mtx-font-cond: 'Orbitron', sans-serif;
+    --mtx-font-mono: 'Orbitron', sans-serif;
+}
+body[data-font="sourcecode"] {
+    --mtx-font-sans: 'Source Code Pro', monospace;
+    --mtx-font-cond: 'Source Code Pro', monospace;
+    --mtx-font-mono: 'Source Code Pro', monospace;
+}
+body[data-font="serif"] {
+    --mtx-font-sans: Georgia, "Times New Roman", Times, serif;
+    --mtx-font-cond: Georgia, "Times New Roman", Times, serif;
+    --mtx-font-mono: Georgia, "Times New Roman", serif;
+}
+body[data-font="slate"] {
+    --mtx-font-sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mtx-font-cond: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mtx-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
 
-    /* ── Apply the chosen font to general UI text ──
-       Pages that define --an-sans/--an-cond/--an-mono or --wbt-sans/--wbt-cond/--wbt-mono
-       get those variables redirected to the chosen font stack. The wellbore 3D
-       viewer's internal monospace data styling is intentionally left untouched
-       (it uses fixed Share Tech Mono for technical readability regardless of
-       the general UI font preference). */
-    body[data-font] {
-        --an-sans: var(--mtx-font-sans);
-        --an-cond: var(--mtx-font-cond);
-        --an-mono: var(--mtx-font-mono);
-        font-family: var(--mtx-font-sans) !important;
-    }
-    body[data-font] h1, body[data-font] h2, body[data-font] h3,
-    body[data-font] h4, body[data-font] h5, body[data-font] h6,
-    body[data-font] .navbar-brand, body[data-font] .nav-link,
-    body[data-font] .btn, body[data-font] .qp-title, body[data-font] .accordion-button {
-        font-family: var(--mtx-font-cond) !important;
-    }
-    body[data-font] table, body[data-font] code, body[data-font] pre {
-        font-family: var(--mtx-font-mono) !important;
-    }
+/* ── Apply font to UI elements ── */
+body[data-font] {
+    --an-sans: var(--mtx-font-sans);
+    --an-cond: var(--mtx-font-cond);
+    --an-mono: var(--mtx-font-mono);
+    font-family: var(--mtx-font-sans) !important;
+}
+body[data-font] h1, body[data-font] h2, body[data-font] h3,
+body[data-font] h4, body[data-font] h5, body[data-font] h6,
+body[data-font] .navbar-brand, body[data-font] .nav-link,
+body[data-font] .btn, body[data-font] .qp-title,
+body[data-font] .accordion-button, body[data-font] th {
+    font-family: var(--mtx-font-cond) !important;
+}
+body[data-font] table, body[data-font] code,
+body[data-font] pre, body[data-font] td {
+    font-family: var(--mtx-font-mono) !important;
+}
 
-    /* ── Font switcher dropdown styling (matches theme toggle pill) ── */
-    .mtx-font-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-        font-size: 12px;
-        background: var(--an-panel, #111820);
-        border: 1px solid var(--an-border, #1e2d3d);
-        border-radius: 20px;
-        padding: 3px 10px;
-        transition: background .2s, border-color .2s;
-    }
-    .mtx-font-wrap .bi-fonts { color: var(--an-accent, #00c8ff); font-size: 13px; }
-    .mtx-font-select {
-        background: transparent;
-        border: none;
-        color: var(--an-text, #c8d8e8);
-        font-size: 11px;
-        font-family: inherit;
-        cursor: pointer;
-        outline: none;
-        max-width: 110px;
-    }
-    .mtx-font-select option {
-        background: var(--an-panel, #111820);
-        color: var(--an-text, #c8d8e8);
-    }
+/* ── Font size scale ──
+   data-size="1" through "5": 1=XS, 2=S, 3=M(default), 4=L, 5=XL
+   Sets --mtx-base-size on html so rem units scale everything. */
+html { font-size: var(--mtx-base-size, 14px); }
+body[data-size="1"] { --mtx-base-size: 11px; }
+body[data-size="2"] { --mtx-base-size: 13px; }
+body[data-size="3"] { --mtx-base-size: 14px; }
+body[data-size="4"] { --mtx-base-size: 16px; }
+body[data-size="5"] { --mtx-base-size: 19px; }
+
+/* Cascade the size: body px-based text, headings, table cells, accordion */
+body[data-size] {
+    font-size: var(--mtx-base-size) !important;
+}
+body[data-size] h4 { font-size: calc(var(--mtx-base-size) * 1.15) !important; }
+body[data-size] h3 { font-size: calc(var(--mtx-base-size) * 1.3) !important; }
+body[data-size] th, body[data-size] td,
+body[data-size] .accordion-button,
+body[data-size] .nav-link, body[data-size] .btn {
+    font-size: var(--mtx-base-size) !important;
+}
+
+/* ── Font switcher pill ── */
+.mtx-controls-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--an-panel, #111820);
+    border: 1px solid var(--an-border, #1e2d3d);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    transition: background .2s, border-color .2s;
+}
+.mtx-controls-wrap .bi-fonts {
+    color: var(--an-accent, #00c8ff);
+    font-size: 13px;
+}
+.mtx-controls-wrap .bi-type {
+    color: var(--an-text-dim, #5a7080);
+    font-size: 12px;
+}
+.mtx-font-select {
+    background: transparent;
+    border: none;
+    color: var(--an-text, #c8d8e8);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    max-width: 120px;
+}
+.mtx-font-select option {
+    background: var(--an-panel, #111820);
+    color: var(--an-text, #c8d8e8);
+}
+.mtx-size-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 72px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--an-border, #1e2d3d);
+    outline: none;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.mtx-size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--an-accent, #00c8ff);
+    cursor: pointer;
+    border: none;
+}
+.mtx-size-slider::-moz-range-thumb {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--an-accent, #00c8ff);
+    cursor: pointer;
+    border: none;
+}
+.mtx-size-label {
+    color: var(--an-text-dim, #5a7080);
+    font-size: 10px;
+    min-width: 16px;
+    text-align: center;
+    font-family: var(--an-mono, monospace);
+}
+/* divider pip */
+.mtx-sep {
+    width: 1px; height: 14px;
+    background: var(--an-border, #1e2d3d);
+    flex-shrink: 0;
+}
 </style>
 
-<span class="mtx-font-wrap" id="mtxFontWrap">
+<span class="mtx-controls-wrap" id="mtxControlsWrap">
+    <!-- Font family -->
     <i class="bi bi-fonts"></i>
     <select class="mtx-font-select" id="mtxFontSelect" title="Choose UI font">
         <option value="techy">Techy</option>
         <option value="inter">Inter</option>
+        <option value="roboto">Roboto</option>
+        <option value="opensans">Open Sans</option>
+        <option value="nunito">Nunito</option>
+        <option value="rajdhani">Rajdhani</option>
+        <option value="orbitron">Orbitron</option>
+        <option value="sourcecode">Source Code Pro</option>
         <option value="serif">Serif</option>
-        <option value="slate">Slate (original)</option>
+        <option value="slate">Slate</option>
     </select>
+
+    <span class="mtx-sep"></span>
+
+    <!-- Font size slider -->
+    <i class="bi bi-type" title="Font size"></i>
+    <span class="mtx-size-label" id="mtxSizeLabel">M</span>
+    <input
+        class="mtx-size-slider"
+        id="mtxSizeSlider"
+        type="range"
+        min="1" max="5" step="1"
+        title="Font size"
+    >
 </span>
 
 <script>
 (function(){
-    const LS_KEY = 'mtxFontPreference';
-    const DEFAULT_FONT = 'techy';   // leaves current look unchanged by default
-    const sel = document.getElementById('mtxFontSelect');
+    const FONT_KEY = 'mtxFontPreference';
+    const SIZE_KEY = 'mtxSizePreference';
+    const DEFAULT_FONT = 'techy';
+    const DEFAULT_SIZE = 3;
+    const SIZE_LABELS  = { 1:'XS', 2:'S', 3:'M', 4:'L', 5:'XL' };
+
+    const sel    = document.getElementById('mtxFontSelect');
+    const slider = document.getElementById('mtxSizeSlider');
+    const lbl    = document.getElementById('mtxSizeLabel');
 
     function applyFont(font){
         document.body.setAttribute('data-font', font);
         if(sel) sel.value = font;
     }
 
-    // Apply saved preference immediately (default: techy = current behaviour)
-    applyFont(localStorage.getItem(LS_KEY) || DEFAULT_FONT);
+    function applySize(size){
+        size = Math.max(1, Math.min(5, Number(size) || DEFAULT_SIZE));
+        document.body.setAttribute('data-size', size);
+        // cascade to html so rem units scale too
+        document.documentElement.style.fontSize =
+            {1:'11px', 2:'13px', 3:'14px', 4:'16px', 5:'19px'}[size] || '14px';
+        if(slider) slider.value = size;
+        if(lbl)    lbl.textContent = SIZE_LABELS[size] || 'M';
+    }
+
+    // Apply saved preferences immediately (before paint)
+    applyFont(localStorage.getItem(FONT_KEY) || DEFAULT_FONT);
+    applySize(localStorage.getItem(SIZE_KEY) || DEFAULT_SIZE);
 
     if(sel){
         sel.addEventListener('change', function(){
-            localStorage.setItem(LS_KEY, sel.value);
+            localStorage.setItem(FONT_KEY, sel.value);
             applyFont(sel.value);
+        });
+    }
+
+    if(slider){
+        slider.addEventListener('input', function(){
+            localStorage.setItem(SIZE_KEY, slider.value);
+            applySize(slider.value);
         });
     }
 })();

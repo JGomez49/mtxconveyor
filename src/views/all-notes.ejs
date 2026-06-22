@@ -491,18 +491,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
         <a class="btn btn-warning my-2" href="/notes/add">+ New Job</a>
         &nbsp;
-        <span class="an-theme-wrap" id="anThemeWrap">
-            <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
-            <div class="form-check form-switch m-0" style="min-height:unset;">
-                <input class="form-check-input" type="checkbox" role="switch" id="anThemeSwitch" style="cursor:pointer;">
-            </div>
-            <i class="bi bi-sun-fill" style="font-size:13px;color:#aaa;"></i>
-        </span>
-        &nbsp;
-        <%- include('partials/fontSwitcher.ejs') %>
-        <!-- <pre><%= notes %></pre> -->
-         
     <% } %>
+    <span class="an-theme-wrap" id="anThemeWrap">
+        <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
+        <div class="form-check form-switch m-0" style="min-height:unset;">
+            <input class="form-check-input" type="checkbox" role="switch" id="anThemeSwitch" style="cursor:pointer;">
+        </div>
+        <i class="bi bi-sun-fill" style="font-size:13px;color:#aaa;"></i>
+    </span>
+    &nbsp;
+    <%- include('partials/fontSwitcher.ejs') %>
+    <!-- <pre><%= notes %></pre> -->
 
 
     <div class="row">
