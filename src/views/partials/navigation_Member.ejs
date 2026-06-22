@@ -1,5 +1,5 @@
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark m-2_ border-0">    
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark m-2_ border-0" id="mtxNavbar">
 
     <div class="container-fluid">
 
@@ -10,16 +10,27 @@
             >
         </a> 
 
-      <!-- <p class="mx-3" >Member</p> -->
-      <!-- <a class="mx-3" href="/">Member</a> -->
-      <!-- <a class="mx-3" href="/users/edit/<%= user.id %>">Member</a> -->
-
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
             aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
 
         <div class="collapse navbar-collapse" id="navbarNav">
+
+            <!-- ── Theme toggle ── -->
+            <span class="an-theme-wrap mx-2" id="anThemeWrap" style="flex-shrink:0;">
+                <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
+                <div class="form-check form-switch m-0" style="min-height:unset;">
+                    <input class="form-check-input" type="checkbox" role="switch" id="anThemeSwitch" style="cursor:pointer;">
+                </div>
+                <i class="bi bi-sun-fill" style="font-size:13px;color:#aaa;"></i>
+            </span>
+            <%- (typeof jobNavBtns !== 'undefined' ? jobNavBtns : '') %>
+
+            <!-- ── Font + size switcher ── -->
+            <span class="mx-1" style="flex-shrink:0;">
+                <%- include('fontSwitcher.ejs') %>
+            </span>
 
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item dropdown">
@@ -36,4 +47,3 @@
 
     </div>
 </nav>
-

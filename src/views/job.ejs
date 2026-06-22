@@ -1,6 +1,175 @@
 
 <%- include ('partials/header.ejs') %>
 
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<style>
+/* ── Techy CSS variables ── */
+:root {
+    --an-bg:           #0a0e14;
+    --an-panel:        #111820;
+    --an-panel2:       #161e28;
+    --an-border:       #1e2d3d;
+    --an-accent:       #00c8ff;
+    --an-accent2:      #ff6b35;
+    --an-text:         #c8d8e8;
+    --an-text-dim:     #5a7080;
+    --an-text-bright:  #e8f4ff;
+    --an-mono:         'Share Tech Mono', monospace;
+    --an-sans:         'Barlow', sans-serif;
+    --an-cond:         'Barlow Condensed', sans-serif;
+}
+body.light-mode {
+    --an-bg:          #f0f4f8;
+    --an-panel:       #ffffff;
+    --an-panel2:      #e8edf2;
+    --an-border:      #c8d4de;
+    --an-accent:      #0077a8;
+    --an-accent2:     #c04010;
+    --an-text:        #2c3e50;
+    --an-text-dim:    #607080;
+    --an-text-bright: #111820;
+}
+body {
+    background: var(--an-bg) !important;
+    color: var(--an-text) !important;
+    font-family: var(--an-sans) !important;
+    transition: background .25s, color .25s;
+}
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+        linear-gradient(rgba(0,200,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+    transition: opacity .25s;
+}
+body.light-mode::before { opacity: 0; }
+body > *, #navbar { position: relative; z-index: 1; }
+/* Navbar */
+.navbar, .navbar.bg-dark, nav.navbar {
+    background: var(--an-panel) !important;
+    border-bottom: 1px solid var(--an-border) !important;
+    padding: 6px 16px !important;
+    font-family: var(--an-cond) !important;
+}
+.navbar-brand, .nav-link {
+    color: var(--an-text) !important;
+    font-family: var(--an-cond) !important;
+    font-size: 12px !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+.nav-link:hover { color: var(--an-accent) !important; }
+.navbar-toggler { border-color: var(--an-border) !important; }
+.navbar-toggler-icon { filter: invert(.7); }
+.dropdown-menu {
+    background: var(--an-panel) !important;
+    border: 1px solid var(--an-border) !important;
+}
+.dropdown-item { color: var(--an-text) !important; }
+.dropdown-item:hover { background: var(--an-panel2) !important; color: var(--an-accent) !important; }
+/* Theme toggle pill */
+.an-theme-wrap {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: 12px;
+    background: var(--an-panel);
+    border: 1px solid var(--an-border);
+    border-radius: 20px; padding: 3px 10px;
+    transition: background .2s, border-color .2s;
+    flex-shrink: 0;
+}
+.an-theme-wrap .bi-moon-stars-fill { color: var(--an-accent); }
+.an-theme-wrap .bi-sun-fill        { color: var(--an-accent2); }
+.form-check-input:checked {
+    background-color: var(--an-accent) !important;
+    border-color:     var(--an-accent) !important;
+}
+/* Buttons */
+.btn {
+    font-family: var(--an-cond) !important;
+    font-size: 11px !important; font-weight: 700 !important;
+    letter-spacing: 1.5px !important; text-transform: uppercase !important;
+    border-radius: 3px !important; transition: all .15s !important;
+}
+.btn-warning { background:transparent !important; border:1px solid var(--an-accent) !important; color:var(--an-accent) !important; }
+.btn-warning:hover { background:var(--an-accent) !important; color:var(--an-bg) !important; }
+.btn-primary { background:transparent !important; border:1px solid #79c0ff !important; color:#79c0ff !important; }
+.btn-primary:hover { background:#79c0ff !important; color:var(--an-bg) !important; }
+.btn-block { display:block; width:100%; }
+/* Cards */
+.card, .card.bg-dark { background: var(--an-panel) !important; border-color: var(--an-border) !important; color: var(--an-text) !important; }
+/* canvas override */
+canvas { background-color: transparent !important; box-shadow: none !important; }
+
+/* ── Accordion titles: transparent background, theme-aware text ── */
+.accordion-button,
+.accordion-button.btn-primary,
+.accordion-button:not(.collapsed),
+.accordion-button.collapsed {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--an-text-bright) !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-family: var(--an-cond) !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
+}
+.accordion-button:hover { background: rgba(0,200,255,.06) !important; }
+.accordion-button::after { filter: invert(.5) sepia(1) saturate(3) hue-rotate(165deg); }
+.accordion-item { background: var(--an-panel) !important; border-color: var(--an-border) !important; }
+.accordion-body { background: var(--an-bg) !important; }
+/* Light mode: black text on accordion titles */
+body.light-mode .accordion-button,
+body.light-mode .accordion-button.btn-primary,
+body.light-mode .accordion-button:not(.collapsed),
+body.light-mode .accordion-button.collapsed {
+    color: #111820 !important;
+}
+body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
+</style>
+
+<!-- ── Navbar ── -->
+<div id="navbar" class="p-2">
+    <% if (user.name != 'Guest') { %>
+        <%
+            const _editBtn = (user.role=='admin'||user.role=='leader'||user.role=='user')
+                ? `<a href="/note/edit/${note._id}" class="btn btn-warning btn-sm mx-1" style="white-space:nowrap;">Edit</a>`
+                : '';
+            const _backBtn = `<a href="/notes" class="btn btn-primary btn-sm mx-1" style="white-space:nowrap;">← Back</a>`;
+            const jobNavBtns = _editBtn + _backBtn;
+        %>
+        <% if (user.role == 'admin') { %>
+            <%- include('partials/navigation_Admin.ejs', { jobNavBtns }) %>
+        <% } else if (user.role == 'leader' || user.role == 'user') { %>
+            <%- include('partials/navigation_Leader.ejs', { jobNavBtns }) %>
+        <% } else { %>
+            <%- include('partials/navigation_Member.ejs', { jobNavBtns }) %>
+        <% } %>
+    <% } %>
+</div>
+
+<!-- ── Theme toggle JS (reads/writes same localStorage key as all-notes.ejs) ── -->
+<script>
+(function(){
+    const LS_KEY = 'mtxThemePreference';
+    const sw = document.getElementById('anThemeSwitch');
+    function applyTheme(light){
+        document.body.classList.toggle('light-mode', light);
+        if(sw) sw.checked = light;
+    }
+    applyTheme(localStorage.getItem(LS_KEY) === 'light');
+    if(sw) sw.addEventListener('change', function(){
+        localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
+        applyTheme(sw.checked);
+    });
+})();
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -12,10 +181,6 @@
 
 <!-- <%= note.mtxJobId %> -->
 
-<div style="position:fixed; top:8px; right:16px; z-index:1070;">
-    <%- include('partials/fontSwitcher.ejs') %>
-</div>
-
     <div class="container_ p-4">
 
             <div class="card text-white bg-dark mb-3 border-0">
@@ -26,10 +191,7 @@
                 <!-- <a class="nav-link" href="/note/upload/<%= note._id %>">Upload Spider Plot</a> -->
 
 
-                <% if (user.role == 'admin' || user.role == 'leader'|| user.role == 'user') { %>
-                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                <% } %>
-                <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+
 
 
 
@@ -894,10 +1056,6 @@
                 
                 <!-- <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a> -->
 
-                <% if (user.role == 'admin' || user.role == 'leader') { %>
-                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                <% } %>
 
             </div> 
             
@@ -1400,20 +1558,11 @@
                         </div>                          
                     </div>
 
-                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
+
                 <% } %> 
 
 
 
-                <% if (user.role == 'user' || user.role == 'leader') { %>
-                    <a href="/note/edit/<%= note._id %>" class="btn btn-warning btn-block my-2">Edit</a>
-                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                <% } %>
-                        
-                <% if (user.role == 'viewer') { %>
-                    <a href="/notes" class="btn btn-primary btn-block my-2">Back</a>
-                <% } %>
             </div>
 
         <!-- </div> -->

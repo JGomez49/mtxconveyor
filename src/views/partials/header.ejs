@@ -139,6 +139,16 @@
                 padding: 10px;
                 box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             }
+
+            /* ── Fixed navbar: always visible on all pages ── */
+            #navbar {
+                position: fixed !important;
+                top: 0; left: 0; right: 0;
+                z-index: 1050 !important;
+                background: #1a1a2e;
+            }
+            /* Push all page content below the fixed navbar */
+            body { padding-top: 70px !important; }
             
         </style>
 

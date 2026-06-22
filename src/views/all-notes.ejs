@@ -77,10 +77,16 @@ body.light-mode::before { opacity: 0; }
 
 /* everything above the grid */
 body > *, #navbar, .container_, .row, .accordion { position: relative; z-index: 1; }
-/* Navbar must sit above all page content so dropdowns are never obscured */
-#navbar { z-index: 1050 !important; }
+/* Fixed navbar — always visible at top of screen */
+#navbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 1050 !important;
+}
 .navbar { z-index: 1050 !important; }
 .navbar .dropdown-menu { z-index: 1060 !important; }
+/* Push page content below the fixed navbar (~62px) */
+.container_.p-4, div.container_.p-4 { padding-top: 72px !important; }
 
 /* ════════════════════════════════════════════════════════
    NAVBAR  (Bootstrap nav — keep structure, restyle)
@@ -488,20 +494,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
     <!-- <h1 style="color: whitesmoke;">Jobs</h1> -->
 
-    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
-        <a class="btn btn-warning my-2" href="/notes/add">+ New Job</a>
-        &nbsp;
-    <% } %>
-    <span class="an-theme-wrap" id="anThemeWrap">
-        <i class="bi bi-moon-stars-fill" style="font-size:13px;color:#aaa;"></i>
-        <div class="form-check form-switch m-0" style="min-height:unset;">
-            <input class="form-check-input" type="checkbox" role="switch" id="anThemeSwitch" style="cursor:pointer;">
-        </div>
-        <i class="bi bi-sun-fill" style="font-size:13px;color:#aaa;"></i>
-    </span>
-    &nbsp;
-    <%- include('partials/fontSwitcher.ejs') %>
-    <!-- <pre><%= notes %></pre> -->
+    <!-- controls moved to navbar -->
 
 
     <div class="row">
@@ -2146,6 +2139,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const twoMonthsLater = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate());
         const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
         const fourMonthsLater = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
+        const fiveMonthsLater = new Date(today.getFullYear(), today.getMonth() + 5, today.getDate());
         const sixMonthsLater = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
         const nineMonthsLater = new Date(today.getFullYear(), today.getMonth() + 9, today.getDate());
         const oneYearLater = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
@@ -2548,29 +2542,21 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             },
                             annotation: {
                                 annotations: {
-                                    ExeZonefutureBox: {
+                                    redBand: {
                                         type: "box",
                                         xMin: today,
                                         xMax: threeMonthsLater,
-                                        backgroundColor: "rgba(255, 0, 0, 0.15)",
-                                        borderWidth: 0.5,
-                                        borderColor: "red",
+                                        backgroundColor: "rgba(255, 0, 0, 0.10)",
+                                        borderWidth: 0,
+                                        drawTime: "beforeDatasetsDraw",
                                     },
-                                    handOverFutureBox: {
+                                    yellowBand: {
                                         type: "box",
                                         xMin: threeMonthsLater,
-                                        xMax: fourMonthsLater,
-                                        backgroundColor: "rgba(237, 255, 4, 0.15)",
+                                        xMax: fiveMonthsLater,
+                                        backgroundColor: "rgba(255, 208, 0, 0.10)",
                                         borderWidth: 0,
-                                        borderColor: "yellow",
-                                    },
-                                    approvalsFutureBox: {
-                                        type: "box",
-                                        xMin: fourMonthsLater,
-                                        xMax: sixMonthsLater,
-                                        backgroundColor: "rgba(45, 147, 50, 0.15)",
-                                        borderWidth: 0.5,
-                                        borderColor: "green",
+                                        drawTime: "beforeDatasetsDraw",
                                     },
                                     todayLine: {
                                         type: "line",
@@ -2579,6 +2565,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         borderColor: "red",
                                         borderWidth: 2,
                                         label: { enabled: true, content: "Today", position: "start", color: "red" },
+                                    },
+                                    threeMonthLine: {
+                                        type: "line",
+                                        xMin: threeMonthsLater,
+                                        xMax: threeMonthsLater,
+                                        borderColor: "red",
+                                        borderWidth: 3,
+                                        borderDash: [],
+                                        label: { enabled: true, content: "+3 Months", position: "start", color: "red" },
                                     },
                                     // OneYearLaterLine: {
                                     //     type: "line",
@@ -2603,14 +2598,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         borderColor: "purple",
                                         borderWidth: 4,
                                         label: { enabled: true, content: "End of This Year", position: "end", color: "purple" },
-                                    },
-                                    TargetDateLine: {
-                                        type: "line",
-                                        xMin: TargetDate,
-                                        xMax: TargetDate,
-                                        borderColor: "Yellow",
-                                        borderWidth: 2,
-                                        label: { enabled: true, content: "Target Date", position: "end", color: "yellow" },
                                     },
                                 }
                             },
