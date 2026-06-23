@@ -1918,7 +1918,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
             <!-- ── Single Gantt chart with filter sidebar ── -->
             <style>
-                .gantt-outer { display:flex; gap:0; border:1px solid var(--an-border,#1e2d3d); border-radius:4px; overflow:hidden; margin:8px 12px 14px; }
+                .gantt-outer { display:flex; gap:0; border:1px solid var(--an-border,#1e2d3d); border-radius:4px; overflow:hidden; margin:8px 12px 14px; align-items:stretch; }
                 .gantt-sidebar {
                     width:200px; min-width:200px; flex-shrink:0;
                     background:var(--an-panel,#111820);
@@ -1926,6 +1926,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     padding:10px;
                     font-family:var(--an-mono,monospace); font-size:11px;
                     color:var(--an-text,#c8d8e8);
+                    overflow-y:auto;
+                    /* sidebar scrolls independently; height is set by JS to
+                       match the plot column so it never exceeds the full
+                       chart+table+pies height */
                 }
                 .gantt-sidebar h6 {
                     margin:10px 0 4px; font-size:10px;
@@ -1936,7 +1940,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     padding-bottom:3px;
                 }
                 .gantt-sidebar h6:first-child { margin-top:0; }
-                .gantt-filter-group { margin-bottom:4px; }
+                .gantt-filter-group { margin-bottom:4px; max-height:calc(5 * 22px); overflow-y:auto; }
                 .gantt-filter-group label { display:flex; align-items:center; gap:5px; margin:3px 0; cursor:pointer; font-size:10.5px; }
                 .gantt-filter-group input[type=checkbox] { cursor:pointer; flex-shrink:0; }
                 .gantt-plot-wrap { flex:1; min-width:0; overflow-x:auto; }
@@ -1968,6 +1972,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <div class="gantt-filter-group" id="gfGeoOK"></div>
                     <h6>Rig</h6>
                     <div class="gantt-filter-group" id="gfRig"></div>
+                    <h6>D.E</h6>
+                    <div class="gantt-filter-group" id="gfDE"></div>
                     <button class="gantt-reset-btn" id="ganttResetBtn">Reset Filters</button>
                 </div>
                 <div class="gantt-plot-wrap">
@@ -2004,7 +2010,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
-<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]=String(n._id); } return m; },{})) %></script>
+<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||'') }; } return m; },{})) %></script>
 
 <!-- Script to generate the Charts -->
 
@@ -2120,6 +2126,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         ganttBuildFilterGroup('gfDrillOK',   'drillok',   uniqWithBlank('drillok'),   defaultAll);
         ganttBuildFilterGroup('gfGeoOK',     'geook',     uniqWithBlank('geook'),     defaultAll);
         ganttBuildFilterGroup('gfRig',       'rig',       uniqWithBlank('rig'),       defaultAll);
+        ganttBuildFilterGroup('gfDE',        'de',        uniqWithBlank('de'),        defaultAll);
 
         ganttFiltersBuilt = true;
 
@@ -2147,6 +2154,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const fDrillOK   = ganttGetChecked('drillok');
         const fGeoOK     = ganttGetChecked('geook');
         const fRig       = ganttGetChecked('rig');
+        const fDE        = ganttGetChecked('de');
 
         // Map empty values to "Blank" sentinel so bars with missing fields
         // are correctly matched against the "Blank" checkbox when checked.
@@ -2158,7 +2166,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             fDpCompany.includes(blanked()(b.dpCompany)) &&
             fDrillOK.includes(blanked()(b.drillok)) &&
             fGeoOK.includes(blanked()(b.geook)) &&
-            fRig.includes(blanked()(b.rig))
+            fRig.includes(blanked()(b.rig)) &&
+            fDE.includes(blanked()(b.de))
         );
 
         ganttRenderChart(filtered);
@@ -2219,7 +2228,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             if(!rig) return;
 
             ganttAllBars.push({ rig, drillok, geook, dp, type, duration,
-                vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version });
+                vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
+                de: (ganttNotesMap[site.slice(0,14)] || {}).de || '' });
         });
 
         // Build filters once
@@ -2297,6 +2307,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     dpCompany: siteObj.dpCompany, ETS: siteObj.ETS,
                     type, group: siteObj.group, dpReq, geo: siteObj.geo,
                     version: siteObj.version,
+                    DE: (ganttNotesMap[siteObj.site.slice(0,14)] || {}).de || '',
                 }
             });
 
@@ -2425,9 +2436,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     if(!elements.length) return;
                     const bar = chart.data.datasets[0].data[elements[0].index];
                     if(!bar || !bar.details) return;
-                    const siteKey = bar.details.Site.slice(0, 14);
-                    const noteId  = ganttNotesMap[siteKey];
-                    if(noteId) window.location.href = `/notes/job/${noteId}`;
+                    const siteKey  = bar.details.Site.slice(0, 14);
+                    const noteData = ganttNotesMap[siteKey];
+                    if(noteData) window.location.href = `/notes/job/${noteData.id}`;
                 },
                 onHover: (e, elements) => {
                     e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
@@ -2456,6 +2467,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 return [
                                     `Site: ${d.Site}`, `Well: ${d.Well}`, `ETS: ${d.ETS}`,
                                     `Start: ${d.Start}`, `Type: ${d.type}`,
+                                    `D.E: ${d.DE || '—'}`,
                                     `DrillOK: ${d.drillok}`, `GeoOK: ${d.geook}`,
                                     `DP Company: ${d.dpCompany}`,
                                     `Dp Requested: ${d.dpReq}`, `DP Received: ${d.DP}`,
