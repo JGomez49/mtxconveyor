@@ -5,155 +5,6 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-
-<style>
-/* ── Techy CSS variables (matches all-notes.ejs and job.ejs) ── */
-:root {
-    --an-bg:           #0a0e14;
-    --an-panel:        #111820;
-    --an-panel2:       #161e28;
-    --an-border:       #1e2d3d;
-    --an-accent:       #00c8ff;
-    --an-accent2:      #ff6b35;
-    --an-text:         #c8d8e8;
-    --an-text-dim:     #5a7080;
-    --an-text-bright:  #e8f4ff;
-    --an-mono:         'Share Tech Mono', monospace;
-    --an-sans:         'Barlow', sans-serif;
-    --an-cond:         'Barlow Condensed', sans-serif;
-}
-body.light-mode {
-    --an-bg:          #f0f4f8;
-    --an-panel:       #ffffff;
-    --an-panel2:      #e8edf2;
-    --an-border:      #c8d4de;
-    --an-accent:      #0077a8;
-    --an-accent2:     #c04010;
-    --an-text:        #2c3e50;
-    --an-text-dim:    #607080;
-    --an-text-bright: #111820;
-}
-body {
-    background: var(--an-bg) !important;
-    color: var(--an-text) !important;
-    font-family: var(--an-sans) !important;
-    transition: background .25s, color .25s;
-}
-body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-        linear-gradient(rgba(0,200,255,.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,200,255,.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none; z-index: 0;
-    transition: opacity .25s;
-}
-body.light-mode::before { opacity: 0; }
-body > *, #navbar { position: relative; z-index: 1; }
-/* Navbar */
-.navbar, .navbar.bg-dark, nav.navbar {
-    background: var(--an-panel) !important;
-    border-bottom: 1px solid var(--an-border) !important;
-    padding: 6px 16px !important;
-    font-family: var(--an-cond) !important;
-}
-/* Navbar collapse: align items and add spacing */
-.navbar-collapse { align-items: center !important; gap: 8px !important; }
-.navbar-brand, .nav-link {
-    color: var(--an-text) !important;
-    font-family: var(--an-cond) !important;
-    font-size: 12px !important;
-    letter-spacing: 1px !important;
-    text-transform: uppercase !important;
-}
-.nav-link:hover { color: var(--an-accent) !important; }
-.navbar-toggler { border-color: var(--an-border) !important; }
-.navbar-toggler-icon { filter: invert(.7); }
-.dropdown-menu {
-    background: var(--an-panel) !important;
-    border: 1px solid var(--an-border) !important;
-}
-.dropdown-item { color: var(--an-text) !important; }
-.dropdown-item:hover { background: var(--an-panel2) !important; color: var(--an-accent) !important; }
-/* Theme toggle pill */
-.an-theme-wrap {
-    display: inline-flex !important; align-items: center !important; gap: .4rem !important;
-    font-size: 12px !important;
-    background: var(--an-panel) !important;
-    border: 1px solid var(--an-border) !important;
-    border-radius: 20px !important; padding: 3px 10px !important;
-    transition: background .2s, border-color .2s;
-    flex-shrink: 0 !important;
-    margin: 0 6px !important;
-}
-.an-theme-wrap .bi-moon-stars-fill { color: var(--an-accent) !important; }
-.an-theme-wrap .bi-sun-fill        { color: var(--an-accent2) !important; }
-.form-check-input:checked {
-    background-color: var(--an-accent) !important;
-    border-color:     var(--an-accent) !important;
-}
-/* Buttons */
-.btn {
-    font-family: var(--an-cond) !important;
-    font-size: 11px !important; font-weight: 700 !important;
-    letter-spacing: 1.5px !important; text-transform: uppercase !important;
-    border-radius: 3px !important; transition: all .15s !important;
-    white-space: nowrap !important;
-}
-.btn-warning  { background:transparent !important; border:1px solid var(--an-accent) !important; color:var(--an-accent) !important; }
-.btn-warning:hover  { background:var(--an-accent) !important; color:var(--an-bg) !important; }
-.btn-primary  { background:transparent !important; border:1px solid #79c0ff !important; color:#79c0ff !important; }
-.btn-primary:hover  { background:#79c0ff !important; color:var(--an-bg) !important; }
-.btn-success  { background:transparent !important; border:1px solid #4caf50 !important; color:#4caf50 !important; }
-.btn-success:hover  { background:#4caf50 !important; color:var(--an-bg) !important; }
-/* Cards / inputs */
-.card, .card.bg-dark { background: var(--an-panel) !important; border-color: var(--an-border) !important; color: var(--an-text) !important; }
-.form-control, .input-group-text, select.form-control, textarea.form-control {
-    background: var(--an-panel2) !important;
-    border-color: var(--an-border) !important;
-    color: var(--an-text) !important;
-}
-.form-control:focus { border-color: var(--an-accent) !important; box-shadow: 0 0 0 2px rgba(0,200,255,.15) !important; }
-/* Accordion titles */
-.accordion-button,
-.accordion-button:not(.collapsed),
-.accordion-button.collapsed {
-    background: transparent !important;
-    color: var(--an-text-bright) !important;
-    border: none !important; box-shadow: none !important;
-}
-.accordion-item { background: var(--an-panel) !important; border-color: var(--an-border) !important; }
-.accordion-body  { background: var(--an-bg) !important; }
-body.light-mode .accordion-button,
-body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
-</style>
-
-<!-- ── Theme toggle JS (same localStorage key as all-notes.ejs and job.ejs) ── -->
-<script>
-(function(){
-    const LS_KEY = 'mtxThemePreference';
-    function applyTheme(light){
-        document.body.classList.toggle('light-mode', light);
-        const sw = document.getElementById('anThemeSwitch');
-        if(sw) sw.checked = light;
-    }
-    // Apply immediately on script execution (before DOM ready) to avoid flash
-    applyTheme(localStorage.getItem(LS_KEY) === 'light');
-    // Wire toggle after DOM is ready
-    document.addEventListener('DOMContentLoaded', function(){
-        applyTheme(localStorage.getItem(LS_KEY) === 'light');
-        const sw = document.getElementById('anThemeSwitch');
-        if(sw) sw.addEventListener('change', function(){
-            localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
-            applyTheme(sw.checked);
-        });
-    });
-})();
-</script>
-
 <script>
     document.title =  'ID<%= note.mtxJobId %> - <%= note.customerJobNumber %>';
 </script>
@@ -626,12 +477,8 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
                     <!-- Existing trajectories list -->
                     <div class="wbt-section">
-                        <div class="wbt-field" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+                        <div class="wbt-field" style="margin-bottom:6px;">
                             <label>Saved Wellbores for this Job</label>
-                            <button type="button" class="wbt-btn wbt-btn-del" id="wbtDeleteAllBtn"
-                                    style="font-size:10px;padding:3px 10px;letter-spacing:1px;">
-                                ⚠ Delete All
-                            </button>
                         </div>
                         <div class="wbt-list" id="wbtSavedList">
                             <% if (wellboreTrajectories && wellboreTrajectories.length) { %>
@@ -2232,35 +2079,6 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                 };
             });
         }
-
-        async function deleteAllTrajectories(){
-            const container = document.getElementById('wbtSavedList');
-            const items = container.querySelectorAll('.wbt-list-item');
-            if(!items.length){
-                alert('No trajectories to delete.');
-                return;
-            }
-            if(!confirm(`Delete ALL ${items.length} wellbore trajectory/trajectories for this job? This cannot be undone.`)) return;
-            try{
-                const res = await fetch('/notes/wellboreTrajectory/all/' + NOTE_ID, { method: 'DELETE' });
-                const result = await res.json();
-                if(res.ok){
-                    // Clear the list and show empty state
-                    container.innerHTML = '';
-                    const div = document.createElement('div');
-                    div.className = 'wbt-status';
-                    div.textContent = 'No wellbore trajectories saved for this job yet.';
-                    container.appendChild(div);
-                    wbtFPSetStatus(`✅ Deleted ${result.deleted} trajectory/trajectories.`, true);
-                } else {
-                    alert('Error deleting all: ' + (result.error || res.statusText));
-                }
-            } catch(err){
-                alert('Error deleting all: ' + err.message);
-            }
-        }
-
-        document.getElementById('wbtDeleteAllBtn').addEventListener('click', deleteAllTrajectories);
 
         // ---------------- UI wiring ----------------
         function setupWbtUI(){

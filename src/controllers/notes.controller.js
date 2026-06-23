@@ -935,19 +935,6 @@ notesCrtl.deleteWellboreTrajectory = async (req, res) => {
 };
 
 
-// DELETE /notes/wellboreTrajectory/all/:noteId — delete every trajectory for a job
-notesCrtl.deleteAllWellboreTrajectories = async (req, res) => {
-  try{
-    const noteId = req.params.noteId;
-    const result = await WellboreTrajectory.deleteMany({ noteId });
-    res.json({ success: true, deleted: result.deletedCount });
-  } catch(error){
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
 // GET /notes/wellboreTrajectory/list/:id  (id = noteId) - metadata only (no survey points)
 notesCrtl.listWellboreTrajectories = async (req, res) => {
   try{
