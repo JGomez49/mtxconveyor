@@ -2061,6 +2061,30 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const el = document.getElementById(containerId);
         if(!el) return;
         el.innerHTML = '';
+
+        // ── All / None toggle ──────────────────────────────────────────────
+        const toggleWrap = document.createElement('div');
+        toggleWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+
+        const makeToggle = (label, selectAll) => {
+            const btn = document.createElement('span');
+            btn.textContent = label;
+            btn.style.cssText = 'font-size:9px;cursor:pointer;color:var(--an-accent,#00c8ff);letter-spacing:.5px;text-transform:uppercase;';
+            btn.addEventListener('click', () => {
+                el.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = selectAll; });
+                ganttApplyAndRender();
+            });
+            return btn;
+        };
+        toggleWrap.appendChild(makeToggle('All', true));
+        const sep = document.createElement('span');
+        sep.textContent = '·';
+        sep.style.cssText = 'font-size:9px;color:var(--an-text-dim,#5a7080);';
+        toggleWrap.appendChild(sep);
+        toggleWrap.appendChild(makeToggle('None', false));
+        el.appendChild(toggleWrap);
+        // ──────────────────────────────────────────────────────────────────
+
         [...values].sort().forEach(v => {
             const lbl = document.createElement('label');
             const cb  = document.createElement('input');
