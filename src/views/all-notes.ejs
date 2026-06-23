@@ -2000,9 +2000,19 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
+<!-- ganttNotesMap data: stored in a non-executable script tag so special
+     characters in project names cannot break the surrounding JS -->
+<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]=String(n._id); } return m; },{})) %></script>
+
 <!-- Script to generate the Charts -->
 
 <script>
+    // Build project→noteId lookup — data comes from a hidden DOM element
+    // to avoid any risk of special characters breaking the script block.
+    const ganttNotesMap = JSON.parse(
+        document.getElementById('ganttNotesMapData').textContent
+    );
+
     document.addEventListener("DOMContentLoaded", function() {
         renderDPStatsBoxPlot();
         renderChartsFromTable();
@@ -2333,8 +2343,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         });
 
         // ── Gantt chart ──────────────────────────────────────────────────────
-        const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-        const maxDate = sevenMonthsLater;
+        const minDate     = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+        const defaultMax  = new Date(today.getFullYear(), today.getMonth() + 5, today.getDate()); // default visible window
+        const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
 
         const canvasH = Math.max(200, rigSet.length * 40);
         const canvasW = chartDiv.parentElement
@@ -2371,11 +2382,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 indexAxis: "y",
                 responsive: false,
                 maintainAspectRatio: false,
+                onClick: (e, elements) => {
+                    if(!elements.length) return;
+                    const bar = chart.data.datasets[0].data[elements[0].index];
+                    if(!bar || !bar.details) return;
+                    const siteKey = bar.details.Site.slice(0, 14);
+                    const noteId  = ganttNotesMap[siteKey];
+                    if(noteId) window.location.href = `/notes/job/${noteId}`;
+                },
+                onHover: (e, elements) => {
+                    e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                },
                 scales: {
                     x: {
                         type: "time",
                         time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
-                        min: minDate, max: maxDate,
+                        min: minDate, max: defaultMax,
                         ticks: { color: anChartColor() },
                         grid:  { color: anGridColor() }
                     },
@@ -2436,11 +2458,18 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 borderColor: "red", borderWidth: 3, borderDash: [],
                                 label: { enabled: true, content: "+3 Months", position: "start", color: "red" },
                             },
-                            FixedEndOfNextYear: {
-                                type: "line", xMin: FixedEndOfNextYear, xMax: FixedEndOfNextYear,
-                                borderColor: "#39ff14", borderWidth: 1, borderDash: [6,3],
-                                label: { enabled: true, content: "End 2027", position: "start", color: "#39ff14" },
-                            },
+                            // Jan 1 lines — one per year from this year to absoluteMax year
+                            ...Object.fromEntries(
+                                Array.from({ length: 3 }, (_, i) => {
+                                    const yr = today.getFullYear() + i;
+                                    const jan1 = new Date(yr, 0, 1);
+                                    return [`jan1_${yr}`, {
+                                        type: "line", xMin: jan1, xMax: jan1,
+                                        borderColor: "#00c8ff", borderWidth: 1, borderDash: [],
+                                        label: { enabled: true, content: `Jan ${yr}`, position: "start", color: "#00c8ff", font: { size: 10 } },
+                                    }];
+                                })
+                            ),
                         }
                     },
                     zoom: {
@@ -2454,7 +2483,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             mode: "x",
                         },
                         limits: {
-                            x: { min: "original", max: "original" },
+                            x: {
+                                min: minDate.getTime(),
+                                max: absoluteMax.getTime(),
+                                minRange: 7 * 24 * 60 * 60 * 1000,
+                            },
                         },
                     }
                 },
@@ -2497,6 +2530,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         });
 
         chartInstances.push(chart);
+
 
         // ── Summary table + pie charts below the Gantt ───────────────────────
         const totalBarsThisYear = Object.values(colorCounts)
