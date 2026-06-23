@@ -1966,6 +1966,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <div class="gantt-filter-group" id="gfDrillOK"></div>
                     <h6>Geo OK</h6>
                     <div class="gantt-filter-group" id="gfGeoOK"></div>
+                    <h6>Rig</h6>
+                    <div class="gantt-filter-group" id="gfRig"></div>
                     <button class="gantt-reset-btn" id="ganttResetBtn">Reset Filters</button>
                 </div>
                 <div class="gantt-plot-wrap">
@@ -2093,6 +2095,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         ganttBuildFilterGroup('gfDpCompany', 'dpCompany', uniqWithBlank('dpCompany'), defaultAll);
         ganttBuildFilterGroup('gfDrillOK',   'drillok',   uniqWithBlank('drillok'),   defaultAll);
         ganttBuildFilterGroup('gfGeoOK',     'geook',     uniqWithBlank('geook'),     defaultAll);
+        ganttBuildFilterGroup('gfRig',       'rig',       uniqWithBlank('rig'),       defaultAll);
 
         ganttFiltersBuilt = true;
 
@@ -2119,6 +2122,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const fDpCompany = ganttGetChecked('dpCompany');
         const fDrillOK   = ganttGetChecked('drillok');
         const fGeoOK     = ganttGetChecked('geook');
+        const fRig       = ganttGetChecked('rig');
 
         // Map empty values to "Blank" sentinel so bars with missing fields
         // are correctly matched against the "Blank" checkbox when checked.
@@ -2129,7 +2133,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             fType.includes(blanked()(b.type)) &&
             fDpCompany.includes(blanked()(b.dpCompany)) &&
             fDrillOK.includes(blanked()(b.drillok)) &&
-            fGeoOK.includes(blanked()(b.geook))
+            fGeoOK.includes(blanked()(b.geook)) &&
+            fRig.includes(blanked()(b.rig))
         );
 
         ganttRenderChart(filtered);
