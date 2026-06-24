@@ -132,16 +132,21 @@ notesCrtl.renderNotes = async (req,res)=>{
         user.role = usuario.role
         user.list = usuario.list
         user.rank = usuario.rank
-        // console.log(usuario)
-        // console.log(user)
     }
-    // const notes = await Note.find().sort({createdAt: 'desc'});
     let count_InProgress = 0;
     let count_NotStarted = 0;
     let count_NotStarted_setup = 0;
-    const notes = await Note.find().sort({dueDate: 'asc'});
-    const schedule = await Schedule.find();   // 👈 pull schedule data from MongoDB
-    const dpStats = await DPStats.find();   // 👈 pull DP stats data from MongoDB
+
+    // ── Run all DB queries in parallel ───────────────────────────────────
+    // Select only the fields rendered in all-notes.ejs — avoids transferring
+    // large unused fields like description, imageID, wellbore data, etc.
+    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex';
+
+    const [notes, schedule, dpStats] = await Promise.all([
+        Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
+        Schedule.find().lean(),
+        DPStats.find().lean(),
+    ]);
     res.render('all-notes.ejs', {notes, user, schedule, dpStats, count_InProgress, count_NotStarted, count_NotStarted_setup});
 };
 
@@ -586,20 +591,38 @@ notesCrtl.syncDueDates = async (req, res) => {
     const notes = await Note.find().lean();
     const schedule = await Schedule.find().lean();
 
-    // Build a map of schedule sites → { start, rig, group }
+    // Build a map of schedule sites → { start (earliest), rig, group }
+    // A pad has multiple wells with different start dates — we want the
+    // earliest start date so the table shows when the pad first spuds.
     const scheduleMap = {};
     schedule.forEach(sch => {
       if (sch.site && sch.start) {
-        const key = sch.site.slice(0, 14); // normalize site
+        const key     = sch.site.slice(0, 14);
+        const schDate = new Date(sch.start);
+        if (isNaN(schDate)) return;
+
         if (!scheduleMap[key]) {
-          const isoDate = new Date(sch.start).toISOString().split("T")[0]; // YYYY-MM-DD
+          // First row for this key — initialise
           scheduleMap[key] = {
-            start: isoDate,
-            rig: sch.rig || null,
+            start: schDate,
+            rig:   sch.rig   || null,
             group: sch.group || null,
           };
+        } else {
+          // Subsequent rows — keep the earliest start date AND its rig
+          if (schDate < scheduleMap[key].start) {
+            scheduleMap[key].start = schDate;
+            scheduleMap[key].rig   = sch.rig || scheduleMap[key].rig;
+          }
+          // Keep group from whichever row has it if not yet set
+          if (!scheduleMap[key].group && sch.group)  scheduleMap[key].group = sch.group;
         }
       }
+    });
+
+    // Convert Date objects to YYYY-MM-DD strings
+    Object.values(scheduleMap).forEach(entry => {
+      entry.start = entry.start.toISOString().split("T")[0];
     });
 
     // Loop through notes and update dueDate + rig + group

@@ -1121,6 +1121,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <th scope="col">D.E</th>
                                         <th scope="col">Geo</th>
                                         <th scope="col">Rig</th>
+                                        <th scope="col">Group</th>
                                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                                             <th scope="col">Resp.</th>
                                         <% } %> -->
@@ -1202,6 +1203,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <td><%= note.poc %></td>
                                                         <td><%= note.geologist %></td>
                                                         <td><%= note.rig %></td>
+                                                        <td><%= note.group ?? '' %></td>
                                                         <!-- <% if (user.role == 'admin' || user.role == 'leader') { %>
                                                             <td><%= note.responsible %></td>
                                                         <% } %> -->
@@ -2026,6 +2028,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         renderChartsFromTable();
     });
 </script>
+
+</div>
 
 
 

@@ -71,4 +71,9 @@ const NoteConveyorSchema = new Schema({
 
 },{timestamps: true})
 
+// Indexes for common query patterns in all-notes.ejs
+NoteConveyorSchema.index({ dueDate: 1 });   // default sort
+NoteConveyorSchema.index({ status: 1 });    // accordion filtering
+NoteConveyorSchema.index({ project: 1 });   // schedule sync matching
+
 module.exports = model('NoteConveyor', NoteConveyorSchema);
