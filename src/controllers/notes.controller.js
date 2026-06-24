@@ -609,13 +609,12 @@ notesCrtl.syncDueDates = async (req, res) => {
             group: sch.group || null,
           };
         } else {
-          // Subsequent rows — keep the earliest start date AND its rig
+          // Subsequent rows — keep the earliest start date AND its rig + group
           if (schDate < scheduleMap[key].start) {
             scheduleMap[key].start = schDate;
-            scheduleMap[key].rig   = sch.rig || scheduleMap[key].rig;
+            scheduleMap[key].rig   = sch.rig   || scheduleMap[key].rig;
+            scheduleMap[key].group = sch.group || scheduleMap[key].group;
           }
-          // Keep group from whichever row has it if not yet set
-          if (!scheduleMap[key].group && sch.group)  scheduleMap[key].group = sch.group;
         }
       }
     });
