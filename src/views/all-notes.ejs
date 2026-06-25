@@ -1747,6 +1747,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <th>DpReq</th>
                                                         <th>Geo</th>
                                                         <th>Version</th>
+                                                        <th>Primary Zone</th>
+                                                        <th>TVD</th>
+                                                        <th>Target</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1768,6 +1771,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <td><%= item.dpReq %></td>
                                                             <td><%= item.geo %></td>
                                                             <td><%= item.version %></td>
+                                                            <td><%= item.primaryZone %></td>
+                                                            <td><%= item.tvd %></td>
+                                                            <td><%= item.target %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -1972,6 +1978,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <div class="gantt-filter-group" id="gfDrillOK"></div>
                     <h6>Geo OK</h6>
                     <div class="gantt-filter-group" id="gfGeoOK"></div>
+                    <h6>Primary Zone</h6>
+                    <div class="gantt-filter-group" id="gfPrimaryZone"></div>
                     <h6>Rig</h6>
                     <div class="gantt-filter-group" id="gfRig"></div>
                     <h6>D.E</h6>
@@ -2129,6 +2137,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         ganttBuildFilterGroup('gfDpCompany', 'dpCompany', uniqWithBlank('dpCompany'), defaultAll);
         ganttBuildFilterGroup('gfDrillOK',   'drillok',   uniqWithBlank('drillok'),   defaultAll);
         ganttBuildFilterGroup('gfGeoOK',     'geook',     uniqWithBlank('geook'),     defaultAll);
+        ganttBuildFilterGroup('gfPrimaryZone','primaryZone',uniqWithBlank('primaryZone'),defaultAll);
         ganttBuildFilterGroup('gfRig',       'rig',       uniqWithBlank('rig'),       defaultAll);
         ganttBuildFilterGroup('gfDE',        'de',        uniqWithBlank('de'),        defaultAll);
 
@@ -2156,7 +2165,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const fType      = ganttGetChecked('type');
         const fDpCompany = ganttGetChecked('dpCompany');
         const fDrillOK   = ganttGetChecked('drillok');
-        const fGeoOK     = ganttGetChecked('geook');
+        const fGeoOK        = ganttGetChecked('geook');
+        const fPrimaryZone  = ganttGetChecked('primaryZone');
         const fRig       = ganttGetChecked('rig');
         const fDE        = ganttGetChecked('de');
 
@@ -2170,6 +2180,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             fDpCompany.includes(blanked()(b.dpCompany)) &&
             fDrillOK.includes(blanked()(b.drillok)) &&
             fGeoOK.includes(blanked()(b.geook)) &&
+            fPrimaryZone.includes(blanked()(b.primaryZone)) &&
             fRig.includes(blanked()(b.rig)) &&
             fDE.includes(blanked()(b.de))
         );
@@ -2212,27 +2223,29 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
         rows.forEach(row => {
             const cells = row.querySelectorAll("td");
-            const rig       = cells[0]?.innerText.trim();
-            const drillok   = cells[1]?.innerText.trim();
-            const geook     = cells[2]?.innerText.trim();
-            const dp        = cells[3]?.innerText.trim();
-            const type      = cells[4]?.innerText.trim();
-            const duration  = Number(cells[5]?.innerText.trim() || 0);
-            const vp        = cells[6]?.innerText.trim();
-            const start     = parseDate(cells[7]?.innerText.trim());
-            const site      = cells[8]?.innerText.trim();
-            const well      = cells[9]?.innerText.trim();
-            const dpCompany = cells[10]?.innerText.trim();
-            const ETS       = cells[11]?.innerText.trim();
-            const group     = cells[12]?.innerText.trim().substring(0, 2);
-            const dpReq     = cells[13]?.innerText.trim();
-            const geo       = cells[14]?.innerText.trim();
-            const version   = cells[15]?.innerText.trim();
+            const rig         = cells[0]?.innerText.trim();
+            const drillok     = cells[1]?.innerText.trim();
+            const geook       = cells[2]?.innerText.trim();
+            const dp          = cells[3]?.innerText.trim();
+            const type        = cells[4]?.innerText.trim();
+            const duration    = Number(cells[5]?.innerText.trim() || 0);
+            const vp          = cells[6]?.innerText.trim();
+            const start       = parseDate(cells[7]?.innerText.trim());
+            const site        = cells[8]?.innerText.trim();
+            const well        = cells[9]?.innerText.trim();
+            const dpCompany   = cells[10]?.innerText.trim();
+            const ETS         = cells[11]?.innerText.trim();
+            const group       = cells[12]?.innerText.trim().substring(0, 2);
+            const dpReq       = cells[13]?.innerText.trim();
+            const geo         = cells[14]?.innerText.trim();
+            const version     = cells[15]?.innerText.trim();
+            const primaryZone = cells[16]?.innerText.trim();
 
             if(!rig) return;
 
             ganttAllBars.push({ rig, drillok, geook, dp, type, duration,
                 vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
+                primaryZone,
                 de: (ganttNotesMap[site.slice(0,14)] || {}).de || '' });
         });
 

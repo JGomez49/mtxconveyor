@@ -105,6 +105,11 @@ router.post('/notes/uploadSchedule', isAuthenticated, uploadSchedule);
 
 //Get note with site (for chart)
 router.get('/notes/findSite/:site', isAuthenticated, findSite);
+router.get('/notes/debugSchedule', isAuthenticated, async (req, res) => {
+  const Schedule = require('../models/Schedule');
+  const sample = await Schedule.findOne({}).lean();
+  res.json({ sample, primaryZone: sample?.primaryZone, tvd: sample?.tvd, target: sample?.target });
+});
 
 
 

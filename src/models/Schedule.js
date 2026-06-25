@@ -1,6 +1,4 @@
 
-
-
 const { Schema, model } = require("mongoose");
 
 const ScheduleSchema = new Schema(
@@ -18,12 +16,23 @@ const ScheduleSchema = new Schema(
     dpCompany: { type: String, default: "" },
     ETS: { type: String, default: "" },
     dpReq: { type: String, default: "" },
-    //dpReqDate: { type: Date, required: false },
-    group: { type: String, default: "group" },
-
+    group: { type: String, default: "" },
     geo: { type: String, default: "" },
-    // dpReceived: { type: String, default: "" },
     version: { type: String, default: "" },
+
+    // ── New fields from updated schedule template ──
+    primaryZone:     { type: String, default: "" },
+    tvd:             { type: Number, default: null },
+    target:          { type: String, default: "" },
+    province:        { type: String, default: "" },
+    playType:        { type: String, default: "" },
+    afeYear:         { type: String, default: "" },
+    prospectName:    { type: String, default: "" },
+    bhLocation:      { type: String, default: "" },
+    surfLocation:    { type: String, default: "" },
+    license:         { type: String, default: "" },
+    drillingSuper:   { type: String, default: "" },
+    geolApprovalDate:{ type: Date,   default: null },
 
     user: { type: Schema.Types.ObjectId, ref: "User" },
     uploadedDate: { type: Date, default: Date.now },
