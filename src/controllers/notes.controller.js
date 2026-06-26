@@ -481,7 +481,7 @@ notesCrtl.uploadSchedule = async (req, res) => {
     // [16]=dpReceivedDate [17]=primaryZone [18]=tvd [19]=target
     // [20]=province [21]=playType [22]=afeYear [23]=prospectName
     // [24]=bhLocation [25]=surfLocation [26]=license [27]=drillingSuper
-    // [28]=geolApprovalDate
+    // [28]=geolApprovalDate [29]=surfaceLat [30]=surfaceLon
     const scheduleDocs = rows.map((row) => ({
       rig:              row[0]  || "",
       drillok:          row[1]  || "",
@@ -512,6 +512,8 @@ notesCrtl.uploadSchedule = async (req, res) => {
       license:          row[26] || "",
       drillingSuper:    row[27] || "",
       geolApprovalDate: row[28] ? new Date(row[28]) : null,
+      surfaceLat:       row[29] ? Number(row[29]) : null,
+      surfaceLon:       row[30] ? Number(row[30]) : null,
       user: req.user ? req.user._id : null,
     }));
 

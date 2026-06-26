@@ -34,6 +34,8 @@ const ScheduleSchema = new Schema(
     license:         { type: String, default: "" },
     drillingSuper:   { type: String, default: "" },
     geolApprovalDate:{ type: Date,   default: null },
+    surfaceLat:      { type: Number, default: null },
+    surfaceLon:      { type: Number, default: null },
 
     user: { type: Schema.Types.ObjectId, ref: "User" },
     uploadedDate: { type: Date, default: Date.now },

@@ -1548,7 +1548,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+            <% if (user.role == 'admin' || user.role == 'leader') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -1585,7 +1585,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const bd=b.updatedAt?new Date(b.updatedAt):new Date(0);
                                         return bd-ad;
                                     }).forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer' || user.name == note.responsible || user.list == note.customer) { %>
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'Completed') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
@@ -1751,6 +1751,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <th>Primary Zone</th>
                                                         <th>TVD</th>
                                                         <th>Target</th>
+                                                        <th>Surf Lat</th>
+                                                        <th>Surf Lon</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1776,6 +1778,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <td><%= item.primaryZone %></td>
                                                             <td><%= item.tvd %></td>
                                                             <td><%= item.target %></td>
+                                                            <td><%= item.surfaceLat %></td>
+                                                            <td><%= item.surfaceLon %></td>
                                                         </tr>
                                                     <% }) %>
                                                 </tbody>
@@ -2023,6 +2027,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
 <script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||'') }; } return m; },{})) %></script>
+<script type="application/json" id="ganttScheduleData"><%- JSON.stringify(schedule.map(function(s){ return {
+    rig: s.rig||'', drillok: s.drillok||'', geook: s.geook||'',
+    dp: s.dp||'', type: s.type||'', duration: Number(s.duration)||0,
+    vp: s.vp||'', start: s.start ? new Date(s.start).toISOString() : '',
+    site: s.site||'', well: s.well||'', dpCompany: s.dpCompany||'',
+    ETS: String(s.ETS||''), group: (s.group||'').substring(0,2),
+    dpReq: s.dpReq||'', geo: s.geo||'', version: s.version||'',
+    dpReceivedDate: s.dpReceivedDate||'', primaryZone: s.primaryZone||''
+};})) %></script>
 
 <!-- Script to generate the Charts -->
 
@@ -2204,7 +2217,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const s = new Set();
             t.querySelectorAll("tbody tr").forEach(r => {
                 const projCell = r.cells[4]; // "Project" column = index 4 (ID,Q,Task,Vers.,Project)
-                if(projCell) s.add(projCell.innerText.trim().slice(0, 14));
+                if(projCell) s.add(projCell.textContent.trim().slice(0, 14));
             });
             return s;
         }
@@ -2219,33 +2232,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         ]);
         inBlackOpsQueueSites = buildSiteSet("InBlackOpsQueueTable");
 
-        // ── Parse all rows into flat array ──────────────────────────────────
+        // ── Parse schedule from embedded JSON — no DOM dependency ────────────
         compiledRows = [];
         ganttAllBars = [];
 
-        rows.forEach(row => {
-            const cells = row.querySelectorAll("td");
-            const rig         = cells[0]?.innerText.trim();
-            const drillok     = cells[1]?.innerText.trim();
-            const geook       = cells[2]?.innerText.trim();
-            const dp          = cells[3]?.innerText.trim();
-            const type        = cells[4]?.innerText.trim();
-            const duration    = Number(cells[5]?.innerText.trim() || 0);
-            const vp          = cells[6]?.innerText.trim();
-            const start       = parseDate(cells[7]?.innerText.trim());
-            const site        = cells[8]?.innerText.trim();
-            const well        = cells[9]?.innerText.trim();
-            const dpCompany   = cells[10]?.innerText.trim();
-            const ETS         = cells[11]?.innerText.trim();
-            const group       = cells[12]?.innerText.trim().substring(0, 2);
-            const dpReq       = cells[13]?.innerText.trim();
-            const geo         = cells[14]?.innerText.trim();
-            const version     = cells[15]?.innerText.trim();
-            const dpReceivedDate = cells[16]?.innerText.trim();
-            const primaryZone = cells[17]?.innerText.trim();
+        const scheduleJson = JSON.parse(
+            document.getElementById('ganttScheduleData').textContent
+        );
 
+        scheduleJson.forEach(function(s) {
+            const rig=s.rig, drillok=s.drillok, geook=s.geook, dp=s.dp;
+            const type=s.type, duration=Number(s.duration)||0, vp=s.vp;
+            const start=s.start ? new Date(s.start) : null;
+            const site=s.site, well=s.well, dpCompany=s.dpCompany;
+            const ETS=s.ETS, group=s.group, dpReq=s.dpReq;
+            const geo=s.geo, version=s.version;
+            const dpReceivedDate=s.dpReceivedDate, primaryZone=s.primaryZone;
             if(!rig) return;
-
             ganttAllBars.push({ rig, drillok, geook, dp, type, duration,
                 vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
                 dpReceivedDate, primaryZone,
@@ -2508,6 +2511,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                     })(),
                                     `Duration: ${d.Duration} days`,
                                     `Geo: ${d.geo}`, `Version: ${d.version}`,
+                                    `Lat: ${d.surfaceLat || '—'}`, `Lon: ${d.surfaceLon || '—'}`,
                                 ];
                             }
                         }
@@ -3086,20 +3090,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const cells = row.cells;
             if(!cells || cells.length < 21) return;
             rows.push({
-                version:      cells[DPTS_COL.version].innerText.trim(),
-                days:         Number(cells[DPTS_COL.days].innerText.trim()) || 0,
-                afeYear:      cells[DPTS_COL.afeYear].innerText.trim(),
-                playType:     cells[DPTS_COL.playType].innerText.trim(),
-                wellbores:    Number(cells[DPTS_COL.wellbores].innerText.trim()) || 0,
-                receivedDateFull: cells[DPTS_COL.receivedDate].innerText.trim(),
-                requestDateFull:  cells[DPTS_COL.requestDate].innerText.trim(),
-                receivedYear: dptsExtractYear(cells[DPTS_COL.receivedDate].innerText.trim()),
-                requestYear:  dptsExtractYear(cells[DPTS_COL.requestDate].innerText.trim()),
-                dpType:       cells[DPTS_COL.dpType].innerText.trim(),
-                dpCompany:    cells[DPTS_COL.dpCompany].innerText.trim(),
-                currentPlan:  cells[DPTS_COL.currentPlan].innerText.trim(),
-                rig:          cells.length > DPTS_COL.rig ? cells[DPTS_COL.rig].innerText.trim() : '',
-                estStartDateFull: cells.length > DPTS_COL.estStartDate ? cells[DPTS_COL.estStartDate].innerText.trim() : '',
+                version:      cells[DPTS_COL.version].textContent.trim(),
+                days:         Number(cells[DPTS_COL.days].textContent.trim()) || 0,
+                afeYear:      cells[DPTS_COL.afeYear].textContent.trim(),
+                playType:     cells[DPTS_COL.playType].textContent.trim(),
+                wellbores:    Number(cells[DPTS_COL.wellbores].textContent.trim()) || 0,
+                receivedDateFull: cells[DPTS_COL.receivedDate].textContent.trim(),
+                requestDateFull:  cells[DPTS_COL.requestDate].textContent.trim(),
+                receivedYear: dptsExtractYear(cells[DPTS_COL.receivedDate].textContent.trim()),
+                requestYear:  dptsExtractYear(cells[DPTS_COL.requestDate].textContent.trim()),
+                dpType:       cells[DPTS_COL.dpType].textContent.trim(),
+                dpCompany:    cells[DPTS_COL.dpCompany].textContent.trim(),
+                currentPlan:  cells[DPTS_COL.currentPlan].textContent.trim(),
+                rig:          cells.length > DPTS_COL.rig ? cells[DPTS_COL.rig].textContent.trim() : '',
+                estStartDateFull: cells.length > DPTS_COL.estStartDate ? cells[DPTS_COL.estStartDate].textContent.trim() : '',
             });
         });
         return rows;
