@@ -1548,7 +1548,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -1585,7 +1585,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const bd=b.updatedAt?new Date(b.updatedAt):new Date(0);
                                         return bd-ad;
                                     }).forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer' || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'Completed') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
