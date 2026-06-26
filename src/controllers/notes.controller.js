@@ -478,9 +478,10 @@ notesCrtl.uploadSchedule = async (req, res) => {
     // [0]=rig [1]=drillok [2]=geook [3]=duration [4]=dp [5]=type
     // [6]=vp [7]=start [8]=site [9]=well [10]=dpCompany [11]=ETS
     // [12]=group [13]=dpReq [14]=geo [15]=version
-    // [16]=primaryZone [17]=tvd [18]=target [19]=province [20]=playType
-    // [21]=afeYear [22]=prospectName [23]=bhLocation [24]=surfLocation
-    // [25]=license [26]=drillingSuper [27]=geolApprovalDate
+    // [16]=dpReceivedDate [17]=primaryZone [18]=tvd [19]=target
+    // [20]=province [21]=playType [22]=afeYear [23]=prospectName
+    // [24]=bhLocation [25]=surfLocation [26]=license [27]=drillingSuper
+    // [28]=geolApprovalDate
     const scheduleDocs = rows.map((row) => ({
       rig:              row[0]  || "",
       drillok:          row[1]  || "",
@@ -498,18 +499,19 @@ notesCrtl.uploadSchedule = async (req, res) => {
       dpReq:            row[13] || "",
       geo:              row[14] || "",
       version:          row[15] || "",
-      primaryZone:      row[16] || "",
-      tvd:              row[17] ? Number(row[17]) : null,
-      target:           row[18] || "",
-      province:         row[19] || "",
-      playType:         row[20] || "",
-      afeYear:          row[21] || "",
-      prospectName:     row[22] || "",
-      bhLocation:       row[23] || "",
-      surfLocation:     row[24] || "",
-      license:          row[25] || "",
-      drillingSuper:    row[26] || "",
-      geolApprovalDate: row[27] ? new Date(row[27]) : null,
+      dpReceivedDate:   row[16] || "",
+      primaryZone:      row[17] || "",
+      tvd:              row[18] ? Number(row[18]) : null,
+      target:           row[19] || "",
+      province:         row[20] || "",
+      playType:         row[21] || "",
+      afeYear:          row[22] || "",
+      prospectName:     row[23] || "",
+      bhLocation:       row[24] || "",
+      surfLocation:     row[25] || "",
+      license:          row[26] || "",
+      drillingSuper:    row[27] || "",
+      geolApprovalDate: row[28] ? new Date(row[28]) : null,
       user: req.user ? req.user._id : null,
     }));
 

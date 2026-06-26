@@ -1747,6 +1747,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                         <th>DpReq</th>
                                                         <th>Geo</th>
                                                         <th>Version</th>
+                                                        <th>DP Received Date</th>
                                                         <th>Primary Zone</th>
                                                         <th>TVD</th>
                                                         <th>Target</th>
@@ -1771,6 +1772,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <td><%= item.dpReq %></td>
                                                             <td><%= item.geo %></td>
                                                             <td><%= item.version %></td>
+                                                            <td><%= item.dpReceivedDate %></td>
                                                             <td><%= item.primaryZone %></td>
                                                             <td><%= item.tvd %></td>
                                                             <td><%= item.target %></td>
@@ -2239,13 +2241,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const dpReq       = cells[13]?.innerText.trim();
             const geo         = cells[14]?.innerText.trim();
             const version     = cells[15]?.innerText.trim();
-            const primaryZone = cells[16]?.innerText.trim();
+            const dpReceivedDate = cells[16]?.innerText.trim();
+            const primaryZone = cells[17]?.innerText.trim();
 
             if(!rig) return;
 
             ganttAllBars.push({ rig, drillok, geook, dp, type, duration,
                 vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
-                primaryZone,
+                dpReceivedDate, primaryZone,
                 de: (ganttNotesMap[site.slice(0,14)] || {}).de || '' });
         });
 
@@ -2324,6 +2327,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     dpCompany: siteObj.dpCompany, ETS: siteObj.ETS,
                     type, group: siteObj.group, dpReq, geo: siteObj.geo,
                     version: siteObj.version,
+                    dpReceivedDate: siteObj.dpReceivedDate,
                     DE: (ganttNotesMap[siteObj.site.slice(0,14)] || {}).de || '',
                 }
             });
@@ -2487,7 +2491,21 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                     `D.E: ${d.DE || '—'}`,
                                     `DrillOK: ${d.drillok}`, `GeoOK: ${d.geook}`,
                                     `DP Company: ${d.dpCompany}`,
-                                    `Dp Requested: ${d.dpReq}`, `DP Received: ${d.DP}`,
+                                    `Dp Requested: ${d.dpReq}`,
+                                    `DP Received: ${d.dpReceivedDate || '—'}`,
+                                    (() => {
+                                        if(!d.dpReq || !d.dpReceivedDate) return 'DP Time: —';
+                                        const req = new Date(d.dpReq);
+                                        const rec = new Date(d.dpReceivedDate);
+                                        if(isNaN(req)||isNaN(rec)) return 'DP Time: —';
+                                        return 'DP Time: ' + Math.round((rec-req)/(1000*60*60*24)) + ' days';
+                                    })(),
+                                    (() => {
+                                        if(!d.dpReceivedDate) return 'Approval Time: —';
+                                        const rec = new Date(d.dpReceivedDate);
+                                        if(isNaN(rec)) return 'Approval Time: —';
+                                        return 'Approval Time: ' + Math.round((new Date()-rec)/(1000*60*60*24)) + ' days since received';
+                                    })(),
                                     `Duration: ${d.Duration} days`,
                                     `Geo: ${d.geo}`, `Version: ${d.version}`,
                                 ];

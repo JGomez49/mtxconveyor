@@ -79,6 +79,7 @@ const COL = {
     geook:           14,
     type:            15,
     // dpReceivedDate:16,
+    dpReceivedDate:  16,
     dpReq:           17,
     // explorationMgr:18,
     vp:              19,
@@ -100,14 +101,14 @@ const COL = {
 const FIELD_ORDER = [
     'rig','drillok','geook','duration','dp','type','vp','start','site','well',
     'dpCompany','ETS','group','dpReq','geo','version',
-    'primaryZone','tvd','target','province','playType','afeYear',
+    'dpReceivedDate','primaryZone','tvd','target','province','playType','afeYear',
     'prospectName','bhLocation','surfLocation','license','drillingSuper','geolApprovalDate'
 ];
 
 const HEADERS = [
     'Rig','DrillOK','GeoOK','Duration','DP','Type','VP','Start','Site','Well',
     'DP Company','ETS','Group','DpReq','Geo','Version',
-    'Primary Zone','TVD','Target','Province','Play Type','AFE Year',
+    'DP Received Date','Primary Zone','TVD','Target','Province','Play Type','AFE Year',
     'Prospect','BH Location','Surf Location','License','Drilling Super','Geol Approval Date'
 ];
 
@@ -157,6 +158,7 @@ function parseRow(raw) {
         ETS:              cellStr(raw[COL.ETS]),
         group:            cellStr(raw[COL.group]),
         dpReq:            cellStr(raw[COL.dpReq]),
+        dpReceivedDate:   cellDate(raw[COL.dpReceivedDate]),
         geo:              cellStr(raw[COL.geo]),
         version:          cellStr(raw[COL.version]),
         primaryZone:      cellStr(raw[COL.primaryZone]),

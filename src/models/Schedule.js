@@ -21,6 +21,7 @@ const ScheduleSchema = new Schema(
     version: { type: String, default: "" },
 
     // ── New fields from updated schedule template ──
+    dpReceivedDate:  { type: String, default: "" },
     primaryZone:     { type: String, default: "" },
     tvd:             { type: Number, default: null },
     target:          { type: String, default: "" },
