@@ -10,6 +10,7 @@ const ImageMirelleDog = require('../models/ImageMirelleDog');
 const Schedule = require("../models/Schedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
+const PadAC       = require("../models/PadAC");
 
 //const ScheduleETS = require("../models/ScheduleETS");
 
@@ -912,6 +913,33 @@ notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{
 };
 
 
+
+
+// ── PAD AC ──────────────────────────────────────────────────────────────────
+notesCrtl.savePadAC = async (req, res) => {
+  try {
+    const { noteId, headers, rows } = req.body;
+    if(!noteId || !rows) return res.status(400).json({ error: 'Missing noteId or rows' });
+    await PadAC.findOneAndUpdate(
+      { noteId },
+      { noteId, headers, rows, uploadedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, count: rows.length });
+  } catch(err) {
+    console.error('savePadAC error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.getPadAC = async (req, res) => {
+  try {
+    const doc = await PadAC.findOne({ noteId: req.params.noteId }).lean();
+    res.json(doc || null);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 module.exports = notesCrtl;
 

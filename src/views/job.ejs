@@ -131,6 +131,10 @@ body.light-mode .accordion-button.collapsed {
     color: #111820 !important;
 }
 body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
+/* PAD AC risk colours */
+.risk-red   { background-color: #b22222 !important; color: #fff !important; }
+.risk-amber { background-color: #f0c640 !important; color: #000 !important; }
+.risk-green { background-color: #2e7d32 !important; color: #fff !important; }
 </style>
 
 <!-- ── Navbar ── -->
@@ -208,7 +212,132 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                         </a>
                     <% } %>
                 </div>
-                
+
+                <!-- ================= PAD AC ================= -->
+                <div class="accordion mb-2" id="accordionPadAC">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapsePadAC">
+                                🛡 PAD AC
+                            </button>
+                        </h2>
+                        <div id="collapsePadAC" class="accordion-collapse collapse show">
+                            <div class="accordion-body p-2">
+
+                                <!-- ── Controls (edit roles only) ── -->
+                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                <div class="card bg-secondary border-0 mb-2 p-2">
+
+                                    <!-- Row 1: file + thresholds + parse + save -->
+                                    <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">Report files (folder or multiple files)</label>
+                                            <input id="padACFileInput" type="file"
+                                                   class="form-control form-control-sm"
+                                                   accept=".xls,.xlsx,.csv"
+                                                   webkitdirectory directory multiple>
+                                        </div>
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">C2C threshold (m)</label>
+                                            <input id="padACThC2C" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="15">
+                                        </div>
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">SF threshold</label>
+                                            <input id="padACThSF" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="1.25">
+                                        </div>
+                                        <button id="padACParseBtn" class="btn btn-sm btn-success align-self-end">
+                                            ⚙ Parse
+                                        </button>
+                                        <button id="padACSaveBtn" class="btn btn-sm btn-primary align-self-end" disabled>
+                                            💾 Save to Job
+                                        </button>
+                                    </div>
+                                    <div style="font-size:10px;color:#aaa;">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
+
+                                    <!-- Row 2: all filters + column toggles (one row, all roles see the col toggles below) -->
+                                    <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:11px;">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfRefMD" checked>
+                                            <label class="form-check-label" for="padACfRefMD">Hide: Ref.MD &lt; 100</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfE2E" checked>
+                                            <label class="form-check-label" for="padACfE2E">E2E empty</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfProb">
+                                            <label class="form-check-label" for="padACfProb">Prob &lt; 1 in 1E+9</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfDup" checked>
+                                            <label class="form-check-label" for="padACfDup">Hide duplicates</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfAND">
+                                            <label class="form-check-label" for="padACfAND">Show only: C2C&lt;15 AND SF&lt;1</label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Row 3: exports + delete + reset + status -->
+                                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                                        <button id="padACCsvBtn" class="btn btn-outline-light btn-sm" disabled>⬇ CSV</button>
+                                        <button id="padACXlsxBtn" class="btn btn-outline-light btn-sm" disabled>⬇ Excel</button>
+                                        <button id="padACDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>🗑 Delete Selected</button>
+                                        <button id="padACResetBtn" class="btn btn-outline-warning btn-sm">↺ Reset</button>
+                                        <span id="padACStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;margin-left:8px;"></span>
+                                    </div>
+                                </div>
+                                <% } %>
+
+                                <!-- ── Column visibility (all roles) ── -->
+                                <div class="d-flex flex-wrap gap-3 mb-2" style="font-size:11px;">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfSemi" checked>
+                                        <label class="form-check-label" for="padACfSemi">Semi Majors</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfW2W" checked>
+                                        <label class="form-check-label" for="padACfW2W">W2W</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfE2Ecol" checked>
+                                        <label class="form-check-label" for="padACfE2Ecol">E2E</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfMinSep" checked>
+                                        <label class="form-check-label" for="padACfMinSep">Min.Sep.</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfProbPct" checked>
+                                        <label class="form-check-label" for="padACfProbPct">Prob.%</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfWarn" checked>
+                                        <label class="form-check-label" for="padACfWarn">Warning</label>
+                                    </div>
+                                </div>
+
+                                <!-- Subject badges -->
+                                <!-- Subject badges -->
+                                <div id="padACBadges" class="d-flex flex-wrap gap-1 mb-2"></div>
+
+                                <!-- Table -->
+                                <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
+                                    <table id="padACTable"
+                                           class="table table-dark table-hover table-bordered table-sm mb-0"
+                                           style="font-size:11px;">
+                                        <thead id="padACThead"></thead>
+                                        <tbody id="padACTbody"></tbody>
+                                    </table>
+                                </div>
+                                <div id="padACCount" style="font-size:10px;color:#aaa;margin-top:4px;"></div>
+                                <div id="padACEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;">No PAD AC data saved for this job yet.</div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
                 <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
@@ -3473,5 +3602,572 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
     </script>
     <!-- ================= END WELLBORE 3D TRAJECTORY SCRIPT ================= -->
     <% } %>
+
+<!-- ================= PAD AC SCRIPT ================= -->
+<script>
+(function(){
+    const PAD_AC_NOTE_ID = "<%- note._id %>";
+
+    // ── Helpers (ported from uploadPadAC.ejs) ───────────────────────────
+    const padAC_el = id => document.getElementById(id);
+    const nonEmpty = v => v !== null && v !== undefined && String(v).trim() !== '';
+    const norm     = v => String(v ?? '').trim();
+
+    function parseNumber(val) {
+        if (val === null || val === undefined) return null;
+        const s = String(val).replace(/−/g, '-');
+        const cleaned = s.replace(/[^0-9eE.\-+]/g, '');
+        if (!cleaned) return null;
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : null;
+    }
+    const oneDec = v => { const n = parseNumber(v); return n === null ? '' : n.toFixed(1); };
+    const int0   = v => { const n = parseNumber(v); return n === null ? '' : n.toFixed(0); };
+
+    function parseProbabilityFraction(val) {
+        const m = String(val || '').match(/1\s*in\s*([\d,]+)/i);
+        if (!m) return null;
+        const x = Number(m[1].replace(/,/g, ''));
+        return Number.isFinite(x) && x > 0 ? x : null;
+    }
+    function probabilityToPercent(val, dec = 3) {
+        const x = parseProbabilityFraction(val);
+        return x ? (100 / x).toFixed(dec) : '';
+    }
+    function isProbTiny(val) {
+        const s = norm(val).replace(/\s+/g, ' ');
+        if (!s) return false;
+        if (s.includes('1E+9') && s.includes('<')) return true;
+        return /^\<\s*1\s+in\s+1e\+?\d+\s*$/i.test(s);
+    }
+    function classForC2C(val) {
+        const n = parseNumber(val); if (n === null) return '';
+        if (n < 10) return 'risk-red'; if (n < 15) return 'risk-amber'; return 'risk-green';
+    }
+    function classForSF(val) {
+        const n = parseNumber(val); if (n === null) return '';
+        if (n < 1.0) return 'risk-red'; if (n < 1.25) return 'risk-amber'; return 'risk-green';
+    }
+
+    // ── Report structure matchers (exact from uploadPadAC.ejs) ──────────
+    const isOffsetDesignRow = row0 => /^(offset\s+design)\b/i.test(norm(row0));
+    function isDetailHeaderRow(row) {
+        const cells = row.map(c => norm(c));
+        return cells.some(c => /measured\s*depth/i.test(c)) &&
+               cells.some(c => /(between\s*centres|distance\s*between\s*centres)/i.test(c)) &&
+               cells.some(c => /separation\s*factor/i.test(c));
+    }
+
+    function getLabelValue(rows, labelRegex, searchRows = 400) {
+        for (let r = 0; r < Math.min(rows.length, searchRows); r++) {
+            const row = rows[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                if (labelRegex.test(norm(row[c]))) {
+                    for (let k = c + 1; k < row.length; k++) if (nonEmpty(row[k])) return norm(row[k]);
+                    for (let rr = r + 1; rr < Math.min(r + 4, rows.length); rr++) {
+                        const nrow = rows[rr] || []; const cand = nrow.find(nonEmpty);
+                        if (cand) return norm(cand);
+                    }
+                    return '';
+                }
+            }
+        }
+        return '';
+    }
+    function buildSubjectWell(rows) {
+        return [
+            getLabelValue(rows, /^reference\s*site\b/i),
+            getLabelValue(rows, /^reference\s*well\b/i),
+            getLabelValue(rows, /^reference\s*wellbore\b/i),
+            getLabelValue(rows, /^reference\s*design\b/i),
+        ].filter(nonEmpty).join(' - ');
+    }
+    function buildCompositeHeader(allRows, headerRowIdx) {
+        const main = (allRows[headerRowIdx] || []).map(c => norm(c));
+        const up1  = (allRows[headerRowIdx - 1] || []).map(c => norm(c));
+        const up2  = (allRows[headerRowIdx - 2] || []).map(c => norm(c));
+        const composite = main.map((label, i) => {
+            const above = (up1[i] || up2[i] || '').trim();
+            if (!above) return label;
+            const mainIsGeneric =
+                /^(reference|offset)\b/i.test(label) || /\(m\)/i.test(label) ||
+                /depth|axis|centres|ellipses|separation|probability|warning/i.test(label);
+            return mainIsGeneric ? `${above} ${label}`.replace(/\s+/g, ' ').trim() : label;
+        });
+        return { composite, up1, up2, main };
+    }
+    function belongsToUmbrella(i, up1, up2, umbrellaRegex, searchLeft = 6) {
+        const here = (up1[i] || up2[i] || '').trim();
+        if (umbrellaRegex.test(here)) return true;
+        for (let k = 1; k <= searchLeft; k++) {
+            const j = i - k; if (j < 0) break;
+            const a1 = (up1[j] || '').trim(); const a2 = (up2[j] || '').trim();
+            if (a1 || a2) return umbrellaRegex.test(a1) || umbrellaRegex.test(a2);
+        }
+        return false;
+    }
+
+    // ── Parse one file (same logic as uploadPadAC.ejs parseReport) ──────
+    async function parseReport(file, thC2C, thSF) {
+        const buf = await file.arrayBuffer();
+        let wb;
+        try { wb = XLSX.read(buf, { type: 'array' }); }
+        catch(e) {
+            const csv = new TextDecoder('utf-8').decode(new Uint8Array(buf));
+            wb = XLSX.read(csv, { type: 'string' });
+        }
+        const allRows = [];
+        wb.SheetNames.forEach(name => {
+            const ws = wb.Sheets[name];
+            if (ws) {
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+                if (rows.length) allRows.push(...rows, ...Array(3).fill([]));
+            }
+        });
+
+        const subjectWell = buildSubjectWell(allRows);
+        const results = [];
+        let i = 0;
+
+        while (i < allRows.length) {
+            const row = allRows[i] || [];
+            if (isOffsetDesignRow(row[0])) {
+                const offsetName = norm(row[2]);
+                let headerRowIdx = -1;
+                for (let k = i + 1; k < Math.min(i + 400, allRows.length); k++) {
+                    if (isDetailHeaderRow(allRows[k])) { headerRowIdx = k; break; }
+                }
+                if (headerRowIdx === -1) { i++; continue; }
+
+                const { composite: header, up1, up2, main } = buildCompositeHeader(allRows, headerRowIdx);
+                const findAllIdx = re => header.reduce((a, h, idx) => (re.test(h) ? (a.push(idx), a) : a), []);
+                const findIdx    = re => header.findIndex(h => re.test(h));
+
+                const idxsMD  = findAllIdx(/measured\s*depth/i);
+                const idxsTVD = findAllIdx(/vertical\s*depth/i);
+                let idxsSMAJ  = findAllIdx(/semi\s*major\s*axis/i);
+
+                const idxC2C  = findIdx(/between\s*centres/i);
+                const idxW2W  = findIdx(/wall[-\s]*wall/i);
+                const idxE2E  = findIdx(/ellipse/i);
+                const idxMin  = findIdx(/minimum\s*separation/i);
+                const idxSF   = findIdx(/separation\s*factor/i);
+                const idxProb = findIdx(/probability\s*of\s*collision/i);
+                const idxWarn = findIdx(/\bwarning\b/i);
+
+                if (idxsSMAJ.length < 2) {
+                    const umb = /semi\s*major/i;
+                    const refs = [], offs = [];
+                    main.forEach((t, idx) => {
+                        if (/^reference\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb)) refs.push(idx);
+                        if (/^offset\b/i.test(t) && belongsToUmbrella(idx, up1, up2, umb)) offs.push(idx);
+                    });
+                    if (refs.length && offs.length) idxsSMAJ = [refs[0], offs[0]];
+                }
+
+                let worst = null;
+                for (let r = headerRowIdx + 1; r < allRows.length; r++) {
+                    const cur = allRows[r] || [];
+                    const rowText = cur.map(norm).join(' ');
+                    if (isOffsetDesignRow(norm(cur[0])) || isDetailHeaderRow(cur) ||
+                        /offset\s+site\s+error/i.test(rowText)) break;
+                    if (!cur.some(nonEmpty)) continue;
+
+                    const getAt = idx => (idx >= 0 && idx < cur.length) ? cur[idx] : '';
+                    const c2c = getAt(idxC2C), sf = getAt(idxSF), prob = getAt(idxProb);
+                    const c2cNum = parseNumber(c2c), sfNum = parseNumber(sf);
+                    if (!((c2cNum !== null && c2cNum < thC2C) || (sfNum !== null && sfNum < thSF))) continue;
+
+                    const probNum = (() => {
+                        const m = String(prob || '').match(/1\s*in\s*([\d,]+)/i);
+                        return m ? Number(m[1].replace(/,/g, '')) : Infinity;
+                    })();
+                    const candidate = {
+                        probNum, sfNum: sfNum ?? Infinity, c2cNum: c2cNum ?? Infinity,
+                        refMDNum: parseNumber(getAt(idxsMD[0])) ?? 0,
+                        reason: `Selected: highest collision probability (1 in ${probNum.toLocaleString()})`,
+                        columns: [
+                            subjectWell, offsetName,
+                            getAt(idxsMD[0]), getAt(idxsTVD[0]), getAt(idxsMD[1]), getAt(idxsTVD[1]),
+                            getAt(idxsSMAJ[0]), getAt(idxsSMAJ[1]),
+                            c2c, getAt(idxW2W), getAt(idxE2E), getAt(idxMin), sf, prob, null, getAt(idxWarn)
+                        ]
+                    };
+                    if (!worst ||
+                        candidate.probNum < worst.probNum ||
+                        (candidate.probNum === worst.probNum && candidate.sfNum < worst.sfNum) ||
+                        (candidate.sfNum === worst.sfNum && candidate.c2cNum < worst.c2cNum) ||
+                        (candidate.c2cNum === worst.c2cNum && candidate.refMDNum > worst.refMDNum)) {
+                        worst = candidate;
+                    }
+                }
+                if (worst) results.push({ subjectWell, offsetName, columns: worst.columns, reason: worst.reason });
+                i = headerRowIdx + 1; continue;
+            }
+            i++;
+        }
+        return results;
+    }
+
+    // ── State ────────────────────────────────────────────────────────────
+    const CUSTOM_HEADERS = [
+        'Ref. Well','Offset Well',
+        'Ref. MD','Ref. TVD','Offset MD','Offset TVD',
+        'Ref. Semi Major','Off. Semi Major','C2C',
+        'W2W','E2E','Min. Sep.','SF',
+        'Prob.Sta.','Prob.%','Warning'
+    ];
+
+    let lastResults = [];
+    let sortState   = { col: null, dir: 'asc' };
+    const filters = {
+        refMDlt100: true, e2eEmpty: true, probTiny: false, crossDup: true, showAND: false,
+        hideSemiMajor: true, hideW2W: true, hideE2E: true, hideMinSep: true,
+        hideProbPct: true, hideWarning: true,
+    };
+
+    function setStatus(msg) {
+        const el = padAC_el('padACStatus'); if (el) el.textContent = msg;
+    }
+
+    // ── Filtering & sorting ──────────────────────────────────────────────
+    function dedupeCrossPairs(rows) {
+        const seen = new Set(), out = [];
+        for (const r of rows) {
+            const a = norm(r.columns[0]).toLowerCase(), b = norm(r.columns[1]).toLowerCase();
+            const key = a < b ? `${a}||${b}` : `${b}||${a}`;
+            if (seen.has(key)) continue;
+            seen.add(key); out.push(r);
+        }
+        return out;
+    }
+    function getFilteredResults() {
+        let f = lastResults.filter(r => {
+            const c = r.columns;
+            if (filters.refMDlt100) { const n = parseNumber(c[2]); if (n !== null && n < 100) return false; }
+            if (filters.e2eEmpty)   { if (!nonEmpty(c[10])) return false; }
+            if (filters.probTiny)   { if (isProbTiny(c[13])) return false; }
+            if (filters.showAND) {
+                const c2cN = parseNumber(c[8]), sfN = parseNumber(c[12]);
+                if (!(c2cN !== null && c2cN < 15 && sfN !== null && sfN < 1.0)) return false;
+            }
+            return true;
+        });
+        if (filters.crossDup) f = dedupeCrossPairs(f);
+        return f;
+    }
+    function isColVisible(col1) {
+        if ((col1 === 7 || col1 === 8) && filters.hideSemiMajor) return false;
+        if (col1 === 10 && filters.hideW2W)     return false;
+        if (col1 === 11 && filters.hideE2E)     return false;
+        if (col1 === 12 && filters.hideMinSep)  return false;
+        if (col1 === 15 && filters.hideProbPct) return false;
+        if (col1 === 16 && filters.hideWarning) return false;
+        return true;
+    }
+    function getVisibleCols() { return CUSTOM_HEADERS.map((_, i) => i + 1).filter(isColVisible); }
+    const NUMERIC_COLS = new Set([3,4,5,6,7,8,9,10,11,12,13]);
+    function compareCells(aV, bV, col1) {
+        if (NUMERIC_COLS.has(col1)) {
+            const an = parseNumber(aV), bn = parseNumber(bV);
+            if (an === null && bn === null) return 0;
+            if (an === null) return 1; if (bn === null) return -1;
+            return an - bn;
+        }
+        const as = norm(aV).toLowerCase(), bs = norm(bV).toLowerCase();
+        return as < bs ? -1 : as > bs ? 1 : 0;
+    }
+    function getViewResults() {
+        const arr = getFilteredResults().slice();
+        if (!sortState.col || !isColVisible(sortState.col)) return arr;
+        const col = sortState.col, dir = sortState.dir;
+        arr.sort((ra, rb) => { const cmp = compareCells(ra.columns[col-1], rb.columns[col-1], col); return dir === 'asc' ? cmp : -cmp; });
+        return arr;
+    }
+    function setSort(col1) {
+        if (sortState.col === col1) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+        else { sortState.col = col1; sortState.dir = 'asc'; }
+        renderTable(lastResults);
+    }
+
+    // ── Render table ─────────────────────────────────────────────────────
+    function renderTable(resultsAll) {
+        const thead = padAC_el('padACThead'), tbody = padAC_el('padACTbody');
+        const empty = padAC_el('padACEmpty'), count = padAC_el('padACCount');
+        if (!thead || !tbody) return;
+        thead.innerHTML = ''; tbody.innerHTML = '';
+
+        const visibleCols = getVisibleCols();
+
+        // Header: checkbox (select-all) + sort buttons
+        const trh = document.createElement('tr');
+        // Select-all checkbox cell
+        const thCb = document.createElement('th');
+        const cbAll = document.createElement('input');
+        cbAll.type = 'checkbox';
+        cbAll.title = 'Select / deselect all';
+        cbAll.addEventListener('change', () => {
+            tbody.querySelectorAll('input.padac-row-cb').forEach(cb => cb.checked = cbAll.checked);
+        });
+        thCb.appendChild(cbAll);
+        trh.appendChild(thCb);
+        visibleCols.forEach(col1 => {
+            const th = document.createElement('th');
+            const dir = sortState.col === col1 ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : '';
+            th.innerHTML = `<button type="button" style="all:unset;cursor:pointer;white-space:nowrap;"
+                data-col="${col1}">${CUSTOM_HEADERS[col1-1]}${dir}</button>`;
+            th.querySelector('button').addEventListener('click', e => setSort(Number(e.currentTarget.dataset.col)));
+            trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+
+        const results = getViewResults();
+        if (!results.length) {
+            if (count) count.textContent = 'No rows match current filters.';
+            if (empty) empty.style.display = (resultsAll && resultsAll.length) ? '' : '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        results.forEach((res, ri) => {
+            const tr = document.createElement('tr');
+            // Checkbox cell — store index into lastResults for deletion
+            const tdCb = document.createElement('td');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'padac-row-cb';
+            cb.dataset.idx = lastResults.indexOf(res);  // stable index
+            tdCb.appendChild(cb);
+            tr.appendChild(tdCb);
+            visibleCols.forEach(col1 => {
+                const val = res.columns[col1 - 1];
+                const td = document.createElement('td');
+                if (col1 === 2 && res.reason) { td.title = res.reason; }
+                if (col1 >= 3 && col1 <= 6)        td.textContent = int0(val);
+                else if (col1 >= 9 && col1 <= 13)  td.textContent = oneDec(val);
+                else if (col1 === 15)               td.textContent = probabilityToPercent(res.columns[13]);
+                else                                td.textContent = val ?? '';
+                if (col1 === 9)  { const cls = classForC2C(val); if (cls) td.classList.add(cls); }
+                if (col1 === 13) { const cls = classForSF(val);  if (cls) td.classList.add(cls); }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+
+        if (count) count.textContent = `${results.length} row(s) shown (from ${resultsAll.length} total).`;
+    }
+
+    // ── Subject badges ───────────────────────────────────────────────────
+    function renderBadges(results, fileCount) {
+        const holder = padAC_el('padACBadges'); if (!holder) return;
+        holder.innerHTML = '';
+        const counts = new Map();
+        results.forEach(r => { const k = r.subjectWell || '(unknown)'; counts.set(k, (counts.get(k)||0)+1); });
+        counts.forEach((cnt, name) => {
+            const b = document.createElement('span');
+            b.className = 'badge bg-info text-dark';
+            b.textContent = `${name} (${cnt})`;
+            holder.appendChild(b);
+        });
+    }
+
+    // ── Export helpers ───────────────────────────────────────────────────
+    function buildExportAoA() {
+        const visibleCols = getVisibleCols();
+        const results = getViewResults();
+        const headers = visibleCols.map(c => CUSTOM_HEADERS[c - 1]);
+        const rows = results.map(r => visibleCols.map(c1 => {
+            if (c1 === 15) return probabilityToPercent(r.columns[13]);
+            const v = r.columns[c1-1];
+            if (c1 >= 3 && c1 <= 6) return int0(v);
+            if (c1 >= 9 && c1 <= 13) return oneDec(v);
+            return v ?? '';
+        }));
+        return { headers, rows };
+    }
+    function downloadCSV() {
+        const { headers, rows } = buildExportAoA(); if (!rows.length) return;
+        const csv = [headers, ...rows].map(r => r.map(v => {
+            const s = String(v ?? '');
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        }).join(',')).join('\n');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+        a.download = 'ac_risk_summary.csv'; a.click();
+    }
+    function downloadXLSX_padAC() {
+        const { headers, rows } = buildExportAoA(); if (!rows.length) return;
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb2 = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb2, ws, 'Summary');
+        XLSX.writeFile(wb2, 'ac_risk_summary.xlsx');
+    }
+
+    // ── Parse button ─────────────────────────────────────────────────────
+    const parseBtn = padAC_el('padACParseBtn');
+    const saveBtn  = padAC_el('padACSaveBtn');
+    if (parseBtn) {
+        parseBtn.addEventListener('click', async () => {
+            const fileInput = padAC_el('padACFileInput');
+            const files = Array.from(fileInput ? fileInput.files : []);
+            if (!files.length) { setStatus('⚠ Please choose report files or a folder first.'); return; }
+            const thC2C = Number((padAC_el('padACThC2C') || {}).value || 15);
+            const thSF  = Number((padAC_el('padACThSF')  || {}).value || 1.25);
+
+            lastResults = [];
+            if (saveBtn) saveBtn.disabled = true;
+            padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = true);
+            padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = true);
+            renderBadges([], 0);
+            renderTable([]);
+
+            let processed = 0;
+            for (const f of files) {
+                setStatus(`Parsing ${f.name} (${++processed}/${files.length})…`);
+                try {
+                    const res = await parseReport(f, thC2C, thSF);
+                    lastResults.push(...res);
+                    renderBadges(lastResults, processed);
+                    renderTable(lastResults);
+                } catch(e) {
+                    console.error(e);
+                    setStatus(`⚠ Failed parsing ${f.name}: ${e.message}`);
+                }
+            }
+
+            if (lastResults.length) {
+                setStatus(`✅ Done. Parsed ${processed} file(s). ${lastResults.length} rows. Click Save to store.`);
+                if (saveBtn) saveBtn.disabled = false;
+                padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
+                padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
+                padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
+            } else {
+                setStatus(`⚠ Parsed ${processed} file(s). No rows matched thresholds.`);
+            }
+        });
+    }
+
+    // ── Save to MongoDB ──────────────────────────────────────────────────
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            if (!lastResults.length) return;
+            setStatus('Saving…'); saveBtn.disabled = true;
+            try {
+                const res = await fetch('/notes/padAC/' + PAD_AC_NOTE_ID, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        noteId: PAD_AC_NOTE_ID,
+                        headers: CUSTOM_HEADERS,
+                        rows: lastResults.map(r => r.columns)
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) setStatus(`✅ Saved ${data.count} rows to this job.`);
+                else { setStatus('❌ Save failed: ' + (data.error || res.statusText)); saveBtn.disabled = false; }
+            } catch(e) {
+                setStatus('❌ Error: ' + e.message); saveBtn.disabled = false;
+            }
+        });
+    }
+
+    // ── Filter events ────────────────────────────────────────────────────
+    const wireFilter = (id, key) => {
+        const el = padAC_el(id);
+        if (el) el.addEventListener('change', e => { filters[key] = e.target.checked; renderTable(lastResults); });
+    };
+    wireFilter('padACfRefMD',  'refMDlt100');
+    wireFilter('padACfE2E',    'e2eEmpty');
+    wireFilter('padACfProb',   'probTiny');
+    wireFilter('padACfDup',    'crossDup');
+    wireFilter('padACfAND',    'showAND');
+    wireFilter('padACfSemi',   'hideSemiMajor');
+    wireFilter('padACfW2W',    'hideW2W');
+    wireFilter('padACfE2Ecol', 'hideE2E');
+    wireFilter('padACfMinSep', 'hideMinSep');
+    wireFilter('padACfProbPct','hideProbPct');
+    wireFilter('padACfWarn',   'hideWarning');
+
+    // ── Delete Selected ──────────────────────────────────────────────────
+    const deleteBtn = padAC_el('padACDeleteBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            const checked = Array.from(
+                document.querySelectorAll('input.padac-row-cb:checked')
+            );
+            if (!checked.length) { setStatus('⚠ No rows selected.'); return; }
+            // Collect indices to remove (stored as data-idx on each checkbox)
+            const idxsToRemove = new Set(checked.map(cb => Number(cb.dataset.idx)));
+            lastResults = lastResults.filter((_, i) => !idxsToRemove.has(i));
+            renderBadges(lastResults, 0);
+            renderTable(lastResults);
+            // Re-enable delete btn only if rows remain
+            deleteBtn.disabled = !lastResults.length;
+            if (saveBtn) saveBtn.disabled = !lastResults.length;
+            setStatus(`🗑 Deleted ${idxsToRemove.size} row(s). ${lastResults.length} remaining. Save when ready.`);
+        });
+    }
+
+    // ── Export events ────────────────────────────────────────────────────
+    padAC_el('padACCsvBtn')  && padAC_el('padACCsvBtn').addEventListener('click', downloadCSV);
+    padAC_el('padACXlsxBtn') && padAC_el('padACXlsxBtn').addEventListener('click', downloadXLSX_padAC);
+
+    // ── Reset ────────────────────────────────────────────────────────────
+    const resetBtn = padAC_el('padACResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            const fi = padAC_el('padACFileInput'); if (fi) fi.value = '';
+            lastResults = []; sortState = { col: null, dir: 'asc' };
+            Object.assign(filters, {
+                refMDlt100:true,e2eEmpty:true,probTiny:false,crossDup:true,showAND:false,
+                hideSemiMajor:true,hideW2W:true,hideE2E:true,hideMinSep:true,hideProbPct:true,hideWarning:true
+            });
+            ['padACfRefMD','padACfE2E','padACfDup','padACfSemi','padACfW2W','padACfE2Ecol','padACfMinSep','padACfProbPct','padACfWarn']
+                .forEach(id => { const e = padAC_el(id); if (e) e.checked = true; });
+            const fAND  = padAC_el('padACfAND');  if (fAND)  fAND.checked  = false;
+            const fProb = padAC_el('padACfProb'); if (fProb) fProb.checked = false;
+            if (saveBtn) saveBtn.disabled = true;
+            padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = true);
+            padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = true);
+            padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = true);
+            renderBadges([], 0);
+            renderTable([]);
+            setStatus('');
+            const empty = padAC_el('padACEmpty'); if (empty) empty.style.display = '';
+            const count = padAC_el('padACCount'); if (count) count.textContent = '';
+        });
+    }
+
+    // ── Load saved data on page open ─────────────────────────────────────
+    async function loadPadAC() {
+        try {
+            const res = await fetch('/notes/padAC/' + PAD_AC_NOTE_ID);
+            if (!res.ok) return;
+            const doc = await res.json();
+            if (doc && doc.rows && doc.rows.length) {
+                // Reconstruct lastResults from saved rows so filters/sorting work
+                lastResults = doc.rows.map(cols => ({
+                    subjectWell: cols[0] || '',
+                    offsetName:  cols[1] || '',
+                    columns: cols,
+                    reason: ''
+                }));
+                renderBadges(lastResults, 0);
+                renderTable(lastResults);
+                const saved = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : '';
+                setStatus(`✅ ${doc.rows.length} rows loaded (saved ${saved})`);
+                padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
+                padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
+                padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
+                if (saveBtn) saveBtn.disabled = false;
+                const empty = padAC_el('padACEmpty'); if (empty) empty.style.display = 'none';
+            }
+        } catch(e) { console.warn('loadPadAC:', e); }
+    }
+
+    loadPadAC();
+})();
+</script>
+<!-- ================= END PAD AC SCRIPT ================= -->
 
 <%- include ('partials/footer.ejs') %>

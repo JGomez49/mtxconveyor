@@ -1,11 +1,14 @@
 <%- include ('partials/header.ejs') %>
 
 <div class="_container bg-dark">
-    <h2 class="pt-4 m-4">Upload Schedule <small style="font-size:12px;color:#00c8ff;font-family:monospace;">v3 — supports Primary Zone / TVD / Target</small></h2>
+    <h2 class="pt-4 m-4">Upload Schedule
+        <small style="font-size:11px;color:#00c8ff;font-family:monospace;">
+            v5 — header-driven mapping (format-change safe)
+        </small>
+    </h2>
     <p class="mb-4 m-4">USER: <%= user.name %></p>
 
     <div class="row m-4">
-
         <div class="card mb-3">
             <div class="card-body">
                 <div class="input-group mb-3">
@@ -22,7 +25,8 @@
             <a href="/notes" class="btn btn-primary">← Back</a>
         </div>
 
-        <div id="statusMsg" style="color:#00c8ff;font-family:monospace;margin-bottom:12px;"></div>
+        <div id="statusMsg"
+             style="color:#00c8ff;font-family:monospace;margin-bottom:12px;white-space:pre-wrap;"></div>
 
         <div class="accordion mb-4">
             <div class="accordion-item bg-dark border-0">
@@ -30,7 +34,7 @@
                     <button class="accordion-button collapsed" type="button"
                             data-bs-toggle="collapse" data-bs-target="#collapsePreview"
                             style="background:#1a1a1a;color:#fff;">
-                        📋 Preview Table
+                        📋 Preview Table (first 50 rows)
                     </button>
                 </h2>
                 <div id="collapsePreview" class="accordion-collapse collapse">
@@ -42,7 +46,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
@@ -50,133 +53,142 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <script>
-// ── Column indices in the raw XLSX template ────────────────────────────────
-// 0=ETS ID, 1=Site Name, 2=Surf Location, 3=BH Location, 4=Prospect Name,
-// 5=Field Name, 6=AFE Timing Year, 7=Play Type, 8=Province, 9=Est. Start Date,
-// 10=DP Company Name, 11=DP Current Plan, 12=DP Design/Plan No,
-// 13=DP Drill Approved, 14=DP Geol Approved, 15=DP Type,
-// 16=DP Received Date, 17=DP Request Date, 18=Exploration Mgr,
-// 19=Exploration VP, 20=Geol Approval Date, 21=License # / WA,
-// 22=Responsible Drilling Supervisor, 23=Responsible Geology,
-// 24=Rig, 25=Rig Duration, 26=Scheduled, 27=Expl. Cust. Group 1,
-// 28=Primary Zone, 29=TVD (m), 30=Target
+// ═══════════════════════════════════════════════════════════════════════════
+//  HEADER → FIELD mapping
+//  Key  : substring that must appear in the column header (case-insensitive)
+//  Value: field name stored in MongoDB / sent to server
+//
+//  Adding a new column to the template = add one line here. Nothing else.
+// ═══════════════════════════════════════════════════════════════════════════
+const HEADER_MAP = [
+    // [ headerSubstring,              fieldName,          type   ]
+    [ 'ETS ID',                        'ETS',              'str'  ],
+    [ 'Site Name',                     'site',             'str'  ],
+    [ 'BH Location',                   'well',             'str'  ],  // BH used as "well"
+    [ 'Surf Location',                 'surfLocation',     'str'  ],
+    [ 'Prospect Name',                 'prospectName',     'str'  ],
+    [ 'AFE Timing Year',               'afeYear',          'str'  ],
+    [ 'Play Type',                     'playType',         'str'  ],
+    [ 'Province',                      'province',         'str'  ],
+    [ 'Est. Start Date',               'start',            'date' ],
+    [ 'DP Company Name',               'dpCompany',        'str'  ],
+    [ 'DP Current Plan',               'dp',               'str'  ],
+    [ 'DP Design',                     'version',          'str'  ],  // DP Design/Plan No
+    [ 'DP Drill Approved',             'drillok',          'bool' ],
+    [ 'DP Geol Approved',              'geook',            'bool' ],
+    [ 'DP Type',                       'type',             'str'  ],
+    [ 'DP Received Date',              'dpReceivedDate',   'date' ],
+    [ 'DP Request Date',               'dpReq',            'date' ],
+    [ 'Exploration VP',                'vp',               'str'  ],
+    [ 'Geol Approval Date',            'geolApprovalDate', 'date' ],
+    [ 'License',                       'license',          'str'  ],
+    [ 'Responsible Drilling',          'drillingSuper',    'str'  ],
+    [ 'Responsible Geology',           'geo',              'str'  ],
+    [ 'Rig',                           'rig',              'str'  ],  // exact match priority
+    [ 'Rig Duration',                  'duration',         'num'  ],
+    [ 'Expl. Cust. Group',             'group',            'str'  ],
+    [ 'Primary Zone',                  'primaryZone',      'str'  ],
+    [ 'TVD',                           'tvd',              'num'  ],
+    [ 'Target',                        'target',           'str'  ],
+    [ 'Surface Lat',                   'surfaceLat',       'num'  ],
+    [ 'Surface Long',                  'surfaceLon',       'num'  ],
+];
 
-const COL = {
-    ETS:              0,
-    site:             1,
-    surfLocation:     2,
-    bhLocation:       3,
-    prospectName:     4,
-    // fieldName:      5,
-    afeYear:          6,
-    playType:         7,
-    province:         8,
-    start:            9,
-    dpCompany:       10,
-    dp:              11,
-    version:         12,
-    drillok:         13,
-    geook:           14,
-    type:            15,
-    // dpReceivedDate:16,
-    dpReceivedDate:  16,
-    dpReq:           17,
-    // explorationMgr:18,
-    vp:              19,
-    geolApprovalDate:20,
-    license:         21,
-    drillingSuper:   22,
-    geo:             23,
-    rig:             24,
-    duration:        25,
-    // scheduled:     26,
-    group:           27,
-    primaryZone:     28,
-    tvd:             29,
-    target:          30,
-};
-
-// The mapped row order that the server controller expects
-// (must match scheduleDocs mapping in notes.controller.js)
+// Fields sent to server in this order (must match controller mapping)
 const FIELD_ORDER = [
     'rig','drillok','geook','duration','dp','type','vp','start','site','well',
     'dpCompany','ETS','group','dpReq','geo','version',
     'dpReceivedDate','primaryZone','tvd','target','province','playType','afeYear',
-    'prospectName','bhLocation','surfLocation','license','drillingSuper','geolApprovalDate'
+    'prospectName','surfLocation','license','drillingSuper','geolApprovalDate',
+    'surfaceLat','surfaceLon'
 ];
 
-const HEADERS = [
+const HEADERS_OUT = [
     'Rig','DrillOK','GeoOK','Duration','DP','Type','VP','Start','Site','Well',
     'DP Company','ETS','Group','DpReq','Geo','Version',
     'DP Received Date','Primary Zone','TVD','Target','Province','Play Type','AFE Year',
-    'Prospect','BH Location','Surf Location','License','Drilling Super','Geol Approval Date'
+    'Prospect','Surf Location','License','Drilling Super','Geol Approval Date',
+    'Surface Lat','Surface Lon'
 ];
 
-// Stored parsed data — set after file parse, read on upload
-let _parsedRows = [];  // array of plain objects, one per data row
-
-function status(msg) {
-    document.getElementById('statusMsg').textContent = msg;
-    console.log('[uploadSchedule]', msg);
-}
-
-function cellStr(v) {
-    if (v === null || v === undefined) return '';
+// ── Type converters ────────────────────────────────────────────────────────
+function toStr(v) {
+    if (v === null || v === undefined || v === '') return '';
     if (v instanceof Date) return isNaN(v) ? '' : v.toISOString().split('T')[0];
     return String(v).trim();
 }
-
-function cellNum(v) {
+function toNum(v) {
+    if (v === null || v === undefined || v === '') return null;
     const n = parseFloat(v);
     return isNaN(n) ? null : n;
 }
-
-function cellDate(v) {
-    if (!v || v === '') return null;
-    const s = cellStr(v);
+function toDate(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date) return isNaN(v) ? null : v.toISOString().split('T')[0];
+    const s = String(v).trim();
     if (!s) return null;
     const d = new Date(s);
     return isNaN(d) ? null : s;
 }
-
-// Parse one raw row (array) into a plain object
-function parseRow(raw) {
-    const drillRaw = cellStr(raw[COL.drillok]);
-    const geoRaw   = cellStr(raw[COL.geook]);
-    return {
-        rig:              cellStr(raw[COL.rig]),
-        drillok:          drillRaw  ? 'YES-Drill' : 'NO-Drill',
-        geook:            geoRaw    ? 'YES-Geo'   : 'NO-Geo',
-        duration:         cellNum(raw[COL.duration]) || 0,
-        dp:               cellStr(raw[COL.dp]),
-        type:             cellStr(raw[COL.type]),
-        vp:               cellStr(raw[COL.vp]),
-        start:            cellDate(raw[COL.start]),
-        site:             cellStr(raw[COL.site]),
-        well:             cellStr(raw[COL.bhLocation]),   // BH Location used as "well"
-        dpCompany:        cellStr(raw[COL.dpCompany]),
-        ETS:              cellStr(raw[COL.ETS]),
-        group:            cellStr(raw[COL.group]),
-        dpReq:            cellStr(raw[COL.dpReq]),
-        dpReceivedDate:   cellDate(raw[COL.dpReceivedDate]),
-        geo:              cellStr(raw[COL.geo]),
-        version:          cellStr(raw[COL.version]),
-        primaryZone:      cellStr(raw[COL.primaryZone]),
-        tvd:              cellNum(raw[COL.tvd]),
-        target:           cellStr(raw[COL.target]),
-        province:         cellStr(raw[COL.province]),
-        playType:         cellStr(raw[COL.playType]),
-        afeYear:          cellStr(raw[COL.afeYear]),
-        prospectName:     cellStr(raw[COL.prospectName]),
-        bhLocation:       cellStr(raw[COL.bhLocation]),
-        surfLocation:     cellStr(raw[COL.surfLocation]),
-        license:          cellStr(raw[COL.license]),
-        drillingSuper:    cellStr(raw[COL.drillingSuper]),
-        geolApprovalDate: cellDate(raw[COL.geolApprovalDate]),
-    };
+function toBool(v) {
+    // DrillOK/GeoOK: non-empty = approved = YES
+    const s = toStr(v);
+    return s ? 'YES' : 'NO';  // controller adds -Drill / -Geo suffix
 }
 
-// Convert parsed object to array in FIELD_ORDER for server
+// ── Build column-index lookup from header row ──────────────────────────────
+function buildColMap(headerRow) {
+    const colMap = {};   // fieldName → colIndex
+    const found  = {};   // fieldName → matched header text (for logging)
+
+    headerRow.forEach((h, i) => {
+        const hStr = String(h || '').trim();
+        if (!hStr) return;
+
+        for (const [substr, field] of HEADER_MAP) {
+            if (colMap[field] !== undefined) continue;  // already mapped
+            // Case-insensitive substring match
+            if (hStr.toLowerCase().includes(substr.toLowerCase())) {
+                // Extra check for 'Rig' to avoid matching 'Rig Duration'
+                if (field === 'rig' && hStr.toLowerCase().includes('duration')) continue;
+                colMap[field] = i;
+                found[field]  = `[${i}] "${hStr}"`;
+            }
+        }
+    });
+
+    return { colMap, found };
+}
+
+// ── Convert one raw row to a plain object ──────────────────────────────────
+function parseRow(raw, colMap) {
+    function get(field, type) {
+        const idx = colMap[field];
+        if (idx === undefined || idx === null) return type === 'num' ? null : '';
+        const v = raw[idx];
+        switch(type) {
+            case 'str':  return toStr(v);
+            case 'num':  return toNum(v);
+            case 'date': return toDate(v);
+            case 'bool': return toBool(v);
+            default:     return toStr(v);
+        }
+    }
+
+    const typeOf = Object.fromEntries(HEADER_MAP.map(([,f,t]) => [f,t]));
+
+    const obj = {};
+    HEADER_MAP.forEach(([, field, type]) => {
+        obj[field] = get(field, type);
+    });
+
+    // Standardise DrillOK / GeoOK
+    obj.drillok = obj.drillok === 'YES' ? 'YES-Drill' : 'NO-Drill';
+    obj.geook   = obj.geook   === 'YES' ? 'YES-Geo'   : 'NO-Geo';
+
+    return obj;
+}
+
 function rowToArray(obj) {
     return FIELD_ORDER.map(f => {
         const v = obj[f];
@@ -184,29 +196,62 @@ function rowToArray(obj) {
     });
 }
 
-function processRawData(rawRows) {
-    status('Parsing ' + rawRows.length + ' raw rows…');
+// ── State ──────────────────────────────────────────────────────────────────
+let _parsedRows = [];
+let _colMap     = {};
 
-    // Skip header row, skip empty rows
-    const dataRows = rawRows.slice(1).filter(r =>
-        Array.isArray(r) && r.some(c => cellStr(c) !== '')
+function status(msg) {
+    document.getElementById('statusMsg').textContent = msg;
+    console.log('[uploadSchedule]', msg);
+}
+
+function processRawData(rawRows) {
+    if (!rawRows || rawRows.length < 2) {
+        status('❌ File appears empty or has only a header row.');
+        return;
+    }
+
+    // Build column map from the actual header row in the file
+    const { colMap, found } = buildColMap(rawRows[0]);
+    _colMap = colMap;
+
+    // Log what was found / not found
+    const mappedFields   = Object.keys(found);
+    const unmappedFields = HEADER_MAP.map(([,f]) => f).filter(f => colMap[f] === undefined);
+    console.log('[uploadSchedule] Mapped fields:', found);
+    if (unmappedFields.length)
+        console.warn('[uploadSchedule] Unmapped fields:', unmappedFields);
+
+    status(
+        `Parsed header — mapped ${mappedFields.length}/${HEADER_MAP.length} fields.\n` +
+        (unmappedFields.length
+            ? `⚠ Not found in file: ${unmappedFields.join(', ')}\n`
+            : '✅ All fields found.\n') +
+        `Reading data rows…`
     );
 
-    _parsedRows = dataRows.map(parseRow);
+    // Skip empty rows
+    const dataRows = rawRows.slice(1).filter(r =>
+        Array.isArray(r) && r.some(c => toStr(c) !== '')
+    );
+
+    _parsedRows = dataRows.map(r => parseRow(r, colMap));
 
     // Sample check
     if (_parsedRows.length > 0) {
         const s = _parsedRows[0];
-        console.log('[uploadSchedule] sample row 0:',
-            'rig=', s.rig,
-            'primaryZone=', s.primaryZone,
-            'tvd=', s.tvd,
-            'target=', s.target,
-            'start=', s.start
-        );
+        console.log('[uploadSchedule] row[0]:', {
+            rig: s.rig, site: s.site, primaryZone: s.primaryZone,
+            tvd: s.tvd, surfaceLat: s.surfaceLat, surfaceLon: s.surfaceLon,
+        });
     }
 
-    status('Parsed ' + _parsedRows.length + ' rows. Ready to upload.');
+    status(
+        `✅ Parsed ${_parsedRows.length} rows.\n` +
+        `Sample: rig="${_parsedRows[0]?.rig}", ` +
+        `lat=${_parsedRows[0]?.surfaceLat}, lon=${_parsedRows[0]?.surfaceLon}\n` +
+        `Ready to upload.`
+    );
     renderPreviewTable();
     document.getElementById('uploadScheduleBtn').disabled = false;
 }
@@ -214,15 +259,13 @@ function processRawData(rawRows) {
 function renderPreviewTable() {
     const table = document.getElementById('csvTable');
     table.innerHTML = '';
-    // Header
     const htr = document.createElement('tr');
-    HEADERS.forEach(h => {
+    HEADERS_OUT.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         htr.appendChild(th);
     });
     table.appendChild(htr);
-    // Data rows (first 50 for preview)
     _parsedRows.slice(0, 50).forEach(obj => {
         const tr = document.createElement('tr');
         FIELD_ORDER.forEach(f => {
@@ -235,74 +278,64 @@ function renderPreviewTable() {
     });
 }
 
-// ── File input handler ────────────────────────────────────────────────────
+// ── File input ─────────────────────────────────────────────────────────────
 document.getElementById('csvFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
     document.getElementById('uploadScheduleBtn').disabled = true;
     _parsedRows = [];
     status('Reading file…');
-
     const ext = file.name.split('.').pop().toLowerCase();
-
     if (ext === 'xlsx' || ext === 'xls') {
         const reader = new FileReader();
         reader.onload = function(ev) {
-            const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
-            const ws = wb.Sheets[wb.SheetNames[0]];
+            const wb  = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+            const ws  = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
             processRawData(raw);
         };
         reader.readAsArrayBuffer(file);
     } else {
         Papa.parse(file, {
-            complete: function(results) {
-                processRawData(results.data);
-            }
+            complete: function(results) { processRawData(results.data); }
         });
     }
 });
 
-// ── Upload button ─────────────────────────────────────────────────────────
+// ── Upload ─────────────────────────────────────────────────────────────────
 document.getElementById('uploadScheduleBtn').addEventListener('click', async function() {
-    if (!_parsedRows.length) {
-        alert('No data loaded. Please select a file first.');
-        return;
-    }
-
-    status('Uploading ' + _parsedRows.length + ' rows to server…');
+    if (!_parsedRows.length) { alert('No data loaded.'); return; }
+    status(`Uploading ${_parsedRows.length} rows to server…`);
     this.disabled = true;
 
-    // Build [headers, ...arrayRows] payload
-    const payload = {
-        data: [HEADERS, ..._parsedRows.map(rowToArray)]
-    };
+    const arrays  = _parsedRows.map(rowToArray);
+    const payload = { data: [HEADERS_OUT, ...arrays] };
 
-    console.log('[uploadSchedule] sending', payload.data.length, 'rows');
+    console.log('[uploadSchedule] rows:', payload.data.length);
     console.log('[uploadSchedule] row[1]:', JSON.stringify(payload.data[1]));
-    console.log('[uploadSchedule] primaryZone[1]=', payload.data[1]?.[16],
-                'tvd[1]=', payload.data[1]?.[17], 'target[1]=', payload.data[1]?.[18]);
+    // lat is at FIELD_ORDER index 28, lon at 29
+    const latIdx = FIELD_ORDER.indexOf('surfaceLat');
+    const lonIdx = FIELD_ORDER.indexOf('surfaceLon');
+    console.log(`[uploadSchedule] lat[${latIdx}]=${payload.data[1]?.[latIdx]}, lon[${lonIdx}]=${payload.data[1]?.[lonIdx]}`);
 
     try {
         const res = await fetch('/notes/uploadSchedule', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body:    JSON.stringify(payload),
         });
-
         if (res.ok) {
             status('✅ Upload successful!');
             alert('✅ Schedule uploaded successfully!');
             window.location.href = '/notes';
         } else {
             const txt = await res.text();
-            status('❌ Upload failed: ' + txt);
+            status('❌ Failed: ' + txt);
             alert('❌ Upload failed:\n' + txt);
             this.disabled = false;
         }
     } catch (err) {
         status('❌ Error: ' + err.message);
-        alert('❌ Error: ' + err.message);
         this.disabled = false;
     }
 });

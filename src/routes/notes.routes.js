@@ -29,6 +29,8 @@ const {
     renderUploadDPI,
     renderUploadPason,
     renderUploadPadAC,
+    savePadAC,
+    getPadAC,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
     uploadWellboreTrajectory,
@@ -159,6 +161,8 @@ router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
 
 //Get Upload AC with risk reports
 router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
+router.post('/notes/padAC/:noteId', isAuthenticated, savePadAC);
+router.get('/notes/padAC/:noteId',  isAuthenticated, getPadAC);
 
 //Wellbore 3D Trajectory (per job/note)
 router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);
