@@ -145,7 +145,7 @@ notesCrtl.renderNotes = async (req,res)=>{
 
     const [notes, schedule, dpStats] = await Promise.all([
         Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
-        Schedule.find().lean(),
+        Schedule.find().populate('user','name').lean(),
         DPStats.find().lean(),
     ]);
     res.render('all-notes.ejs', {notes, user, schedule, dpStats, count_InProgress, count_NotStarted, count_NotStarted_setup});

@@ -354,8 +354,8 @@ tr[style*="color:white"] { color: var(--an-text) !important; }
     margin-top: 16px;
 }
 .pie-chart {
-    max-width: 300px;
-    max-height: 300px;
+    max-width: 450px;
+    max-height: 450px;
     background: var(--an-panel);
     border-radius: 8px;
     border: 1px solid var(--an-border);
@@ -1928,7 +1928,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 </div>
             <% } %>
 
-            <p id="scheduleUpdateText"></p>
+            <p id="scheduleUpdateText" style="font-family:monospace;font-size:11px;color:var(--an-text-dim,#5a7080);margin:4px 12px 2px;"></p>
 
             <!-- ── Single Gantt chart with filter sidebar ── -->
             <style>
@@ -2027,6 +2027,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
 <script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||'') }; } return m; },{})) %></script>
+<script type="application/json" id="ganttScheduleMeta"><%- JSON.stringify((function(){
+    if(!schedule || !schedule.length) return null;
+    var latest = schedule.reduce(function(best, s){
+        var d = s.updatedAt ? new Date(s.updatedAt) : new Date(0);
+        return (!best || d > new Date(best.updatedAt||0)) ? s : best;
+    }, null);
+    return latest ? { updatedAt: latest.updatedAt||null, user: (latest.user && latest.user.name) ? latest.user.name : null } : null;
+})()) %></script>
 <script type="application/json" id="ganttScheduleData"><%- JSON.stringify(schedule.map(function(s){ return {
     rig: s.rig||'', drillok: s.drillok||'', geook: s.geook||'',
     dp: s.dp||'', type: s.type||'', duration: Number(s.duration)||0,
@@ -2049,6 +2057,19 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     document.addEventListener("DOMContentLoaded", function() {
         renderDPStatsBoxPlot();
         renderChartsFromTable();
+
+        // ── Schedule last-upload metadata ──────────────────────────────
+        try {
+            const metaEl = document.getElementById('ganttScheduleMeta');
+            const meta   = metaEl ? JSON.parse(metaEl.textContent) : null;
+            const textEl = document.getElementById('scheduleUpdateText');
+            if(meta && textEl) {
+                const dt = meta.updatedAt ? new Date(meta.updatedAt) : null;
+                const dateStr = dt ? dt.toLocaleDateString('en-CA', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+                const userStr = meta.user ? String(meta.user) : '—';
+                textEl.textContent = '📅 Schedule last uploaded: ' + dateStr + '  •  User: ' + userStr;
+            }
+        } catch(e) { console.warn('scheduleUpdateText:', e); }
     });
 </script>
 

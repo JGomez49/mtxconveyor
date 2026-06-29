@@ -200,6 +200,8 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 
 
 
+
+
                 <% if (note.path) { %>
                     <div class="card p-2 mb-2 mx-auto">
                         <a href="<%= note.path %>">
@@ -290,8 +292,8 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                                 </div>
                                 <% } %>
 
-                                <!-- ── Column visibility (all roles) ── -->
-                                <div class="d-flex flex-wrap gap-3 mb-2" style="font-size:11px;">
+                                <!-- ── Column visibility + download (all roles) ── -->
+                                <div class="d-flex flex-wrap gap-3 mb-2 align-items-center" style="font-size:11px;">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="padACfSemi" checked>
                                         <label class="form-check-label" for="padACfSemi">Semi Majors</label>
@@ -316,6 +318,10 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                                         <input class="form-check-input" type="checkbox" id="padACfWarn" checked>
                                         <label class="form-check-label" for="padACfWarn">Warning</label>
                                     </div>
+                                    <button id="padACDownloadBtn" class="btn btn-sm btn-outline-info ms-2" disabled
+                                            title="Download the table as shown (with colours)">
+                                        ⬇ Download Table
+                                    </button>
                                 </div>
 
                                 <!-- Subject badges -->
@@ -338,6 +344,32 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                         </div>
                     </div>
                 </div>
+
+                <!-- ================= LEGS SUMMARY ================= -->
+                <div class="accordion mb-2" id="accordionLegs">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseLegs">
+                                🦵 Legs Summary
+                            </button>
+                        </h2>
+                        <div id="collapseLegs" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="mb-2">
+                                    <button id="legsDownloadBtn" class="btn btn-sm btn-outline-info" style="font-family:monospace;font-size:11px;" disabled>
+                                        ⬇ Download Excel
+                                    </button>
+                                </div>
+                                <div id="legsContainer"></div>
+                                <div id="legsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                    No STK or ICP comments found in uploaded wellbores.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END LEGS SUMMARY ================= -->
 
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
                 <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
@@ -477,8 +509,9 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                         box-shadow:0 0 8px var(--wbt-accent2);
                     }
                     .wbt-dash-grid{
-                        display:grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+                        display:grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
                         gap:8px;
+                        max-width: calc(8 * 205px + 7 * 8px); /* cap at 8-card width */
                     }
                     .wbt-dash-card{
                         background: var(--wbt-panel2); border:1px solid var(--wbt-border); border-radius:4px;
@@ -656,7 +689,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                             </div>
                             <div class="wbt-section">
                                 <h6>Line Thickness</h6>
-                                <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.1">
+                                <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.3">
                             </div>
                             <div class="wbt-section">
                                 <h6>Marker Size</h6>
@@ -1907,10 +1940,11 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 
 
     <% if (_wbt && _wbt.length) { %>
+    <script type="application/json" id="wbtData"><%- JSON.stringify(_wbt) %></script>
     <!-- ================= WELLBORE 3D TRAJECTORY SCRIPT (read-only) ================= -->
     <script>
     (function(){
-        const WELLBORES = <%- JSON.stringify(_wbt) %>;
+        const WELLBORES = JSON.parse(document.getElementById('wbtData').textContent);
         const fallbackColors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
 
         let scene, camera, renderer, controls;
@@ -2612,6 +2646,29 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 card.appendChild(grid);
                 container.appendChild(card);
             });
+
+            // ── Limit to 8 cards by default, show toggle if more ────────
+            const MAX_CARDS = 8;
+            const allCards = Array.from(container.querySelectorAll('.wbt-dash-card'));
+            if(allCards.length > MAX_CARDS){
+                allCards.slice(MAX_CARDS).forEach(function(card){ card.style.display = 'none'; });
+                var existingBtn = container.parentElement.querySelector('.wbt-show-all-btn');
+                if(existingBtn) existingBtn.remove();
+                var toggleBtn = document.createElement('button');
+                toggleBtn.className = 'btn btn-sm btn-outline-info mt-2 wbt-show-all-btn';
+                var totalCards = allCards.length;
+                toggleBtn.textContent = 'Show all ' + totalCards + ' score cards';
+                var expanded = false;
+                toggleBtn.addEventListener('click', function(){
+                    expanded = !expanded;
+                    allCards.slice(MAX_CARDS).forEach(function(card){ card.style.display = expanded ? '' : 'none'; });
+                    toggleBtn.textContent = expanded
+                        ? 'Show first ' + MAX_CARDS + ' score cards'
+                        : 'Show all ' + totalCards + ' score cards';
+                });
+                container.parentElement.insertBefore(toggleBtn, container.nextSibling);
+            }
+
         }
 
         // ---------------- Accordion toggle ----------------
@@ -3611,7 +3668,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
     // ── Helpers (ported from uploadPadAC.ejs) ───────────────────────────
     const padAC_el = id => document.getElementById(id);
     const nonEmpty = v => v !== null && v !== undefined && String(v).trim() !== '';
-    const norm     = v => String(v ?? '').trim();
+    const norm     = v => String(v || '').trim();
 
     function parseNumber(val) {
         if (val === null || val === undefined) return null;
@@ -3783,8 +3840,8 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                         return m ? Number(m[1].replace(/,/g, '')) : Infinity;
                     })();
                     const candidate = {
-                        probNum, sfNum: sfNum ?? Infinity, c2cNum: c2cNum ?? Infinity,
-                        refMDNum: parseNumber(getAt(idxsMD[0])) ?? 0,
+                        probNum, sfNum: sfNum || Infinity, c2cNum: c2cNum || Infinity,
+                        refMDNum: parseNumber(getAt(idxsMD[0])) || 0,
                         reason: `Selected: highest collision probability (1 in ${probNum.toLocaleString()})`,
                         columns: [
                             subjectWell, offsetName,
@@ -3946,7 +4003,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 if (col1 >= 3 && col1 <= 6)        td.textContent = int0(val);
                 else if (col1 >= 9 && col1 <= 13)  td.textContent = oneDec(val);
                 else if (col1 === 15)               td.textContent = probabilityToPercent(res.columns[13]);
-                else                                td.textContent = val ?? '';
+                else                                td.textContent = val || '';
                 if (col1 === 9)  { const cls = classForC2C(val); if (cls) td.classList.add(cls); }
                 if (col1 === 13) { const cls = classForSF(val);  if (cls) td.classList.add(cls); }
                 tr.appendChild(td);
@@ -3981,14 +4038,14 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             const v = r.columns[c1-1];
             if (c1 >= 3 && c1 <= 6) return int0(v);
             if (c1 >= 9 && c1 <= 13) return oneDec(v);
-            return v ?? '';
+            return v || '';
         }));
         return { headers, rows };
     }
     function downloadCSV() {
         const { headers, rows } = buildExportAoA(); if (!rows.length) return;
         const csv = [headers, ...rows].map(r => r.map(v => {
-            const s = String(v ?? '');
+            const s = String(v || '');
             return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         }).join(',')).join('\n');
         const a = document.createElement('a');
@@ -4018,6 +4075,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             if (saveBtn) saveBtn.disabled = true;
             padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = true);
             padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = true);
+            padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = true);
             renderBadges([], 0);
             renderTable([]);
 
@@ -4041,6 +4099,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
                 padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
                 padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
+                padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = false);
             } else {
                 setStatus(`⚠ Parsed ${processed} file(s). No rows matched thresholds.`);
             }
@@ -4112,6 +4171,87 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
     padAC_el('padACCsvBtn')  && padAC_el('padACCsvBtn').addEventListener('click', downloadCSV);
     padAC_el('padACXlsxBtn') && padAC_el('padACXlsxBtn').addEventListener('click', downloadXLSX_padAC);
 
+    // ── Download Table (all roles) — reads live DOM with colours ─────────
+    function downloadPadACTable() {
+        if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
+        const table = padAC_el('padACTable');
+        if(!table || table.style.display === 'none'){
+            alert('No table to download.'); return;
+        }
+        // Colour map: CSS class → ARGB hex for xlsx-style
+        const CLASS_FILL = {
+            'risk-red':   'FFB22222',
+            'risk-amber': 'FFF0C640',
+            'risk-green': 'FF2E7D32',
+        };
+        const CLASS_FONT = {
+            'risk-red':   'FFFFFFFF',
+            'risk-amber': 'FF000000',
+            'risk-green': 'FFFFFFFF',
+        };
+        const aoa = [];
+        const styles = [];   // parallel array of row→col→style
+
+        // Header
+        const headers = Array.from(table.querySelectorAll('thead tr th'))
+            .map(th => th.textContent.trim());
+        aoa.push(headers);
+        styles.push(headers.map(() => ({
+            font: { bold: true, color: { rgb: 'FFE8F4FF' } },
+            fill: { fgColor: { rgb: 'FF1E2D3D' } },
+        })));
+
+        // Body rows
+        Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr) {
+            const row = [], rowStyle = [];
+            Array.from(tr.querySelectorAll('td')).forEach(function(td) {
+                row.push(td.textContent.trim());
+                // Find if td has a risk colour class
+                let fill = null, font = null;
+                for(const cls of Object.keys(CLASS_FILL)) {
+                    if(td.classList.contains(cls)) {
+                        fill = CLASS_FILL[cls];
+                        font = CLASS_FONT[cls];
+                        break;
+                    }
+                }
+                rowStyle.push(fill ? {
+                    fill: { fgColor: { rgb: fill } },
+                    font: { color: { rgb: font } },
+                } : null);
+            });
+            aoa.push(row);
+            styles.push(rowStyle);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // Apply styles cell by cell
+        styles.forEach(function(rowStyle, r) {
+            rowStyle.forEach(function(s, c) {
+                if(!s) return;
+                const addr = XLSX.utils.encode_cell({r, c});
+                if(!ws[addr]) return;
+                ws[addr].s = s;
+            });
+        });
+
+        // Auto column widths
+        const colWidths = aoa[0].map((_, ci) => ({
+            wch: Math.min(40, Math.max(10,
+                Math.max(...aoa.map(row => String(row[ci]||'').length))
+            ))
+        }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'PAD AC');
+        XLSX.writeFile(wb, 'pad_ac_summary.xlsx');
+    }
+
+    const dlBtn = padAC_el('padACDownloadBtn');
+    if(dlBtn) dlBtn.addEventListener('click', downloadPadACTable);
+
     // ── Reset ────────────────────────────────────────────────────────────
     const resetBtn = padAC_el('padACResetBtn');
     if (resetBtn) {
@@ -4129,6 +4269,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             if (saveBtn) saveBtn.disabled = true;
             padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = true);
             padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = true);
+            padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = true);
             padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = true);
             renderBadges([], 0);
             renderTable([]);
@@ -4158,6 +4299,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 setStatus(`✅ ${doc.rows.length} rows loaded (saved ${saved})`);
                 padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
                 padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
+                padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = false);
                 padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
                 if (saveBtn) saveBtn.disabled = false;
                 const empty = padAC_el('padACEmpty'); if (empty) empty.style.display = 'none';
@@ -4169,5 +4311,224 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 })();
 </script>
 <!-- ================= END PAD AC SCRIPT ================= -->
+
+<!-- ================= LEGS SUMMARY SCRIPT ================= -->
+<%
+// ── Build legs data server-side ──────────────────────────────────────────
+function _extractWellAndLeg(wellName) {
+    var wn = (wellName || '').trim();
+    var bm = wn.match(/^(\[\d+\])/);
+    var wellKey = bm ? bm[1] : wn;
+    var lm = wn.match(/_L(\d+)$/i);
+    var legNum = lm ? 'L' + lm[1].padStart(2,'0') : 'L01';
+    return { well: wellKey, legNum: legNum };
+}
+var _wbtAll2 = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : [];
+var _wellMap2 = {};
+_wbtAll2.forEach(function(traj) {
+    if(!traj.survey || !traj.survey.length) return;
+    var _p  = _extractWellAndLeg(traj.wellName || '');
+    var _wk = _p.well;
+    var _ln = _p.legNum;
+    var _sv = traj.survey;
+    var _td = _sv[_sv.length - 1];
+    var _tdMD  = _td ? _td.md  : null;
+    var _tdTVD = _td ? _td.tvd : null;
+    if(!_wellMap2[_wk]) _wellMap2[_wk] = { legs: [] };
+    var _icpPt = _sv.reduce(function(acc, pt) {
+        if(acc) return acc;
+        var _cm = (pt.comments || '').trim();
+        return /^(ICP|IntermediateCasing)/i.test(_cm) ? pt : null;
+    }, null);
+    var _stkPt = null, _stkComment = null;
+    _sv.forEach(function(pt) {
+        var _cm = (pt.comments || '').trim();
+        if(/^STK/i.test(_cm)) { _stkPt = pt; _stkComment = _cm; } // keep overwriting → last STK wins
+    });
+    var _parentLabel = _stkPt ? _stkComment : (_icpPt ? 'Main' : null);
+    var _tieOnMD    = _stkPt ? _stkPt.md  : (_icpPt ? _icpPt.md  : null);
+    var _isLeg1     = !!_icpPt && !_stkPt;
+    _wellMap2[_wk].legs.push({
+        wellName:    traj.wellName || '',
+        legNum:      _ln,
+        parentLabel: _parentLabel,
+        isLeg1:      _isLeg1,
+        tieOnMD:     _tieOnMD,
+        tdMD:        _tdMD,
+        lateral:     (_tieOnMD !== null && _tdMD !== null)
+                         ? Math.round((_tdMD - _tieOnMD) * 10) / 10
+                         : null,
+    });
+});
+var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
+    var w = _wellMap2[wk];
+    w.legs.sort(function(a,b){ return a.wellName.localeCompare(b.wellName); });
+    var totalLateral = 0, icpMD = null;
+    w.legs.forEach(function(leg) {
+        if(leg.lateral !== null) totalLateral += leg.lateral;
+        if(leg.isLeg1 && leg.tieOnMD !== null) icpMD = leg.tieOnMD;
+    });
+    totalLateral = Math.round(totalLateral * 10) / 10;
+    var totalMD = (icpMD !== null) ? Math.round((icpMD + totalLateral) * 10) / 10 : null;
+    return { wellKey: wk, legs: w.legs, totalLateral: totalLateral, totalMD: totalMD, icpMD: icpMD };
+});
+%>
+<script type="application/json" id="legsData"><%- JSON.stringify(_wellsArr2) %></script>
+<script>
+(function(){
+    var legsEl   = document.getElementById('legsContainer');
+    var empty    = document.getElementById('legsEmpty');
+    var dlBtn    = document.getElementById('legsDownloadBtn');
+    var dataEl   = document.getElementById('legsData');
+    if(!dataEl) return;
+    var wellsArr = JSON.parse(dataEl.textContent);
+    if(!wellsArr.length){ if(empty) empty.style.display=''; return; }
+    if(empty) empty.style.display='none';
+    if(!legsEl) return;
+    legsEl.innerHTML = '';
+
+    // Sort wells by wellKey
+    wellsArr.sort(function(a,b){ return a.wellKey.localeCompare(b.wellKey); });
+
+    function fmt(v,d){
+        if(v===null||v===undefined||isNaN(Number(v))) return String.fromCharCode(8212);
+        return Number(v).toFixed(d);
+    }
+
+    // ── Render each well ──────────────────────────────────────────────
+    wellsArr.forEach(function(well){
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'margin-bottom:20px;';
+
+        // ── Header / highlights ───────────────────────────────────────
+        var header = document.createElement('div');
+        header.style.cssText = 'background:var(--an-panel,#111820);border:1px solid var(--an-border,#1e2d3d);border-radius:4px 4px 0 0;padding:10px 14px;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;';
+
+        var wellLabel = document.createElement('span');
+        wellLabel.style.cssText = 'font-weight:700;font-size:14px;letter-spacing:1px;color:var(--an-text-bright,#e8f4ff);align-self:center;margin-right:6px;';
+        wellLabel.textContent = well.wellKey;
+        header.appendChild(wellLabel);
+
+        function makeChip(label, value, bg, fg){
+            var chip = document.createElement('div');
+            chip.style.cssText = 'background:'+bg+';color:'+fg+';border-radius:4px;padding:6px 14px;display:flex;flex-direction:column;align-items:center;min-width:130px;user-select:all;cursor:text;';
+            var lbl = document.createElement('div');
+            lbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:0.85;margin-bottom:2px;';
+            lbl.textContent = label;
+            var val = document.createElement('div');
+            val.style.cssText = 'font-size:16px;font-weight:700;font-family:monospace;letter-spacing:0.5px;';
+            val.textContent = value;
+            chip.appendChild(lbl);
+            chip.appendChild(val);
+            return chip;
+        }
+
+        header.appendChild(makeChip('Total Lateral', fmt(well.totalLateral,1)+' m', 'var(--an-accent,#00c8ff)', '#000'));
+        if(well.totalMD !== null)
+            header.appendChild(makeChip('Total MD', fmt(well.totalMD,1)+' m', 'var(--an-accent2,#ff6b35)', '#fff'));
+        if(well.icpMD !== null)
+            header.appendChild(makeChip('ICP MD', fmt(well.icpMD,1)+' m', 'var(--an-panel2,#161e28)', 'var(--an-text,#c8d8e8)'));
+
+        wrap.appendChild(header);
+
+        // ── Table ─────────────────────────────────────────────────────
+        var tableWrap = document.createElement('div');
+        tableWrap.style.cssText = 'overflow-x:auto;';
+        var table = document.createElement('table');
+        table.className = 'table table-dark table-hover table-bordered table-sm mb-0';
+        table.style.fontSize = '11px';
+        table.dataset.wellKey = well.wellKey;
+
+        var thead = document.createElement('thead');
+        var trh = document.createElement('tr');
+        ['Wellbore','Parent / Tie-on','Tie-on MD (m)','TD MD (m)','Lateral (m)'].forEach(function(h){
+            var th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        // Sort legs by wellName
+        well.legs.sort(function(a,b){ return a.wellName.localeCompare(b.wellName); });
+        well.legs.forEach(function(leg){
+            var tr = document.createElement('tr');
+            if(leg.isLeg1) tr.style.borderLeft = '3px solid var(--an-accent,#00c8ff)';
+            [
+                leg.wellName,
+                leg.parentLabel || String.fromCharCode(8212),
+                leg.tieOnMD !== null ? fmt(leg.tieOnMD,1) : String.fromCharCode(8212),
+                fmt(leg.tdMD,1),
+                fmt(leg.lateral,1),
+            ].forEach(function(val){
+                var td = document.createElement('td'); td.textContent = val; tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        tableWrap.appendChild(table);
+        wrap.appendChild(tableWrap);
+        legsEl.appendChild(wrap);
+    });
+
+    // ── Enable download button ────────────────────────────────────────
+    if(dlBtn) dlBtn.disabled = false;
+
+    // ── Excel download ────────────────────────────────────────────────
+    if(dlBtn){
+        dlBtn.addEventListener('click', function(){
+            if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
+            var wb = XLSX.utils.book_new();
+
+            wellsArr.forEach(function(well){
+                // Sheet name: sanitise wellKey
+                var sheetName = well.wellKey.replace(/[\[\]\*\/\\\?:]/g,'').slice(0,31) || 'Well';
+
+                var aoa = [];
+                // Highlight rows
+                aoa.push(['Total Lateral (m)', well.totalLateral]);
+                if(well.totalMD !== null) aoa.push(['Total MD (m)', well.totalMD]);
+                if(well.icpMD  !== null) aoa.push(['ICP MD (m)', well.icpMD]);
+                aoa.push([]);
+                // Table header
+                aoa.push(['Wellbore','Parent / Tie-on','Tie-on MD (m)','TD MD (m)','Lateral (m)']);
+                // Rows
+                well.legs.forEach(function(leg){
+                    aoa.push([
+                        leg.wellName,
+                        leg.parentLabel || '',
+                        leg.tieOnMD !== null ? leg.tieOnMD : '',
+                        leg.tdMD !== null ? leg.tdMD : '',
+                        leg.lateral !== null ? leg.lateral : '',
+                    ]);
+                });
+
+                var ws = XLSX.utils.aoa_to_sheet(aoa);
+
+                // Style highlight rows cyan/orange
+                var range = XLSX.utils.decode_range(ws['!ref']);
+                // Rows 0-2 are highlights — bold them
+                [0,1,2].forEach(function(r){
+                    var cellA = XLSX.utils.encode_cell({r:r,c:0});
+                    var cellB = XLSX.utils.encode_cell({r:r,c:1});
+                    if(ws[cellA]) ws[cellA].s = {font:{bold:true},fill:{fgColor:{rgb:'00C8FF'}}};
+                    if(ws[cellB]) ws[cellB].s = {font:{bold:true}};
+                });
+                // Header row (row 4 = index 4)
+                for(var ci=0; ci<=4; ci++){
+                    var hCell = XLSX.utils.encode_cell({r:4,c:ci});
+                    if(ws[hCell]) ws[hCell].s = {font:{bold:true},fill:{fgColor:{rgb:'1E2D3D'}}};
+                }
+                // Column widths
+                ws['!cols'] = [{wch:30},{wch:20},{wch:14},{wch:12},{wch:12}];
+
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+
+            XLSX.writeFile(wb, 'legs_summary.xlsx');
+        });
+    }
+})();
+</script>
+<!-- ================= END LEGS SUMMARY SCRIPT ================= -->
 
 <%- include ('partials/footer.ejs') %>
