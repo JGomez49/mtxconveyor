@@ -285,6 +285,9 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                                     <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
                                         <button id="padACCsvBtn" class="btn btn-outline-light btn-sm" disabled>⬇ CSV</button>
                                         <button id="padACXlsxBtn" class="btn btn-outline-light btn-sm" disabled>⬇ Excel</button>
+                                        <button id="padACSelectSiteBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows sharing the same site as currently checked rows">🎯 Select Same Site</button>
+                                        <button id="padACLateralBtn" class="btn btn-outline-info btn-sm" disabled title="Select rows where Ref. Well inclination at Ref. MD is > 88°">📐 All in Lateral</button>
+                                        <button id="padACDupMDBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows with a duplicated Ref. MD value">🔁 Same Ref.MD</button>
                                         <button id="padACDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>🗑 Delete Selected</button>
                                         <button id="padACResetBtn" class="btn btn-outline-warning btn-sm">↺ Reset</button>
                                         <span id="padACStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;margin-left:8px;"></span>
@@ -324,9 +327,8 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                                     </button>
                                 </div>
 
-                                <!-- Subject badges -->
-                                <!-- Subject badges -->
-                                <div id="padACBadges" class="d-flex flex-wrap gap-1 mb-2"></div>
+                                <!-- Subject badges hidden -->
+                                <div id="padACBadges" style="display:none;"></div>
 
                                 <!-- Table -->
                                 <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
@@ -2211,11 +2213,13 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             applyWbtVisibility();
 
             // Dashboard + accordion + Excel export (job.ejs is read-only: data comes from WELLBORES)
-            const wellsForDashboard = WELLBORES.map((well, idx) => ({
-                name: well.wellName,
-                color: well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length],
-                survey: well.survey || []
-            }));
+            const wellsForDashboard = WELLBORES
+                .filter(well => !/^offset\b/i.test((well.wellName || '').trim()))
+                .map((well, idx) => ({
+                    name: well.wellName,
+                    color: well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length],
+                    survey: well.survey || []
+                }));
             wbtRenderDashboard(wellsForDashboard);
             wbtSetupAccordion();
 
@@ -3988,12 +3992,23 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 
         results.forEach((res, ri) => {
             const tr = document.createElement('tr');
-            // Checkbox cell — store index into lastResults for deletion
+            // Checkbox cell — store index + site names for "select same site"
             const tdCb = document.createElement('td');
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'padac-row-cb';
             cb.dataset.idx = lastResults.indexOf(res);  // stable index
+            // Extract site: everything before first ' - [' in the well name
+            function extractSite(name) {
+                const m = String(name || '').match(/^(.*?)\s+-\s+\[/);
+                return m ? m[1].trim() : String(name || '').trim();
+            }
+            cb.dataset.refSite = extractSite(res.columns[0]);
+            cb.dataset.offSite = extractSite(res.columns[1]);
+            // Store Ref. MD (col index 2, 0-based) for lateral lookup
+            cb.dataset.refMD   = res.columns[2] || '';
+            // Store ref well name for trajectory matching
+            cb.dataset.refWell = String(res.columns[0] || '');
             tdCb.appendChild(cb);
             tr.appendChild(tdCb);
             visibleCols.forEach(col1 => {
@@ -4096,6 +4111,9 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             if (lastResults.length) {
                 setStatus(`✅ Done. Parsed ${processed} file(s). ${lastResults.length} rows. Click Save to store.`);
                 if (saveBtn) saveBtn.disabled = false;
+                padAC_el('padACSelectSiteBtn') && (padAC_el('padACSelectSiteBtn').disabled = false);
+                padAC_el('padACLateralBtn') && (padAC_el('padACLateralBtn').disabled = false);
+                padAC_el('padACDupMDBtn') && (padAC_el('padACDupMDBtn').disabled = false);
                 padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
                 padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
                 padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
@@ -4146,6 +4164,176 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
     wireFilter('padACfMinSep', 'hideMinSep');
     wireFilter('padACfProbPct','hideProbPct');
     wireFilter('padACfWarn',   'hideWarning');
+
+    // ── Select Same Site ─────────────────────────────────────────────────
+    const selectSiteBtn = padAC_el('padACSelectSiteBtn');
+    if (selectSiteBtn) {
+        selectSiteBtn.addEventListener('click', () => {
+            const allCbs = Array.from(document.querySelectorAll('input.padac-row-cb'));
+            if (!allCbs.length) { setStatus('⚠ No rows in table.'); return; }
+
+            // Collect unique sites from checked rows (if any), else from all rows
+            const checkedCbs = allCbs.filter(cb => cb.checked);
+            const sourceCbs  = checkedCbs.length ? checkedCbs : allCbs;
+
+            const targetSites = new Set();
+            sourceCbs.forEach(cb => {
+                // Only add a site if BOTH ref and offset share it (same-site row)
+                if (cb.dataset.refSite && cb.dataset.refSite === cb.dataset.offSite) {
+                    targetSites.add(cb.dataset.refSite);
+                } else if (checkedCbs.length) {
+                    // If user pre-checked rows, also include their individual sites
+                    if (cb.dataset.refSite) targetSites.add(cb.dataset.refSite);
+                    if (cb.dataset.offSite) targetSites.add(cb.dataset.offSite);
+                }
+            });
+
+            if (!targetSites.size) {
+                setStatus('⚠ No same-site rows found. Check one row first to identify the site.');
+                return;
+            }
+
+            // Select every row where BOTH ref and offset site are in targetSites
+            let selected = 0;
+            allCbs.forEach(cb => {
+                if (targetSites.has(cb.dataset.refSite) && targetSites.has(cb.dataset.offSite)) {
+                    cb.checked = true;
+                    selected++;
+                }
+            });
+            setStatus('🎯 ' + selected + ' row(s) selected — site(s): ' + [...targetSites].join(', '));
+        });
+    }
+
+    // ── All in Lateral ───────────────────────────────────────────────────
+    // Selects rows where the Ref. Well inclination at Ref. MD > 88°
+    // Uses WELLBORES (already on page) to look up inclination by MD.
+    const lateralBtn = padAC_el('padACLateralBtn');
+    if (lateralBtn) {
+        lateralBtn.addEventListener('click', () => {
+            // Build trajectory lookup: wellName → survey[]
+            // WELLBORES may not be in scope here (only defined inside WBT if-block)
+            // so we read from the wbtData JSON element if available
+            let trajMap = {};
+            const wbtEl = document.getElementById('wbtData');
+            const wbtArr = wbtEl ? JSON.parse(wbtEl.textContent) : (typeof WELLBORES !== 'undefined' ? WELLBORES : []);
+
+            wbtArr.forEach(function(traj) {
+                if (traj.wellName && traj.survey) trajMap[traj.wellName] = traj.survey;
+            });
+
+            if (!Object.keys(trajMap).length) {
+                setStatus('⚠ No wellbore trajectories uploaded for this job.');
+                return;
+            }
+
+            // Extract wellbore identifier from PAD AC well name:
+            // "04-08-061-03W4 [P1-652] - [01]ETS 156991_W30 - L01 - L01"
+            // → wellbore key: "[01]ETS 156991_W30" + leg: "L01"
+            // → trajectory wellName: "[01]ETS 156991_W30_L01"
+            function extractWellboreKey(padACName) {
+                // Split on ' - ' to get parts
+                const parts = padACName.split(/\s+-\s+/);
+                // parts[0] = site, parts[1] = wellbore, parts[2] = leg, parts[3] = sub-leg
+                if (parts.length >= 3) {
+                    const wb  = parts[1].trim();  // e.g. "[01]ETS 156991_W30"
+                    const leg = parts[2].trim();  // e.g. "L01"
+                    return wb + '_' + leg;         // e.g. "[01]ETS 156991_W30_L01"
+                }
+                return padACName;
+            }
+
+            // Find inclination at a given MD in a survey (linear interpolation)
+            function getInclAtMD(survey, targetMD) {
+                const md = parseFloat(targetMD);
+                if (isNaN(md) || !survey || !survey.length) return null;
+                // Find bracketing stations
+                for (let i = 1; i < survey.length; i++) {
+                    const md0 = parseFloat(survey[i-1].md);
+                    const md1 = parseFloat(survey[i].md);
+                    if (md >= md0 && md <= md1) {
+                        const t = (md1 > md0) ? (md - md0) / (md1 - md0) : 0;
+                        const i0 = parseFloat(survey[i-1].incl);
+                        const i1 = parseFloat(survey[i].incl);
+                        return i0 + t * (i1 - i0);
+                    }
+                }
+                // Beyond last station — use last value
+                const last = survey[survey.length - 1];
+                if (parseFloat(last.md) <= md) return parseFloat(last.incl);
+                return null;
+            }
+
+            const allCbs = Array.from(document.querySelectorAll('input.padac-row-cb'));
+            let selected = 0, noMatch = 0, checked = 0;
+
+            allCbs.forEach(function(cb) {
+                const refWellFull = cb.dataset.refWell || '';
+                const refMD       = cb.dataset.refMD;
+                const trajKey     = extractWellboreKey(refWellFull);
+
+                // Try exact match first, then fuzzy (contains)
+                let survey = trajMap[trajKey];
+                if (!survey) {
+                    // Fuzzy: find trajectory whose wellName is contained in trajKey or vice versa
+                    const key = Object.keys(trajMap).find(k =>
+                        trajKey.includes(k) || k.includes(trajKey.replace(/_L\d+$/i,''))
+                    );
+                    if (key) survey = trajMap[key];
+                }
+
+                if (!survey) { noMatch++; return; }
+
+                const incl = getInclAtMD(survey, refMD);
+                if (incl !== null && incl > 88) {
+                    cb.checked = true;
+                    selected++;
+                }
+                checked++;
+            });
+
+            if (noMatch === allCbs.length) {
+                setStatus('⚠ Could not match any PAD AC well names to uploaded trajectories.');
+            } else {
+                setStatus('📐 ' + selected + ' row(s) selected where Ref. incl > 88° at Ref. MD' +
+                    (noMatch ? ' (' + noMatch + ' rows had no matching trajectory)' : '') + '.');
+            }
+        });
+    }
+
+    // ── Same Ref.MD ───────────────────────────────────────────────────────
+    // Selects all rows whose Ref. MD value appears more than once in the table.
+    const dupMDBtn = padAC_el('padACDupMDBtn');
+    if (dupMDBtn) {
+        dupMDBtn.addEventListener('click', () => {
+            const allCbs = Array.from(document.querySelectorAll('input.padac-row-cb'));
+            if (!allCbs.length) { setStatus('⚠ No rows in table.'); return; }
+
+            // Count occurrences of each Ref. MD value
+            const mdCount = {};
+            allCbs.forEach(cb => {
+                const md = String(cb.dataset.refMD || '').trim();
+                if (md) mdCount[md] = (mdCount[md] || 0) + 1;
+            });
+
+            // Select all rows whose Ref. MD appears more than once
+            let selected = 0;
+            allCbs.forEach(cb => {
+                const md = String(cb.dataset.refMD || '').trim();
+                if (md && mdCount[md] > 1) {
+                    cb.checked = true;
+                    selected++;
+                }
+            });
+
+            const dupMDs = Object.keys(mdCount).filter(md => mdCount[md] > 1);
+            if (!selected) {
+                setStatus('✅ No duplicated Ref. MD values found — all rows are unique.');
+            } else {
+                setStatus('🔁 ' + selected + ' row(s) selected with duplicated Ref. MD: ' + dupMDs.join(', '));
+            }
+        });
+    }
 
     // ── Delete Selected ──────────────────────────────────────────────────
     const deleteBtn = padAC_el('padACDeleteBtn');
@@ -4270,6 +4458,9 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = true);
             padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = true);
             padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = true);
+            padAC_el('padACSelectSiteBtn') && (padAC_el('padACSelectSiteBtn').disabled = true);
+            padAC_el('padACLateralBtn') && (padAC_el('padACLateralBtn').disabled = true);
+            padAC_el('padACDupMDBtn') && (padAC_el('padACDupMDBtn').disabled = true);
             padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = true);
             renderBadges([], 0);
             renderTable([]);
@@ -4300,6 +4491,9 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 padAC_el('padACCsvBtn')  && (padAC_el('padACCsvBtn').disabled  = false);
                 padAC_el('padACXlsxBtn') && (padAC_el('padACXlsxBtn').disabled = false);
                 padAC_el('padACDownloadBtn') && (padAC_el('padACDownloadBtn').disabled = false);
+                padAC_el('padACSelectSiteBtn') && (padAC_el('padACSelectSiteBtn').disabled = false);
+                padAC_el('padACLateralBtn') && (padAC_el('padACLateralBtn').disabled = false);
+                padAC_el('padACDupMDBtn') && (padAC_el('padACDupMDBtn').disabled = false);
                 padAC_el('padACDeleteBtn') && (padAC_el('padACDeleteBtn').disabled = false);
                 if (saveBtn) saveBtn.disabled = false;
                 const empty = padAC_el('padACEmpty'); if (empty) empty.style.display = 'none';

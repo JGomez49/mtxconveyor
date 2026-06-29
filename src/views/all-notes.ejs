@@ -2053,6 +2053,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     const ganttNotesMap = JSON.parse(
         document.getElementById('ganttNotesMapData').textContent
     );
+    const GANTT_USER_ROLE = '<%- user.role %>';
 
     document.addEventListener("DOMContentLoaded", function() {
         renderDPStatsBoxPlot();
@@ -2569,6 +2570,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 borderColor: "red", borderWidth: 3, borderDash: [],
                                 label: { enabled: true, content: "+3 Months", position: "start", color: "red" },
                             },
+                            ...((['admin','leader','user'].includes(GANTT_USER_ROLE)) ? {
+                                fourMonthLine: {
+                                    type: "line",
+                                    xMin: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
+                                    xMax: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
+                                    borderColor: "#000000", borderWidth: 3, borderDash: [],
+                                    label: { enabled: true, content: "+4 Months", position: "start", color: "#000000", font: { weight: "bold" } },
+                                },
+                            } : {}),
                             // Jan 1 lines — one per year from this year to absoluteMax year
                             ...Object.fromEntries(
                                 Array.from({ length: 3 }, (_, i) => {
