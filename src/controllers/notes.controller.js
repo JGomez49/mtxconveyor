@@ -11,6 +11,7 @@ const Schedule = require("../models/Schedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
 const PadAC       = require("../models/PadAC");
+const SiteConfig    = require("../models/SiteConfig");
 
 //const ScheduleETS = require("../models/ScheduleETS");
 
@@ -939,6 +940,36 @@ notesCrtl.getPadAC = async (req, res) => {
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+
+// ── Banner ──────────────────────────────────────────────────────────────────
+notesCrtl.renderBanner = async (req, res) => {
+    try {
+        const cfg = await SiteConfig.findOne({ key: 'bannerUrl' }).lean();
+        res.render('banner.ejs', {
+            user: req.user,
+            bannerUrl: cfg ? cfg.value : '',
+        });
+    } catch(e) {
+        console.error('renderBanner:', e);
+        res.status(500).send(e.message);
+    }
+};
+
+notesCrtl.saveBanner = async (req, res) => {
+    try {
+        const { bannerUrl } = req.body;
+        await SiteConfig.findOneAndUpdate(
+            { key: 'bannerUrl' },
+            { key: 'bannerUrl', value: bannerUrl || '', updatedBy: req.user._id, updatedAt: new Date() },
+            { upsert: true, new: true }
+        );
+        res.json({ success: true });
+    } catch(e) {
+        console.error('saveBanner:', e);
+        res.status(500).json({ error: e.message });
+    }
 };
 
 module.exports = notesCrtl;

@@ -31,6 +31,8 @@ const {
     renderUploadPadAC,
     savePadAC,
     getPadAC,
+    renderBanner,
+    saveBanner,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
     uploadWellboreTrajectory,
@@ -163,6 +165,8 @@ router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
 router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 router.post('/notes/padAC/:noteId', isAuthenticated, savePadAC);
 router.get('/notes/padAC/:noteId',  isAuthenticated, getPadAC);
+router.get('/notes/banner',             isAuthenticated, renderBanner);
+router.post('/notes/banner',            isAuthenticated, saveBanner);
 
 //Wellbore 3D Trajectory (per job/note)
 router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);

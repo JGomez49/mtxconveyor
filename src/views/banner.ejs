@@ -1,0 +1,105 @@
+<%- include('partials/header.ejs') %>
+
+<div class="_container bg-dark" style="max-width:700px;margin:40px auto;padding:24px;">
+    <h2 style="color:var(--an-text-bright,#e8f4ff);font-family:monospace;margin-bottom:4px;">🖼 Banner Settings</h2>
+    <p style="color:#5a7080;font-size:12px;font-family:monospace;margin-bottom:24px;">
+        Changes the image shown above the login form on the Sign In page.
+    </p>
+
+    <!-- Current preview -->
+    <div class="mb-3">
+        <label style="font-size:11px;color:#aaa;font-family:monospace;">Current Banner</label>
+        <div style="border:1px solid #1e2d3d;border-radius:4px;padding:8px;margin-top:6px;text-align:center;background:#0a0e14;">
+            <% if(bannerUrl){ %>
+                <img id="bannerPreview" src="<%= bannerUrl %>"
+                     style="max-width:100%;max-height:300px;border-radius:4px;">
+            <% } else { %>
+                <span style="color:#5a7080;font-size:12px;font-family:monospace;">No banner set — default image is used.</span>
+                <img id="bannerPreview" src="" style="max-width:100%;max-height:300px;border-radius:4px;display:none;">
+            <% } %>
+        </div>
+    </div>
+
+    <!-- URL input -->
+    <div class="mb-3">
+        <label class="form-label" style="font-size:12px;font-family:monospace;">Banner Image URL</label>
+        <input id="bannerUrlInput" type="url" class="form-control form-control-sm"
+               placeholder="https://..."
+               value="<%= bannerUrl %>"
+               style="font-family:monospace;font-size:12px;">
+        <div style="font-size:10px;color:#5a7080;margin-top:4px;">
+            Paste any public image URL (Cloudinary, Imgur, direct link, etc.)
+        </div>
+    </div>
+
+    <!-- Preview button -->
+    <div class="d-flex gap-2 mb-3">
+        <button id="previewBtn" class="btn btn-sm btn-outline-secondary">👁 Preview</button>
+        <button id="saveBtn" class="btn btn-sm btn-success">💾 Save Banner</button>
+        <button id="clearBtn" class="btn btn-sm btn-outline-danger">✕ Clear (restore default)</button>
+        <a href="/notes" class="btn btn-sm btn-outline-light">← Back</a>
+    </div>
+
+    <div id="statusMsg" style="font-size:12px;font-family:monospace;color:#00c8ff;min-height:20px;"></div>
+</div>
+
+<script>
+const urlInput  = document.getElementById('bannerUrlInput');
+const preview   = document.getElementById('bannerPreview');
+const statusMsg = document.getElementById('statusMsg');
+
+document.getElementById('previewBtn').addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    if (!url) { preview.style.display='none'; return; }
+    preview.src = url;
+    preview.style.display = '';
+    preview.onerror = () => { statusMsg.textContent = '⚠ Could not load image — check the URL.'; };
+    preview.onload  = () => { statusMsg.textContent = '✅ Preview loaded.'; };
+});
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    statusMsg.textContent = 'Saving…';
+    try {
+        const res = await fetch('/notes/banner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bannerUrl: url }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            statusMsg.textContent = '✅ Banner saved. It will appear on the Sign In page immediately.';
+            if (url) { preview.src = url; preview.style.display = ''; }
+            else { preview.style.display = 'none'; }
+        } else {
+            statusMsg.textContent = '❌ Save failed: ' + (data.error || res.statusText);
+        }
+    } catch(e) {
+        statusMsg.textContent = '❌ Error: ' + e.message;
+    }
+});
+
+document.getElementById('clearBtn').addEventListener('click', async () => {
+    if (!confirm('Clear the banner and restore the default image?')) return;
+    urlInput.value = '';
+    statusMsg.textContent = 'Clearing…';
+    try {
+        const res = await fetch('/notes/banner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bannerUrl: '' }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            preview.style.display = 'none';
+            statusMsg.textContent = '✅ Banner cleared — default image restored on Sign In page.';
+        } else {
+            statusMsg.textContent = '❌ Error: ' + (data.error || res.statusText);
+        }
+    } catch(e) {
+        statusMsg.textContent = '❌ Error: ' + e.message;
+    }
+});
+</script>
+
+<%- include('partials/footer.ejs') %>
