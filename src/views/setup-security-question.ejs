@@ -1,0 +1,44 @@
+<%- include ('partials/header.ejs') %>
+
+<style>
+    body { background-color: #0a0e14; }
+    .ssq-wrapper {
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .ssq-card {
+        background: #111820; border: 1px solid #1e2d3d; border-radius: 8px;
+        padding: 28px; max-width: 440px; width: 100%;
+    }
+</style>
+
+<div class="ssq-wrapper">
+    <div class="ssq-card">
+        <h4 style="color:#e8f4ff;font-family:monospace;">🔐 Set Up a Security Question</h4>
+        <p style="color:#5a7080;font-size:13px;">
+            This lets you reset your password yourself if you ever forget it.
+            You only need to do this once.
+        </p>
+
+        <% if (typeof messages !== 'undefined' && messages.error_msg) { %>
+            <div class="alert alert-danger"><%= messages.error_msg %></div>
+        <% } %>
+
+        <form action="/users/setup-security-question" method="post">
+            <div class="form-group mb-3">
+                <label style="color:#c8d8e8;font-size:13px;">Write your own question</label>
+                <input type="text" name="question" class="form-control"
+                       placeholder="e.g. What was the name of my first pet?" required>
+            </div>
+            <div class="form-group mb-3">
+                <label style="color:#c8d8e8;font-size:13px;">Your answer</label>
+                <input type="text" name="answer" class="form-control" required>
+                <div style="font-size:11px;color:#5a7080;margin-top:4px;">
+                    Not case-sensitive. Choose something only you would know.
+                </div>
+            </div>
+            <button class="btn btn-success btn-block">Save and Continue</button>
+        </form>
+    </div>
+</div>
+
+<%- include ('partials/footer.ejs') %>

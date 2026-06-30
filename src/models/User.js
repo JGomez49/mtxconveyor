@@ -32,6 +32,16 @@ const UserSchema = new Schema({
         type: String,
         required: false
     },
+    securityQuestion: {
+        type: String,
+        required: false,
+        default: ''
+    },
+    securityAnswerHash: {
+        type: String,
+        required: false,
+        default: ''
+    },
 },{timestamps: true});
 
 UserSchema.methods.encryptPassword = async password => {
@@ -41,6 +51,16 @@ UserSchema.methods.encryptPassword = async password => {
 
 UserSchema.methods.matchPassword = async function(password){
     return await bcrypt.compare(password, this.password);
+}
+
+UserSchema.methods.encryptAnswer = async answer => {
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(String(answer).trim().toLowerCase(), salt);
+};
+
+UserSchema.methods.matchAnswer = async function(answer){
+    if (!this.securityAnswerHash) return false;
+    return await bcrypt.compare(String(answer).trim().toLowerCase(), this.securityAnswerHash);
 }
 
 module.exports = model('User', UserSchema);
