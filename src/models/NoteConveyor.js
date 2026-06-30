@@ -30,6 +30,10 @@ const NoteConveyorSchema = new Schema({
     trajAvgDDI:          {type: Number, default: null},
     trajAvgSteerIndex:   {type: Number, default: null},
 
+    // Gantt chart: number of days to stretch the first (earliest) bar of this
+    // job's pad/site backward — start date moves earlier, end date stays put.
+    batchDays: {type: Number, default: 0},
+
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
     checkOffsetWellsInfo: {type: String, defaultValue: "No"},

@@ -142,7 +142,7 @@ notesCrtl.renderNotes = async (req,res)=>{
     // ── Run all DB queries in parallel ───────────────────────────────────
     // Select only the fields rendered in all-notes.ejs — avoids transferring
     // large unused fields like description, imageID, wellbore data, etc.
-    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex';
+    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays';
 
     const [notes, schedule, dpStats] = await Promise.all([
         Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
@@ -968,6 +968,36 @@ notesCrtl.saveBanner = async (req, res) => {
         res.json({ success: true });
     } catch(e) {
         console.error('saveBanner:', e);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+
+// ── Delete Log Entry ─────────────────────────────────────────────────────────
+notesCrtl.deleteLogEntry = async (req, res) => {
+    try {
+        const Log = require('../models/LogConveyor');
+        await Log.findByIdAndDelete(req.params.logId);
+        res.json({ success: true });
+    } catch(e) {
+        console.error('deleteLogEntry:', e);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+
+// ── Batch Days (Gantt stretch) ────────────────────────────────────────────────
+notesCrtl.saveBatchDays = async (req, res) => {
+    try {
+        const { batchDays } = req.body;
+        const days = Number(batchDays);
+        if (isNaN(days) || days < 0) {
+            return res.status(400).json({ error: 'batchDays must be a non-negative number' });
+        }
+        await Note.findByIdAndUpdate(req.params.noteId, { batchDays: days });
+        res.json({ success: true, batchDays: days });
+    } catch(e) {
+        console.error('saveBatchDays:', e);
         res.status(500).json({ error: e.message });
     }
 };

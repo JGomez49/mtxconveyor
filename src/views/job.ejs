@@ -194,6 +194,61 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 
                 <!-- <a class="nav-link" href="/note/upload/<%= note._id %>">Upload Spider Plot</a> -->
 
+<!-- ================= BATCH DAYS (Gantt stretch, admin only) ================= -->
+<% if (user.role === 'admin') { %>
+<div class="card bg-secondary border-0 mb-2 p-2" style="max-width:420px;">
+    <label class="form-label mb-1" style="font-size:11px;color:#e8f4ff;font-family:monospace;">
+        📊 Gantt — Batch Days
+    </label>
+    <div class="d-flex align-items-center gap-2">
+        <input id="batchDaysInput" type="number" min="0" step="1"
+               class="form-control form-control-sm" style="width:100px;"
+               value="<%= note.batchDays || 0 %>">
+        <button id="batchDaysSaveBtn" class="btn btn-sm btn-success">💾 Save</button>
+        <span id="batchDaysStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+    </div>
+    <div style="font-size:10px;color:#aaa;margin-top:4px;">
+        Stretches the first (earliest) Gantt bar for this job's pad backward by this many days.
+        End date stays the same.
+    </div>
+</div>
+<script>
+(function(){
+    const input  = document.getElementById('batchDaysInput');
+    const btn    = document.getElementById('batchDaysSaveBtn');
+    const status = document.getElementById('batchDaysStatus');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const days = Number(input.value);
+        if (isNaN(days) || days < 0) {
+            status.textContent = '⚠ Enter a non-negative number.';
+            return;
+        }
+        status.textContent = 'Saving…';
+        btn.disabled = true;
+        try {
+            const res = await fetch('/notes/batchDays/<%- note._id %>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ batchDays: days }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                status.textContent = '✅ Saved (' + data.batchDays + ' days).';
+            } else {
+                status.textContent = '❌ ' + (data.error || res.statusText);
+            }
+        } catch(e) {
+            status.textContent = '❌ ' + e.message;
+        }
+        btn.disabled = false;
+    });
+})();
+</script>
+<% } %>
+<!-- ================= END BATCH DAYS ================= -->
+
+
 
 
 
@@ -1911,6 +1966,16 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 
                                 <%= e.createdAt %>
                             </div>
+                            <% if (user.role === 'admin') { %>
+                            <div style="margin-top:4px;">
+                                <button
+                                    onclick="deleteLogEntry('<%- e._id %>', this)"
+                                    class="btn btn-outline-danger btn-sm"
+                                    style="font-size:10px;padding:1px 8px;">
+                                    🗑 Delete
+                                </button>
+                            </div>
+                            <% } %>
                             <div style="font-size: xx-small;"><%= e.id %></div>
                         </div>
                     </div>
@@ -1937,6 +2002,28 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
         //     document.title = id;
         // }
 
+    </script>
+
+    <script>
+        // ── Delete log entry (admin only) ──────────────────────────────
+        async function deleteLogEntry(logId, btn) {
+            if (!confirm('Delete this log entry? This cannot be undone.')) return;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/notes/log/' + logId, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const card = btn.closest('.card');
+                    if (card) card.remove();
+                } else {
+                    alert('Failed to delete: ' + (data.error || res.statusText));
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+                btn.disabled = false;
+            }
+        }
     </script>
 
 
@@ -2480,18 +2567,29 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             }
 
             // Max DLS in build (KOP→ICP) and lateral (ICP→TD)
+            // Steering meters: MD intervals where DLS > 0.1°/30m
+            const STEER_DLS_THRESHOLD = 0.1;
             let maxDlsBuild = 0, maxDlsLateral = 0, tortuosity = 0;
-            survey.forEach(r => {
-                const dls = num(r.dogleg);
-                const md  = num(r.md);
+            let steerMdBuild = 0, steerMdLateral = 0;
+            for(let i = 1; i < survey.length; i++){
+                const r    = survey[i];
+                const prev = survey[i-1];
+                const dls  = num(r.dogleg);
+                const md   = num(r.md);
+                const mdPrev = num(prev.md);
+                const interval = md - mdPrev;
                 tortuosity += dls;
-                if(md >= num(kop.md) && md <= num(icp.md)){
+                // Build section: MD=0 → icp.md
+                if(md <= num(icp.md)){
                     if(dls > maxDlsBuild) maxDlsBuild = dls;
+                    if(dls > STEER_DLS_THRESHOLD) steerMdBuild += interval;
                 }
+                // Lateral section: icp.md+30 → TD
                 if(md >= num(icp.md) + 30){
                     if(dls > maxDlsLateral) maxDlsLateral = dls;
+                    if(dls > STEER_DLS_THRESHOLD) steerMdLateral += interval;
                 }
-            });
+            }
 
             const totalMD  = num(last.md);
             const totalTVD = num(last.tvd);
@@ -2525,6 +2623,10 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 lateralDisplacement: ahd,
                 closureAz,
                 maxDlsBuild, maxDlsLateral,
+                steerMdBuild   : Math.round(steerMdBuild * 10) / 10,
+                steerMdLateral : Math.round(steerMdLateral * 10) / 10,
+                steerPctBuild  : num(icp.md) > 0 ? Math.round(steerMdBuild / num(icp.md) * 1000) / 10 : null,
+                steerPctLateral: lateralLength > 0 ? Math.round(steerMdLateral / lateralLength * 1000) / 10 : null,
                 finalIncl: num(last.incl),
                 finalAzim: num(last.azim),
                 tangent,
@@ -2642,6 +2744,8 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                 m('Lateral Displacement', wbtFmt(metrics.lateralDisplacement) + ' m');
                 m('Max DLS – Build',   wbtFmt(metrics.maxDlsBuild, 2));
                 m('Max DLS – Lateral', wbtFmt(metrics.maxDlsLateral, 2));
+                m('Steering – Build',   wbtFmt(metrics.steerMdBuild, 1) + ' m  (' + (metrics.steerPctBuild !== null ? metrics.steerPctBuild.toFixed(1) : '-') + '%)');
+                m('Steering – Lateral', wbtFmt(metrics.steerMdLateral, 1) + ' m  (' + (metrics.steerPctLateral !== null ? metrics.steerPctLateral.toFixed(1) : '-') + '%)');
                 m('Closure Azimuth', wbtFmt(metrics.closureAz, 1) + '°');
                 m('Final Incl / Azim', wbtFmt(metrics.finalIncl,1) + '° / ' + wbtFmt(metrics.finalAzim,1) + '°');
                 m('DDI (Oag & Williams)', wbtFmt(metrics.ddi, 2));
@@ -2711,6 +2815,10 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                     ['── DLS ──', ''],
                     ['Max DLS - Build', m.maxDlsBuild],
                     ['Max DLS - Lateral', m.maxDlsLateral],
+                    ['Steering Build (m)', m.steerMdBuild],
+                    ['Steering Build (%)', m.steerPctBuild],
+                    ['Steering Lateral (m)', m.steerMdLateral],
+                    ['Steering Lateral (%)', m.steerPctLateral],
                     [''],
                     ['── TANGENT ──', ''],
                     ['Tangent MD Start (m)', m.tangent ? m.tangent.mdStart : 'NO'],
@@ -3233,11 +3341,13 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
         //         Start Tang / End Tang = purple(#c084fc).
 
         const WBT_MARKER_DEFS = [
-            { key: 'SC',         color: 0x58a6ff, label: 'SC' },
-            { key: 'ICP',        color: 0xff6b35, label: 'ICP' },
-            { key: 'LP',         color: 0xffd060, label: 'LP' },
-            { key: 'START TANG', color: 0xc084fc, label: 'Start Tang' },
-            { key: 'END TANG',   color: 0xc084fc, label: 'End Tang' },
+            { key: 'SURFACECASING',      color: 0x58a6ff, label: 'Surface Casing' },
+            { key: 'KICKOFF',            color: 0x39ff14, label: 'KOP' },
+            { key: 'INTERMEDIATECASING', color: 0xff6b35, label: 'Int. Casing' },
+            { key: 'LANDING',            color: 0xffd060, label: 'Landing' },
+            { key: 'START TANG',         color: 0xc084fc, label: 'Start Tang' },
+            { key: 'END TANG',           color: 0xc084fc, label: 'End Tang' },
+            { key: 'STK',                color: 0xff4060, label: 'STK' },
         ];
 
         let wbtMarkerGroup = new THREE.Group();
@@ -3490,7 +3600,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
         // the show/hide list so the user can optionally reveal any entry.
         //
         // Reserved keywords (case-insensitive, substring match):
-        const WBT_RESERVED_KEYWORDS = ['SC','KOP','ICP','LP','START TANG','END TANG'];
+        const WBT_RESERVED_KEYWORDS = ['SURFACECASING','KICKOFF','INTERMEDIATECASING','LANDING','STK','START TANG','END TANG'];
         // TD is the last point - no comment needed; any unique remaining
         // comments that survive keyword filtering are classified as formations.
         //

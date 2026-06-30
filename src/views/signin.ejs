@@ -92,13 +92,13 @@
 
 
     <div class="signin-layer">
-        <div class="card _bg-dark" style="background-color: rgba(0,0,0,0.5);">
-            <div class="card _bg-dark" style="background-color: transparent;">
-                <div class="card-header _bg-dark" style="background-color: transparent;"><h4>Account Login</h4></div>
+        <div class="card _bg-dark" style="background-color: transparent; border: none;">
+            <div class="card _bg-dark" style="background-color: transparent; border: none;">
+                <div class="card-header _bg-dark" style="background-color: transparent; border: none;"><h4>Account Login</h4></div>
                 <img src="<%= bannerUrl %>"
                     class="rounded-circle_ mx-auto d-block _m-4" width="60%"
                 >
-                <div class="card-body">
+                <div class="card-body" style="border: none;">
                     <form action="/users/signin" method="post">
                         <div class="form-group">
                             <input type="email" class="form-control" name="email" placeholder="Email">

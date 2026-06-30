@@ -33,6 +33,8 @@ const {
     getPadAC,
     renderBanner,
     saveBanner,
+    deleteLogEntry,
+    saveBatchDays,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
     uploadWellboreTrajectory,
@@ -166,6 +168,8 @@ router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 router.post('/notes/padAC/:noteId', isAuthenticated, savePadAC);
 router.get('/notes/padAC/:noteId',  isAuthenticated, getPadAC);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
+router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
+router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
 router.post('/notes/banner',            isAuthenticated, saveBanner);
 
 //Wellbore 3D Trajectory (per job/note)

@@ -2026,7 +2026,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
-<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||'') }; } return m; },{})) %></script>
+<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0 }; } return m; },{})) %></script>
 <script type="application/json" id="ganttScheduleMeta"><%- JSON.stringify((function(){
     if(!schedule || !schedule.length) return null;
     var latest = schedule.reduce(function(best, s){
@@ -2276,6 +2276,58 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 dpReceivedDate, primaryZone,
                 de: (ganttNotesMap[site.slice(0,14)] || {}).de || '' });
         });
+
+        // ── Batch Days: add a new "pre-bar" before the earliest bar per site ──
+        // Admin sets "batchDays" on the job (Note) matching this site.
+        // Instead of mutating the existing bar, we insert a brand-new bar
+        // that starts batchDays before the original earliest bar's start
+        // date, and ends exactly when that original bar starts.
+        (function applyBatchDaysStretch(){
+            console.log('[batchDays] applyBatchDaysStretch running, ganttAllBars:', ganttAllBars.length, 'ganttNotesMap:', ganttNotesMap);
+
+            // Group bar indices by site (first 14 chars, matching ganttNotesMap key)
+            const bySite = {};
+            ganttAllBars.forEach(function(bar, idx){
+                if(!bar.site || !bar.start) return;
+                const key = bar.site.slice(0,14);
+                if(!bySite[key]) bySite[key] = [];
+                bySite[key].push(idx);
+            });
+
+            const sitesWithBatchDays = Object.keys(ganttNotesMap).filter(k => ganttNotesMap[k].batchDays > 0);
+            console.log('[batchDays] sites with batchDays set:', sitesWithBatchDays.map(k => k + ' = ' + ganttNotesMap[k].batchDays));
+            console.log('[batchDays] site keys found in Gantt bars:', Object.keys(bySite));
+
+            const newBars = [];
+
+            Object.keys(bySite).forEach(function(siteKey){
+                const meta = ganttNotesMap[siteKey];
+                const batchDays = meta ? Number(meta.batchDays) || 0 : 0;
+                if(!batchDays) return; // nothing to add
+
+                const idxs = bySite[siteKey];
+                // Find earliest-starting bar for this site
+                let earliestIdx = idxs[0];
+                idxs.forEach(function(idx){
+                    if(ganttAllBars[idx].start < ganttAllBars[earliestIdx].start) earliestIdx = idx;
+                });
+                const origBar = ganttAllBars[earliestIdx];
+
+                const newStart = new Date(origBar.start);
+                newStart.setDate(newStart.getDate() - batchDays);
+
+                console.log('[batchDays] adding pre-bar for site', siteKey, '— from', newStart, 'to', origBar.start, '(', batchDays, 'days)');
+
+                // Clone the original bar's metadata but with new dates/duration
+                newBars.push(Object.assign({}, origBar, {
+                    start: newStart,
+                    duration: batchDays,
+                    isBatchDaysBar: true,
+                }));
+            });
+
+            if(newBars.length) ganttAllBars.push(...newBars);
+        })();
 
         // Build filters once
         if(!ganttFiltersBuilt) ganttBuildAllFilters();
