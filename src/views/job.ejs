@@ -486,6 +486,26 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
                                         <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
                                         <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
                                     </div>
+                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <input type="file" id="pasonRawXYFileInput"
+                                               accept=".xlsx,.xls"
+                                               class="form-control form-control-sm" style="max-width:280px;">
+                                        <button id="pasonRawXYImportBtn" class="btn btn-sm btn-outline-warning" disabled>
+                                            ⬤ Import X,Y (dots) for this plot
+                                        </button>
+                                        <span id="pasonRawXYStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonDotSizeRow" style="display:none;">
+                                        <label style="font-size:11px;color:#c8d8e8;">Dot size:</label>
+                                        <input type="range" id="pasonDotSizeSlider" min="1" max="10" step="1" value="3" style="max-width:180px;">
+                                        <span id="pasonDotSizeVal" style="font-size:11px;color:#5a7080;">3</span>
+                                        <button id="pasonRawXYRemoveBtn" class="btn btn-sm btn-outline-danger">✕ Remove imported dots</button>
+                                    </div>
+                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                        Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
+                                    </div>
+                                    <% } %>
                                     <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
                                         <canvas id="pasonChart" style="max-height:65vh;"></canvas>
                                     </div>
@@ -5021,6 +5041,26 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
         if(avgPts.length) datasets.push({ label:'Average', data:avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
 
+        // Optional: imported raw rig X,Y data for this plot, shown as dots.
+        const raw = data.raw;
+        const dotSizeRow = el('pasonDotSizeRow');
+        if(raw && raw.points && raw.points.length){
+            const pointSize = raw.pointSize || 3;
+            datasets.push({
+                label: 'Raw X,Y', data: raw.points.map(p => ({x:p[0], y:p[1]})),
+                showLine:false, pointRadius: pointSize, pointHoverRadius: pointSize+2,
+                borderColor:'#ffa500', backgroundColor:'#ffa500',
+            });
+            if(dotSizeRow){
+                dotSizeRow.style.display = '';
+                const slider = el('pasonDotSizeSlider'), val = el('pasonDotSizeVal');
+                if(slider){ slider.value = pointSize; }
+                if(val){ val.textContent = pointSize; }
+            }
+        } else if(dotSizeRow){
+            dotSizeRow.style.display = 'none';
+        }
+
         const ctx = canvas.getContext('2d');
         _chart = new Chart(ctx, {
             type: 'line',
@@ -5118,6 +5158,113 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 setStatus('❌ Error: ' + err.message);
                 uploadBtn.disabled = false;
             }
+        });
+    }
+
+    // ── Import raw X,Y (dots) for the currently selected plot ────────────
+    const rawFileInput = el('pasonRawXYFileInput');
+    const rawImportBtn = el('pasonRawXYImportBtn');
+    let _parsedRawXY = null;
+
+    async function persistPlots(successMsg){
+        const res = await fetch('/notes/pasonPlots/' + PASON_NOTE_ID, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ noteId: PASON_NOTE_ID, plots: _plots }),
+        });
+        const data = await res.json();
+        if(res.ok){ setStatus(successMsg); return true; }
+        setStatus('❌ Save failed: ' + (data.error || res.statusText));
+        return false;
+    }
+
+    if(rawFileInput){
+        rawFileInput.addEventListener('change', function(e){
+            const file = e.target.files[0];
+            if(!file) return;
+            rawImportBtn.disabled = true;
+            _parsedRawXY = null;
+            const rawStatus = el('pasonRawXYStatus');
+            if(rawStatus) rawStatus.textContent = 'Reading file…';
+            const reader = new FileReader();
+            reader.onload = function(ev){
+                try {
+                    const wb = XLSX.read(ev.target.result, { type:'array' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+                    if(aoa.length < 2) throw new Error('File has no data rows.');
+                    const points = aoa.slice(1)
+                        .filter(r => r.length >= 2 && r[0] !== '' && r[1] !== '' && r[0] !== null && r[1] !== null)
+                        .map(r => [Number(r[0]), Number(r[1])])
+                        .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+                    if(!points.length) throw new Error('No valid numeric X,Y rows found.');
+                    _parsedRawXY = points;
+                    if(rawStatus) rawStatus.textContent = `✅ Parsed ${points.length} points. Click Import to add as dots.`;
+                    rawImportBtn.disabled = false;
+                } catch(err){
+                    if(rawStatus) rawStatus.textContent = '❌ ' + err.message;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    if(rawImportBtn){
+        rawImportBtn.addEventListener('click', async function(){
+            if(!_parsedRawXY || !_plots) return;
+            const sel = el('pasonPlotSelect');
+            const plotId = sel && sel.value;
+            if(!plotId){ return; }
+            const rawStatus = el('pasonRawXYStatus');
+            if(rawStatus) rawStatus.textContent = 'Saving…';
+            rawImportBtn.disabled = true;
+
+            if(!_plots[plotId]) _plots[plotId] = { xHeader:'X', rows:[] };
+            const existingPointSize = (_plots[plotId].raw && _plots[plotId].raw.pointSize) || 3;
+            _plots[plotId].raw = { points: _parsedRawXY, pointSize: existingPointSize };
+
+            const ok = await persistPlots(`✅ Imported ${_parsedRawXY.length} X,Y points for this plot.`);
+            if(ok){
+                if(rawStatus) rawStatus.textContent = `✅ Imported ${_parsedRawXY.length} points and saved.`;
+                renderPasonChart(plotId);
+            } else {
+                rawImportBtn.disabled = false;
+            }
+        });
+    }
+
+    const removeRawBtn = el('pasonRawXYRemoveBtn');
+    if(removeRawBtn){
+        removeRawBtn.addEventListener('click', async function(){
+            const sel = el('pasonPlotSelect');
+            const plotId = sel && sel.value;
+            if(!plotId || !_plots || !_plots[plotId] || !_plots[plotId].raw) return;
+            if(!confirm('Remove the imported X,Y dots for this plot?')) return;
+            delete _plots[plotId].raw;
+            const ok = await persistPlots('✅ Removed imported dots and saved.');
+            if(ok) renderPasonChart(plotId);
+        });
+    }
+
+    const dotSizeSlider = el('pasonDotSizeSlider');
+    if(dotSizeSlider){
+        // Live-update the dot size as the slider is dragged (no server call).
+        dotSizeSlider.addEventListener('input', function(){
+            const val = Number(dotSizeSlider.value);
+            const valLabel = el('pasonDotSizeVal');
+            if(valLabel) valLabel.textContent = val;
+            if(_chart){
+                const ds = _chart.data.datasets.find(d => d.label === 'Raw X,Y');
+                if(ds){ ds.pointRadius = val; ds.pointHoverRadius = val + 2; _chart.update('none'); }
+            }
+        });
+        // Persist the chosen size once the user releases the slider.
+        dotSizeSlider.addEventListener('change', async function(){
+            const sel = el('pasonPlotSelect');
+            const plotId = sel && sel.value;
+            if(!plotId || !_plots || !_plots[plotId] || !_plots[plotId].raw) return;
+            _plots[plotId].raw.pointSize = Number(dotSizeSlider.value);
+            await persistPlots('✅ Dot size saved.');
         });
     }
 
