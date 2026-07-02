@@ -7,13 +7,13 @@ const User = require('../models/User');
 const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
 const ImageMirelleDog = require('../models/ImageMirelleDog');
-const Schedule = require("../models/Schedule");
+const NewSchedule = require("../models/NewSchedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
+const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
 const SiteConfig    = require("../models/SiteConfig");
 
-//const ScheduleETS = require("../models/ScheduleETS");
 
 
 
@@ -144,12 +144,12 @@ notesCrtl.renderNotes = async (req,res)=>{
     // large unused fields like description, imageID, wellbore data, etc.
     const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays';
 
-    const [notes, schedule, dpStats] = await Promise.all([
+    const [notes, dpStats, newSchedule] = await Promise.all([
         Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
-        Schedule.find().populate('user','name').lean(),
         DPStats.find().lean(),
+        NewSchedule.findOne().populate('user','name').lean(),
     ]);
-    res.render('all-notes.ejs', {notes, user, schedule, dpStats, count_InProgress, count_NotStarted, count_NotStarted_setup});
+    res.render('all-notes.ejs', {notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup});
 };
 
 
@@ -335,7 +335,8 @@ notesCrtl.renderJob = async (req,res)=>{
     let note = await Note.findById(noteid);
     let log = await Log.find({noteid}).sort({createdAt: 'desc'});
     let wellboreTrajectories = await WellboreTrajectory.find({noteId: noteid});
-    res.render('job.ejs', {note, user, log, wellboreTrajectories})
+    let pasonPlots = await PasonPlots.findOne({noteId: noteid}).lean();
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots})
 }
 
 
@@ -445,100 +446,6 @@ notesCrtl.removeImage = async(req,res)=>{
 
 
 
-notesCrtl.renderUploadSchedule = async(req,res)=>{
-    // res.send('Edit note...');
-    let user = await User.findById(req.session.passport.user);
-    const note = await Note.findById(req.params.id);
-    res.render('uploadSchedule.ejs', {note, user});
-}
-
-
-
-
-
-
-notesCrtl.uploadSchedule = async (req, res) => {
-  try {
-    await Schedule.deleteMany({});
-    console.log("Cleared existing schedule data.");
-
-    const { data } = req.body;
-
-    if (!data || !Array.isArray(data) || data.length <= 1) {
-      return res.status(400).json({ error: "No schedule data received" });
-    }
-
-    console.log(`uploadSchedule: received ${data.length} rows (including header)`);
-    if (data[1]) {
-      console.log(`uploadSchedule: row[1] sample: rig=${data[1][0]}, primaryZone=${data[1][16]}, tvd=${data[1][17]}, target=${data[1][18]}`);
-    }
-
-    // Remove header row — data rows start at index 1
-    const rows = data.slice(1);
-
-    // FIELD_ORDER from uploadSchedule.ejs:
-    // [0]=rig [1]=drillok [2]=geook [3]=duration [4]=dp [5]=type
-    // [6]=vp [7]=start [8]=site [9]=well [10]=dpCompany [11]=ETS
-    // [12]=group [13]=dpReq [14]=geo [15]=version
-    // [16]=dpReceivedDate [17]=primaryZone [18]=tvd [19]=target
-    // [20]=province [21]=playType [22]=afeYear [23]=prospectName
-    // [24]=bhLocation [25]=surfLocation [26]=license [27]=drillingSuper
-    // [28]=geolApprovalDate [29]=surfaceLat [30]=surfaceLon
-    const scheduleDocs = rows.map((row) => ({
-      rig:              row[0]  || "",
-      drillok:          row[1]  || "",
-      geook:            row[2]  || "",
-      duration:         Number(row[3]) || 0,
-      dp:               row[4]  || "",
-      type:             row[5]  || "",
-      vp:               row[6]  || "",
-      start:            row[7]  ? new Date(row[7]) : null,
-      site:             row[8]  || "",
-      well:             row[9]  || "",
-      dpCompany:        row[10] || "",
-      ETS:              row[11] || "",
-      group:            row[12] || "",
-      dpReq:            row[13] || "",
-      geo:              row[14] || "",
-      version:          row[15] || "",
-      dpReceivedDate:   row[16] || "",
-      primaryZone:      row[17] || "",
-      tvd:              row[18] ? Number(row[18]) : null,
-      target:           row[19] || "",
-      province:         row[20] || "",
-      playType:         row[21] || "",
-      afeYear:          row[22] || "",
-      prospectName:     row[23] || "",
-      bhLocation:       row[24] || "",
-      surfLocation:     row[25] || "",
-      license:          row[26] || "",
-      drillingSuper:    row[27] || "",
-      geolApprovalDate: row[28] ? new Date(row[28]) : null,
-      surfaceLat:       row[29] ? Number(row[29]) : null,
-      surfaceLon:       row[30] ? Number(row[30]) : null,
-      user: req.user ? req.user._id : null,
-    }));
-
-    await Schedule.insertMany(scheduleDocs);
-    console.log(`uploadSchedule: saved ${scheduleDocs.length} documents`);
-    console.log(`uploadSchedule: sample doc primaryZone=${scheduleDocs[0]?.primaryZone}, tvd=${scheduleDocs[0]?.tvd}`);
-
-    req.flash("success_msg", "Schedule uploaded successfully");
-    res.redirect("/notes");
-  } catch (error) {
-    console.error("Error uploading schedule:", error);
-    req.flash("error_msg", "Error uploading schedule");
-    res.redirect("/notes");
-  }
-};
-
-
-
-
-
-
-
-// GET /notes/findSite/:site
 notesCrtl.findSite = async (req, res) => {
   try {
     const site = req.params.site;
@@ -577,9 +484,10 @@ notesCrtl.findSite = async (req, res) => {
 
     // Fetch wellbore trajectories for this note
     const wellboreTrajectories = await WellboreTrajectory.find({noteId: project._id});
+    const pasonPlots = await PasonPlots.findOne({noteId: project._id}).lean();
 
     // Render job page with the single note
-    res.render("job.ejs", { note: project, user, log, wellboreTrajectories });
+    res.render("job.ejs", { note: project, user, log, wellboreTrajectories, pasonPlots });
 
   } catch (err) {
     console.error("Error in findSite:", err);
@@ -594,59 +502,76 @@ notesCrtl.findSite = async (req, res) => {
 
 
 
-// GET /notes/getScheduleAndNotes
-notesCrtl.getScheduleAndNotes = async (req, res) => {
-  try {
-    // Fetch everything
-    const schedule = await Schedule.find({}).lean();
-    const notes = await Note.find({}).lean();
+// Header→field mapping for the RAW New Schedule columns — matched by
+// substring, same robust technique used for the New Schedule Gantt chart.
+// This is resilient to the uploaded file's exact column order/format
+// changing, unlike the old hardcoded-index approach.
+const SYNC_HEADER_MAP = [
+    [ 'Site Name', 'site'  ],
+    [ 'Est. Start Date', 'start' ],
+    [ 'Rig Duration', 'duration' ], // must be checked before 'Rig' below
+    [ 'Rig', 'rig' ],
+    [ 'Expl. Cust. Group', 'group' ],
+];
+function buildSyncColMap(headers) {
+    const colMap = {};
+    headers.forEach((h, i) => {
+        const hStr = String(h || '').trim();
+        if (!hStr) return;
+        for (const [substr, field] of SYNC_HEADER_MAP) {
+            if (colMap[field] !== undefined) continue;
+            if (hStr.toLowerCase().includes(substr.toLowerCase())) {
+                if (field === 'rig' && hStr.toLowerCase().includes('duration')) continue;
+                colMap[field] = i;
+            }
+        }
+    });
+    return colMap;
+}
 
-    res.json({ schedule, notes });
-  } catch (err) {
-    console.error("Error in getScheduleAndNotes:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-};
-
-
-
-
-
-
-// Sync dueDate and rig from Schedule → Notes
+// GET /notes/syncDueDates — sync Note.dueDate/rig/group from New Schedule
 notesCrtl.syncDueDates = async (req, res) => {
   try {
-    console.log("🔄 Syncing Notes.dueDate and Notes.rig with Schedule...");
+    console.log("🔄 Syncing Notes.dueDate and Notes.rig with New Schedule...");
 
-    // Load Notes and Schedule
+    // Load Notes and the single New Schedule document
     const notes = await Note.find().lean();
-    const schedule = await Schedule.find().lean();
+    const ns = await NewSchedule.findOne().lean();
+
+    if (!ns || !ns.headers || !ns.headers.length || !ns.rows || !ns.rows.length) {
+      return res.json({ message: "No New Schedule data to sync from", updated: 0 });
+    }
+
+    const colMap = buildSyncColMap(ns.headers);
+    if (colMap.site === undefined || colMap.start === undefined) {
+      return res.status(400).json({
+        error: "Could not find 'Site Name' and/or 'Est. Start Date' columns in the New Schedule file. No changes made.",
+      });
+    }
+    const get = (row, field) => (colMap[field] !== undefined) ? row[colMap[field]] : undefined;
 
     // Build a map of schedule sites → { start (earliest), rig, group }
     // A pad has multiple wells with different start dates — we want the
     // earliest start date so the table shows when the pad first spuds.
     const scheduleMap = {};
-    schedule.forEach(sch => {
-      if (sch.site && sch.start) {
-        const key     = sch.site.slice(0, 14);
-        const schDate = new Date(sch.start);
-        if (isNaN(schDate)) return;
+    ns.rows.forEach(row => {
+      const site  = get(row, 'site');
+      const start = get(row, 'start');
+      if (!site || !start) return;
 
-        if (!scheduleMap[key]) {
-          // First row for this key — initialise
-          scheduleMap[key] = {
-            start: schDate,
-            rig:   sch.rig   || null,
-            group: sch.group || null,
-          };
-        } else {
-          // Subsequent rows — keep the earliest start date AND its rig + group
-          if (schDate < scheduleMap[key].start) {
-            scheduleMap[key].start = schDate;
-            scheduleMap[key].rig   = sch.rig   || scheduleMap[key].rig;
-            scheduleMap[key].group = sch.group || scheduleMap[key].group;
-          }
-        }
+      const key     = String(site).slice(0, 14);
+      const schDate = new Date(start);
+      if (isNaN(schDate)) return;
+
+      const rig   = get(row, 'rig')   || null;
+      const group = get(row, 'group') || null;
+
+      if (!scheduleMap[key]) {
+        scheduleMap[key] = { start: schDate, rig, group };
+      } else if (schDate < scheduleMap[key].start) {
+        scheduleMap[key].start = schDate;
+        scheduleMap[key].rig   = rig   || scheduleMap[key].rig;
+        scheduleMap[key].group = group || scheduleMap[key].group;
       }
     });
 
@@ -685,90 +610,6 @@ notesCrtl.syncDueDates = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
-
-
-
-
-
-
-
-notesCrtl.renderUploadScheduleETS = async(req,res)=>{
-    // res.send('Edit note...');
-    let user = await User.findById(req.session.passport.user);
-    const note = await Note.findById(req.params.id);
-    res.render('uploadScheduleETS.ejs', {note, user});
-}
-
-
-
-
-
-
-
-// POST /notes/uploadScheduleETS
-notesCrtl.uploadScheduleETS = async (req, res) => {
-  try {
-    // Clear the entire collection before saving new data
-    // await ScheduleETS.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
-    await Schedule.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
-    console.log("Cleared existing schedule data.");
-
-    const { data } = req.body; // <-- JSON payload from frontend
-
-    console.log("Data preview:");
-    console.log(data[2]);
-    console.log(data[2][27]); // group
-
-    if (!data || !Array.isArray(data) || data.length <= 1) {
-      return res.status(400).json({ error: "No schedule data received" });
-    }
-    
-    // remove header row
-    const rows = data.slice(1);
-
-    // Map rows into objects
-    const scheduleDocs = rows.map((row) => {
-      return {
-        rig: row[24] || "",
-        drillok: row[13] || "",
-        geook: row[14] || "",
-        duration: Number(row[25]) || 0,
-        dp: row[16] || "",
-        type: row[15] || "",
-        vp: row[19] || "",
-        start: row[9] ? new Date(row[9]) : null,
-        site: row[1] || "",
-        well: row[4] || "",
-        dpCompany: row[10] || "",
-        ETS: row[0] || "",
-        dpReq: row[17] || "",
-        //dpReqDate: row[17] ? new Date(row[17]) : null,
-        group: row[27] || "",
-
-        geo: row[23] || "Geo Unknown",
-        version: row[12] || "",
-
-        user: req.user ? req.user._id : null,
-        noteId: req.params.id || null, // if uploaded from job context
-      };
-    });
-
-    // Bulk insert
-    //await ScheduleETS.insertMany(scheduleDocs);
-    await Schedule.insertMany(scheduleDocs);
-
-    console.log("<<<< Schedule ETS uploaded >>>>");
-    req.flash("success_msg", "Schedule uploaded successfully");
-    res.redirect("/notes");
-
-  } catch (error) {
-
-    console.error("Error uploading schedule:", error);
-    req.flash("error_msg", "Error uploading schedule");
-    res.redirect("/notes");
-  }
-};
-
 
 
 
@@ -942,6 +783,34 @@ notesCrtl.getPadAC = async (req, res) => {
   }
 };
 
+// ── Pason EDR Plots (Avg/Max/Min curves, 1 sheet per plot uploaded as xlsx) ──
+notesCrtl.savePasonPlots = async (req, res) => {
+  try {
+    const { noteId, plots } = req.body;
+    if(!noteId || !plots || typeof plots !== 'object') {
+      return res.status(400).json({ error: 'Missing noteId or plots' });
+    }
+    await PasonPlots.findOneAndUpdate(
+      { noteId },
+      { noteId, plots, user: req.user ? req.user._id : null, uploadedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, plotCount: Object.keys(plots).length });
+  } catch(err) {
+    console.error('savePasonPlots error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.getPasonPlots = async (req, res) => {
+  try {
+    const doc = await PasonPlots.findOne({ noteId: req.params.noteId }).lean();
+    res.json(doc || null);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // ── Banner ──────────────────────────────────────────────────────────────────
 notesCrtl.renderBanner = async (req, res) => {
@@ -998,6 +867,40 @@ notesCrtl.saveBatchDays = async (req, res) => {
         res.json({ success: true, batchDays: days });
     } catch(e) {
         console.error('saveBatchDays:', e);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+
+// ── New Schedule (single-document raw passthrough) ──────────────────────────
+notesCrtl.renderUploadNewSchedule = async (req, res) => {
+    res.render('uploadNewSchedule.ejs', { user: req.user });
+};
+
+notesCrtl.uploadNewSchedule = async (req, res) => {
+    try {
+        const { headers, rows } = req.body;
+        if (!Array.isArray(headers) || !headers.length) {
+            return res.status(400).json({ error: "No headers received" });
+        }
+        if (!Array.isArray(rows) || !rows.length) {
+            return res.status(400).json({ error: "No data rows received" });
+        }
+
+        // Single document — always replace whatever was there before.
+        // No batch IDs, no per-row documents, nothing to go stale or drift.
+        await NewSchedule.deleteMany({});
+        await NewSchedule.create({
+            headers,
+            rows,
+            user: req.user ? req.user._id : null,
+            uploadedAt: new Date(),
+        });
+
+        console.log(`uploadNewSchedule: saved 1 document with ${rows.length} rows, ${headers.length} columns`);
+        res.json({ success: true, rows: rows.length, columns: headers.length });
+    } catch (e) {
+        console.error("uploadNewSchedule error:", e);
         res.status(500).json({ error: e.message });
     }
 };

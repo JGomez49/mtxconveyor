@@ -175,6 +175,9 @@
               <button id="exportMaxCsv" class="btn btn-outline-success">Export Max CSV</button>
               <button id="exportMinCsv" class="btn btn-outline-success">Export Min CSV</button>
             </div>
+            <div class="mt-2">
+              <button id="exportAllPlotsXlsx" class="btn btn-outline-warning btn-sm">📊 Export All Plots to Excel (1 tab per plot)</button>
+            </div>
           </div>
         </div>
 
@@ -431,6 +434,83 @@
     document.getElementById('exportMinCsv').addEventListener('click', ()=>{ const p=currentPlotDef(); if(!p.supportsSpecial) return alert('No Min for this plot.'); downloadCsv(lastCurvesSpecial.min, `${p.id.toUpperCase()}_MinCurve.csv`); });
 
     document.getElementById('exportVisibleCsv').addEventListener('click', ()=>{ if(!chartMain) return; const ds=chartMain.data.datasets.filter(d=>!d.hidden && d.data && d.data.length); if(!ds.length) return alert('No visible data to export.'); const lines=['Series,X,Y']; ds.forEach(d=>{ d.data.forEach(pt=>lines.push(`${d.label},${pt.x},${pt.y}`)); }); const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); const p=currentPlotDef(); a.href=url; a.download=`${p.id}_visible.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); });
+
+    // ── Export All Plots to Excel (1 tab per plot) ──────────────────────────
+    // Computes Average/Max/Min curves for EVERY plot in plotRegistry, using
+    // the same buildAverageSeries/buildPercentileSeries functions already
+    // used on-screen — regardless of which plot is currently selected or
+    // which Show Avg/Max/Min checkboxes are toggled (export always includes
+    // all three curves for every plot).
+    function computeCurvesForPlot(plotId){
+      const seriesGetters = { hl:getAllProcessedSeriesHL, tq:getAllProcessedSeriesTQ, wob:getAllProcessedSeriesWOB, rop:getAllProcessedSeriesROP, mse:getAllProcessedSeriesMSE, flow:getAllProcessedSeriesFLOW, td:getAllProcessedSeriesTD };
+      const getter = seriesGetters[plotId];
+      if(!getter) return { avg:[], max:[], min:[] };
+      const seriesForGrid = getter();
+
+      const smoothOn = document.getElementById('applySmoothing').checked;
+      const win = parseInt(document.getElementById('smoothWindow').value,10) || 1;
+      const maxPctVal = Math.min(100, Math.max(50, parseFloat(document.getElementById('maxPct').value)||90)) / 100;
+      const minPctVal = Math.min(50,  Math.max(0,  parseFloat(document.getElementById('minPct').value)||10)) / 100;
+
+      let step, minSeries;
+      if(plotId === 'td'){
+        step = computeAdaptiveStepTD(seriesForGrid);
+        minSeries = 1;
+      } else {
+        const userStep = parseFloat(document.getElementById('avgStep').value) || 5;
+        const userMinSeries = parseInt(document.getElementById('avgMinSeries').value,10) || 2;
+        step = Math.max(0.0001, userStep);
+        minSeries = Math.max(1, userMinSeries);
+      }
+
+      return {
+        avg: buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win),
+        max: buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win),
+        min: buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win),
+      };
+    }
+
+    const SHEET_NAMES = { hl:'Hook Load', tq:'Torque', wob:'WOB', rop:'ROP', mse:'MSE', flow:'Flow', td:'Hole Depth vs Time' };
+
+    document.getElementById('exportAllPlotsXlsx').addEventListener('click', ()=>{
+      if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
+
+      const wb = XLSX.utils.book_new();
+      let anySheet = false;
+
+      plotRegistry.forEach(p => {
+        const { avg, max, min } = computeCurvesForPlot(p.id);
+        if(!avg.length && !max.length && !min.length) return; // no data for this plot — skip its sheet
+
+        // Merge avg/max/min by X value (grids match since built with the
+        // same step/minSeries, but merging by key is more defensive than a
+        // blind positional zip).
+        const rowsMap = new Map();
+        const put = (arr, col) => arr.forEach(pt => {
+          const key = pt.x.toFixed(6);
+          if(!rowsMap.has(key)) rowsMap.set(key, { x: pt.x });
+          rowsMap.get(key)[col] = pt.y;
+        });
+        put(avg, 'avg'); put(max, 'max'); put(min, 'min');
+
+        const xHeader = (p.id === 'td') ? 'Time_days' : 'MeasuredDepth_m';
+        const rows = [...rowsMap.values()]
+          .sort((a,b) => a.x - b.x)
+          .map(r => [r.x, r.avg ?? '', r.max ?? '', r.min ?? '']);
+
+        const aoa = [[xHeader, 'Avg', 'Max', 'Min'], ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = [{wch:16},{wch:12},{wch:12},{wch:12}];
+
+        const sheetName = (SHEET_NAMES[p.id] || p.id).slice(0,31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        anySheet = true;
+      });
+
+      if(!anySheet){ alert('No Average/Max/Min curve data available to export for any plot.'); return; }
+
+      XLSX.writeFile(wb, 'pason_all_plots.xlsx');
+    });
 
     function updateStatus(){ const f1txt=state.file1 ? `Loaded \"${state.file1.name}\" • Rows: ${state.file1.rows} • Replaced: B=${state.file1.replacedB}, C=${state.file1.replacedC}` : ''; document.getElementById('status1').textContent=f1txt; const pasonCount=state.pasonSeries.length; const totalRows=state.pasonSeries.reduce((acc,s)=>acc+(s.rows||0),0); const totalRepl=state.pasonSeries.reduce((acc,s)=>acc+(s.replaced||0),0); const f2txt=pasonCount?`Loaded HL series: ${pasonCount} • Total rows: ${totalRows} • Replaced: ${totalRepl}`:''; document.getElementById('status2').textContent=f2txt; }
 

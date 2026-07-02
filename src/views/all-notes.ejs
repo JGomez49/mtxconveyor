@@ -1548,7 +1548,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
-            <% if (user.role == 'admin' || user.role == 'leader') { %>
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
                         <button class="accordion-button collapsed bg-dark" 
@@ -1585,7 +1585,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const bd=b.updatedAt?new Date(b.updatedAt):new Date(0);
                                         return bd-ad;
                                     }).forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer' || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'Completed') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
@@ -1688,110 +1688,64 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
+
+            <!-- ================= NEW SCHEDULE ================= -->
             <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
                 <div class="accordion-item">
                     <h2 class="accordion-header bg-dark">
-                        <button class="accordion-button collapsed bg-dark" 
-                                type="button" 
-                                data-bs-toggle="collapse" 
-                                data-bs-target="#collapseSchedule" 
-                                aria-expanded="true"
-                                aria-controls="collapseSchedule">
-                            <h4 style="color: blue;">Schedule</h4>
+                        <button class="accordion-button collapsed bg-dark"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapseNewSchedule"
+                                aria-expanded="false"
+                                aria-controls="collapseNewSchedule">
+                            <h4 style="color: #00c8ff;">New Schedule</h4>
                         </button>
                     </h2>
-                    <div id="collapseSchedule" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
-                        <div class="accordion-body bg-dark">
-                            <div class="accordion mb-4" id="accordionExample">
-                                <div class="accordion-item bg-dark border-0">
-                                    <h2 class="accordion-header" id="headingOne">
-                                        <button class="accordion-button" 
-                                            type="button" 
-                                            data-bs-toggle="collapse" 
-                                            style="background-color: #1a1a1a; color: #ffffff;" 
-                                            data-bs-target="#collapseTable" 
-                                            aria-expanded="true"
-                                            aria-controls="collapseTable">
-                                            📋 Schedule Table
-                                        </button>
-                                    </h2>
-
-
-                                    <% if (user.role != 'viewer') { %>
-                                        <!-- <button class="btn btn-primary my-2" onclick="addNoteIds()">Add Note IDs</button> -->
-                                        <!-- <button class="btn btn-primary my-2" onclick="loadScheduleAndNotes()">Load Schedule & Notes</button> -->
-                                        <!-- <button class="btn btn-primary my-2" onclick="appendNoteIds()">Add Note IDs</button> -->
-                                        <button class="btn btn-warning my-2" onclick="syncDueDates()">🔄 Sync Due Dates</button>
-                                    <% } %>
-
-                                    <div id="collapseTable" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
-                                        <div class="accordion-body">
-                                            <table 
-                                                id="csvTable" 
-                                                class="table table-dark table-striped table-bordered">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Rig</th>
-                                                        <th>DrillOK</th>
-                                                        <th>GeoOK</th>
-                                                        <th>DP</th>
-                                                        <th>Type</th>
-                                                        <th>Duration</th>
-                                                        <th>VP</th>
-                                                        <th>Start</th>
-                                                        <th>Site</th>
-                                                        <th>Well</th>
-                                                        <th>DP Company</th>
-                                                        <th>ETS</th>
-                                                        <th>Group</th>
-                                                        <th>DpReq</th>
-                                                        <th>Geo</th>
-                                                        <th>Version</th>
-                                                        <th>DP Received Date</th>
-                                                        <th>Primary Zone</th>
-                                                        <th>TVD</th>
-                                                        <th>Target</th>
-                                                        <th>Surf Lat</th>
-                                                        <th>Surf Lon</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <% schedule.forEach(item => { %>
-                                                        <tr>
-                                                            <td><%= item.rig %></td>
-                                                            <td><%= item.drillok %></td>
-                                                            <td><%= item.geook %></td>
-                                                            <td><%= item.dp %></td>
-                                                            <td><%= item.type %></td>
-                                                            <td><%= item.duration %></td>
-                                                            <td><%= item.vp %></td>
-                                                            <td><%= item.start %></td>
-                                                            <td><%= item.site %></td>
-                                                            <td><%= item.well %></td>
-                                                            <td><%= item.dpCompany %></td>
-                                                            <td><%= item.ETS %></td>
-                                                            <td><%= item.group %></td>
-                                                            <td><%= item.dpReq %></td>
-                                                            <td><%= item.geo %></td>
-                                                            <td><%= item.version %></td>
-                                                            <td><%= item.dpReceivedDate %></td>
-                                                            <td><%= item.primaryZone %></td>
-                                                            <td><%= item.tvd %></td>
-                                                            <td><%= item.target %></td>
-                                                            <td><%= item.surfaceLat %></td>
-                                                            <td><%= item.surfaceLon %></td>
-                                                        </tr>
-                                                    <% }) %>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                    <div id="collapseNewSchedule" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                        <div class="accordion-body bg-dark" style="overflow-x:auto;">
+                            <% if (user.role != 'viewer') { %>
+                                <button class="btn btn-warning my-2" onclick="syncDueDates()">🔄 Sync Due Dates</button>
+                            <% } %>
+                            <% if (newSchedule && newSchedule.headers && newSchedule.headers.length) { %>
+                                <div style="font-size:11px;color:#5a7080;font-family:monospace;margin-bottom:8px;">
+                                    <%= newSchedule.rows.length %> rows, <%= newSchedule.headers.length %> columns
+                                    — uploaded <%= newSchedule.uploadedAt ? new Date(newSchedule.uploadedAt).toLocaleString() : '' %>
+                                    <% if (newSchedule.user && newSchedule.user.name) { %> by <%= newSchedule.user.name %><% } %>
                                 </div>
-                            </div>
+                                <table id="newScheduleTable" class="table table-dark table-striped table-bordered table-sm">
+                                    <thead>
+                                        <tr>
+                                            <% newSchedule.headers.forEach(function(h) { %>
+                                                <th><%= h %></th>
+                                            <% }) %>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% newSchedule.rows.forEach(function(row) { %>
+                                            <tr>
+                                                <% newSchedule.headers.forEach(function(h, i) { %>
+                                                    <td><%= (row[i] !== undefined && row[i] !== null) ? row[i] : '' %></td>
+                                                <% }) %>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+
+                            <% } else { %>
+                                <div style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                    No New Schedule uploaded yet.
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+                                        <a href="/notes/uploadNewSchedule" style="color:#00c8ff;">Upload one here.</a>
+                                    <% } %>
+                                </div>
+                            <% } %>
                         </div>
                     </div>
                 </div>
             <% } %>
+            <!-- ================= END NEW SCHEDULE ================= -->
+
 
 
 
@@ -1930,7 +1884,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
             <p id="scheduleUpdateText" style="font-family:monospace;font-size:11px;color:var(--an-text-dim,#5a7080);margin:4px 12px 2px;"></p>
 
-            <!-- ── Single Gantt chart with filter sidebar ── -->
+            <!-- ── Gantt chart (New Schedule data) ── -->
             <style>
                 .gantt-outer { display:flex; gap:0; border:1px solid var(--an-border,#1e2d3d); border-radius:4px; overflow:hidden; margin:8px 12px 14px; align-items:stretch; }
                 .gantt-sidebar {
@@ -1941,9 +1895,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     font-family:var(--an-mono,monospace); font-size:11px;
                     color:var(--an-text,#c8d8e8);
                     overflow-y:auto;
-                    /* sidebar scrolls independently; height is set by JS to
-                       match the plot column so it never exceeds the full
-                       chart+table+pies height */
                 }
                 .gantt-sidebar h6 {
                     margin:10px 0 4px; font-size:10px;
@@ -1970,32 +1921,44 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 .gantt-reset-btn:hover { border-color:#00c8ff; color:#00c8ff; }
             </style>
 
-            <div class="gantt-outer" id="ganttOuter">
-                <div class="gantt-sidebar" id="ganttSidebar">
+            <% if (newSchedule && newSchedule.headers && newSchedule.headers.length) { %>
+            <!-- ── New Schedule Gantt chart with filter sidebar ── -->
+            <div class="gantt-outer" id="ganttOuter2" style="margin-top:14px;">
+                <div class="gantt-sidebar" id="ganttSidebar2">
                     <h6>VP</h6>
-                    <div class="gantt-filter-group" id="gfVP"></div>
+                    <div class="gantt-filter-group" id="gfVP2"></div>
+                    <h6>Exploration Mgr</h6>
+                    <div class="gantt-filter-group" id="gfExplMgr2"></div>
                     <h6>Group</h6>
-                    <div class="gantt-filter-group" id="gfGroup"></div>
+                    <div class="gantt-filter-group" id="gfGroup2"></div>
                     <h6>Type</h6>
-                    <div class="gantt-filter-group" id="gfType"></div>
+                    <div class="gantt-filter-group" id="gfType2"></div>
                     <h6>DP Company</h6>
-                    <div class="gantt-filter-group" id="gfDpCompany"></div>
+                    <div class="gantt-filter-group" id="gfDpCompany2"></div>
                     <h6>Drill OK</h6>
-                    <div class="gantt-filter-group" id="gfDrillOK"></div>
+                    <div class="gantt-filter-group" id="gfDrillOK2"></div>
                     <h6>Geo OK</h6>
-                    <div class="gantt-filter-group" id="gfGeoOK"></div>
+                    <div class="gantt-filter-group" id="gfGeoOK2"></div>
                     <h6>Primary Zone</h6>
-                    <div class="gantt-filter-group" id="gfPrimaryZone"></div>
+                    <div class="gantt-filter-group" id="gfPrimaryZone2"></div>
                     <h6>Rig</h6>
-                    <div class="gantt-filter-group" id="gfRig"></div>
+                    <div class="gantt-filter-group" id="gfRig2"></div>
                     <h6>D.E</h6>
-                    <div class="gantt-filter-group" id="gfDE"></div>
-                    <button class="gantt-reset-btn" id="ganttResetBtn">Reset Filters</button>
+                    <div class="gantt-filter-group" id="gfDE2"></div>
+                    <button class="gantt-reset-btn" id="ganttResetBtn2">Reset Filters</button>
                 </div>
                 <div class="gantt-plot-wrap">
-                    <div id="chartDiv" class="m-2"></div>
+                    <div id="chartDiv2" class="m-2"></div>
                 </div>
             </div>
+
+            <script type="application/json" id="newScheduleGanttData"><%- JSON.stringify({
+                headers: newSchedule ? newSchedule.headers : [],
+                rows:    newSchedule ? newSchedule.rows    : []
+            }) %></script>
+            <% } else { %>
+                <p style="color:#5a7080;font-size:12px;font-family:monospace;margin:8px 12px;">No schedule uploaded yet — upload one from the New Schedule page.</p>
+            <% } %>
 
         </div>
     </div>
@@ -2028,22 +1991,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
      characters in project names cannot break the surrounding JS -->
 <script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0 }; } return m; },{})) %></script>
 <script type="application/json" id="ganttScheduleMeta"><%- JSON.stringify((function(){
-    if(!schedule || !schedule.length) return null;
-    var latest = schedule.reduce(function(best, s){
-        var d = s.updatedAt ? new Date(s.updatedAt) : new Date(0);
-        return (!best || d > new Date(best.updatedAt||0)) ? s : best;
-    }, null);
-    return latest ? { updatedAt: latest.updatedAt||null, user: (latest.user && latest.user.name) ? latest.user.name : null } : null;
+    if(!newSchedule || !newSchedule.headers || !newSchedule.headers.length) return null;
+    return { updatedAt: newSchedule.uploadedAt || null, user: (newSchedule.user && newSchedule.user.name) ? newSchedule.user.name : null };
 })()) %></script>
-<script type="application/json" id="ganttScheduleData"><%- JSON.stringify(schedule.map(function(s){ return {
-    rig: s.rig||'', drillok: s.drillok||'', geook: s.geook||'',
-    dp: s.dp||'', type: s.type||'', duration: Number(s.duration)||0,
-    vp: s.vp||'', start: s.start ? new Date(s.start).toISOString() : '',
-    site: s.site||'', well: s.well||'', dpCompany: s.dpCompany||'',
-    ETS: String(s.ETS||''), group: (s.group||'').substring(0,2),
-    dpReq: s.dpReq||'', geo: s.geo||'', version: s.version||'',
-    dpReceivedDate: s.dpReceivedDate||'', primaryZone: s.primaryZone||''
-};})) %></script>
 
 <!-- Script to generate the Charts -->
 
@@ -2080,7 +2030,6 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 <script>
 
-    let chartInstances = [];
     let compiledRows   = []; // accumulates one entry per VP+group for the compiled summary table
 
     // Site-key Sets — populated each time renderChartsFromTable runs,
@@ -2102,136 +2051,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     function anChartBg(){   return anIsLight() ? '#f8f9fa' : 'transparent'; }
     function anGridColor(){  return anIsLight() ? '#ccc' : '#333'; }
 
-    // ── Gantt filter state ────────────────────────────────────────────────
-    let ganttAllBars   = [];   // flat array of all bar objects parsed from csvTable
-    let ganttFiltersBuilt = false;
-
     // Default selections (everything on except VP and Group which have specific defaults)
     const GANTT_DEFAULTS = {
         gfVP:        ['Gillian Lefebure'],
         gfGroup:     ['BV'],
     };
 
-    function ganttBuildFilterGroup(containerId, fieldKey, values, defaultFn){
-        const el = document.getElementById(containerId);
-        if(!el) return;
-        el.innerHTML = '';
-
-        // ── All / None toggle ──────────────────────────────────────────────
-        const toggleWrap = document.createElement('div');
-        toggleWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
-
-        const makeToggle = (label, selectAll) => {
-            const btn = document.createElement('span');
-            btn.textContent = label;
-            btn.style.cssText = 'font-size:9px;cursor:pointer;color:var(--an-accent,#00c8ff);letter-spacing:.5px;text-transform:uppercase;';
-            btn.addEventListener('click', () => {
-                el.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = selectAll; });
-                ganttApplyAndRender();
-            });
-            return btn;
-        };
-        toggleWrap.appendChild(makeToggle('All', true));
-        const sep = document.createElement('span');
-        sep.textContent = '·';
-        sep.style.cssText = 'font-size:9px;color:var(--an-text-dim,#5a7080);';
-        toggleWrap.appendChild(sep);
-        toggleWrap.appendChild(makeToggle('None', false));
-        el.appendChild(toggleWrap);
-        // ──────────────────────────────────────────────────────────────────
-
-        [...values].sort().forEach(v => {
-            const lbl = document.createElement('label');
-            const cb  = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.value = v;
-            cb.dataset.gfield = fieldKey;
-            cb.checked = defaultFn(v);
-            cb.addEventListener('change', ganttApplyAndRender);
-            lbl.appendChild(cb);
-            lbl.appendChild(document.createTextNode(v));
-            el.appendChild(lbl);
-        });
-    }
-
-    function ganttBuildAllFilters(){
-        // uniqWithBlank: like uniq() but also adds a "Blank" sentinel if any bar
-        // has an empty/null/undefined value for that field. This ensures bars with
-        // no value are always represented in the filter and included by default.
-        const uniqWithBlank = f => {
-            const vals = new Set(ganttAllBars.map(b => b[f]).filter(Boolean));
-            if(ganttAllBars.some(b => !b[f] || String(b[f]).trim() === "")) vals.add("Blank");
-            return [...vals];
-        };
-
-        const defaultAll  = () => true;
-        const defaultVP   = v => GANTT_DEFAULTS.gfVP.includes(v);
-        const defaultGrp  = v => GANTT_DEFAULTS.gfGroup.includes(v);
-
-        ganttBuildFilterGroup('gfVP',        'vp',        uniqWithBlank('vp'),        defaultVP);
-        ganttBuildFilterGroup('gfGroup',     'group',     uniqWithBlank('group'),     defaultGrp);
-        ganttBuildFilterGroup('gfType',      'type',      uniqWithBlank('type'),      defaultAll);
-        ganttBuildFilterGroup('gfDpCompany', 'dpCompany', uniqWithBlank('dpCompany'), defaultAll);
-        ganttBuildFilterGroup('gfDrillOK',   'drillok',   uniqWithBlank('drillok'),   defaultAll);
-        ganttBuildFilterGroup('gfGeoOK',     'geook',     uniqWithBlank('geook'),     defaultAll);
-        ganttBuildFilterGroup('gfPrimaryZone','primaryZone',uniqWithBlank('primaryZone'),defaultAll);
-        ganttBuildFilterGroup('gfRig',       'rig',       uniqWithBlank('rig'),       defaultAll);
-        ganttBuildFilterGroup('gfDE',        'de',        uniqWithBlank('de'),        defaultAll);
-
-        ganttFiltersBuilt = true;
-
-        const resetBtn = document.getElementById('ganttResetBtn');
-        if(resetBtn && !resetBtn.dataset.wired){
-            resetBtn.dataset.wired = '1';
-            resetBtn.addEventListener('click', () => {
-                ganttBuildAllFilters();
-                ganttApplyAndRender();
-            });
-        }
-    }
-
-    function ganttGetChecked(fieldKey){
-        return [...document.querySelectorAll(
-            `#ganttSidebar input[type=checkbox][data-gfield="${fieldKey}"]:checked`
-        )].map(cb => cb.value);
-    }
-
-    function ganttApplyAndRender(){
-        const fVP        = ganttGetChecked('vp');
-        const fGroup     = ganttGetChecked('group');
-        const fType      = ganttGetChecked('type');
-        const fDpCompany = ganttGetChecked('dpCompany');
-        const fDrillOK   = ganttGetChecked('drillok');
-        const fGeoOK        = ganttGetChecked('geook');
-        const fPrimaryZone  = ganttGetChecked('primaryZone');
-        const fRig       = ganttGetChecked('rig');
-        const fDE        = ganttGetChecked('de');
-
-        // Map empty values to "Blank" sentinel so bars with missing fields
-        // are correctly matched against the "Blank" checkbox when checked.
-        const blanked = f => v => !v || String(v).trim() === '' ? 'Blank' : v;
-        const filtered = ganttAllBars.filter(b =>
-            fVP.includes(blanked()(b.vp)) &&
-            fGroup.includes(blanked()(b.group)) &&
-            fType.includes(blanked()(b.type)) &&
-            fDpCompany.includes(blanked()(b.dpCompany)) &&
-            fDrillOK.includes(blanked()(b.drillok)) &&
-            fGeoOK.includes(blanked()(b.geook)) &&
-            fPrimaryZone.includes(blanked()(b.primaryZone)) &&
-            fRig.includes(blanked()(b.rig)) &&
-            fDE.includes(blanked()(b.de))
-        );
-
-        ganttRenderChart(filtered);
-    }
-
     function renderChartsFromTable() {
-        const table = document.getElementById("csvTable");
-        if(!table) return;
-        const rows = Array.from(table.querySelectorAll("tbody tr"));
-
         // ── Build site-key Sets from the status queue tables ─────────────────
-        // These are used by ganttRenderChart to override bar colours based on
+        // These are used by ganttRenderChart2 to override bar colours based on
         // which accordion table (In Progress, Setup Queue, etc.) a site appears in.
         function buildSiteSet(tableId){
             const t = document.getElementById(tableId);
@@ -2253,603 +2081,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             ...buildSiteSet("InDesignQueueNoGroupTable")
         ]);
         inBlackOpsQueueSites = buildSiteSet("InBlackOpsQueueTable");
-
-        // ── Parse schedule from embedded JSON — no DOM dependency ────────────
-        compiledRows = [];
-        ganttAllBars = [];
-
-        const scheduleJson = JSON.parse(
-            document.getElementById('ganttScheduleData').textContent
-        );
-
-        scheduleJson.forEach(function(s) {
-            const rig=s.rig, drillok=s.drillok, geook=s.geook, dp=s.dp;
-            const type=s.type, duration=Number(s.duration)||0, vp=s.vp;
-            const start=s.start ? new Date(s.start) : null;
-            const site=s.site, well=s.well, dpCompany=s.dpCompany;
-            const ETS=s.ETS, group=s.group, dpReq=s.dpReq;
-            const geo=s.geo, version=s.version;
-            const dpReceivedDate=s.dpReceivedDate, primaryZone=s.primaryZone;
-            if(!rig) return;
-            ganttAllBars.push({ rig, drillok, geook, dp, type, duration,
-                vp, start, site, well, dpCompany, ETS, group, dpReq, geo, version,
-                dpReceivedDate, primaryZone,
-                de: (ganttNotesMap[site.slice(0,14)] || {}).de || '' });
-        });
-
-        // ── Batch Days: add a new "pre-bar" before the earliest bar per site ──
-        // Admin sets "batchDays" on the job (Note) matching this site.
-        // Instead of mutating the existing bar, we insert a brand-new bar
-        // that starts batchDays before the original earliest bar's start
-        // date, and ends exactly when that original bar starts.
-        (function applyBatchDaysStretch(){
-            console.log('[batchDays] applyBatchDaysStretch running, ganttAllBars:', ganttAllBars.length, 'ganttNotesMap:', ganttNotesMap);
-
-            // Group bar indices by site (first 14 chars, matching ganttNotesMap key)
-            const bySite = {};
-            ganttAllBars.forEach(function(bar, idx){
-                if(!bar.site || !bar.start) return;
-                const key = bar.site.slice(0,14);
-                if(!bySite[key]) bySite[key] = [];
-                bySite[key].push(idx);
-            });
-
-            const sitesWithBatchDays = Object.keys(ganttNotesMap).filter(k => ganttNotesMap[k].batchDays > 0);
-            console.log('[batchDays] sites with batchDays set:', sitesWithBatchDays.map(k => k + ' = ' + ganttNotesMap[k].batchDays));
-            console.log('[batchDays] site keys found in Gantt bars:', Object.keys(bySite));
-
-            const newBars = [];
-
-            Object.keys(bySite).forEach(function(siteKey){
-                const meta = ganttNotesMap[siteKey];
-                const batchDays = meta ? Number(meta.batchDays) || 0 : 0;
-                if(!batchDays) return; // nothing to add
-
-                const idxs = bySite[siteKey];
-                // Find earliest-starting bar for this site
-                let earliestIdx = idxs[0];
-                idxs.forEach(function(idx){
-                    if(ganttAllBars[idx].start < ganttAllBars[earliestIdx].start) earliestIdx = idx;
-                });
-                const origBar = ganttAllBars[earliestIdx];
-
-                const newStart = new Date(origBar.start);
-                newStart.setDate(newStart.getDate() - batchDays);
-
-                console.log('[batchDays] adding pre-bar for site', siteKey, '— from', newStart, 'to', origBar.start, '(', batchDays, 'days)');
-
-                // Clone the original bar's metadata but with new dates/duration
-                newBars.push(Object.assign({}, origBar, {
-                    start: newStart,
-                    duration: batchDays,
-                    isBatchDaysBar: true,
-                }));
-            });
-
-            if(newBars.length) ganttAllBars.push(...newBars);
-        })();
-
-        // Build filters once
-        if(!ganttFiltersBuilt) ganttBuildAllFilters();
-
-        // Render chart with current filter state
-        ganttApplyAndRender();
     }
 
-    function ganttRenderChart(bars){
-        const chartDiv = document.getElementById("chartDiv");
-        if(!chartDiv) return;
-        chartDiv.innerHTML = "";
-
-        // Clear previous Chart.js instances
-        chartInstances.forEach(ch => { try{ ch.destroy(); }catch(e){} });
-        chartInstances = [];
-
-        if(!bars.length){
-            chartDiv.innerHTML = '<p style="color:var(--an-text-dim,#5a7080);padding:20px;">No data matches the selected filters.</p>';
-            return;
-        }
-
-        const today = new Date();
-        const sevenMonthsLater  = new Date(today.getFullYear(), today.getMonth() + 7,  today.getDate());
-        const threeMonthsLater  = new Date(today.getFullYear(), today.getMonth() + 3,  today.getDate());
-        const fiveMonthsLater   = new Date(today.getFullYear(), today.getMonth() + 5,  today.getDate());
-        const oneYearLater      = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
-        const FixedEndOfLastYear= new Date("2025-12-31");
-        const FixedEndOfThisYear= new Date("2026-12-31");
-        const FixedEndOfNextYear= new Date("2027-12-31");
-        const TargetDate        = new Date("2026-08-31");
-
-        // Collect unique rigs from filtered bars, alphabetical
-        const rigSet = [...new Set(bars.filter(b => b.start).map(b => b.rig))].sort();
-
-        const datasets   = [];
-        const colors     = [];
-        const glowFlags  = [];
-        const colorOfBorder = "#000000";
-        const colorCounts = {
-            blue:0, red:0, green:0, yellow:0, purple:0, white:0, black:0, silver:0,
-            blueThisYear:0, redThisYear:0, greenThisYear:0, yellowThisYear:0,
-            purpleThisYear:0, whiteThisYear:0, blackThisYear:0, silverThisYear:0,
-            blueNextYear:0, redNextYear:0, greenNextYear:0, yellowNextYear:0,
-            purpleNextYear:0, whiteNextYear:0, blackNextYear:0, silverNextYear:0,
-        };
-
-        bars.forEach(siteObj => {
-            if(!siteObj.start || isNaN(siteObj.start)) return;
-            const start   = new Date(siteObj.start);
-            const end     = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
-            const dpValue = siteObj.dp || "";
-            const type    = siteObj.type;
-            const drillok = siteObj.drillok;
-            const geook   = siteObj.geook;
-            const rig     = siteObj.rig;
-            const dpReq   = siteObj.dpReq;
-
-            const siteKey = siteObj.site.slice(0, 14);
-            const isInProgressTable    = inProgressSites.has(siteKey);
-            const isInSetupQueueTable  = inSetupQueueSites.has(siteKey);
-            const isInDesignQueueTable = inDesignQueueSites.has(siteKey);
-            const isInBlackOpsQueueTable = inBlackOpsQueueSites.has(siteKey);
-
-            datasets.push({
-                y: rig,
-                x: [siteObj.start, end],
-                site: siteObj.site.substring(0, 5),
-                details: {
-                    Rig: rig, drillok, geook, VP: siteObj.vp,
-                    Start: siteObj.start.toLocaleDateString(),
-                    Duration: siteObj.duration, DP: dpValue,
-                    Site: siteObj.site, Well: siteObj.well,
-                    dpCompany: siteObj.dpCompany, ETS: siteObj.ETS,
-                    type, group: siteObj.group, dpReq, geo: siteObj.geo,
-                    version: siteObj.version,
-                    dpReceivedDate: siteObj.dpReceivedDate,
-                    DE: (ganttNotesMap[siteObj.site.slice(0,14)] || {}).de || '',
-                }
-            });
-
-            const rigToAvoid = ["PRECISION 183","PRECISION183","PD183","PD 183"];
-            const dpNo  = !dpValue || dpValue === "NO" || dpValue === "NO-DP" || dpValue === "";
-            const dpYes = dpValue === "YES" || dpValue === "YES-DP" || dpValue !== "";
-
-            const countable          = start >= today && start <= oneYearLater;
-            const countableForThisYear = start > FixedEndOfLastYear && start <= FixedEndOfThisYear;
-            const countableForNextYear = start > FixedEndOfThisYear && start <= FixedEndOfNextYear;
-
-            const isForcedInProgress    = isInProgressTable === true;
-            const isForcedInSetupQueue  = isInSetupQueueTable === true;
-            const isForcedInDesignQueue = isInDesignQueueTable === true;
-            const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
-
-            // Build compiledRows for the VP summary table
-            const vpKey = siteObj.vp + '|' + siteObj.group;
-
-            switch(true){
-                case type === "FINAL":
-                    colors.push("#4caf50");
-                    if(countable) colorCounts.green++;
-                    if(countableForThisYear) colorCounts.greenThisYear++;
-                    if(countableForNextYear) colorCounts.greenNextYear++;
-                    break;
-                case isForcedInProgress:
-                    colors.push("#ffff00");
-                    if(countable) colorCounts.yellow++;
-                    if(countableForThisYear) colorCounts.yellowThisYear++;
-                    if(countableForNextYear) colorCounts.yellowNextYear++;
-                    break;
-                case isForcedInSetupQueue:
-                case isForcedInDesignQueue:
-                case isForcedInBlackOpsQueue:
-                    colors.push("#ff4c4c");
-                    if(countable) colorCounts.red++;
-                    if(countableForThisYear) colorCounts.redThisYear++;
-                    if(countableForNextYear) colorCounts.redNextYear++;
-                    break;
-                case type === "PRELIM - IR":
-                    colors.push("#000000");
-                    if(countable) colorCounts.black++;
-                    if(countableForThisYear) colorCounts.blackThisYear++;
-                    if(countableForNextYear) colorCounts.blackNextYear++;
-                    break;
-                case (dpNo && !rigToAvoid.includes(rig) && dpReq !== ""):
-                    colors.push("#ff4c4c");
-                    if(countable) colorCounts.red++;
-                    if(countableForThisYear) colorCounts.redThisYear++;
-                    if(countableForNextYear) colorCounts.redNextYear++;
-                    break;
-                case type === "EXEC":
-                    colors.push("#B11FDF");
-                    if(countable) colorCounts.purple++;
-                    if(countableForThisYear) colorCounts.purpleThisYear++;
-                    if(countableForNextYear) colorCounts.purpleNextYear++;
-                    break;
-                case dpYes:
-                    colors.push("#0084c7");
-                    if(countable) colorCounts.blue++;
-                    if(countableForThisYear) colorCounts.blueThisYear++;
-                    if(countableForNextYear) colorCounts.blueNextYear++;
-                    break;
-                case dpReq === "" || dpReq === " ":
-                    colors.push("#C0C0C0");
-                    if(countable) colorCounts.silver++;
-                    if(countableForThisYear) colorCounts.silverThisYear++;
-                    if(countableForNextYear) colorCounts.silverNextYear++;
-                    break;
-                default:
-                    colors.push("#FFFFFF");
-                    if(countable) colorCounts.white++;
-                    if(countableForThisYear) colorCounts.whiteThisYear++;
-                    if(countableForNextYear) colorCounts.whiteNextYear++;
-                    break;
-            }
-
-            const isFullyApproved =
-                String(drillok).trim().toUpperCase() === "YES-DRILL" &&
-                String(geook).trim().toUpperCase() === "YES-GEO";
-            glowFlags.push(isFullyApproved);
-        });
-
-        // ── Gantt chart ──────────────────────────────────────────────────────
-        const minDate     = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-        const defaultMax  = new Date(today.getFullYear(), today.getMonth() + 5, today.getDate()); // default visible window
-        const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
-
-        const canvasH = Math.max(200, rigSet.length * 40);
-        const canvasW = chartDiv.parentElement
-            ? Math.max(600, chartDiv.parentElement.clientWidth - 20)
-            : 1200;
-
-        // Wrap in a fixed-size div so responsive:false + zoom don't cause
-        // an infinite resize loop
-        const canvasWrap = document.createElement("div");
-        canvasWrap.style.cssText = `width:${canvasW}px;height:${canvasH}px;position:relative;overflow:hidden;`;
-        chartDiv.appendChild(canvasWrap);
-
-        const canvas = document.createElement("canvas");
-        canvas.width  = canvasW;
-        canvas.height = canvasH;
-        canvasWrap.appendChild(canvas);
-
-        const ctx = canvas.getContext("2d");
-        const chart = new Chart(ctx, {
-            type: "bar",
-            data: {
-                datasets: [{
-                    label: "Schedule",
-                    data: datasets,
-                    backgroundColor: colors,
-                    borderRadius: 6,
-                    borderSkipped: false,
-                    borderColor: colorOfBorder,
-                    borderWidth: 1,
-                    parsing: { xAxisKey: "x", yAxisKey: "y" },
-                }]
-            },
-            options: {
-                indexAxis: "y",
-                responsive: false,
-                maintainAspectRatio: false,
-                onClick: (e, elements) => {
-                    if(!elements.length) return;
-                    const bar = chart.data.datasets[0].data[elements[0].index];
-                    if(!bar || !bar.details) return;
-                    const siteKey  = bar.details.Site.slice(0, 14);
-                    const noteData = ganttNotesMap[siteKey];
-                    if(noteData) window.location.href = `/notes/job/${noteData.id}`;
-                },
-                onHover: (e, elements) => {
-                    e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
-                },
-                scales: {
-                    x: {
-                        type: "time",
-                        time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
-                        min: minDate, max: defaultMax,
-                        ticks: { color: anChartColor() },
-                        grid:  { color: anGridColor() }
-                    },
-                    y: {
-                        type: "category",
-                        labels: rigSet,
-                        ticks: { color: anChartColor(), font: { weight: "bold" } },
-                        grid:  { color: anGridColor() }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => {
-                                const d = ctx.raw.details;
-                                return [
-                                    `Site: ${d.Site}`, `Well: ${d.Well}`, `ETS: ${d.ETS}`,
-                                    `Start: ${d.Start}`, `Type: ${d.type}`,
-                                    `D.E: ${d.DE || '—'}`,
-                                    `DrillOK: ${d.drillok}`, `GeoOK: ${d.geook}`,
-                                    `DP Company: ${d.dpCompany}`,
-                                    `Dp Requested: ${d.dpReq}`,
-                                    `DP Received: ${d.dpReceivedDate || '—'}`,
-                                    (() => {
-                                        if(!d.dpReq || !d.dpReceivedDate) return 'DP Time: —';
-                                        const req = new Date(d.dpReq);
-                                        const rec = new Date(d.dpReceivedDate);
-                                        if(isNaN(req)||isNaN(rec)) return 'DP Time: —';
-                                        return 'DP Time: ' + Math.round((rec-req)/(1000*60*60*24)) + ' days';
-                                    })(),
-                                    (() => {
-                                        if(!d.dpReceivedDate) return 'Approval Time: —';
-                                        const rec = new Date(d.dpReceivedDate);
-                                        if(isNaN(rec)) return 'Approval Time: —';
-                                        return 'Approval Time: ' + Math.round((new Date()-rec)/(1000*60*60*24)) + ' days since received';
-                                    })(),
-                                    `Duration: ${d.Duration} days`,
-                                    `Geo: ${d.geo}`, `Version: ${d.version}`,
-                                    `Lat: ${d.surfaceLat || '—'}`, `Lon: ${d.surfaceLon || '—'}`,
-                                ];
-                            }
-                        }
-                    },
-                    datalabels: {
-                        color: (ctx) => {
-                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#c0c0c0"];
-                            return lightBgs.some(c => bg.toLowerCase() === c.toLowerCase()) ? "#000000" : "#ffffff";
-                        },
-                        font: { size: 10, weight: "bold" },
-                        formatter: (value) => value.site || "",
-                        anchor: "start", align: "end", clip: true,
-                    },
-                    annotation: {
-                        annotations: {
-                            redBand: {
-                                type: "box", xMin: today, xMax: threeMonthsLater,
-                                backgroundColor: "rgba(255,0,0,0.10)", borderWidth: 0,
-                                drawTime: "beforeDatasetsDraw",
-                            },
-                            yellowBand: {
-                                type: "box", xMin: threeMonthsLater, xMax: fiveMonthsLater,
-                                backgroundColor: "rgba(255,208,0,0.10)", borderWidth: 0,
-                                drawTime: "beforeDatasetsDraw",
-                            },
-                            todayLine: {
-                                type: "line", xMin: today, xMax: today,
-                                borderColor: "red", borderWidth: 2,
-                                label: { enabled: true, content: "Today", position: "start", color: "red" },
-                            },
-                            threeMonthLine: {
-                                type: "line", xMin: threeMonthsLater, xMax: threeMonthsLater,
-                                borderColor: "red", borderWidth: 3, borderDash: [],
-                                label: { enabled: true, content: "+3 Months", position: "start", color: "red" },
-                            },
-                            ...((['admin','leader','user'].includes(GANTT_USER_ROLE)) ? {
-                                fourMonthLine: {
-                                    type: "line",
-                                    xMin: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
-                                    xMax: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
-                                    borderColor: "#000000", borderWidth: 3, borderDash: [],
-                                    label: { enabled: true, content: "+4 Months", position: "start", color: "#000000", font: { weight: "bold" } },
-                                },
-                            } : {}),
-                            // Jan 1 lines — one per year from this year to absoluteMax year
-                            ...Object.fromEntries(
-                                Array.from({ length: 3 }, (_, i) => {
-                                    const yr = today.getFullYear() + i;
-                                    const jan1 = new Date(yr, 0, 1);
-                                    return [`jan1_${yr}`, {
-                                        type: "line", xMin: jan1, xMax: jan1,
-                                        borderColor: "#00c8ff", borderWidth: 1, borderDash: [],
-                                        label: { enabled: true, content: `Jan ${yr}`, position: "start", color: "#00c8ff", font: { size: 10 } },
-                                    }];
-                                })
-                            ),
-                        }
-                    },
-                    zoom: {
-                        pan: {
-                            enabled: true,
-                            mode: "x",
-                        },
-                        zoom: {
-                            wheel: { enabled: true },
-                            pinch: { enabled: true },
-                            mode: "x",
-                        },
-                        limits: {
-                            x: {
-                                min: minDate.getTime(),
-                                max: absoluteMax.getTime(),
-                                minRange: 7 * 24 * 60 * 60 * 1000,
-                            },
-                        },
-                    }
-                },
-            },
-            plugins: [ChartDataLabels, {
-                id: "anChartBgPlugin",
-                beforeDraw: (chart) => {
-                    if(!anIsLight()) return;
-                    const ctx2 = chart.canvas.getContext("2d");
-                    ctx2.save();
-                    ctx2.globalCompositeOperation = "destination-over";
-                    ctx2.fillStyle = "#ffffff";
-                    ctx2.fillRect(0, 0, chart.width, chart.height);
-                    ctx2.restore();
-                }
-            }, {
-                id: "anCornerTrianglePlugin",
-                afterDatasetsDraw: (chart) => {
-                    const meta = chart.getDatasetMeta(0);
-                    if(!meta || !meta.data) return;
-                    const ctx2 = chart.ctx;
-                    const TRI = 12;
-                    meta.data.forEach((bar, i) => {
-                        if(!glowFlags[i]) return;
-                        const { x, y, base, height } = bar.getProps(["x","y","base","height"], true);
-                        const barRight = Math.max(x, base);
-                        const barTop   = y - (height || 16) / 2;
-                        ctx2.save();
-                        ctx2.beginPath();
-                        ctx2.moveTo(barRight, barTop);
-                        ctx2.lineTo(barRight - TRI, barTop);
-                        ctx2.lineTo(barRight, barTop + TRI);
-                        ctx2.closePath();
-                        ctx2.fillStyle = "#39ff14";
-                        ctx2.fill();
-                        ctx2.restore();
-                    });
-                }
-            }]
-        });
-
-        chartInstances.push(chart);
-
-
-        // ── Summary table + pie charts below the Gantt ───────────────────────
-        const totalBarsThisYear = Object.values(colorCounts)
-            .filter((_, i) => Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) >= 8 && Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) < 16)
-            .reduce((a, b) => a + b, 0);
-
-        const tyKeys = ["greenThisYear","purpleThisYear","blueThisYear","yellowThisYear","redThisYear","blackThisYear","silverThisYear","whiteThisYear"];
-        const nyKeys = ["greenNextYear","purpleNextYear","blueNextYear","yellowNextYear","redNextYear","blackNextYear","silverNextYear","whiteNextYear"];
-        const totalBarsThisYearCalc = tyKeys.reduce((s, k) => s + colorCounts[k], 0);
-        const totalBarsNextYear     = nyKeys.reduce((s, k) => s + colorCounts[k], 0);
-
-        const isLightMode = document.body.classList.contains("light-mode");
-        const thStyle = (bg, fg) => {
-            let useBg = bg, useFg = fg;
-            if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
-            return `style="text-align:center;background-color:${useBg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
-        };
-        const tdStyle = isLightMode
-            ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
-            : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
-        const totalHdr = isLightMode
-            ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
-            : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
-
-        const summaryTable = document.createElement("table");
-        summaryTable.className = "table table-dark table-sm table-bordered table-hover mt-2";
-        summaryTable.id = "summaryTable";
-        summaryTable.innerHTML = `
-        <thead>
-            <tr>
-                <th ${thStyle("transparent","white")}>TIME RANGE</th>
-                <th ${thStyle("#4caf50","#020202")}>FINAL</th>
-                <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
-                <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
-                <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
-                <th ${thStyle("#ff4c4c","#ffffff")}>IN QUEUE</th>
-                <th ${thStyle("#37474f","#ffffff")}>NEED INFO</th>
-                <th ${thStyle("#C0C0C0","#020202")}>NOT REQUESTED</th>
-                <th ${thStyle("#c0392b","#ffffff")}>ERRORS</th>
-                <th ${totalHdr}>TOTAL</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td ${tdStyle}>This Year</td>
-                <td ${tdStyle}>${colorCounts.greenThisYear}</td>
-                <td ${tdStyle}>${colorCounts.purpleThisYear}</td>
-                <td ${tdStyle}>${colorCounts.blueThisYear}</td>
-                <td ${tdStyle}>${colorCounts.yellowThisYear}</td>
-                <td ${tdStyle}>${colorCounts.redThisYear}</td>
-                <td ${tdStyle}>${colorCounts.blackThisYear}</td>
-                <td ${tdStyle}>${colorCounts.silverThisYear}</td>
-                <td ${tdStyle}>${colorCounts.whiteThisYear}</td>
-                <td ${tdStyle}><b>${totalBarsThisYearCalc}</b></td>
-            </tr>
-            <tr>
-                <td ${tdStyle}>Next Year (Budget)</td>
-                <td ${tdStyle}>${colorCounts.greenNextYear}</td>
-                <td ${tdStyle}>${colorCounts.purpleNextYear}</td>
-                <td ${tdStyle}>${colorCounts.blueNextYear}</td>
-                <td ${tdStyle}>${colorCounts.yellowNextYear}</td>
-                <td ${tdStyle}>${colorCounts.redNextYear}</td>
-                <td ${tdStyle}>${colorCounts.blackNextYear}</td>
-                <td ${tdStyle}>${colorCounts.silverNextYear}</td>
-                <td ${tdStyle}>${colorCounts.whiteNextYear}</td>
-                <td ${tdStyle}><b>${totalBarsNextYear}</b></td>
-            </tr>
-        </tbody>`;
-        chartDiv.appendChild(summaryTable);
-
-        // Pie charts
-        const pieRow = document.createElement("div");
-        pieRow.className = "pie-row";
-
-        const pieCanvas = document.createElement("canvas");
-        pieCanvas.className = "pie-chart";
-        const pieCanvas3 = document.createElement("canvas");
-        pieCanvas3.className = "pie-chart";
-        pieRow.appendChild(pieCanvas);
-        pieRow.appendChild(pieCanvas3);
-        chartDiv.appendChild(pieRow);
-
-        new Chart(pieCanvas.getContext("2d"), {
-            type: "pie",
-            data: {
-                labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
-                datasets: [{ data: [
-                    colorCounts.greenThisYear, colorCounts.purpleThisYear,
-                    colorCounts.blueThisYear,  colorCounts.yellowThisYear,
-                    colorCounts.redThisYear,   colorCounts.blackThisYear,
-                    colorCounts.silverThisYear, colorCounts.whiteThisYear,
-                ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
-                   borderColor: "#333", borderWidth: 1 }]
-            },
-            plugins: [ChartDataLabels],
-            options: { layout: { padding: 0 }, plugins: {
-                title: { display:true, text:`This Year: ${totalBarsThisYearCalc} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
-                legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
-                datalabels: {
-                    color: (ctx) => {
-                        const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
-                        return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
-                    },
-                    font:{weight:"bold",size:10},
-                    formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
-                }
-            }}
-        });
-
-        new Chart(pieCanvas3.getContext("2d"), {
-            type: "pie",
-            data: {
-                labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
-                datasets: [{ data: [
-                    colorCounts.greenNextYear, colorCounts.purpleNextYear,
-                    colorCounts.blueNextYear,  colorCounts.yellowNextYear,
-                    colorCounts.redNextYear,   colorCounts.blackNextYear,
-                    colorCounts.silverNextYear, colorCounts.whiteNextYear,
-                ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
-                   borderColor: "#333", borderWidth: 1 }]
-            },
-            plugins: [ChartDataLabels],
-            options: { layout: { padding: 0 }, plugins: {
-                title: { display:true, text:`Next Year (Budget): ${totalBarsNextYear} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
-                legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
-                datalabels: {
-                    color: (ctx) => {
-                        const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
-                        return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
-                    },
-                    font:{weight:"bold",size:10},
-                    formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
-                }
-            }}
-        });
-
-        // Accumulate into compiledRows for the all-VP summary at the bottom
-        // Note: compiledRows is accumulated globally across all filter renders
-        // so we rebuild it fresh each time ganttApplyAndRender is called
-        // by re-running renderChartsFromTable on every filter change.
-        // compiledRows is reset in renderChartsFromTable above.
-
-        renderCompiledSummary(compiledRows);
-    }
 
     //// window.addEventListener("DOMContentLoaded", renderChartsFromTable);
 
@@ -2970,129 +2203,879 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 </script>
 
-
-
-
 <script>
-    async function loadScheduleAndNotes() {
-        try {
-            const res = await fetch("/notes/getScheduleAndNotes");
-            const data = await res.json();
+(function(){
+    // ── New Schedule Gantt chart (separate data source, separate DOM) ──────
+    let ganttAllBars2    = [];
+    let chartInstances2  = [];
+    let ganttFiltersBuilt2 = false;
 
-            // Save into objects
-            const scheduleObj = {};
-            data.schedule.forEach(item => {
-            scheduleObj[item._id] = item;  // keyed by schedule _id
+    // Header→field mapping for the RAW newSchedule columns (no server-side
+    // renaming — match by substring against whatever headers were uploaded).
+    const NS_HEADER_MAP = [
+        [ 'ETS ID',              'ETS'        ],
+        [ 'Site Name',           'site'       ],
+        [ 'Prospect Name',       'well'       ],   // shown as "Well" in tooltip
+        [ 'DP Current Plan',     'dp'         ],
+        [ 'DP Type',             'type'       ],
+        [ 'Rig Duration',        'duration'   ],
+        [ 'Exploration VP',      'vp'         ],
+        [ 'Exploration Mgr',     'explMgr'    ],
+        [ 'Est. Start Date',     'start'      ],
+        [ 'DP Company Name',     'dpCompany'  ],
+        [ 'DP Drill Approved',   'drillok'    ],
+        [ 'DP Geol Approved',    'geook'      ],
+        [ 'Expl. Cust. Group',   'group'      ],
+        [ 'DP Request Date',     'dpReq'      ],
+        [ 'Responsible Geology', 'geo'        ],
+        [ 'DP Design',           'version'    ],
+        [ 'DP Received Date',    'dpReceivedDate' ],
+        [ 'Primary Zone',        'primaryZone' ],
+        [ 'Rig',                 'rig'        ],   // exact-ish, exclude "Rig Duration"
+        [ 'Surface Lat',         'surfaceLat' ],
+        [ 'Surface Long',        'surfaceLon' ],
+    ];
+
+    function nsBuildColMap(headers){
+        const colMap = {};
+        headers.forEach((h, i) => {
+            const hStr = String(h || '').trim();
+            if(!hStr) return;
+            for(const [substr, field] of NS_HEADER_MAP){
+                if(colMap[field] !== undefined) continue;
+                if(hStr.toLowerCase().includes(substr.toLowerCase())){
+                    if(field === 'rig' && hStr.toLowerCase().includes('duration')) continue;
+                    colMap[field] = i;
+                }
+            }
+        });
+        return colMap;
+    }
+
+    // Same normalisation the old Schedule upload applies client-side, so
+    // downstream colour/glow logic (which checks exact "YES-Drill" etc.)
+    // behaves identically for the New Schedule chart.
+    function nsApprovalLabel(raw, suffix){
+        const v = String(raw ?? '').trim();
+        return v ? ('YES-' + suffix) : ('NO-' + suffix);
+    }
+
+    function buildNewScheduleGanttBars(){
+        ganttAllBars2 = [];
+        const dataEl = document.getElementById('newScheduleGanttData');
+        if(!dataEl) return;
+        let parsed;
+        try { parsed = JSON.parse(dataEl.textContent); } catch(e){ console.warn('newScheduleGanttData parse error:', e); return; }
+        const headers = parsed.headers || [];
+        const rows    = parsed.rows    || [];
+        if(!headers.length || !rows.length) return;
+
+        const colMap = nsBuildColMap(headers);
+        const get = (row, field) => (colMap[field] !== undefined) ? row[colMap[field]] : '';
+
+        rows.forEach(row => {
+            const rig = String(get(row,'rig') || '').trim();
+            if(!rig) return;
+            const site = String(get(row,'site') || '').trim();
+            const startRaw = get(row,'start');
+            const start = startRaw ? new Date(startRaw) : null;
+
+            ganttAllBars2.push({
+                rig,
+                drillok: nsApprovalLabel(get(row,'drillok'), 'Drill'),
+                geook:   nsApprovalLabel(get(row,'geook'),   'Geo'),
+                dp:      String(get(row,'dp') || ''),
+                type:    String(get(row,'type') || ''),
+                duration: Number(get(row,'duration')) || 0,
+                vp:      String(get(row,'vp') || ''),
+                explMgr: String(get(row,'explMgr') || ''),
+                start,
+                site,
+                well:    String(get(row,'well') || ''),
+                dpCompany: String(get(row,'dpCompany') || ''),
+                ETS:     String(get(row,'ETS') || ''),
+                group:   String(get(row,'group') || '').substring(0,2),
+                dpReq:   get(row,'dpReq') ? String(get(row,'dpReq')).slice(0,10) : '',
+                geo:     String(get(row,'geo') || ''),
+                version: String(get(row,'version') || ''),
+                dpReceivedDate: get(row,'dpReceivedDate') ? String(get(row,'dpReceivedDate')).slice(0,10) : '',
+                primaryZone: String(get(row,'primaryZone') || ''),
+                surfaceLat: get(row,'surfaceLat') !== '' ? Number(get(row,'surfaceLat')) : null,
+                surfaceLon: get(row,'surfaceLon') !== '' ? Number(get(row,'surfaceLon')) : null,
+                de: (ganttNotesMap[site.slice(0,14)] || {}).de || '',
             });
+        });
 
-            const notesObj = {};
-            data.notes.forEach(note => {
-            notesObj[note._id] = note; // keyed by note _id
+        // Same Batch Days pre-bar logic as the original Gantt.
+        (function applyBatchDaysStretch2(){
+            const bySite = {};
+            ganttAllBars2.forEach(function(bar, idx){
+                if(!bar.site || !bar.start) return;
+                const key = bar.site.slice(0,14);
+                if(!bySite[key]) bySite[key] = [];
+                bySite[key].push(idx);
             });
+            const newBars = [];
+            Object.keys(bySite).forEach(function(siteKey){
+                const meta = ganttNotesMap[siteKey];
+                const batchDays = meta ? Number(meta.batchDays) || 0 : 0;
+                if(!batchDays) return;
+                const idxs = bySite[siteKey];
+                let earliestIdx = idxs[0];
+                idxs.forEach(function(idx){
+                    if(ganttAllBars2[idx].start < ganttAllBars2[earliestIdx].start) earliestIdx = idx;
+                });
+                const origBar = ganttAllBars2[earliestIdx];
+                const newStart = new Date(origBar.start);
+                newStart.setDate(newStart.getDate() - batchDays);
+                newBars.push(Object.assign({}, origBar, {
+                    start: newStart,
+                    duration: batchDays,
+                    isBatchDaysBar: true,
+                }));
+            });
+            if(newBars.length) ganttAllBars2.push(...newBars);
+        })();
+    }
 
-            console.log("✅ Schedule Object:", scheduleObj);
-            console.log("✅ Notes Object:", notesObj);
+    function ganttBuildFilterGroup2(containerId, fieldKey, values, defaultFn){
+        const el = document.getElementById(containerId);
+        if(!el) return;
+        el.innerHTML = '';
 
-            alert("Schedule & Notes loaded. Check console for objects.");
-        } catch (err) {
-            console.error("Error loading schedule & notes:", err);
+        const toggleWrap = document.createElement('div');
+        toggleWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+        const makeToggle = (label, selectAll) => {
+            const btn = document.createElement('span');
+            btn.textContent = label;
+            btn.style.cssText = 'font-size:9px;cursor:pointer;color:var(--an-accent,#00c8ff);letter-spacing:.5px;text-transform:uppercase;';
+            btn.addEventListener('click', () => {
+                el.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = selectAll; });
+                ganttApplyAndRender2();
+            });
+            return btn;
+        };
+        toggleWrap.appendChild(makeToggle('All', true));
+        const sep = document.createElement('span');
+        sep.textContent = '·';
+        sep.style.cssText = 'font-size:9px;color:var(--an-text-dim,#5a7080);';
+        toggleWrap.appendChild(sep);
+        toggleWrap.appendChild(makeToggle('None', false));
+        el.appendChild(toggleWrap);
+
+        [...values].sort().forEach(v => {
+            const lbl = document.createElement('label');
+            const cb  = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = v;
+            cb.dataset.gfield = fieldKey;
+            cb.checked = defaultFn(v);
+            cb.addEventListener('change', ganttApplyAndRender2);
+            lbl.appendChild(cb);
+            lbl.appendChild(document.createTextNode(v));
+            el.appendChild(lbl);
+        });
+    }
+
+    function ganttBuildAllFilters2(){
+        const uniqWithBlank = f => {
+            const vals = new Set(ganttAllBars2.map(b => b[f]).filter(Boolean));
+            if(ganttAllBars2.some(b => !b[f] || String(b[f]).trim() === "")) vals.add("Blank");
+            return [...vals];
+        };
+        const defaultAll = () => true;
+        const defaultVP  = v => GANTT_DEFAULTS.gfVP.includes(v);
+        const defaultGrp = v => GANTT_DEFAULTS.gfGroup.includes(v);
+
+        ganttBuildFilterGroup2('gfVP2',        'vp',        uniqWithBlank('vp'),        defaultVP);
+        ganttBuildFilterGroup2('gfExplMgr2',   'explMgr',   uniqWithBlank('explMgr'),   defaultAll);
+        ganttBuildFilterGroup2('gfGroup2',     'group',     uniqWithBlank('group'),     defaultGrp);
+        ganttBuildFilterGroup2('gfType2',      'type',      uniqWithBlank('type'),      defaultAll);
+        ganttBuildFilterGroup2('gfDpCompany2', 'dpCompany', uniqWithBlank('dpCompany'), defaultAll);
+        ganttBuildFilterGroup2('gfDrillOK2',   'drillok',   uniqWithBlank('drillok'),   defaultAll);
+        ganttBuildFilterGroup2('gfGeoOK2',     'geook',     uniqWithBlank('geook'),     defaultAll);
+        ganttBuildFilterGroup2('gfPrimaryZone2','primaryZone',uniqWithBlank('primaryZone'),defaultAll);
+        ganttBuildFilterGroup2('gfRig2',       'rig',       uniqWithBlank('rig'),       defaultAll);
+        ganttBuildFilterGroup2('gfDE2',        'de',        uniqWithBlank('de'),        defaultAll);
+
+        ganttFiltersBuilt2 = true;
+
+        const resetBtn = document.getElementById('ganttResetBtn2');
+        if(resetBtn && !resetBtn.dataset.wired){
+            resetBtn.dataset.wired = '1';
+            resetBtn.addEventListener('click', () => {
+                ganttBuildAllFilters2();
+                ganttApplyAndRender2();
+            });
         }
     }
-</script>
 
+    function ganttGetChecked2(fieldKey){
+        return [...document.querySelectorAll(
+            `#ganttSidebar2 input[type=checkbox][data-gfield="${fieldKey}"]:checked`
+        )].map(cb => cb.value);
+    }
 
+    function ganttApplyAndRender2(){
+        const fVP        = ganttGetChecked2('vp');
+        const fExplMgr   = ganttGetChecked2('explMgr');
+        const fGroup     = ganttGetChecked2('group');
+        const fType      = ganttGetChecked2('type');
+        const fDpCompany = ganttGetChecked2('dpCompany');
+        const fDrillOK   = ganttGetChecked2('drillok');
+        const fGeoOK     = ganttGetChecked2('geook');
+        const fPrimaryZone = ganttGetChecked2('primaryZone');
+        const fRig       = ganttGetChecked2('rig');
+        const fDE        = ganttGetChecked2('de');
 
+        const blanked = f => v => !v || String(v).trim() === '' ? 'Blank' : v;
+        const filtered = ganttAllBars2.filter(b =>
+            fVP.includes(blanked()(b.vp)) &&
+            fExplMgr.includes(blanked()(b.explMgr)) &&
+            fGroup.includes(blanked()(b.group)) &&
+            fType.includes(blanked()(b.type)) &&
+            fDpCompany.includes(blanked()(b.dpCompany)) &&
+            fDrillOK.includes(blanked()(b.drillok)) &&
+            fGeoOK.includes(blanked()(b.geook)) &&
+            fPrimaryZone.includes(blanked()(b.primaryZone)) &&
+            fRig.includes(blanked()(b.rig)) &&
+            fDE.includes(blanked()(b.de))
+        );
 
+        ganttRenderChart2(filtered);
+        console.log('[newSchedGantt] filtered bars passed to chart:', filtered.length, 'of', ganttAllBars2.length, 'total');
+    }
 
+        function ganttRenderChart2(bars){
+            const chartDiv = document.getElementById("chartDiv2");
+            console.log('[newSchedGantt] ganttRenderChart2() called with', bars.length, 'bars. chartDiv2 found:', !!chartDiv);
+            if(!chartDiv) return;
+            chartDiv.innerHTML = "";
 
+            // Clear previous Chart.js instances
+            chartInstances2.forEach(ch => { try{ ch.destroy(); }catch(e){} });
+            chartInstances2 = [];
 
+            if(!bars.length){
+                console.warn('[newSchedGantt] 0 bars passed filters — showing "No data matches" message.');
+                chartDiv.innerHTML = '<p style="color:var(--an-text-dim,#5a7080);padding:20px;">No data matches the selected filters.</p>';
+                return;
+            }
 
-<script>
-    async function appendNoteIds() {
-        try {
-            // Fetch all schedule + notes
-            const res = await fetch("/notes/getScheduleAndNotes");
-            const data = await res.json();
+            const today = new Date();
+            const sevenMonthsLater  = new Date(today.getFullYear(), today.getMonth() + 7,  today.getDate());
+            const threeMonthsLater  = new Date(today.getFullYear(), today.getMonth() + 3,  today.getDate());
+            const fiveMonthsLater   = new Date(today.getFullYear(), today.getMonth() + 5,  today.getDate());
+            const oneYearLater      = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+            const FixedEndOfLastYear= new Date("2025-12-31");
+            const FixedEndOfThisYear= new Date("2026-12-31");
+            const FixedEndOfNextYear= new Date("2027-12-31");
+            const TargetDate        = new Date("2026-08-31");
 
-            const notes = data.notes;
+            // Collect unique rigs from filtered bars, alphabetical
+            const rigSet = [...new Set(bars.filter(b => b.start).map(b => b.rig))].sort();
 
-            ////Build a lookup map for Note.project → { noteId, mtxJobId }
-            const notesMap = {};
-            notes.forEach(note => {
-                if (note.project) {
-                    const key = note.project.slice(0, 14); // normalize
-                    if (!notesMap[key]) {
-                        notesMap[key] = {
-                            noteId: note._id,
-                            mtxJobId: note.mtxJobId || null
-                        };
+            const datasets   = [];
+            const colors     = [];
+            const glowFlags  = [];
+            const colorOfBorder = "#000000";
+            const colorCounts = {
+                blue:0, red:0, green:0, yellow:0, purple:0, white:0, black:0, silver:0,
+                blueThisYear:0, redThisYear:0, greenThisYear:0, yellowThisYear:0,
+                purpleThisYear:0, whiteThisYear:0, blackThisYear:0, silverThisYear:0,
+                blueNextYear:0, redNextYear:0, greenNextYear:0, yellowNextYear:0,
+                purpleNextYear:0, whiteNextYear:0, blackNextYear:0, silverNextYear:0,
+            };
+
+            bars.forEach(siteObj => {
+                if(!siteObj.start || isNaN(siteObj.start)) return;
+                const start   = new Date(siteObj.start);
+                const end     = new Date(siteObj.start.getTime() + siteObj.duration * 86400000);
+                const dpValue = siteObj.dp || "";
+                const type    = siteObj.type;
+                const drillok = siteObj.drillok;
+                const geook   = siteObj.geook;
+                const rig     = siteObj.rig;
+                const dpReq   = siteObj.dpReq;
+
+                const siteKey = siteObj.site.slice(0, 14);
+                const isInProgressTable    = inProgressSites.has(siteKey);
+                const isInSetupQueueTable  = inSetupQueueSites.has(siteKey);
+                const isInDesignQueueTable = inDesignQueueSites.has(siteKey);
+                const isInBlackOpsQueueTable = inBlackOpsQueueSites.has(siteKey);
+
+                datasets.push({
+                    y: rig,
+                    x: [siteObj.start, end],
+                    site: siteObj.site.substring(0, 5),
+                    details: {
+                        Rig: rig, drillok, geook, VP: siteObj.vp,
+                        Start: siteObj.start.toLocaleDateString(),
+                        Duration: siteObj.duration, DP: dpValue,
+                        Site: siteObj.site, Well: siteObj.well,
+                        dpCompany: siteObj.dpCompany, ETS: siteObj.ETS,
+                        type, group: siteObj.group, dpReq, geo: siteObj.geo,
+                        version: siteObj.version,
+                        dpReceivedDate: siteObj.dpReceivedDate,
+                        DE: (ganttNotesMap[siteObj.site.slice(0,14)] || {}).de || '',
+                        surfaceLat: siteObj.surfaceLat, surfaceLon: siteObj.surfaceLon,
+                        primaryZone: siteObj.primaryZone,
+                    }
+                });
+
+                const rigToAvoid = ["PRECISION 183","PRECISION183","PD183","PD 183"];
+                const dpNo  = !dpValue || dpValue === "NO" || dpValue === "NO-DP" || dpValue === "";
+                const dpYes = dpValue === "YES" || dpValue === "YES-DP" || dpValue !== "";
+
+                const countable          = start >= today && start <= oneYearLater;
+                const countableForThisYear = start > FixedEndOfLastYear && start <= FixedEndOfThisYear;
+                const countableForNextYear = start > FixedEndOfThisYear && start <= FixedEndOfNextYear;
+
+                const isForcedInProgress    = isInProgressTable === true;
+                const isForcedInSetupQueue  = isInSetupQueueTable === true;
+                const isForcedInDesignQueue = isInDesignQueueTable === true;
+                const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
+
+                // Build compiledRows for the VP summary table
+                const vpKey = siteObj.vp + '|' + siteObj.group;
+
+                switch(true){
+                    case type === "FINAL":
+                        colors.push("#4caf50");
+                        if(countable) colorCounts.green++;
+                        if(countableForThisYear) colorCounts.greenThisYear++;
+                        if(countableForNextYear) colorCounts.greenNextYear++;
+                        break;
+                    case isForcedInProgress:
+                        colors.push("#ffff00");
+                        if(countable) colorCounts.yellow++;
+                        if(countableForThisYear) colorCounts.yellowThisYear++;
+                        if(countableForNextYear) colorCounts.yellowNextYear++;
+                        break;
+                    case isForcedInSetupQueue:
+                    case isForcedInDesignQueue:
+                    case isForcedInBlackOpsQueue:
+                        colors.push("#ff4c4c");
+                        if(countable) colorCounts.red++;
+                        if(countableForThisYear) colorCounts.redThisYear++;
+                        if(countableForNextYear) colorCounts.redNextYear++;
+                        break;
+                    case type === "PRELIM - IR":
+                        colors.push("#000000");
+                        if(countable) colorCounts.black++;
+                        if(countableForThisYear) colorCounts.blackThisYear++;
+                        if(countableForNextYear) colorCounts.blackNextYear++;
+                        break;
+                    case (dpNo && !rigToAvoid.includes(rig) && dpReq !== ""):
+                        colors.push("#ff4c4c");
+                        if(countable) colorCounts.red++;
+                        if(countableForThisYear) colorCounts.redThisYear++;
+                        if(countableForNextYear) colorCounts.redNextYear++;
+                        break;
+                    case type === "EXEC":
+                        colors.push("#B11FDF");
+                        if(countable) colorCounts.purple++;
+                        if(countableForThisYear) colorCounts.purpleThisYear++;
+                        if(countableForNextYear) colorCounts.purpleNextYear++;
+                        break;
+                    case dpYes:
+                        colors.push("#0084c7");
+                        if(countable) colorCounts.blue++;
+                        if(countableForThisYear) colorCounts.blueThisYear++;
+                        if(countableForNextYear) colorCounts.blueNextYear++;
+                        break;
+                    case dpReq === "" || dpReq === " ":
+                        colors.push("#C0C0C0");
+                        if(countable) colorCounts.silver++;
+                        if(countableForThisYear) colorCounts.silverThisYear++;
+                        if(countableForNextYear) colorCounts.silverNextYear++;
+                        break;
+                    default:
+                        colors.push("#FFFFFF");
+                        if(countable) colorCounts.white++;
+                        if(countableForThisYear) colorCounts.whiteThisYear++;
+                        if(countableForNextYear) colorCounts.whiteNextYear++;
+                        break;
+                }
+
+                const isFullyApproved =
+                    String(drillok).trim().toUpperCase() === "YES-DRILL" &&
+                    String(geook).trim().toUpperCase() === "YES-GEO";
+                glowFlags.push(isFullyApproved);
+            });
+
+            // ── Proximity conflict detection ────────────────────────────────────
+            // Flags pairs of DIFFERENT sites that share the same Primary Zone,
+            // have overlapping drilling date ranges (start → start+duration),
+            // and whose surface locations are within 6km of each other.
+            const borderColors = datasets.map(() => colorOfBorder);
+            const borderWidths = datasets.map(() => 1);
+
+            function haversineKm(lat1, lon1, lat2, lon2){
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2)**2 +
+                          Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+                          Math.sin(dLon/2)**2;
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+
+            const CONFLICT_KM = 3;
+            const zoneGroups = {};
+            datasets.forEach((d, idx) => {
+                const zone = (d.details.primaryZone || '').trim();
+                if(!zone) return; // blank zone — nothing meaningful to match against
+                if(!zoneGroups[zone]) zoneGroups[zone] = [];
+                zoneGroups[zone].push(idx);
+            });
+
+            Object.values(zoneGroups).forEach(idxs => {
+                for(let a = 0; a < idxs.length; a++){
+                    for(let b = a + 1; b < idxs.length; b++){
+                        const i1 = idxs[a], i2 = idxs[b];
+                        const d1 = datasets[i1], d2 = datasets[i2];
+                        if(d1.details.Site === d2.details.Site) continue; // same pad — not a conflict
+                        if(d1.details.Rig  === d2.details.Rig)  continue; // same rig — a rig drills one well at a time, so sequential jobs on it can never be a parallel-proximity conflict
+
+                        const lat1 = d1.details.surfaceLat, lon1 = d1.details.surfaceLon;
+                        const lat2 = d2.details.surfaceLat, lon2 = d2.details.surfaceLon;
+                        if(lat1 == null || lon1 == null || lat2 == null || lon2 == null) continue;
+
+                        const [s1, e1] = d1.x, [s2, e2] = d2.x;
+                        const overlap = s1 < e2 && s2 < e1;
+                        if(!overlap) continue;
+
+                        const distKm = haversineKm(lat1, lon1, lat2, lon2);
+                        if(distKm >= CONFLICT_KM) continue;
+
+                        borderColors[i1] = '#ff0000'; borderWidths[i1] = 4;
+                        borderColors[i2] = '#ff0000'; borderWidths[i2] = 4;
+
+                        (d1.details.conflicts = d1.details.conflicts || []).push({ site: d2.details.Site, distKm: distKm.toFixed(2) });
+                        (d2.details.conflicts = d2.details.conflicts || []).push({ site: d1.details.Site, distKm: distKm.toFixed(2) });
                     }
                 }
-            });            
-
-            // Find the table
-            const table = document.getElementById("csvTable");
-            if (!table) return alert("Table not found!");
-
-            // Add headers if not already present
-            const headerRow = table.querySelector("thead tr");
-            if (!headerRow.querySelector("th.noteid-col")) {
-                const th = document.createElement("th");
-                th.textContent = "NoteID";
-                th.classList.add("noteid-col");
-                headerRow.appendChild(th);
-            }
-            if (!headerRow.querySelector("th.mtxjobid-col")) {
-                const th = document.createElement("th");
-                th.textContent = "mtxJobId";
-                th.classList.add("mtxjobid-col");
-                headerRow.appendChild(th);
-            }
-
-            // Add rows with NoteID + mtxJobId
-            const rows = table.querySelectorAll("tbody tr");
-            rows.forEach(row => {
-                const cells = row.querySelectorAll("td");
-                // if (cells.length < 7) return; // skip malformed rows
-                if (cells.length < 8) return; // skip malformed rows <-- updated for new column count
-
-                //const site = cells[6].textContent.trim().slice(0, 14); // schedule site normalized
-                const site = cells[7].textContent.trim().slice(0, 14); // schedule site normalized <-- updated for new column count
-                const noteData = notesMap[site];
-
-                // --- NoteID cell ---
-                const tdNote = document.createElement("td");
-                if (noteData?.noteId) {
-                    const link = document.createElement("a");
-                    link.href = `/notes/job/${noteData.noteId}`;
-                    link.textContent = noteData.noteId;
-                    link.style.color = "aqua";
-                    link.style.textDecoration = "none";
-                    tdNote.appendChild(link);
-                } else {
-                    tdNote.textContent = "Not Found";
-                    tdNote.style.color = "red";
-                }
-                row.appendChild(tdNote);
-
-                // --- mtxJobId cell ---
-                const tdMtx = document.createElement("td");
-                if (noteData?.mtxJobId) {
-                    tdMtx.textContent = noteData.mtxJobId;
-                    tdMtx.style.color = "lime";
-                } else {
-                    tdMtx.textContent = "Not Found";
-                    tdMtx.style.color = "orange";
-                }
-                row.appendChild(tdMtx);
             });
 
-            console.log("✅ Note IDs and mtxJobIds appended to table");
+            // ── Gantt chart ──────────────────────────────────────────────────────
+            const minDate     = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+            const defaultMax  = new Date(today.getFullYear(), today.getMonth() + 5, today.getDate()); // default visible window
+            const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
+
+            const canvasH = Math.max(200, rigSet.length * 40);
+            const canvasW = chartDiv.parentElement
+                ? Math.max(600, chartDiv.parentElement.clientWidth - 20)
+                : 1200;
+
+            // Wrap in a fixed-size div so responsive:false + zoom don't cause
+            // an infinite resize loop
+            const canvasWrap = document.createElement("div");
+            canvasWrap.style.cssText = `width:${canvasW}px;height:${canvasH}px;position:relative;overflow:hidden;`;
+            chartDiv.appendChild(canvasWrap);
+
+            const canvas = document.createElement("canvas");
+            canvas.width  = canvasW;
+            canvas.height = canvasH;
+            // Explicit inline CSS size (not just the width/height attributes)
+            // so Chart.js's internal sizing logic never falls back to
+            // measuring the container's layout box — this is what makes the
+            // chart render correctly even while its accordion is collapsed
+            // (display:none), so it's ready instantly the moment it's opened.
+            canvas.style.width  = canvasW + 'px';
+            canvas.style.height = canvasH + 'px';
+            canvasWrap.appendChild(canvas);
+            console.log('[newSchedGantt] canvas created:', canvasW, 'x', canvasH, 'rigs:', rigSet.length);
+
+            const ctx = canvas.getContext("2d");
+            const chart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    datasets: [{
+                        label: "Schedule",
+                        data: datasets,
+                        backgroundColor: colors,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        borderColor: borderColors,
+                        borderWidth: borderWidths,
+                        parsing: { xAxisKey: "x", yAxisKey: "y" },
+                    }]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    onClick: (e, elements) => {
+                        if(!elements.length) return;
+                        const bar = chart.data.datasets[0].data[elements[0].index];
+                        if(!bar || !bar.details) return;
+                        const siteKey  = bar.details.Site.slice(0, 14);
+                        const noteData = ganttNotesMap[siteKey];
+                        if(noteData) window.location.href = `/notes/job/${noteData.id}`;
+                    },
+                    onHover: (e, elements) => {
+                        e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                    },
+                    scales: {
+                        x: {
+                            type: "time",
+                            time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
+                            min: minDate, max: defaultMax,
+                            ticks: { color: anChartColor() },
+                            grid:  { color: anGridColor() }
+                        },
+                        y: {
+                            type: "category",
+                            labels: rigSet,
+                            ticks: { color: anChartColor(), font: { weight: "bold" } },
+                            grid:  { color: anGridColor() }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const d = ctx.raw.details;
+                                    return [
+                                        `Site: ${d.Site}`, `Well: ${d.Well}`, `ETS: ${d.ETS}`,
+                                        `Start: ${d.Start}`, `Type: ${d.type}`,
+                                        `D.E: ${d.DE || '—'}`,
+                                        `DrillOK: ${d.drillok}`, `GeoOK: ${d.geook}`,
+                                        `DP Company: ${d.dpCompany}`,
+                                        `Dp Requested: ${d.dpReq}`,
+                                        `DP Received: ${d.dpReceivedDate || '—'}`,
+                                        (() => {
+                                            if(!d.dpReq || !d.dpReceivedDate) return 'DP Time: —';
+                                            const req = new Date(d.dpReq);
+                                            const rec = new Date(d.dpReceivedDate);
+                                            if(isNaN(req)||isNaN(rec)) return 'DP Time: —';
+                                            return 'DP Time: ' + Math.round((rec-req)/(1000*60*60*24)) + ' days';
+                                        })(),
+                                        (() => {
+                                            if(!d.dpReceivedDate) return 'Approval Time: —';
+                                            const rec = new Date(d.dpReceivedDate);
+                                            if(isNaN(rec)) return 'Approval Time: —';
+                                            return 'Approval Time: ' + Math.round((new Date()-rec)/(1000*60*60*24)) + ' days since received';
+                                        })(),
+                                        `Duration: ${d.Duration} days`,
+                                        `Geo: ${d.geo}`, `Version: ${d.version}`,
+                                        `Lat: ${d.surfaceLat || '—'}`, `Lon: ${d.surfaceLon || '—'}`,
+                                        ...((d.conflicts && d.conflicts.length) ? [
+                                            `⚠️ Proximity conflict (${d.primaryZone}, same dates, <3km):`,
+                                            ...d.conflicts.map(c => `   → ${c.site} (${c.distKm} km)`)
+                                        ] : []),
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: (ctx) => {
+                                const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                                const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#c0c0c0"];
+                                return lightBgs.some(c => bg.toLowerCase() === c.toLowerCase()) ? "#000000" : "#ffffff";
+                            },
+                            font: { size: 10, weight: "bold" },
+                            formatter: (value) => value.site || "",
+                            anchor: "start", align: "end", clip: true,
+                        },
+                        annotation: {
+                            annotations: {
+                                redBand: {
+                                    type: "box", xMin: today, xMax: threeMonthsLater,
+                                    backgroundColor: "rgba(255,0,0,0.10)", borderWidth: 0,
+                                    drawTime: "beforeDatasetsDraw",
+                                },
+                                yellowBand: {
+                                    type: "box", xMin: threeMonthsLater, xMax: fiveMonthsLater,
+                                    backgroundColor: "rgba(255,208,0,0.10)", borderWidth: 0,
+                                    drawTime: "beforeDatasetsDraw",
+                                },
+                                todayLine: {
+                                    type: "line", xMin: today, xMax: today,
+                                    borderColor: "red", borderWidth: 2,
+                                    label: { enabled: true, content: "Today", position: "start", color: "red" },
+                                },
+                                threeMonthLine: {
+                                    type: "line", xMin: threeMonthsLater, xMax: threeMonthsLater,
+                                    borderColor: "red", borderWidth: 3, borderDash: [],
+                                    label: { enabled: true, content: "+3 Months", position: "start", color: "red" },
+                                },
+                                ...((['admin','leader','user'].includes(GANTT_USER_ROLE)) ? {
+                                    fourMonthLine: {
+                                        type: "line",
+                                        xMin: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
+                                        xMax: new Date(today.getFullYear(), today.getMonth() + 4, today.getDate()),
+                                        borderColor: "#000000", borderWidth: 3, borderDash: [],
+                                        label: { enabled: true, content: "+4 Months", position: "start", color: "#000000", font: { weight: "bold" } },
+                                    },
+                                } : {}),
+                                // Jan 1 lines — one per year from this year to absoluteMax year
+                                ...Object.fromEntries(
+                                    Array.from({ length: 3 }, (_, i) => {
+                                        const yr = today.getFullYear() + i;
+                                        const jan1 = new Date(yr, 0, 1);
+                                        return [`jan1_${yr}`, {
+                                            type: "line", xMin: jan1, xMax: jan1,
+                                            borderColor: "#00c8ff", borderWidth: 1, borderDash: [],
+                                            label: { enabled: true, content: `Jan ${yr}`, position: "start", color: "#00c8ff", font: { size: 10 } },
+                                        }];
+                                    })
+                                ),
+                            }
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: "x",
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: "x",
+                            },
+                            limits: {
+                                x: {
+                                    min: minDate.getTime(),
+                                    max: absoluteMax.getTime(),
+                                    minRange: 7 * 24 * 60 * 60 * 1000,
+                                },
+                            },
+                        }
+                    },
+                },
+                plugins: [ChartDataLabels, {
+                    id: "anChartBgPlugin",
+                    beforeDraw: (chart) => {
+                        if(!anIsLight()) return;
+                        const ctx2 = chart.canvas.getContext("2d");
+                        ctx2.save();
+                        ctx2.globalCompositeOperation = "destination-over";
+                        ctx2.fillStyle = "#ffffff";
+                        ctx2.fillRect(0, 0, chart.width, chart.height);
+                        ctx2.restore();
+                    }
+                }, {
+                    id: "anCornerTrianglePlugin",
+                    afterDatasetsDraw: (chart) => {
+                        const meta = chart.getDatasetMeta(0);
+                        if(!meta || !meta.data) return;
+                        const ctx2 = chart.ctx;
+                        const TRI = 12;
+                        meta.data.forEach((bar, i) => {
+                            if(!glowFlags[i]) return;
+                            const { x, y, base, height } = bar.getProps(["x","y","base","height"], true);
+                            const barRight = Math.max(x, base);
+                            const barTop   = y - (height || 16) / 2;
+                            ctx2.save();
+                            ctx2.beginPath();
+                            ctx2.moveTo(barRight, barTop);
+                            ctx2.lineTo(barRight - TRI, barTop);
+                            ctx2.lineTo(barRight, barTop + TRI);
+                            ctx2.closePath();
+                            ctx2.fillStyle = "#39ff14";
+                            ctx2.fill();
+                            ctx2.restore();
+                        });
+                    }
+                }]
+            });
+
+            chartInstances2.push(chart);
+
+
+            // ── Summary table + pie charts below the Gantt ───────────────────────
+            const totalBarsThisYear = Object.values(colorCounts)
+                .filter((_, i) => Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) >= 8 && Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) < 16)
+                .reduce((a, b) => a + b, 0);
+
+            const tyKeys = ["greenThisYear","purpleThisYear","blueThisYear","yellowThisYear","redThisYear","blackThisYear","silverThisYear","whiteThisYear"];
+            const nyKeys = ["greenNextYear","purpleNextYear","blueNextYear","yellowNextYear","redNextYear","blackNextYear","silverNextYear","whiteNextYear"];
+            const totalBarsThisYearCalc = tyKeys.reduce((s, k) => s + colorCounts[k], 0);
+            const totalBarsNextYear     = nyKeys.reduce((s, k) => s + colorCounts[k], 0);
+
+            const isLightMode = document.body.classList.contains("light-mode");
+            const thStyle = (bg, fg) => {
+                let useBg = bg, useFg = fg;
+                if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
+                return `style="text-align:center;background-color:${useBg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
+            };
+            const tdStyle = isLightMode
+                ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
+                : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+            const totalHdr = isLightMode
+                ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
+                : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
+
+            const summaryTable = document.createElement("table");
+            summaryTable.className = "table table-dark table-sm table-bordered table-hover mt-2";
+            summaryTable.id = "summaryTable2";
+            summaryTable.innerHTML = `
+            <thead>
+                <tr>
+                    <th ${thStyle("transparent","white")}>TIME RANGE</th>
+                    <th ${thStyle("#4caf50","#020202")}>FINAL</th>
+                    <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
+                    <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
+                    <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
+                    <th ${thStyle("#ff4c4c","#ffffff")}>IN QUEUE</th>
+                    <th ${thStyle("#37474f","#ffffff")}>NEED INFO</th>
+                    <th ${thStyle("#C0C0C0","#020202")}>NOT REQUESTED</th>
+                    <th ${thStyle("#c0392b","#ffffff")}>ERRORS</th>
+                    <th ${totalHdr}>TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td ${tdStyle}>This Year</td>
+                    <td ${tdStyle}>${colorCounts.greenThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.purpleThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.blueThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.yellowThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.redThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.blackThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.silverThisYear}</td>
+                    <td ${tdStyle}>${colorCounts.whiteThisYear}</td>
+                    <td ${tdStyle}><b>${totalBarsThisYearCalc}</b></td>
+                </tr>
+                <tr>
+                    <td ${tdStyle}>Next Year (Budget)</td>
+                    <td ${tdStyle}>${colorCounts.greenNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.purpleNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.blueNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.yellowNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.redNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.blackNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.silverNextYear}</td>
+                    <td ${tdStyle}>${colorCounts.whiteNextYear}</td>
+                    <td ${tdStyle}><b>${totalBarsNextYear}</b></td>
+                </tr>
+            </tbody>`;
+            chartDiv.appendChild(summaryTable);
+
+            // Pie charts
+            const pieRow = document.createElement("div");
+            pieRow.className = "pie-row";
+
+            const pieCanvas = document.createElement("canvas");
+            pieCanvas.className = "pie-chart";
+            const pieCanvas3 = document.createElement("canvas");
+            pieCanvas3.className = "pie-chart";
+            pieRow.appendChild(pieCanvas);
+            pieRow.appendChild(pieCanvas3);
+            chartDiv.appendChild(pieRow);
+
+            new Chart(pieCanvas.getContext("2d"), {
+                type: "pie",
+                data: {
+                    labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
+                    datasets: [{ data: [
+                        colorCounts.greenThisYear, colorCounts.purpleThisYear,
+                        colorCounts.blueThisYear,  colorCounts.yellowThisYear,
+                        colorCounts.redThisYear,   colorCounts.blackThisYear,
+                        colorCounts.silverThisYear, colorCounts.whiteThisYear,
+                    ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
+                       borderColor: "#333", borderWidth: 1 }]
+                },
+                plugins: [ChartDataLabels],
+                options: { layout: { padding: 0 }, plugins: {
+                    title: { display:true, text:`This Year: ${totalBarsThisYearCalc} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
+                    legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
+                    datalabels: {
+                        color: (ctx) => {
+                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
+                            return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
+                        },
+                        font:{weight:"bold",size:10},
+                        formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
+                    }
+                }}
+            });
+
+            new Chart(pieCanvas3.getContext("2d"), {
+                type: "pie",
+                data: {
+                    labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
+                    datasets: [{ data: [
+                        colorCounts.greenNextYear, colorCounts.purpleNextYear,
+                        colorCounts.blueNextYear,  colorCounts.yellowNextYear,
+                        colorCounts.redNextYear,   colorCounts.blackNextYear,
+                        colorCounts.silverNextYear, colorCounts.whiteNextYear,
+                    ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
+                       borderColor: "#333", borderWidth: 1 }]
+                },
+                plugins: [ChartDataLabels],
+                options: { layout: { padding: 0 }, plugins: {
+                    title: { display:true, text:`Next Year (Budget): ${totalBarsNextYear} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
+                    legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
+                    datalabels: {
+                        color: (ctx) => {
+                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
+                            return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
+                        },
+                        font:{weight:"bold",size:10},
+                        formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
+                    }
+                }}
+            });
+
+            // Accumulate into compiledRows for the all-VP summary at the bottom
+            // Note: compiledRows is accumulated globally across all filter renders
+            // so we rebuild it fresh each time ganttApplyAndRender is called
+            // by re-running renderChartsFromTable on every filter change.
+            // compiledRows is reset in renderChartsFromTable above.
+
+        }
+
+
+    function renderNewScheduleGantt(){
+        try {
+            console.log('[newSchedGantt] renderNewScheduleGantt() starting…');
+            const dataEl = document.getElementById('newScheduleGanttData');
+            console.log('[newSchedGantt] newScheduleGanttData element found:', !!dataEl);
+            if (dataEl) {
+                const raw = JSON.parse(dataEl.textContent);
+                console.log('[newSchedGantt] headers:', raw.headers ? raw.headers.length : 0, '| rows:', raw.rows ? raw.rows.length : 0);
+            }
+            buildNewScheduleGanttBars();
+            console.log('[newSchedGantt] ganttAllBars2 built:', ganttAllBars2.length, 'bars');
+            if (!ganttAllBars2.length) {
+                console.warn('[newSchedGantt] No bars built — check that "Rig" and "Est. Start Date" columns exist and have values.');
+            }
+            const chartDiv2 = document.getElementById('chartDiv2');
+            console.log('[newSchedGantt] chartDiv2 element found:', !!chartDiv2);
+            if (!ganttFiltersBuilt2) ganttBuildAllFilters2();
+            ganttApplyAndRender2();
+            console.log('[newSchedGantt] renderNewScheduleGantt() complete.');
         } catch (err) {
-            console.error("Error appending Note IDs:", err);
+            console.error('[newSchedGantt] ERROR in renderNewScheduleGantt:', err);
         }
     }
+
+    window.renderNewScheduleGantt = renderNewScheduleGantt;
+
+    document.addEventListener('DOMContentLoaded', function(){
+        // Run after the original Gantt setup so shared globals (ganttNotesMap,
+        // inProgressSites, etc.) and Chart.js/plugins are already available.
+        renderNewScheduleGantt();
+    });
+})();
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

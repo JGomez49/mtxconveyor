@@ -34,6 +34,7 @@ require('./database');
 
 console.log('Hola ' + process.env.USER);
 console.log('Hoy es: ' + Date());
+console.log('[BUILD MARKER] Schedule raw-passthrough + insert-then-delete-old + ScheduleETS retired — 2026-07-01');
 
 app.listen(app.get('port'), ()=>{
     console.log('Escuchando en el puerto ' + app.get('port'));

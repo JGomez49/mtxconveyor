@@ -17,13 +17,8 @@ const {
     uploadImage,
     renderUploadImage,
     removeImage,
-    renderUploadSchedule,
-    uploadSchedule,
     findSite,
-    getScheduleAndNotes,
     syncDueDates,
-    renderUploadScheduleETS,
-    uploadScheduleETS,
     renderUploadDPStats,
     uploadDPStats,
     renderUploadDPI,
@@ -31,10 +26,14 @@ const {
     renderUploadPadAC,
     savePadAC,
     getPadAC,
+    savePasonPlots,
+    getPasonPlots,
     renderBanner,
     saveBanner,
     deleteLogEntry,
     saveBatchDays,
+    renderUploadNewSchedule,
+    uploadNewSchedule,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
     uploadWellboreTrajectory,
@@ -100,45 +99,35 @@ router.get('/image/remove/:id', isAuthenticated, removeImage);
 
 
 
-//Get Upload form
-router.get('/notes/uploadSchedule', isAuthenticated, renderUploadSchedule);
-
-//Upload Schedule
-router.post('/notes/uploadSchedule', isAuthenticated, uploadSchedule);
-
-
-
-
 //Get note with site (for chart)
 router.get('/notes/findSite/:site', isAuthenticated, findSite);
-router.get('/notes/debugSchedule', isAuthenticated, async (req, res) => {
-  const Schedule = require('../models/Schedule');
-  const sample = await Schedule.findOne({}).lean();
-  res.json({ sample, primaryZone: sample?.primaryZone, tvd: sample?.tvd, target: sample?.target });
-});
-
-
-
-
-
-// GET /notes/getScheduleAndNotes
-router.get('/notes/getScheduleAndNotes', isAuthenticated, getScheduleAndNotes);
 
 router.get('/notes/syncDueDates', isAuthenticated, syncDueDates);
 
 
 
-
-
-
-
-
-
-//Get Upload ScheduleETS form
-router.get('/notes/uploadScheduleETS', isAuthenticated, renderUploadScheduleETS);
-
-//Upload Schedule
-router.post('/notes/uploadScheduleETS', isAuthenticated, uploadScheduleETS);
+// ── RETIRED: legacy Schedule / ScheduleETS upload paths ──────────────────
+// Both the old "Schedule" upload and the legacy "ScheduleETS" upload used
+// stale/fragile column mappings and have been fully replaced by New
+// Schedule (which stores every uploaded column verbatim and is immune to
+// the file format changing). Any stale bookmark/link now redirects to the
+// New Schedule upload page instead of running old, unmaintained handlers.
+router.get('/notes/uploadSchedule', isAuthenticated, (req, res) => {
+    req.flash('error_msg', 'This page has been retired — please use "New Schedule" instead.');
+    res.redirect('/notes/uploadNewSchedule');
+});
+router.post('/notes/uploadSchedule', isAuthenticated, (req, res) => {
+    req.flash('error_msg', 'This upload page has been retired and no longer accepts data — please use "New Schedule" instead.');
+    res.redirect('/notes/uploadNewSchedule');
+});
+router.get('/notes/uploadScheduleETS', isAuthenticated, (req, res) => {
+    req.flash('error_msg', 'This page has been retired — please use "New Schedule" instead.');
+    res.redirect('/notes/uploadNewSchedule');
+});
+router.post('/notes/uploadScheduleETS', isAuthenticated, (req, res) => {
+    req.flash('error_msg', 'This upload page has been retired and no longer accepts data — please use "New Schedule" instead.');
+    res.redirect('/notes/uploadNewSchedule');
+});
 
 
 
@@ -167,9 +156,14 @@ router.get('/notes/uploadPason', isAuthenticated, renderUploadPason);
 router.get('/notes/uploadPadAC', isAuthenticated, renderUploadPadAC);
 router.post('/notes/padAC/:noteId', isAuthenticated, savePadAC);
 router.get('/notes/padAC/:noteId',  isAuthenticated, getPadAC);
+router.post('/notes/pasonPlots/:noteId', isAuthenticated, savePasonPlots);
+router.get('/notes/pasonPlots/:noteId',  isAuthenticated, getPasonPlots);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
 router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
 router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
+
+router.get('/notes/uploadNewSchedule',  isAuthenticated, renderUploadNewSchedule);
+router.post('/notes/uploadNewSchedule', isAuthenticated, uploadNewSchedule);
 router.post('/notes/banner',            isAuthenticated, saveBanner);
 
 //Wellbore 3D Trajectory (per job/note)

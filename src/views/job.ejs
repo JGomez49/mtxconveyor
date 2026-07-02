@@ -135,6 +135,24 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 .risk-red   { background-color: #b22222 !important; color: #fff !important; }
 .risk-amber { background-color: #f0c640 !important; color: #000 !important; }
 .risk-green { background-color: #2e7d32 !important; color: #fff !important; }
+
+/* Pad Trajectory Summary / score cards: light-mode background + readable text */
+body.light-mode .wbt-root {
+    --wbt-bg: #ffffff;
+    --wbt-panel: #f8f9fa;
+    --wbt-panel2: #ffffff;
+    --wbt-border: #dee2e6;
+    --wbt-text: #212529;
+    --wbt-text-dim: #6c757d;
+    --wbt-text-bright: #111820;
+}
+
+/* Logs section: dark mode keeps its current background but forces white
+   text; light mode switches to a white background with black text. */
+#logsSection, #logsSection .card, #logsSection .card-body { color: #ffffff !important; }
+body.light-mode #logsSection { background-color: #ffffff !important; color: #000000 !important; }
+body.light-mode #logsSection .card { background-color: #ffffff !important; color: #000000 !important; border-color: #dee2e6 !important; }
+body.light-mode #logsSection .card-body { color: #000000 !important; }
 </style>
 
 <!-- ── Navbar ── -->
@@ -165,6 +183,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
     function applyTheme(light){
         document.body.classList.toggle('light-mode', light);
         if(sw) sw.checked = light;
+        window.dispatchEvent(new CustomEvent('mtxThemeChange', { detail: { light } }));
     }
     applyTheme(localStorage.getItem(LS_KEY) === 'light');
     if(sw) sw.addEventListener('change', function(){
@@ -177,6 +196,11 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
+<script>
+    (function() { const zp = window['chartjs-plugin-zoom']; if (zp && window.Chart) { Chart.register(zp); }})();
+</script>
 
 <script>
     document.title =  'ID<%= note.mtxJobId %> - <%= note.customerJobNumber %>';
@@ -427,6 +451,55 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
                     </div>
                 </div>
                 <!-- ================= END LEGS SUMMARY ================= -->
+
+                <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
+                <div class="accordion mb-2" id="accordionPason">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapsePason">
+                                📈 Drilling Mechanics
+                            </button>
+                        </h2>
+                        <div id="collapsePason" class="accordion-collapse collapse show">
+                            <div class="accordion-body p-2">
+
+                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <input type="file" id="pasonPlotsFileInput"
+                                           accept=".xlsx,.xls"
+                                           class="form-control form-control-sm" style="max-width:320px;">
+                                    <button id="pasonPlotsUploadBtn" class="btn btn-sm btn-success" disabled>
+                                        💾 Save to Job
+                                    </button>
+                                    <span id="pasonPlotsStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                </div>
+                                <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                    Upload the Excel file exported from "Export All Plots to Excel" on the Pason EDR upload page.
+                                </div>
+                                <% } %>
+
+                                <div id="pasonPlotsViewer" style="display:none;">
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <label style="font-size:12px;color:#c8d8e8;">Plot:</label>
+                                        <select id="pasonPlotSelect" class="form-select form-select-sm" style="max-width:320px;"></select>
+                                        <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
+                                        <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
+                                    </div>
+                                    <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
+                                        <canvas id="pasonChart" style="max-height:65vh;"></canvas>
+                                    </div>
+                                    <div id="pasonPlotsMeta" style="font-size:10px;color:#5a7080;margin-top:6px;"></div>
+                                </div>
+
+                                <div id="pasonPlotsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                    No Pason plots uploaded yet for this job.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END PASON EDR PLOTS ================= -->
 
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
                 <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
@@ -1844,7 +1917,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
         <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
 
 
-            <div style="background-color: darkslategray;">
+            <div id="logsSection" style="background-color: darkslategray;">
 
 
                 <h4 class="mt-4 p-4">Log</h4>
@@ -2045,7 +2118,7 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             if(!canvas) return;
 
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0e14);
+            scene.background = new THREE.Color(document.body.classList.contains('light-mode') ? 0xffffff : 0x0a0e14);
 
             const w = canvas.clientWidth, h = canvas.clientHeight;
             camera = new THREE.PerspectiveCamera(20, w/h, 0.1, 1000000);
@@ -2165,10 +2238,23 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z, 10);
 
+            // Fit the ENTIRE bounding box in view, regardless of how
+            // elongated it is in any direction. Standard technique: treat
+            // the box's bounding sphere (radius = half its diagonal, which
+            // always fully contains the box) and compute the distance
+            // needed so that sphere fits inside the camera's field of view
+            // (distance = radius / sin(halfFOV) — the standard perspective
+            // "fit sphere to frustum" relationship).
+            const sphereRadius = size.length() / 2;
+            const fovRad = camera.fov * (Math.PI / 180);
+            const margin = 0.7; // extra headroom so nothing touches the frustum edges
+            const distance = (sphereRadius / Math.sin(fovRad / 2)) * margin;
+
+            const dir = new THREE.Vector3(1, 0.5, 1).normalize();
             controls.target.copy(center);
-            camera.position.set(center.x + maxDim, center.y + maxDim*0.5, center.z + maxDim);
-            camera.near = maxDim/1000;
-            camera.far = maxDim*100;
+            camera.position.copy(center).addScaledVector(dir, distance);
+            camera.near = Math.max(distance / 1000, 0.01);
+            camera.far  = distance * 100;
             camera.updateProjectionMatrix();
             controls.update();
         }
@@ -3769,6 +3855,10 @@ body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
         }
 
         initScene();
+
+        window.addEventListener('mtxThemeChange', function(e){
+            if(scene) scene.background = new THREE.Color(e.detail.light ? 0xffffff : 0x0a0e14);
+        });
     })();
     </script>
     <!-- ================= END WELLBORE 3D TRAJECTORY SCRIPT ================= -->
@@ -4834,5 +4924,218 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 })();
 </script>
 <!-- ================= END LEGS SUMMARY SCRIPT ================= -->
+
+<!-- ================= PASON EDR PLOTS SCRIPT ================= -->
+<script type="application/json" id="pasonPlotsData"><%- JSON.stringify((typeof pasonPlots !== 'undefined' && pasonPlots) ? pasonPlots : null) %></script>
+<script>
+(function(){
+    const PASON_NOTE_ID = "<%- note._id %>";
+
+    // Same 7 plots / titles / units as uploadPason.ejs, so the viewer here
+    // matches the source page exactly. Colours also match: Avg=cyan,
+    // Max=green, Min=red.
+    const PLOT_REGISTRY = [
+        { id:'hl',   name:'Hook Load vs Measured Depth', xTitle:'Measured Depth (m)',      yTitle:'Hook Load (kDaN)', reversedY:false },
+        { id:'tq',   name:'Torque vs Measured Depth',    xTitle:'Measured Depth (m)',      yTitle:'Torque (kN·m)',    reversedY:false },
+        { id:'wob',  name:'WOB vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'WOB (kDaN)',       reversedY:false },
+        { id:'rop',  name:'ROP vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'ROP (m/h)',        reversedY:false },
+        { id:'mse',  name:'MSE vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'MSE (ksi)',        reversedY:false },
+        { id:'flow', name:'Flow vs Measured Depth',      xTitle:'Measured Depth (m)',      yTitle:'Flow (m³/min)',    reversedY:false },
+        { id:'td',   name:'Hole Depth vs Time (days)',   xTitle:'Time (days from start)',  yTitle:'Hole Depth (m)',   reversedY:true  },
+    ];
+    const SHEET_NAME_TO_ID = { 'hook load':'hl', 'torque':'tq', 'wob':'wob', 'rop':'rop', 'mse':'mse', 'flow':'flow', 'hole depth vs time':'td' };
+
+    let _plots = null;      // { hl: {xHeader, rows}, tq: {...}, ... }
+    let _chart = null;
+
+    const el = id => document.getElementById(id);
+
+    function setStatus(msg){ const s = el('pasonPlotsStatus'); if(s) s.textContent = msg; }
+
+    // ── Load existing data on page open ─────────────────────────────────
+    function loadFromEmbedded(){
+        const dataEl = el('pasonPlotsData');
+        if(!dataEl) return;
+        let doc;
+        try { doc = JSON.parse(dataEl.textContent); } catch(e){ return; }
+        if(!doc || !doc.plots || !Object.keys(doc.plots).length) return;
+        _plots = doc.plots;
+        showViewer();
+        const meta = el('pasonPlotsMeta');
+        if(meta){
+            const when = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '';
+            meta.textContent = `Uploaded ${when}` + (doc.user ? '' : '');
+        }
+    }
+
+    function populateDropdown(){
+        const sel = el('pasonPlotSelect');
+        if(!sel) return;
+        sel.innerHTML = '';
+        PLOT_REGISTRY.forEach(p => {
+            if(!_plots[p.id]) return; // only list plots that actually have data
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+        });
+        // Default: Hook Load vs Measured Depth if present, else first available
+        sel.value = _plots['hl'] ? 'hl' : (sel.options[0] ? sel.options[0].value : '');
+    }
+
+    function showViewer(){
+        populateDropdown();
+        const sel = el('pasonPlotSelect');
+        if(!sel || !sel.value){ return; } // nothing to show
+        el('pasonPlotsViewer').style.display = '';
+        el('pasonPlotsEmpty').style.display = 'none';
+        renderPasonChart(sel.value);
+    }
+
+    function renderPasonChart(plotId){
+        const plotDef = PLOT_REGISTRY.find(p => p.id === plotId);
+        const data = _plots && _plots[plotId];
+        const canvas = el('pasonChart');
+        if(!plotDef || !data || !canvas) return;
+
+        if(_chart){ try{ _chart.destroy(); }catch(e){} _chart = null; }
+
+        const isLight = document.body.classList.contains('light-mode');
+        const wrap = el('pasonChartWrap');
+        if(wrap) wrap.style.background = isLight ? '#ffffff' : '#1b1e21';
+        const textColor = isLight ? '#212529' : '#e9ecef';
+        const tickColor = isLight ? '#495057' : '#adb5bd';
+        const gridColor = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(173,181,189,0.2)';
+
+        const rows = data.rows || [];
+        const avgPts = [], maxPts = [], minPts = [];
+        rows.forEach(r => {
+            const x = r[0];
+            if(r[1] !== '' && r[1] !== null && r[1] !== undefined) avgPts.push({x, y:r[1]});
+            if(r[2] !== '' && r[2] !== null && r[2] !== undefined) maxPts.push({x, y:r[2]});
+            if(r[3] !== '' && r[3] !== null && r[3] !== undefined) minPts.push({x, y:r[3]});
+        });
+
+        const datasets = [];
+        if(minPts.length) datasets.push({ label:'Min', data:minPts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+        if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+        if(avgPts.length) datasets.push({ label:'Average', data:avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+
+        const ctx = canvas.getContext('2d');
+        _chart = new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display:true, labels:{ color:textColor } },
+                    tooltip: {
+                        mode:'nearest', intersect:false,
+                        callbacks: { label: (ctx) => {
+                            const y = ctx.parsed.y, x = ctx.parsed.x;
+                            const name = ctx.dataset.label || 'Series';
+                            const xf = Number.isFinite(x) ? x.toFixed(2) : '—';
+                            const yf = Number.isFinite(y) ? y.toFixed(2) : '—';
+                            return `${name}: ${yf} @ ${xf}`;
+                        }}
+                    },
+                    zoom: { pan:{enabled:true, mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }
+                },
+                scales: {
+                    x: { type:'linear', title:{display:true, text:plotDef.xTitle, color:textColor}, ticks:{color:tickColor}, grid:{color:gridColor} },
+                    y: { type:'linear', reverse: !!plotDef.reversedY, title:{display:true, text:plotDef.yTitle, color:textColor}, ticks:{color:tickColor}, grid:{color:gridColor} },
+                }
+            }
+        });
+    }
+
+    // ── Upload + parse xlsx (admin/leader/user only) ─────────────────────
+    const fileInput = el('pasonPlotsFileInput');
+    const uploadBtn = el('pasonPlotsUploadBtn');
+    let _parsedForUpload = null;
+
+    if(fileInput){
+        fileInput.addEventListener('change', function(e){
+            const file = e.target.files[0];
+            if(!file) return;
+            uploadBtn.disabled = true;
+            _parsedForUpload = null;
+            setStatus('Reading file…');
+            const reader = new FileReader();
+            reader.onload = function(ev){
+                try {
+                    const wb = XLSX.read(ev.target.result, { type:'array' });
+                    const plots = {};
+                    wb.SheetNames.forEach(sheetName => {
+                        const id = SHEET_NAME_TO_ID[sheetName.trim().toLowerCase()];
+                        if(!id) return; // unrecognised sheet — skip
+                        const ws = wb.Sheets[sheetName];
+                        const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+                        if(aoa.length < 2) return;
+                        const xHeader = aoa[0][0] || 'X';
+                        const rows = aoa.slice(1)
+                            .filter(r => r.length && r[0] !== '' && r[0] !== null && r[0] !== undefined)
+                            .map(r => [Number(r[0]), r[1]===''?'':Number(r[1]), r[2]===''?'':Number(r[2]), r[3]===''?'':Number(r[3])]);
+                        plots[id] = { xHeader, rows };
+                    });
+                    if(!Object.keys(plots).length){
+                        setStatus('⚠ No recognised plot sheets found in this file. Expected sheet names: Hook Load, Torque, WOB, ROP, MSE, Flow, Hole Depth vs Time.');
+                        return;
+                    }
+                    _parsedForUpload = plots;
+                    setStatus(`✅ Parsed ${Object.keys(plots).length} plot(s). Click Save to store.`);
+                    uploadBtn.disabled = false;
+                } catch(err){
+                    console.error(err);
+                    setStatus('❌ Parse error: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    if(uploadBtn){
+        uploadBtn.addEventListener('click', async function(){
+            if(!_parsedForUpload) return;
+            setStatus('Saving…');
+            uploadBtn.disabled = true;
+            try {
+                const res = await fetch('/notes/pasonPlots/' + PASON_NOTE_ID, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ noteId: PASON_NOTE_ID, plots: _parsedForUpload }),
+                });
+                const data = await res.json();
+                if(res.ok){
+                    setStatus(`✅ Saved ${data.plotCount} plot(s) to this job.`);
+                    _plots = _parsedForUpload;
+                    showViewer();
+                } else {
+                    setStatus('❌ Save failed: ' + (data.error || res.statusText));
+                    uploadBtn.disabled = false;
+                }
+            } catch(err){
+                setStatus('❌ Error: ' + err.message);
+                uploadBtn.disabled = false;
+            }
+        });
+    }
+
+    // ── Dropdown + zoom reset ─────────────────────────────────────────────
+    const selectEl = el('pasonPlotSelect');
+    if(selectEl) selectEl.addEventListener('change', () => renderPasonChart(selectEl.value));
+
+    const resetZoomBtn = el('pasonZoomResetBtn');
+    if(resetZoomBtn) resetZoomBtn.addEventListener('click', () => { if(_chart && _chart.resetZoom) _chart.resetZoom(); });
+
+    window.addEventListener('mtxThemeChange', function(){
+        const sel = el('pasonPlotSelect');
+        if(sel && sel.value) renderPasonChart(sel.value);
+    });
+
+    loadFromEmbedded();
+})();
+</script>
+<!-- ================= END PASON EDR PLOTS SCRIPT ================= -->
 
 <%- include ('partials/footer.ejs') %>
