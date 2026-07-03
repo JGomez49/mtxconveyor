@@ -355,7 +355,7 @@ table.qp-table tbody th:last-child { border-right: none; }
 
     sw.addEventListener('change', function(){
         localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
-        applyTheme(sw.checked);
+        location.reload();
     });
 })();
 </script>

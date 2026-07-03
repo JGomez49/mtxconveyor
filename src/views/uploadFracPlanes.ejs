@@ -44,6 +44,16 @@
       --font-ui:   'Barlow Condensed', sans-serif;
     }
 
+    /* Light theme: white background, black text, everything else (buttons,
+       accent colours) kept the same so meaning/status colours don't change. */
+    body.light-mode {
+      --bg:        #f0f4f8;
+      --surface:   #ffffff;
+      --border:    #c8d4de;
+      --text:      #000000;
+      --muted:     #495057;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -1121,6 +1131,7 @@ document.getElementById('applySF').addEventListener('click',()=>{
 ═══════════════════════════════════════════════════ */
 document.getElementById('themeToggle').addEventListener('change',e=>{
   darkTheme=e.target.checked;
+  document.body.classList.toggle('light-mode', !darkTheme);
   e.target.closest('.sw').querySelector('.sw-label').textContent=darkTheme?'DARK':'LIGHT';
   rebuild();
 });

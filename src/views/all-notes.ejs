@@ -403,7 +403,7 @@ body.light-mode .accordion-button::after {
     filter: invert(1) grayscale(1) brightness(0.3);
 }
 body.light-mode #execAccordionBtn {
-    background: #1a2535 !important;
+    background: #ffffff !important;
     border-left: 3px solid #e74c3c !important;
 }
 body.light-mode .accordion-button h4[style*="color: white"],
@@ -3609,7 +3609,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
     sw.addEventListener('change', function(){
         localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
-        applyTheme(sw.checked);
+        location.reload();
     });
 })();
 </script>

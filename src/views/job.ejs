@@ -153,6 +153,38 @@ body.light-mode .wbt-root {
 body.light-mode #logsSection { background-color: #ffffff !important; color: #000000 !important; }
 body.light-mode #logsSection .card { background-color: #ffffff !important; color: #000000 !important; border-color: #dee2e6 !important; }
 body.light-mode #logsSection .card-body { color: #000000 !important; }
+
+/* Job info textboxes (Task, MTX_ID, Priority, Created, Customer, etc.):
+   dark mode keeps current background but forces white text; light mode
+   switches to a white background with black text. */
+.form-control.bg-dark.text-white,
+.input-group-text.bg-dark.text-white { color: #ffffff !important; }
+body.light-mode .form-control.bg-dark.text-white,
+body.light-mode .input-group-text.bg-dark.text-white {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ced4da !important;
+}
+
+/* Log entry display textareas (existing log text, e.g. inside #logsSection
+   cards) — these use an inline color:gray instead of the text-white class,
+   so they need their own rule with !important to win over that inline style. */
+#logsSection textarea.form-control.bg-dark { color: #ffffff !important; }
+body.light-mode #logsSection textarea.form-control.bg-dark {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ced4da !important;
+}
+
+/* Status textbox: its text colour is set inline per-status (white/aqua/red/
+   orange/chartreuse/green) instead of using the text-white class, so it
+   needs its own !important override to win over those inline styles. */
+#statusTextbox { color: #ffffff !important; }
+body.light-mode #statusTextbox {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ced4da !important;
+}
 </style>
 
 <!-- ── Navbar ── -->
@@ -188,7 +220,7 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
     applyTheme(localStorage.getItem(LS_KEY) === 'light');
     if(sw) sw.addEventListener('change', function(){
         localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
-        applyTheme(sw.checked);
+        location.reload();
     });
 })();
 </script>
@@ -486,7 +518,6 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
                                         <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
                                         <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
                                     </div>
-                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                         <input type="file" id="pasonRawXYFileInput"
                                                accept=".xlsx,.xls"
@@ -505,7 +536,6 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
                                     <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
                                         Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
                                     </div>
-                                    <% } %>
                                     <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
                                         <canvas id="pasonChart" style="max-height:65vh;"></canvas>
                                     </div>
@@ -585,7 +615,13 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
                         width:220px; min-width:220px; flex-shrink:0;
                         background: rgba(17,24,32,0.97); border-right:1px solid var(--wbt-border);
                         padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:0; min-height:50vh;
-                        font-size:11px; color:var(--wbt-text);
+                        font-size:11px; color:#ffffff;
+                    }
+                    .wbt-sidebar h6, .wbt-sidebar label{ color:#ffffff !important; }
+                    body.light-mode .wbt-sidebar{ background:#ffffff !important; color:#000000 !important; }
+                    body.light-mode .wbt-sidebar h6, body.light-mode .wbt-sidebar label{ color:#000000 !important; }
+                    body.light-mode .wbt-sidebar select, body.light-mode .wbt-sidebar input[type=range]{
+                        background:#f1f3f5 !important; color:#000000 !important; border-color:#ced4da !important;
                     }
                     .wbt-sidebar h6{
                         margin:0 0 5px; font-size:10px; color:var(--wbt-text-dim);
@@ -1314,6 +1350,7 @@ body.light-mode #logsSection .card-body { color: #000000 !important; }
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Status</span>
                     <input 
+                        id="statusTextbox"
                         value="<%= note.status %>" 
                         readonly
                         type="text" 

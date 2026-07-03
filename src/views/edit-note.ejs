@@ -148,7 +148,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
         const sw = document.getElementById('anThemeSwitch');
         if(sw) sw.addEventListener('change', function(){
             localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
-            applyTheme(sw.checked);
+            location.reload();
         });
     });
 })();
