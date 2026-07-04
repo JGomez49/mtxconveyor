@@ -518,6 +518,21 @@ body.light-mode #statusTextbox {
                                         <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
                                         <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
                                     </div>
+                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
+                                        <label style="font-size:11px;color:#c8d8e8;">Well:</label>
+                                        <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
+                                        <label style="font-size:11px;color:#c8d8e8;">Pause per milestone (days):</label>
+                                        <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
+                                        <label style="font-size:11px;color:#c8d8e8;">Pause at Intermediate Casing (days):</label>
+                                        <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
+                                        <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
+                                        <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                    </div>
+                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;" id="pasonTDCalcHint">
+                                        Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
+                                    </div>
+                                    <% } %>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                         <input type="file" id="pasonRawXYFileInput"
                                                accept=".xlsx,.xls"
@@ -695,9 +710,17 @@ body.light-mode #statusTextbox {
                         box-shadow:0 0 8px var(--wbt-accent2);
                     }
                     .wbt-dash-grid{
-                        display:grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+                        display:grid; grid-template-columns: repeat(auto-fill, minmax(249px, 1fr));
                         gap:8px;
-                        max-width: calc(8 * 205px + 7 * 8px); /* cap at 8-card width */
+                        max-width: calc(8 * 249px + 7 * 8px); /* cap at 8-card width */
+                    }
+                    /* Dark theme (default): force pure white scorecard text.
+                       Scoped to :not(.light-mode) so light theme's own dark
+                       text (set via --wbt-text-bright etc.) is untouched. */
+                    body:not(.light-mode) .wbt-dash-card-title,
+                    body:not(.light-mode) .wbt-metric-label,
+                    body:not(.light-mode) .wbt-metric-value {
+                        color: #ffffff !important;
                     }
                     .wbt-dash-card{
                         background: var(--wbt-panel2); border:1px solid var(--wbt-border); border-radius:4px;
@@ -2160,6 +2183,7 @@ body.light-mode #statusTextbox {
 
     <% if (_wbt && _wbt.length) { %>
     <script type="application/json" id="wbtData"><%- JSON.stringify(_wbt) %></script>
+    <script type="application/json" id="pasonPlotsData"><%- JSON.stringify((typeof pasonPlots !== 'undefined' && pasonPlots) ? pasonPlots : null) %></script>
     <!-- ================= WELLBORE 3D TRAJECTORY SCRIPT (read-only) ================= -->
     <script>
     (function(){
@@ -2638,6 +2662,48 @@ body.light-mode #statusTextbox {
             return Math.min(Math.max((val - lo) / (hi - lo), 0), 1);
         }
 
+        // Average the ROP-vs-Measured-Depth "Average" curve's y-values
+        // across [mdStart, mdEnd]. Uses the same Drilling Mechanics data
+        // (#pasonPlotsData) already embedded on the page — re-parsed here
+        // since this script runs independently of the Drilling Mechanics
+        // script block. Returns null (no fabricated fallback) if the ROP
+        // plot hasn't been uploaded or has no points in that range.
+        function wbtAverageROPInRange(mdStart, mdEnd){
+            const dataEl = document.getElementById('pasonPlotsData');
+            if(!dataEl) return null;
+            let doc;
+            try { doc = JSON.parse(dataEl.textContent); } catch(e){ return null; }
+            const ropData = doc && doc.plots && doc.plots['rop'];
+            if(!ropData || !ropData.rows || !ropData.rows.length) return null;
+            const lo = Math.min(mdStart, mdEnd), hi = Math.max(mdStart, mdEnd);
+            let sum = 0, count = 0;
+            ropData.rows.forEach(r => {
+                const md = Number(r[0]), avg = r[1];
+                if(avg === '' || avg === null || avg === undefined) return;
+                if(md >= lo && md <= hi){ sum += Number(avg); count++; }
+            });
+            return count ? (sum / count) : null;
+        }
+
+        // Read the pause values used by the Calculated Time vs Depth chart
+        // (saved on the last "Calculate" click), or fall back to the same
+        // defaults shown in that chart's input fields if nothing has been
+        // calculated yet. This keeps the scorecard's Build/Lateral times
+        // consistent with whatever the chart is actually showing.
+        function wbtGetSavedPauseValues(){
+            const dataEl = document.getElementById('pasonPlotsData');
+            const defaults = { pauseDefault: 0.15, pauseIC: 1.0 };
+            if(!dataEl) return defaults;
+            let doc;
+            try { doc = JSON.parse(dataEl.textContent); } catch(e){ return defaults; }
+            const calc = doc && doc.plots && doc.plots['td'] && doc.plots['td'].calculated;
+            if(!calc) return defaults;
+            return {
+                pauseDefault: (typeof calc.pauseDefault === 'number') ? calc.pauseDefault : defaults.pauseDefault,
+                pauseIC:      (typeof calc.pauseIC === 'number')      ? calc.pauseIC      : defaults.pauseIC,
+            };
+        }
+
         function wbtComputeMetrics(wellName, survey){
             if(!survey || survey.length === 0) return null;
 
@@ -2754,6 +2820,35 @@ body.light-mode #statusTextbox {
             const effort = wbtComputeSteerEffort(survey);
             if(isFinite(effort) && totalMD > 0) steerIndex = effort / totalMD;
 
+            // Time to drill the Build Section (SurfaceCasing → IntermediateCasing)
+            // and the Lateral Section (IntermediateCasing → TD), using the same
+            // distance/ROP relationship as the Calculated Time vs Depth curve —
+            // hours = distance(m) / ROP(m/h) — with ROP averaged over each
+            // range from the ROP vs Measured Depth "Average" curve. Matches
+            // the chart's convention exactly by also including the same
+            // milestone pauses the chart adds: the pause after SurfaceCasing
+            // (before IC drilling starts) is counted in Build, and the pause
+            // after IntermediateCasing (before lateral drilling starts) is
+            // counted in Lateral. Returns null (shown as "—") if
+            // SurfaceCasing/IntermediateCasing weren't detected, or if no
+            // ROP data covers that MD range.
+            const pauses = wbtGetSavedPauseValues();
+            let buildTimeDays = null, lateralTimeDays = null;
+            if(sc && ic){
+                const buildRop = wbtAverageROPInRange(num(sc.md), num(ic.md));
+                if(buildRop && buildRop > 0){
+                    const drillTime = (num(ic.md) - num(sc.md)) / buildRop / 24;
+                    buildTimeDays = Math.round((drillTime + pauses.pauseDefault) * 100) / 100;
+                }
+            }
+            if(ic){
+                const lateralRop = wbtAverageROPInRange(num(ic.md), num(last.md));
+                if(lateralRop && lateralRop > 0){
+                    const drillTime = (num(last.md) - num(ic.md)) / lateralRop / 24;
+                    lateralTimeDays = Math.round((drillTime + pauses.pauseIC) * 100) / 100;
+                }
+            }
+
             return {
                 wellName,
                 sc      : sc ? {md: num(sc.md), tvd: num(sc.tvd)} : null,
@@ -2763,6 +2858,8 @@ body.light-mode #statusTextbox {
                 icpSource,
                 totalMD, totalTVD,
                 lateralLength,
+                buildTimeDays,
+                lateralTimeDays,
                 lateralDisplacement: ahd,
                 closureAz,
                 maxDlsBuild, maxDlsLateral,
@@ -2889,6 +2986,9 @@ body.light-mode #statusTextbox {
                 m('Max DLS – Lateral', wbtFmt(metrics.maxDlsLateral, 2));
                 m('Steering – Build',   wbtFmt(metrics.steerMdBuild, 1) + ' m  (' + (metrics.steerPctBuild !== null ? metrics.steerPctBuild.toFixed(1) : '-') + '%)');
                 m('Steering – Lateral', wbtFmt(metrics.steerMdLateral, 1) + ' m  (' + (metrics.steerPctLateral !== null ? metrics.steerPctLateral.toFixed(1) : '-') + '%)');
+                m('Time – Build (SC→IC)',       metrics.buildTimeDays   !== null ? metrics.buildTimeDays.toFixed(2)   + ' days' : '—');
+                m('Time – Lateral (IC→TD)',     metrics.lateralTimeDays !== null ? metrics.lateralTimeDays.toFixed(2) + ' days' : '—');
+                m('Total Time (Build + Lateral)', (metrics.buildTimeDays !== null && metrics.lateralTimeDays !== null) ? (Math.round((metrics.buildTimeDays + metrics.lateralTimeDays) * 100) / 100).toFixed(2) + ' days' : '—');
                 m('Closure Azimuth', wbtFmt(metrics.closureAz, 1) + '°');
                 m('Final Incl / Azim', wbtFmt(metrics.finalIncl,1) + '° / ' + wbtFmt(metrics.finalAzim,1) + '°');
                 m('DDI (Oag & Williams)', wbtFmt(metrics.ddi, 2));
@@ -2898,8 +2998,8 @@ body.light-mode #statusTextbox {
                 container.appendChild(card);
             });
 
-            // ── Limit to 8 cards by default, show toggle if more ────────
-            const MAX_CARDS = 8;
+            // ── Limit to 4 cards by default, show toggle if more ────────
+            const MAX_CARDS = 4;
             const allCards = Array.from(container.querySelectorAll('.wbt-dash-card'));
             if(allCards.length > MAX_CARDS){
                 allCards.slice(MAX_CARDS).forEach(function(card){ card.style.display = 'none'; });
@@ -2962,6 +3062,9 @@ body.light-mode #statusTextbox {
                     ['Steering Build (%)', m.steerPctBuild],
                     ['Steering Lateral (m)', m.steerMdLateral],
                     ['Steering Lateral (%)', m.steerPctLateral],
+                    ['Time - Build SC to IC (days)', m.buildTimeDays],
+                    ['Time - Lateral IC to TD (days)', m.lateralTimeDays],
+                    ['Total Time - Build + Lateral (days)', (m.buildTimeDays !== null && m.lateralTimeDays !== null) ? Math.round((m.buildTimeDays + m.lateralTimeDays) * 100) / 100 : null],
                     [''],
                     ['── TANGENT ──', ''],
                     ['Tangent MD Start (m)', m.tangent ? m.tangent.mdStart : 'NO'],
@@ -4983,7 +5086,6 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 <!-- ================= END LEGS SUMMARY SCRIPT ================= -->
 
 <!-- ================= PASON EDR PLOTS SCRIPT ================= -->
-<script type="application/json" id="pasonPlotsData"><%- JSON.stringify((typeof pasonPlots !== 'undefined' && pasonPlots) ? pasonPlots : null) %></script>
 <script>
 (function(){
     const PASON_NOTE_ID = "<%- note._id %>";
@@ -4992,13 +5094,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     // matches the source page exactly. Colours also match: Avg=cyan,
     // Max=green, Min=red.
     const PLOT_REGISTRY = [
+        { id:'td',   name:'Hole Depth vs Time (days)',   xTitle:'Time (days from start)',  yTitle:'Hole Depth (m)',   reversedY:true  },
         { id:'hl',   name:'Hook Load vs Measured Depth', xTitle:'Measured Depth (m)',      yTitle:'Hook Load (kDaN)', reversedY:false },
         { id:'tq',   name:'Torque vs Measured Depth',    xTitle:'Measured Depth (m)',      yTitle:'Torque (kN·m)',    reversedY:false },
         { id:'wob',  name:'WOB vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'WOB (kDaN)',       reversedY:false },
         { id:'rop',  name:'ROP vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'ROP (m/h)',        reversedY:false },
         { id:'mse',  name:'MSE vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'MSE (ksi)',        reversedY:false },
         { id:'flow', name:'Flow vs Measured Depth',      xTitle:'Measured Depth (m)',      yTitle:'Flow (m³/min)',    reversedY:false },
-        { id:'td',   name:'Hole Depth vs Time (days)',   xTitle:'Time (days from start)',  yTitle:'Hole Depth (m)',   reversedY:true  },
     ];
     const SHEET_NAME_TO_ID = { 'hook load':'hl', 'torque':'tq', 'wob':'wob', 'rop':'rop', 'mse':'mse', 'flow':'flow', 'hole depth vs time':'td' };
 
@@ -5037,7 +5139,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             sel.appendChild(opt);
         });
         // Default: Hook Load vs Measured Depth if present, else first available
-        sel.value = _plots['hl'] ? 'hl' : (sel.options[0] ? sel.options[0].value : '');
+        sel.value = _plots['td'] ? 'td' : (sel.options[0] ? sel.options[0].value : '');
     }
 
     function showViewer(){
@@ -5074,9 +5176,14 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         });
 
         const datasets = [];
-        if(minPts.length) datasets.push({ label:'Min', data:minPts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
-        if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
-        if(avgPts.length) datasets.push({ label:'Average', data:avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+        // For "Hole Depth vs Time (days)" specifically, only the Calculated
+        // Time vs Depth curve is shown — the raw Min/Max/Average lines from
+        // the EDR export aren't meaningful for a planned-trajectory view.
+        if(plotId !== 'td'){
+            if(minPts.length) datasets.push({ label:'Min', data:minPts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+            if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+            if(avgPts.length) datasets.push({ label:'Average', data:avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
+        }
 
         // Optional: imported raw rig X,Y data for this plot, shown as dots.
         const raw = data.raw;
@@ -5096,6 +5203,18 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             }
         } else if(dotSizeRow){
             dotSizeRow.style.display = 'none';
+        }
+
+        // Optional: calculated Time vs Depth curve (only meaningful for 'td' plot)
+        const calc = data.calculated;
+        const tdCalcRow = el('pasonTDCalcRow');
+        if(tdCalcRow) tdCalcRow.style.display = (plotId === 'td') ? '' : 'none';
+        if(plotId === 'td' && calc && calc.points && calc.points.length){
+            datasets.push({
+                label: 'Calculated Time vs Depth', data: calc.points.map(p => ({x:p[0], y:p[1]})),
+                showLine:true, pointRadius:0, borderWidth:2, borderDash:[6,3], fill:false, tension:0,
+                borderColor:'#b264ff', backgroundColor:'#b264ff',
+            });
         }
 
         const ctx = canvas.getContext('2d');
@@ -5304,6 +5423,200 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             await persistPlots('✅ Dot size saved.');
         });
     }
+
+    // ── Calculated Time vs Depth (uses planned trajectory + ROP average) ──
+    // Reuses the same well-grouping / leg-numbering / STK-detection
+    // conventions already established in the Legs Summary feature, applied
+    // client-side here since this script runs independently of that one.
+    function tdExtractWellAndLeg(wellName){
+        var wn = (wellName || '').trim();
+        var bm = wn.match(/^(\[\d+\])/);
+        var wellKey = bm ? bm[1] : wn;
+        var lm = wn.match(/_L(\d+)$/i);
+        var legNum = lm ? 'L' + lm[1].padStart(2,'0') : 'L01';
+        return { well: wellKey, legNum: legNum };
+    }
+
+    function getTrajectoryWellGroups(){
+        var dataEl = el('wbtData');
+        if(!dataEl) return { wells: {}, keys: [] };
+        var wbtArr;
+        try { wbtArr = JSON.parse(dataEl.textContent); } catch(e){ return { wells: {}, keys: [] }; }
+
+        var wells = {}; // wellKey -> array of { traj, legNum }
+        wbtArr.forEach(function(traj){
+            if(!traj.survey || !traj.survey.length) return;
+            var p = tdExtractWellAndLeg(traj.wellName || '');
+            if(!wells[p.well]) wells[p.well] = [];
+            wells[p.well].push({ traj: traj, legNum: p.legNum });
+        });
+        Object.keys(wells).forEach(function(k){
+            wells[k].sort(function(a,b){ return a.legNum.localeCompare(b.legNum); });
+        });
+        var keys = Object.keys(wells).sort();
+        return { wells: wells, keys: keys };
+    }
+
+    function populateTDWellDropdown(){
+        var sel = el('pasonTDWellSelect');
+        if(!sel) return;
+        var groups = getTrajectoryWellGroups();
+        sel.innerHTML = '';
+        if(!groups.keys.length){
+            var opt = document.createElement('option');
+            opt.value = ''; opt.textContent = 'No trajectory uploaded';
+            sel.appendChild(opt);
+            return;
+        }
+        groups.keys.forEach(function(k){
+            var opt = document.createElement('option');
+            opt.value = k; opt.textContent = k;
+            sel.appendChild(opt);
+        });
+        sel.value = groups.keys[0]; // first alphabetically, as requested
+    }
+
+    // Build per-leg milestone info: SurfaceCasing / IntermediateCasing (Leg1
+    // only) / STK tie-on (sidetracks only) / TD, matching the exact same
+    // comment-keyword detection used by the scorecards and Legs Summary.
+    function tdBuildLegInfo(legEntry){
+        var sv = legEntry.traj.survey;
+        var td = sv[sv.length - 1];
+
+        var scPt = null, icpPt = null, stkPt = null, stkComment = null;
+        sv.forEach(function(pt){
+            var cm = (pt.comments || '').trim();
+            if(!cm) return;
+            if(!scPt && /^SURFACECASING/i.test(cm.replace(/\s+/g,''))) scPt = pt;
+            if(!icpPt && /^(ICP|IntermediateCasing)/i.test(cm)) icpPt = pt;
+            if(/^STK/i.test(cm)){ stkPt = pt; stkComment = cm; } // last STK wins, matching Legs Summary
+        });
+
+        return {
+            legNum: legEntry.legNum,
+            wellName: legEntry.traj.wellName,
+            scMD: scPt ? Number(scPt.md) : null,
+            icpMD: icpPt ? Number(icpPt.md) : null,
+            stkMD: stkPt ? Number(stkPt.md) : null,
+            tdMD: Number(td.md),
+        };
+    }
+
+    // Average the ROP-vs-Measured-Depth "Average" curve's y-values across
+    // [mdStart, mdEnd]. Returns null (no fabricated fallback) if the ROP
+    // plot hasn't been uploaded or has no points in that range.
+    function averageROPInRange(mdStart, mdEnd){
+        var ropData = _plots && _plots['rop'];
+        if(!ropData || !ropData.rows || !ropData.rows.length) return null;
+        var lo = Math.min(mdStart, mdEnd), hi = Math.max(mdStart, mdEnd);
+        var sum = 0, count = 0;
+        ropData.rows.forEach(function(r){
+            var md = Number(r[0]), avg = r[1];
+            if(avg === '' || avg === null || avg === undefined) return;
+            if(md >= lo && md <= hi){ sum += Number(avg); count++; }
+        });
+        return count ? (sum / count) : null;
+    }
+
+    function calculateTimeVsDepth(wellKey, pauseDefault, pauseIC){
+        var groups = getTrajectoryWellGroups();
+        var legs = groups.wells[wellKey];
+        if(!legs || !legs.length) return { error: 'No trajectory found for well ' + wellKey + '.' };
+
+        var legInfos = legs.map(tdBuildLegInfo);
+        var points = [];
+        var t = 0; // cumulative time, days
+        points.push([0, 0]);
+
+        // ── Leg 1: surface → SurfaceCasing → IntermediateCasing → Leg1 TD ──
+        var leg1 = legInfos[0];
+        var prevMD = 0;
+        var milestones1 = [];
+        if(leg1.scMD !== null) milestones1.push({ md: leg1.scMD, pause: pauseDefault, label:'SurfaceCasing' });
+        if(leg1.icpMD !== null) milestones1.push({ md: leg1.icpMD, pause: pauseIC, label:'IntermediateCasing' });
+        milestones1.push({ md: leg1.tdMD, pause: pauseDefault, label:'Leg1 TD' });
+
+        for(var i=0; i<milestones1.length; i++){
+            var m = milestones1[i];
+            var rop = averageROPInRange(prevMD, m.md);
+            if(rop === null || rop <= 0){
+                return { error: 'No ROP Average data found between MD ' + prevMD.toFixed(0) + ' and ' + m.md.toFixed(0) + ' m — upload/verify the ROP vs Measured Depth plot first.' };
+            }
+            var distance = m.md - prevMD;
+            var hours = distance / rop;
+            var days = hours / 24;
+            t += days;
+            points.push([t, m.md]);       // arrival at milestone
+            t += m.pause;
+            points.push([t, m.md]);       // pause (flat)
+            prevMD = m.md;
+        }
+
+        // ── Subsequent legs: trip back to STK MD, pause, drill to leg TD ──
+        for(var li=1; li<legInfos.length; li++){
+            var leg = legInfos[li];
+            if(leg.stkMD === null){
+                return { error: 'No STK tie-on point found for ' + leg.wellName + ' — cannot determine where this sidetrack ties in.' };
+            }
+            // Trip back (depth-only jump, no drilling — takes pauseDefault)
+            t += pauseDefault;
+            points.push([t, leg.stkMD]);
+            // Pause at STK before drilling the new leg
+            t += pauseDefault;
+            points.push([t, leg.stkMD]);
+
+            // Drill STK MD → this leg's TD
+            var rop2 = averageROPInRange(leg.stkMD, leg.tdMD);
+            if(rop2 === null || rop2 <= 0){
+                return { error: 'No ROP Average data found between MD ' + leg.stkMD.toFixed(0) + ' and ' + leg.tdMD.toFixed(0) + ' m for ' + leg.wellName + '.' };
+            }
+            var distance2 = leg.tdMD - leg.stkMD;
+            var hours2 = distance2 / rop2;
+            var days2 = hours2 / 24;
+            t += days2;
+            points.push([t, leg.tdMD]);
+            t += pauseDefault;
+            points.push([t, leg.tdMD]);
+        }
+
+        return { points: points };
+    }
+
+    // Populate the well dropdown once, and wire the Calculate button.
+    populateTDWellDropdown();
+
+    const tdCalcBtn = el('pasonTDCalcBtn');
+    if(tdCalcBtn){
+        tdCalcBtn.addEventListener('click', async function(){
+            const wellSel = el('pasonTDWellSelect');
+            const wellKey = wellSel && wellSel.value;
+            const pauseDefault = Number(el('pasonTDPauseDefault').value) || 0.15;
+            const pauseIC = Number(el('pasonTDPauseIC').value) || 1.0;
+            const calcStatus = el('pasonTDCalcStatus');
+            if(!wellKey){ if(calcStatus) calcStatus.textContent = '⚠ No well selected.'; return; }
+
+            if(calcStatus) calcStatus.textContent = 'Calculating…';
+            tdCalcBtn.disabled = true;
+
+            const result = calculateTimeVsDepth(wellKey, pauseDefault, pauseIC);
+            if(result.error){
+                if(calcStatus) calcStatus.textContent = '❌ ' + result.error;
+                tdCalcBtn.disabled = false;
+                return;
+            }
+
+            if(!_plots['td']) _plots['td'] = { xHeader:'Time_days', rows: [] };
+            _plots['td'].calculated = { points: result.points, wellKey: wellKey, pauseDefault: pauseDefault, pauseIC: pauseIC };
+
+            const ok = await persistPlots('✅ Calculated Time vs Depth for ' + wellKey + ' and saved.');
+            tdCalcBtn.disabled = false;
+            if(ok){
+                if(calcStatus) calcStatus.textContent = '✅ Saved (' + result.points.length + ' points).';
+                renderPasonChart('td');
+            }
+        });
+    }
+
 
     // ── Dropdown + zoom reset ─────────────────────────────────────────────
     const selectEl = el('pasonPlotSelect');
