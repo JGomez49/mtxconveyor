@@ -1927,6 +1927,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 <div class="gantt-sidebar" id="ganttSidebar2">
                     <h6>VP</h6>
                     <div class="gantt-filter-group" id="gfVP2"></div>
+                    <h6>Year</h6>
+                    <div class="gantt-filter-group" id="gfYear2"></div>
                     <h6>Exploration Mgr</h6>
                     <div class="gantt-filter-group" id="gfExplMgr2"></div>
                     <h6>Group</h6>
@@ -2288,6 +2290,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 type:    String(get(row,'type') || ''),
                 duration: Number(get(row,'duration')) || 0,
                 vp:      String(get(row,'vp') || ''),
+                year:    start ? String(start.getFullYear()) : '',
                 explMgr: String(get(row,'explMgr') || ''),
                 start,
                 site,
@@ -2330,6 +2333,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 newStart.setDate(newStart.getDate() - batchDays);
                 newBars.push(Object.assign({}, origBar, {
                     start: newStart,
+                    year: String(newStart.getFullYear()),
                     duration: batchDays,
                     isBatchDaysBar: true,
                 }));
@@ -2388,6 +2392,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const defaultGrp = v => GANTT_DEFAULTS.gfGroup.includes(v);
 
         ganttBuildFilterGroup2('gfVP2',        'vp',        uniqWithBlank('vp'),        defaultVP);
+        ganttBuildFilterGroup2('gfYear2',      'year',      uniqWithBlank('year'),      defaultAll);
         ganttBuildFilterGroup2('gfExplMgr2',   'explMgr',   uniqWithBlank('explMgr'),   defaultAll);
         ganttBuildFilterGroup2('gfGroup2',     'group',     uniqWithBlank('group'),     defaultGrp);
         ganttBuildFilterGroup2('gfType2',      'type',      uniqWithBlank('type'),      defaultAll);
@@ -2418,6 +2423,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
     function ganttApplyAndRender2(){
         const fVP        = ganttGetChecked2('vp');
+        const fYear      = ganttGetChecked2('year');
         const fExplMgr   = ganttGetChecked2('explMgr');
         const fGroup     = ganttGetChecked2('group');
         const fType      = ganttGetChecked2('type');
@@ -2431,6 +2437,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const blanked = f => v => !v || String(v).trim() === '' ? 'Blank' : v;
         const filtered = ganttAllBars2.filter(b =>
             fVP.includes(blanked()(b.vp)) &&
+            fYear.includes(blanked()(b.year)) &&
             fExplMgr.includes(blanked()(b.explMgr)) &&
             fGroup.includes(blanked()(b.group)) &&
             fType.includes(blanked()(b.type)) &&

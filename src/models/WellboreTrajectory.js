@@ -70,6 +70,11 @@ const WellboreTrajectorySchema = new Schema(
     noteId:       { type: Schema.Types.ObjectId, ref: "NoteConveyor", required: true },
     wellName:     { type: String, required: true },
     source:       { type: String, default: "" },
+    // Explicit subject/offset tag chosen at upload time (via the toggle next
+    // to the folder picker). Empty string means "not tagged" — legacy data
+    // uploaded before this field existed falls back to the [NN]..._LNN name
+    // pattern (see wbtIsSubjectWell helpers) to infer its category.
+    wellCategory: { type: String, enum: ['subject', 'offset', ''], default: '' },
     pad:          { type: String, default: "" },
     colorHex:     { type: String, default: "" },
     surveyCount:  { type: Number, default: 0 },

@@ -518,17 +518,22 @@ body.light-mode #statusTextbox {
                                         <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
                                         <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
                                     </div>
-                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
                                         <label style="font-size:11px;color:#c8d8e8;">Well:</label>
                                         <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
+                                        <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                         <label style="font-size:11px;color:#c8d8e8;">Pause per milestone (days):</label>
                                         <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
                                         <label style="font-size:11px;color:#c8d8e8;">Pause at Intermediate Casing (days):</label>
                                         <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
                                         <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
                                         <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                        <% } %>
                                     </div>
+                                    <div id="pasonTDPreviewNote" style="display:none;font-size:10px;color:#b264ff;margin-bottom:6px;">
+                                        ⓘ This well hasn't been saved yet — showing a live preview (default pauses: 0.15 days, 1.0 day at Intermediate Casing). Not stored.
+                                    </div>
+                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                     <div style="font-size:10px;color:#aaa;margin-bottom:8px;" id="pasonTDCalcHint">
                                         Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
                                     </div>
@@ -2467,8 +2472,19 @@ body.light-mode #statusTextbox {
             applyWbtVisibility();
 
             // Dashboard + accordion + Excel export (job.ejs is read-only: data comes from WELLBORES)
+            // A well is "subject" if explicitly tagged that way at upload
+            // time (wellCategory), or — for legacy data uploaded before that
+            // field existed — if its name follows the [NN]..._LNN convention.
+            // Explicitly tagged "offset" always excludes it, regardless of name.
+            function wbtIsSubjectWell(well){
+                const wn = (well.wellName || '').trim();
+                if(well.wellCategory === 'subject') return true;
+                if(well.wellCategory === 'offset') return false;
+                return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+            }
+
             const wellsForDashboard = WELLBORES
-                .filter(well => !/^offset\b/i.test((well.wellName || '').trim()))
+                .filter(wbtIsSubjectWell)
                 .map((well, idx) => ({
                     name: well.wellName,
                     color: well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length],
@@ -5205,13 +5221,36 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             dotSizeRow.style.display = 'none';
         }
 
-        // Optional: calculated Time vs Depth curve (only meaningful for 'td' plot)
-        const calc = data.calculated;
+        // Optional: calculated Time vs Depth curve (only meaningful for 'td' plot).
+        // Reads a saved per-well curve if one exists; otherwise auto-computes
+        // an ephemeral, view-only preview (using default pause values, never
+        // saved to MongoDB) so anyone — including viewer — can explore any
+        // well's planned Time vs Depth just by selecting it.
+        const tdWellSel = el('pasonTDWellSelect');
+        const selectedWellKey = tdWellSel && tdWellSel.value;
         const tdCalcRow = el('pasonTDCalcRow');
         if(tdCalcRow) tdCalcRow.style.display = (plotId === 'td') ? '' : 'none';
+
+        let calc = null, isPreview = false;
+        if(plotId === 'td' && selectedWellKey){
+            const savedByWell = data.calculatedByWell && data.calculatedByWell[selectedWellKey];
+            if(savedByWell){
+                calc = savedByWell;
+            } else if(typeof calculateTimeVsDepth === 'function'){
+                const previewResult = calculateTimeVsDepth(selectedWellKey, 0.15, 1.0);
+                if(!previewResult.error){
+                    calc = { points: previewResult.points };
+                    isPreview = true;
+                }
+            }
+        }
+        const tdPreviewNote = el('pasonTDPreviewNote');
+        if(tdPreviewNote) tdPreviewNote.style.display = (plotId === 'td' && isPreview) ? '' : 'none';
+
         if(plotId === 'td' && calc && calc.points && calc.points.length){
             datasets.push({
-                label: 'Calculated Time vs Depth', data: calc.points.map(p => ({x:p[0], y:p[1]})),
+                label: isPreview ? 'Calculated Time vs Depth (preview, unsaved)' : 'Calculated Time vs Depth',
+                data: calc.points.map(p => ({x:p[0], y:p[1]})),
                 showLine:true, pointRadius:0, borderWidth:2, borderDash:[6,3], fill:false, tension:0,
                 borderColor:'#b264ff', backgroundColor:'#b264ff',
             });
@@ -5437,6 +5476,16 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         return { well: wellKey, legNum: legNum };
     }
 
+    // Same logic as wbtIsSubjectWell in the 3D viewer script (duplicated here
+    // since this script block runs independently): explicit wellCategory tag
+    // takes priority; untagged legacy wells fall back to the name pattern.
+    function tdIsSubjectWell(well){
+        var wn = (well.wellName || '').trim();
+        if(well.wellCategory === 'subject') return true;
+        if(well.wellCategory === 'offset') return false;
+        return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+    }
+
     function getTrajectoryWellGroups(){
         var dataEl = el('wbtData');
         if(!dataEl) return { wells: {}, keys: [] };
@@ -5446,6 +5495,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         var wells = {}; // wellKey -> array of { traj, legNum }
         wbtArr.forEach(function(traj){
             if(!traj.survey || !traj.survey.length) return;
+            if(!tdIsSubjectWell(traj)) return;
             var p = tdExtractWellAndLeg(traj.wellName || '');
             if(!wells[p.well]) wells[p.well] = [];
             wells[p.well].push({ traj: traj, legNum: p.legNum });
@@ -5473,7 +5523,23 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             opt.value = k; opt.textContent = k;
             sel.appendChild(opt);
         });
-        sel.value = groups.keys[0]; // first alphabetically, as requested
+
+        // Prefer a well that already has a saved Calculated Time vs Depth
+        // curve, so the user sees what was saved rather than an arbitrary
+        // well. Falls back to alphabetically first (which will show an
+        // ephemeral preview) if no well has been saved yet.
+        var savedWellKey = null;
+        var dataEl = el('pasonPlotsData');
+        if(dataEl){
+            try {
+                var doc = JSON.parse(dataEl.textContent);
+                var byWell = doc && doc.plots && doc.plots['td'] && doc.plots['td'].calculatedByWell;
+                if(byWell){
+                    savedWellKey = groups.keys.find(function(k){ return !!byWell[k]; }) || null;
+                }
+            } catch(e){}
+        }
+        sel.value = savedWellKey || groups.keys[0];
     }
 
     // Build per-leg milestone info: SurfaceCasing / IntermediateCasing (Leg1
@@ -5584,6 +5650,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 
     // Populate the well dropdown once, and wire the Calculate button.
     populateTDWellDropdown();
+    const tdWellSelectEl = el('pasonTDWellSelect');
+    if(tdWellSelectEl){
+        tdWellSelectEl.addEventListener('change', function(){
+            const sel = el('pasonPlotSelect');
+            if(sel && sel.value === 'td') renderPasonChart('td');
+        });
+    }
 
     const tdCalcBtn = el('pasonTDCalcBtn');
     if(tdCalcBtn){
@@ -5606,7 +5679,8 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             }
 
             if(!_plots['td']) _plots['td'] = { xHeader:'Time_days', rows: [] };
-            _plots['td'].calculated = { points: result.points, wellKey: wellKey, pauseDefault: pauseDefault, pauseIC: pauseIC };
+            if(!_plots['td'].calculatedByWell) _plots['td'].calculatedByWell = {};
+            _plots['td'].calculatedByWell[wellKey] = { points: result.points, pauseDefault: pauseDefault, pauseIC: pauseIC };
 
             const ok = await persistPlots('✅ Calculated Time vs Depth for ' + wellKey + ' and saved.');
             tdCalcBtn.disabled = false;

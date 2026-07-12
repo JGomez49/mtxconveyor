@@ -657,6 +657,15 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                 <label>Trajectory Folder (.csv files)</label>
                                 <input type="file" id="wbtFolderInput" accept=".csv" webkitdirectory directory multiple>
                             </div>
+                            <div class="wbt-field" style="flex:0 0 auto; min-width:200px;">
+                                <label>Well Category</label>
+                                <div class="btn-group btn-group-sm d-flex" role="group" aria-label="Well category">
+                                    <input type="radio" class="btn-check" name="wbtWellCategory" id="wbtCatSubject" value="subject" checked>
+                                    <label class="btn btn-outline-info" for="wbtCatSubject">Subject Wells</label>
+                                    <input type="radio" class="btn-check" name="wbtWellCategory" id="wbtCatOffset" value="offset">
+                                    <label class="btn btn-outline-secondary" for="wbtCatOffset">Offset Wells</label>
+                                </div>
+                            </div>
                             <div class="wbt-field">
                                 <label>Pad Name (optional)</label>
                                 <input type="text" id="wbtPadName" placeholder="e.g. 13-28-075-06W4 Pad T" value="<%= note.wells || '' %>">
@@ -666,7 +675,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                 <button type="button" class="wbt-btn wbt-btn-save" id="wbtSaveBtn" disabled>Save to Database</button>
                             </div>
                         </div>
-                        <div class="wbt-status" id="wbtStatus">Select a folder to preview wellbore trajectories.</div>
+                        <div class="wbt-status" id="wbtStatus">Select a folder (choose Subject or Offset above) to preview wellbore trajectories.</div>
                     </div>
 
                     <!-- 3D viewer -->
@@ -2130,14 +2139,15 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             status.textContent = 'Saving to database...';
 
             try{
+                const selectedCategory = (document.querySelector('input[name="wbtWellCategory"]:checked') || {}).value || 'subject';
                 const res = await fetch('/notes/wellboreTrajectory/upload/' + NOTE_ID, {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: docs })
+                    body: JSON.stringify({ data: docs, wellCategory: selectedCategory })
                 });
                 const result = await res.json();
                 if(res.ok){
-                    status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) to database.`;
+                    status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) as ${selectedCategory === 'offset' ? 'Offset' : 'Subject'} Wells.`;
                     refreshSavedList();
                     wbtFPLoadSaved(); // refresh FP selector with new trajectoryIds
                 } else {

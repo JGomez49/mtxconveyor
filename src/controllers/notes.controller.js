@@ -916,7 +916,7 @@ module.exports = notesCrtl;
 notesCrtl.uploadWellboreTrajectory = async (req, res) => {
   try{
     const noteId = req.params.id;
-    const { data } = req.body;
+    const { data, wellCategory } = req.body;
 
     if(!noteId){
       return res.status(400).json({ error: "Missing note id" });
@@ -930,12 +930,18 @@ notesCrtl.uploadWellboreTrajectory = async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
+    // wellCategory comes from the "Subject Wells / Offset Wells" toggle next
+    // to the folder picker — applies to the whole batch being uploaded,
+    // unless an individual well object explicitly overrides it.
+    const batchCategory = (wellCategory === 'subject' || wellCategory === 'offset') ? wellCategory : '';
+
     const docs = data.map(well => ({
       noteId: noteId,
       wellName: well.wellName || "",
       source: well.source || "",
       pad: well.pad || "",
       colorHex: well.colorHex || "",
+      wellCategory: (well.wellCategory === 'subject' || well.wellCategory === 'offset') ? well.wellCategory : batchCategory,
       surveyCount: well.surveyCount || (well.survey ? well.survey.length : 0),
       survey: well.survey || [],
       user: req.user ? req.user._id : null,
