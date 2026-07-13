@@ -10,6 +10,8 @@ const ImageMirelleDog = require('../models/ImageMirelleDog');
 const NewSchedule = require("../models/NewSchedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
+const TDModel = require("../models/TDModel");
+const TDModelCore = require("../public/js/tdModel.js");
 const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
 const SiteConfig    = require("../models/SiteConfig");
@@ -336,7 +338,8 @@ notesCrtl.renderJob = async (req,res)=>{
     let log = await Log.find({noteid}).sort({createdAt: 'desc'});
     let wellboreTrajectories = await WellboreTrajectory.find({noteId: noteid});
     let pasonPlots = await PasonPlots.findOne({noteId: noteid}).lean();
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots})
+    let tdModel = await TDModel.findOne({noteId: noteid}).lean();
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel})
 }
 
 
@@ -485,9 +488,10 @@ notesCrtl.findSite = async (req, res) => {
     // Fetch wellbore trajectories for this note
     const wellboreTrajectories = await WellboreTrajectory.find({noteId: project._id});
     const pasonPlots = await PasonPlots.findOne({noteId: project._id}).lean();
+    const tdModel = await TDModel.findOne({noteId: project._id}).lean();
 
     // Render job page with the single note
-    res.render("job.ejs", { note: project, user, log, wellboreTrajectories, pasonPlots });
+    res.render("job.ejs", { note: project, user, log, wellboreTrajectories, pasonPlots, tdModel });
 
   } catch (err) {
     console.error("Error in findSite:", err);
@@ -807,6 +811,189 @@ notesCrtl.getPasonPlots = async (req, res) => {
     const doc = await PasonPlots.findOne({ noteId: req.params.noteId }).lean();
     res.json(doc || null);
   } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── Torque & Drag Modeler: connect uploadTorqueAndDrag.ejs to a job ──────
+// Looks up a job by its MTX Job ID and returns its subject-well/leg
+// trajectories (survey only — md/incl/azim, matching the modeler's survey
+// table format) so the user can pick a well/leg without leaving the tool.
+// Same subject-well rule used everywhere else: explicit wellCategory tag
+// first, falling back to the [NN]..._LNN name pattern for legacy data.
+notesCrtl.findJobByMtxId = async (req, res) => {
+  try {
+    const mtxJobId = (req.params.mtxJobId || '').trim();
+    if(!mtxJobId) return res.status(400).json({ error: 'Missing MTX Job ID' });
+
+    const allMatches = await Note.find({ mtxJobId }).select('_id title').lean();
+    if(!allMatches.length) return res.status(404).json({ error: 'No job found with MTX ID ' + mtxJobId });
+    if(allMatches.length > 1) {
+      console.warn(`⚠ findJobByMtxId: MTX ID "${mtxJobId}" matches ${allMatches.length} jobs (mtxJobId is not unique): `,
+        allMatches.map(n => `${n._id} (${n.title})`).join(', '));
+    }
+    const note = allMatches[0];
+    console.log(`findJobByMtxId: MTX ID "${mtxJobId}" -> noteId ${note._id} ("${note.title}")`);
+
+    const trajectories = await WellboreTrajectory.find({ noteId: note._id }).lean();
+
+    const isSubjectWell = (well) => {
+      const wn = (well.wellName || '').trim();
+      if(well.wellCategory === 'subject') return true;
+      if(well.wellCategory === 'offset') return false;
+      return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+    };
+
+    const subjectWells = trajectories
+      .filter(isSubjectWell)
+      .filter(t => t.survey && t.survey.length)
+      .map(t => ({
+        wellKey: t.wellName,
+        survey: t.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim })),
+      }));
+
+    res.json({
+      noteId: note._id,
+      title: note.title,
+      mtxJobId,
+      duplicateWarning: allMatches.length > 1
+        ? `Warning: ${allMatches.length} jobs share MTX ID "${mtxJobId}" — resolved to "${note.title}" (${note._id}). If this isn't the job you expect, its mtxJobId needs to be made unique.`
+        : null,
+      subjectWells,
+    });
+  } catch(err) {
+    console.error('findJobByMtxId error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.getTDModel = async (req, res) => {
+  try {
+    const doc = await TDModel.findOne({ noteId: req.params.noteId }).lean();
+    if(!doc) return res.json(null);
+    // Backward-compat: older documents (before the per-well migration) only
+    // have the flat wellKey/casings/bha/params/results fields. Synthesize a
+    // resultsByWell entry from them so callers can rely on resultsByWell alone.
+    if((!doc.resultsByWell || !Object.keys(doc.resultsByWell).length) && doc.wellKey && doc.results){
+      doc.resultsByWell = { [doc.wellKey]: {
+        casings: doc.casings, bha: doc.bha, params: doc.params, results: doc.results,
+        calculatedAt: doc.calculatedAt, calculatedByName: null, calculatedByUserId: doc.user,
+      }};
+    }
+    res.json(doc);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.saveTDModel = async (req, res) => {
+  try {
+    const { noteId, wellKey, casings, bha, params, results } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+
+    const hasResults = !!(results && results.mds && results.mds.length);
+    console.log(`saveTDModel: noteId=${noteId}, wellKey="${wellKey}", casings=${(casings||[]).length}, bha=${(bha||[]).length}, results=${hasResults ? results.mds.length + ' MD points' : 'NONE (results was null/empty — the model likely was not successfully run before saving)'}`);
+
+    // Fetch-modify-save (rather than dot-notation $set) so we never risk a
+    // MongoDB key-path issue with well names containing brackets/spaces,
+    // and so other wells' saved runs are never touched.
+    let doc = await TDModel.findOne({ noteId });
+    if(!doc) doc = new TDModel({ noteId, resultsByWell: {} });
+    const resultsByWell = doc.resultsByWell ? Object.assign({}, doc.resultsByWell) : {};
+    resultsByWell[wellKey] = {
+      casings: casings || [],
+      bha: bha || [],
+      params: params || {},
+      results: results || null,
+      calculatedAt: new Date(),
+      calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
+      calculatedByUserId: req.user ? req.user._id : null,
+    };
+    doc.resultsByWell = resultsByWell;
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    res.json({ success: true, savedResults: hasResults, wellKey, calculatedAt: resultsByWell[wellKey].calculatedAt });
+  } catch(err) {
+    console.error('saveTDModel error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Recalculates the T&D model for a specific well using the shared
+// soft-string calculation module (src/public/js/tdModel.js) — the SAME
+// module the browser uses, so results are guaranteed identical to running
+// it manually in the modeler. Pulls that well's survey from
+// WellboreTrajectory, keeps whatever casings/bha/params are passed in
+// (typically "whatever is currently loaded" from job.ejs), computes fresh
+// results, and auto-saves them (with who/when) before returning.
+notesCrtl.recalculateTDModel = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { wellKey, casings, bha, params } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+    if(!casings || !bha || !params) return res.status(400).json({ error: 'Missing casings/bha/params' });
+
+    const traj = await WellboreTrajectory.findOne({ noteId, wellName: wellKey }).lean();
+    if(!traj || !traj.survey || !traj.survey.length){
+      return res.status(404).json({ error: 'No trajectory survey found for well ' + wellKey + ' on this job.' });
+    }
+
+    let surv = traj.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim }))
+      .filter(r => !isNaN(r.md) && r.md >= 0)
+      .sort((a,b) => a.md - b.md);
+    if(surv.length < 2) return res.status(400).json({ error: 'Well ' + wellKey + ' has fewer than 2 survey stations — cannot compute.' });
+
+    // Extend survey to TD if needed, exactly matching runModel()'s behaviour.
+    if(surv[surv.length-1].md < params.td){
+      const last = surv[surv.length-1];
+      surv = surv.concat([{ md: params.td, inc: last.inc, az: last.az }]);
+    }
+
+    const res_ = TDModelCore.computeModel(surv, casings, bha, params);
+    const traj3d = TDModelCore.minCurvature(surv);
+    const hlRes = TDModelCore.computeHookload(surv, casings, bha, params);
+
+    // Metric display units (matching runModel()'s metric branch — this
+    // endpoint always computes in metric, same as the CNRL defaults).
+    const mds = res_.map(r => r.md);
+    const results = {
+      mds,
+      etTI: res_.map(r => r.etTripIn), etTO: res_.map(r => r.etTripOut),
+      etROB: res_.map(r => r.etRotOB), etSLD: res_.map(r => r.etSlide), etROff: res_.map(r => r.etRotOff),
+      tqROB: res_.map(r => r.torqRotOB), tqROff: res_.map(r => r.torqRotOff),
+      sfROB: res_.map(r => r.sfRotOB), sfSLD: res_.map(r => r.sfSlide), sfROff: res_.map(r => r.sfRotOff),
+      sfTO: res_.map(r => r.sfTripOut), sfTI: res_.map(r => r.sfTripIn),
+      incArr: res_.map(r => r.inc), dlsArr: res_.map(r => r.dls),
+      torqLimDisp: params.torqLim, depU: 'm', forU: 'kN', tqU: 'N.m',
+      hlMDs: hlRes.map(r => r.md), hlTO: hlRes.map(r => r.hl_tripOut),
+      hlROB: hlRes.map(r => r.hl_rotOB), hlSLD: hlRes.map(r => r.hl_slide),
+    };
+
+    let doc = await TDModel.findOne({ noteId });
+    if(!doc) doc = new TDModel({ noteId, resultsByWell: {} });
+    const resultsByWell = doc.resultsByWell ? Object.assign({}, doc.resultsByWell) : {};
+    const calculatedAt = new Date();
+    resultsByWell[wellKey] = {
+      casings, bha, params, results,
+      calculatedAt,
+      calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
+      calculatedByUserId: req.user ? req.user._id : null,
+    };
+    doc.resultsByWell = resultsByWell;
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    console.log(`recalculateTDModel: noteId=${noteId}, wellKey="${wellKey}" -> ${mds.length} MD points, saved by ${req.user ? req.user.name : 'unknown'} at ${calculatedAt.toISOString()}`);
+
+    res.json({
+      success: true, wellKey, results, calculatedAt,
+      calculatedByName: resultsByWell[wellKey].calculatedByName,
+    });
+  } catch(err) {
+    console.error('recalculateTDModel error:', err);
     res.status(500).json({ error: err.message });
   }
 };

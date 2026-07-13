@@ -9,6 +9,7 @@
   <title>Torque and Drag Modeler v5</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+  <script src="/js/tdModel.js"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
     rel="stylesheet" />
@@ -31,6 +32,18 @@
       --mono: 'Share Tech Mono', monospace;
       --sans: 'Barlow', sans-serif;
       --cond: 'Barlow Condensed', sans-serif;
+    }
+
+    /* Light theme: white background, black text; accent/status colours
+       kept the same since they carry meaning (they read fine on white too). */
+    body.light-mode {
+      --bg: #f0f4f8;
+      --panel: #ffffff;
+      --panel2: #ffffff;
+      --border: #c8d4de;
+      --text: #000000;
+      --text-dim: #495057;
+      --text-bright: #000000;
     }
 
     *,
@@ -920,6 +933,10 @@
     </div>
     <div class="hdr-right">
       <div class="unit-toggle">
+        <button class="unit-btn active" id="btnThemeDark" onclick="setTheme('dark')">DARK</button>
+        <button class="unit-btn" id="btnThemeLight" onclick="setTheme('light')">LIGHT</button>
+      </div>
+      <div class="unit-toggle">
         <button class="unit-btn" id="btnImp" onclick="setUnits('imperial')">IMPERIAL</button>
         <button class="unit-btn active" id="btnMet" onclick="setUnits('metric')">METRIC</button>
       </div>
@@ -931,6 +948,32 @@
 
     <!-- ===== LEFT INPUT PANEL ===== -->
     <div class="left">
+
+      <!-- 00 JOB CONNECTION -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">00</span><span class="sec-ttl">Job Connection</span><span
+            class="sec-tog open">v</span>
+        </div>
+        <div class="sec-body open">
+          <div class="fg">
+            <div><label>Job ID (MTX ID)</label><input type="text" id="tdMtxJobId" placeholder="e.g. 1953" /></div>
+            <div style="display:flex; align-items:flex-end;">
+              <button class="btn btn-g" style="width:100%;" onclick="loadJobByMtxId()">Load Job</button>
+            </div>
+          </div>
+          <div class="fg one" id="tdWellRow" style="display:none;">
+            <div>
+              <label>Well / Leg</label>
+              <select id="tdWellSelect" onchange="onTdWellChange()"></select>
+            </div>
+          </div>
+          <div class="brow" id="tdSaveRow" style="display:none;">
+            <button class="btn btn-g" onclick="saveModelToJob()">💾 Save Parameters + Results to Job</button>
+          </div>
+          <p class="hint" id="tdJobStatus">Enter a Job ID to pull its subject-well trajectories in as survey data, and to load/save casing, BHA, and friction-factor parameters for that job.</p>
+        </div>
+      </div>
 
       <!-- 01 GLOBAL -->
       <div class="sec">
@@ -957,14 +1000,14 @@
             <div><label>Steel Density (kg/m3)</label><input type="number" id="steelDens" value="7850" step="10" /></div>
           </div>
           <div class="fg tri">
-            <div><label>mu Casing 1</label><input type="number" id="ff1" value="0.25" step="0.01" min="0.01"
+            <div><label>FF Casing 1</label><input type="number" id="ff1" value="0.25" step="0.01" min="0.01"
                 max="0.8" /></div>
-            <div><label>mu Casing 2</label><input type="number" id="ff2" value="0.20" step="0.01" min="0.01"
+            <div><label>FF Casing 2</label><input type="number" id="ff2" value="0.20" step="0.01" min="0.01"
                 max="0.8" /></div>
-            <div><label>mu Open Hole</label><input type="number" id="ffOH" value="0.32" step="0.01" min="0.01"
+            <div><label>FF Open Hole</label><input type="number" id="ffOH" value="0.32" step="0.01" min="0.01"
                 max="0.8" /></div>
           </div>
-          <p class="hint">mu typical: 0.15-0.25 cased / 0.25-0.40 open hole. CNRL defaults loaded.</p>
+          <p class="hint">FF typical: 0.15-0.25 cased / 0.25-0.40 open hole. CNRL defaults loaded.</p>
         </div>
       </div>
 
@@ -1012,7 +1055,7 @@
                   <th>ID (mm)</th>
                   <th id="th_ctop">Top (m)</th>
                   <th id="th_cshoe">Shoe (m)</th>
-                  <th>mu</th>
+                  <th>FF</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1023,7 +1066,7 @@
             <button class="btn btn-g" onclick="addCas()">+ String</button>
             <button class="btn btn-g" onclick="loadCNRLCas()">Load CNRL</button>
           </div>
-          <p class="hint">mu idx: 1=mu1 (Casing 1), 2=mu2 (Casing 2). OD/ID always in mm.</p>
+          <p class="hint">FF idx: 1=FF1 (Casing 1), 2=FF2 (Casing 2). OD/ID always in mm.</p>
         </div>
       </div>
 
@@ -1121,29 +1164,29 @@
         </div>
         <div class="sec-body">
           <div class="cal-box">
-            <div class="cal-ttl">Interactive mu Calibration vs EDR</div>
+            <div class="cal-ttl">Interactive FF Calibration vs EDR</div>
             <div class="srow">
-              <span class="slbl">mu CASING 1</span>
+              <span class="slbl">FF CASING 1</span>
               <input type="range" id="sl1" min="0.05" max="0.60" step="0.01" value="0.25" oninput="onSlider()" />
               <span class="sval" id="v1">0.25</span>
             </div>
             <div class="srow">
-              <span class="slbl">mu CASING 2</span>
+              <span class="slbl">FF CASING 2</span>
               <input type="range" id="sl2" min="0.05" max="0.60" step="0.01" value="0.20" oninput="onSlider()" />
               <span class="sval" id="v2">0.20</span>
             </div>
             <div class="srow">
-              <span class="slbl">mu OPEN HOLE</span>
+              <span class="slbl">FF OPEN HOLE</span>
               <input type="range" id="sl3" min="0.05" max="0.70" step="0.01" value="0.32" oninput="onSlider()" />
               <span class="sval" id="v3">0.32</span>
             </div>
             <div class="brow">
-              <button class="btn btn-cal" onclick="autoCalib()">Auto-Fit mu (Min RMSE)</button>
+              <button class="btn btn-cal" onclick="autoCalib()">Auto-Fit FF (Min RMSE)</button>
               <button class="btn btn-g" onclick="applySliders()">Apply to Model</button>
             </div>
             <div id="rmseBox" class="rmse-box"></div>
           </div>
-          <p class="hint">Load EDR data first. Slide mu or click Auto-Fit. RMSE below 5% = excellent match.</p>
+          <p class="hint">Load EDR data first. Slide FF or click Auto-Fit. RMSE below 5% = excellent match.</p>
         </div>
       </div>
 
@@ -1210,6 +1253,23 @@
         if (t === 'sf') return 'kgf/ft';
       }
       return '';
+    }
+
+    // =============================================================
+    // THEME (dark/light) — persists via the same localStorage key used
+    // site-wide, and rebuilds any already-computed charts in place (no
+    // page reload) so in-progress survey/casing/BHA edits aren't lost.
+    // =============================================================
+    var TD_THEME_KEY = 'mtxThemePreference';
+    function setTheme(mode) {
+      var isLight = mode === 'light';
+      document.body.classList.toggle('light-mode', isLight);
+      localStorage.setItem(TD_THEME_KEY, isLight ? 'light' : 'dark');
+      var darkBtn = document.getElementById('btnThemeDark'), lightBtn = document.getElementById('btnThemeLight');
+      if(darkBtn) darkBtn.classList.toggle('active', !isLight);
+      if(lightBtn) lightBtn.classList.toggle('active', isLight);
+      // If a model has already been run, rebuild so the charts pick up the new colours.
+      if(cachedSurv) runModel();
     }
 
     function setUnits(u) {
@@ -1460,246 +1520,152 @@
     }
 
     // =============================================================
+    // JOB CONNECTION — pull subject-well trajectories from a job, and
+    // load/save casing, BHA, and parameter sets tied to that job.
+    // =============================================================
+    var tdCurrentNoteId = null;
+    var tdCurrentWellKey = null;
+    var tdSubjectWells = [];
+
+    async function loadJobByMtxId() {
+      var mtxId = document.getElementById('tdMtxJobId').value.trim();
+      var statusEl = document.getElementById('tdJobStatus');
+      if (!mtxId) { statusEl.textContent = 'Enter a Job ID first.'; return; }
+      statusEl.textContent = 'Looking up job ' + mtxId + '…';
+      try {
+        var res = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(mtxId));
+        var data = await res.json();
+        if (!res.ok) { statusEl.textContent = '❌ ' + (data.error || res.statusText); return; }
+        if (!data.subjectWells || !data.subjectWells.length) {
+          statusEl.textContent = '⚠ Job "' + data.title + '" found, but has no subject-well trajectories uploaded yet.';
+          return;
+        }
+        tdCurrentNoteId = data.noteId;
+        tdSubjectWells = data.subjectWells;
+
+        var sel = document.getElementById('tdWellSelect');
+        sel.innerHTML = '';
+        tdSubjectWells.forEach(function (w) {
+          var opt = document.createElement('option');
+          opt.value = w.wellKey; opt.textContent = w.wellKey;
+          sel.appendChild(opt);
+        });
+        document.getElementById('tdWellRow').style.display = '';
+        document.getElementById('tdSaveRow').style.display = '';
+        statusEl.textContent = '✅ Loaded "' + data.title + '" (noteId: ' + data.noteId + ') — ' + tdSubjectWells.length + ' subject well(s)/leg(s) found.'
+          + ' Check this noteId matches the /notes/job/<id> URL you expect.'
+          + (data.duplicateWarning ? '\n⚠ ' + data.duplicateWarning : '');
+        console.log('[T&D] Loaded job:', data.title, '| noteId:', data.noteId, data.duplicateWarning ? '| ' + data.duplicateWarning : '');
+
+        await loadSavedTDParams();
+        onTdWellChange();
+      } catch (err) {
+        statusEl.textContent = '❌ Error: ' + err.message;
+      }
+    }
+
+    function onTdWellChange() {
+      var sel = document.getElementById('tdWellSelect');
+      var wellKey = sel.value;
+      tdCurrentWellKey = wellKey;
+      var well = tdSubjectWells.find(function (w) { return w.wellKey === wellKey; });
+      if (!well || !well.survey.length) return;
+      document.getElementById('survBody').innerHTML = '';
+      well.survey.forEach(function (s) { addSurv(s.md, s.inc, s.az); });
+      var lastMd = well.survey[well.survey.length - 1].md;
+      document.getElementById('td').value = (UNIT === 'metric') ? lastMd.toFixed(1) : (lastMd / FT).toFixed(1);
+      setStatus('ok', 'Survey loaded for ' + wellKey + ' (' + well.survey.length + ' stations). Adjust casing/BHA/params, then Run.');
+    }
+
+    // Loads a previously saved casing/BHA/parameter set for the current job,
+    // if one exists. Values are stored in SI, so we force metric display
+    // before applying them so the raw field values line up directly.
+    async function loadSavedTDParams() {
+      if (!tdCurrentNoteId) return;
+      try {
+        var res = await fetch('/notes/tdModel/' + tdCurrentNoteId);
+        var doc = await res.json();
+        if (!doc) return; // nothing saved yet — leave current defaults/CNRL example as-is
+
+        if (UNIT !== 'metric') setUnits('metric');
+
+        if (doc.casings && doc.casings.length) {
+          document.getElementById('casBody').innerHTML = '';
+          doc.casings.forEach(function (c) {
+            addCas(c.name, (c.od_m * 1000).toFixed(1), (c.id_m * 1000).toFixed(1),
+              c.top.toFixed(1), c.shoe.toFixed(1), String(c.ffidx || 1));
+          });
+        }
+        if (doc.bha && doc.bha.length) {
+          document.getElementById('bhaBody').innerHTML = '';
+          doc.bha.forEach(function (c) {
+            addBHA(c.name, (c.od_m * 1000).toFixed(1), (c.id_m * 1000).toFixed(1),
+              c.len.toFixed(2), c.wt.toFixed(3));
+          });
+        }
+        if (doc.params) {
+          var p = doc.params;
+          if (p.mudDens != null) document.getElementById('mudWeight').value = p.mudDens;
+          if (p.blockW != null) document.getElementById('blockWeight').value = (p.blockW / 1000);
+          if (p.wobRot != null) document.getElementById('wobRot').value = (p.wobRot / 1000);
+          if (p.wobSlid != null) document.getElementById('wobSlid').value = (p.wobSlid / 1000);
+          if (p.torqLim != null) document.getElementById('torqueLimit').value = p.torqLim;
+          if (p.ff1 != null) document.getElementById('ff1').value = p.ff1;
+          if (p.ff2 != null) document.getElementById('ff2').value = p.ff2;
+          if (p.ffOH != null) document.getElementById('ffOH').value = p.ffOH;
+          if (p.steelDens != null) document.getElementById('steelDens').value = p.steelDens;
+          if (p.ohDiam_m != null) document.getElementById('ohDiam').value = (p.ohDiam_m * 1000).toFixed(1);
+          if (p.ohTop != null) document.getElementById('ohTop').value = p.ohTop;
+        }
+        document.getElementById('tdJobStatus').textContent += ' Loaded previously saved casing/BHA/parameters.';
+      } catch (err) {
+        console.warn('loadSavedTDParams error:', err);
+      }
+    }
+
+    async function saveModelToJob() {
+      if (!tdCurrentNoteId) { alert('Load a job first (enter a Job ID and click Load Job).'); return; }
+      if (!lastChartData) {
+        if (!confirm('You haven\'t run the model yet, so no chart results exist to save — only the casing/BHA/parameters will be saved, and job.ejs will show "No Torque & Drag model saved yet" until you run the model and save again. Continue anyway?')) return;
+      }
+      var statusEl = document.getElementById('tdJobStatus');
+      statusEl.textContent = 'Saving…';
+      try {
+        var payload = {
+          noteId: tdCurrentNoteId,
+          wellKey: tdCurrentWellKey,
+          casings: getCasings(),
+          bha: getBHA(),
+          params: getParams(),
+          results: lastChartData,
+        };
+        var res = await fetch('/notes/tdModel/' + tdCurrentNoteId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        console.log('[T&D] Save response:', data, '| noteId used:', tdCurrentNoteId);
+        if (res.ok) {
+          statusEl.textContent = data.savedResults
+            ? '✅ Saved parameters and chart results (noteId: ' + tdCurrentNoteId + ') — job.ejs should now show the charts.'
+            : '⚠ Saved parameters only — NO chart results were saved (run the model first, then Save again, to make the charts appear on job.ejs).';
+        } else {
+          statusEl.textContent = '❌ Save failed: ' + (data.error || res.statusText);
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ Error: ' + err.message;
+      }
+    }
+
+    // =============================================================
     // MINIMUM CURVATURE — trajectory calculation
     // Returns array of {md, inc, az, tvd, ns, ew, dls}
     // =============================================================
-    function minCurvature(survey) {
-      var out = [];
-      var tvd = 0, ns = 0, ew = 0;
-      out.push({ md: survey[0].md, inc: survey[0].inc, az: survey[0].az, tvd: 0, ns: 0, ew: 0, dls: 0 });
-      for (var i = 1; i < survey.length; i++) {
-        var a = survey[i - 1], b = survey[i];
-        var dMD = b.md - a.md;
-        if (dMD <= 0) { out.push({ md: b.md, inc: b.inc, az: b.az, tvd: tvd, ns: ns, ew: ew, dls: 0 }); continue; }
-        var I1 = a.inc * Math.PI / 180, I2 = b.inc * Math.PI / 180;
-        var A1 = a.az * Math.PI / 180, A2 = b.az * Math.PI / 180;
-        var cosB = Math.cos(I2 - I1) - Math.sin(I1) * Math.sin(I2) * (1 - Math.cos(A2 - A1));
-        var beta = Math.acos(Math.max(-1, Math.min(1, cosB)));
-        var RF = beta < 1e-6 ? 1 : (2 / beta) * Math.tan(beta / 2);
-        tvd += (dMD / 2) * (Math.cos(I1) + Math.cos(I2)) * RF;
-        ns += (dMD / 2) * (Math.sin(I1) * Math.cos(A1) + Math.sin(I2) * Math.cos(A2)) * RF;
-        ew += (dMD / 2) * (Math.sin(I1) * Math.sin(A1) + Math.sin(I2) * Math.sin(A2)) * RF;
-        var dls = (beta * 180 / Math.PI) / dMD * 30;
-        out.push({ md: b.md, inc: b.inc, az: b.az, tvd: tvd, ns: ns, ew: ew, dls: dls });
-      }
-      return out;
-    }
-
-    function interpTraj(traj, md) {
-      if (md <= traj[0].md) return traj[0];
-      var last = traj[traj.length - 1];
-      if (md >= last.md) return last;
-      for (var i = 1; i < traj.length; i++) {
-        if (md <= traj[i].md) {
-          var a = traj[i - 1], b = traj[i];
-          var t = (md - a.md) / (b.md - a.md);
-          return {
-            tvd: a.tvd + t * (b.tvd - a.tvd),
-            ns: a.ns + t * (b.ns - a.ns),
-            ew: a.ew + t * (b.ew - a.ew),
-            dls: a.dls + t * (b.dls - a.dls),
-            inc: a.inc + t * (b.inc - a.inc),
-            az: a.az + t * (b.az - a.az)
-          };
-        }
-      }
-      return last;
-    }
-
-    // =============================================================
-    // HOLE GEOMETRY — which casing or OH at a given MD
-    // =============================================================
-    function holeAt(md, casings, ohTop, ohDiam_m, params) {
-      var sorted = casings.slice().sort(function (a, b) { return b.shoe - a.shoe; });
-      for (var i = 0; i < sorted.length; i++) {
-        var c = sorted[i];
-        if (md >= c.top && md <= c.shoe) {
-          var ff = (c.ffidx === 1) ? params.ff1 : (c.ffidx === 2) ? params.ff2 : params.ffOH;
-          return { id_m: c.id_m, ff: ff, inCasing: true, ffidx: c.ffidx };
-        }
-      }
-      if (md >= ohTop) return { id_m: ohDiam_m, ff: params.ffOH, inCasing: false, ffidx: 0 };
-      if (sorted.length > 0) return { id_m: sorted[sorted.length - 1].id_m, ff: params.ff1, inCasing: true, ffidx: 1 };
-      return { id_m: ohDiam_m, ff: params.ffOH, inCasing: false, ffidx: 0 };
-    }
-
-    // =============================================================
-    // PIPE AT DEPTH — which BHA component or DP at a given MD (for fixed TD)
-    // =============================================================
-    function pipeAt(md, td, bha) {
-      var depth = td;
-      for (var i = 0; i < bha.length; i++) {
-        var top = depth - bha[i].len;
-        if (md >= top && md <= depth) return bha[i];
-        depth = top;
-      }
-      return null;
-    }
-
-    // =============================================================
-    // INTERPOLATE SURVEY
-    // =============================================================
-    function interpSurv(surv, md) {
-      if (md <= surv[0].md) return { inc: surv[0].inc, az: surv[0].az };
-      var last = surv[surv.length - 1];
-      if (md >= last.md) return { inc: last.inc, az: last.az };
-      for (var i = 1; i < surv.length; i++) {
-        if (md <= surv[i].md) {
-          var a = surv[i - 1], b = surv[i], t = (md - a.md) / (b.md - a.md);
-          return { inc: a.inc + t * (b.inc - a.inc), az: a.az + t * (b.az - a.az) };
-        }
-      }
-      return { inc: last.inc, az: last.az };
-    }
-
-    // =============================================================
-    // COMPUTE EFFECTIVE TENSION MODEL (5 WellPlan cases, fixed TD)
-    // Returns per-node array with ET, torque, side force, trajectory
-    // =============================================================
-    function computeModel(surv, casings, bha, params, overrideFF) {
-      var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
-      var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
-      var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
-      var BF = 1 - mudDens / steelDens;
-      var dpDef = { od_m: 0.1143, id_m: 0.0714, wt: 41.2 };
-      var STEP = 10;
-      var traj = minCurvature(surv);
-
-      var nodes = [];
-      for (var md = 0; md <= td; md += STEP) nodes.push(md);
-      if (nodes[nodes.length - 1] < td) nodes.push(td);
-
-      var nData = nodes.map(function (md) {
-        var geo = holeAt(md, casings, ohTop, ohDiam_m, p);
-        var comp = pipeAt(md, td, bha) || dpDef;
-        var ia = interpSurv(surv, md);
-        var tr = interpTraj(traj, md);
-        return {
-          md: md, inc: ia.inc, az: ia.az,
-          tvd: tr.tvd, ns: tr.ns, ew: tr.ew, dls: tr.dls,
-          wt: comp.wt * G * BF,
-          od_m: comp.od_m, id_m: comp.id_m,
-          ff: geo.ff, inCasing: geo.inCasing, ffidx: geo.ffidx
-        };
-      });
-
-      function integrate(wob_N, dragSign) {
-        var F = -wob_N, Tq = 0;
-        var res = new Array(nodes.length);
-        res[nodes.length - 1] = { F: F, Tq: Tq, N: 0 };
-        for (var i = nData.length - 2; i >= 0; i--) {
-          var bot = nData[i + 1], top = nData[i];
-          var dMD = bot.md - top.md;
-          if (dMD <= 0) { res[i] = res[i + 1]; continue; }
-          var iAvg = (top.inc + bot.inc) / 2 * Math.PI / 180;
-          var dInc = (bot.inc - top.inc) * Math.PI / 180;
-          var dAz = (bot.az - top.az) * Math.PI / 180;
-          var wEl = top.wt * dMD;
-          var ff = top.ff;
-          var r = top.od_m / 2;
-          var t1 = F * dInc + wEl * Math.sin(iAvg);
-          var t2 = F * Math.sin(iAvg) * dAz;
-          var N = Math.sqrt(t1 * t1 + t2 * t2);
-          F += wEl * Math.cos(iAvg) + dragSign * ff * N;
-          if (dragSign === 0) Tq += ff * N * r;
-          res[i] = { F: F, Tq: Tq, N: N };
-        }
-        return res;
-      }
-
-      var rotOB = integrate(-wobRot, 0);
-      var slideOB = integrate(-wobSlid, -1);
-      var rotOff = integrate(0, 0);
-      var tripOut = integrate(0, +1);
-      var tripIn = integrate(0, -1);
-
-      return nodes.map(function (md, i) {
-        var nd = nData[i];
-        var dMD = i > 0 ? nodes[i] - nodes[i - 1] : (nodes[1] ? nodes[1] - nodes[0] : STEP);
-        dMD = Math.max(1, dMD);
-        return {
-          md: md, inc: nd.inc, az: nd.az,
-          tvd: nd.tvd, ns: nd.ns, ew: nd.ew, dls: nd.dls,
-          inCasing: nd.inCasing, ffidx: nd.ffidx,
-          etRotOB: (rotOB[i].F + blockW) / 1000,
-          etSlide: (slideOB[i].F + blockW) / 1000,
-          etRotOff: (rotOff[i].F + blockW) / 1000,
-          etTripOut: (tripOut[i].F + blockW) / 1000,
-          etTripIn: (tripIn[i].F + blockW) / 1000,
-          torqRotOB: rotOB[i].Tq,
-          torqRotOff: rotOff[i].Tq,
-          sfRotOB: rotOB[i].N / G / dMD,
-          sfSlide: slideOB[i].N / G / dMD,
-          sfRotOff: rotOff[i].N / G / dMD,
-          sfTripOut: tripOut[i].N / G / dMD,
-          sfTripIn: tripIn[i].N / G / dMD
-        };
-      });
-    }
-
-    // =============================================================
-    // COMPUTE HOOKLOAD vs BIT DEPTH (correct WellPlan p.33 method)
-    // Re-runs integration for each bit depth — BHA anchored at bit
-    // =============================================================
-    function computeHookload(surv, casings, bha, params, overrideFF) {
-      var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
-      var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
-      var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
-      var BF = 1 - mudDens / steelDens;
-      var dpDef = { od_m: 0.1143, id_m: 0.0714, wt: 41.2 };
-      var bhaLen = bha.reduce(function (s, c) { return s + c.len; }, 0);
-      var HL_STEP = 30.48;
-      var bitDepths = [];
-      for (var d = HL_STEP; d <= td; d += HL_STEP) bitDepths.push(d);
-      if (bitDepths[bitDepths.length - 1] < td) bitDepths.push(td);
-
-      function pipeAtBit(md, bitDepth) {
-        var bhaTop = bitDepth - bhaLen;
-        if (md < bhaTop) return dpDef;
-        var cursor = bitDepth;
-        for (var j = 0; j < bha.length; j++) {
-          var compTop = cursor - bha[j].len;
-          if (md >= compTop && md <= cursor) return bha[j];
-          cursor = compTop;
-        }
-        return dpDef;
-      }
-
-      function integHL(bitDepth, wob_N, dragSign) {
-        var STEP = 10;
-        var nodes = [];
-        for (var md = 0; md <= bitDepth; md += STEP) nodes.push(md);
-        if (nodes[nodes.length - 1] < bitDepth) nodes.push(bitDepth);
-        var F = -wob_N, Tq = 0;
-        for (var i = nodes.length - 2; i >= 0; i--) {
-          var mdBot = nodes[i + 1], mdTop = nodes[i];
-          var dMD = mdBot - mdTop;
-          if (dMD <= 0) continue;
-          var ia1 = interpSurv(surv, mdTop);
-          var ia2 = interpSurv(surv, mdBot);
-          var iAvg = (ia1.inc + ia2.inc) / 2 * Math.PI / 180;
-          var dInc = (ia2.inc - ia1.inc) * Math.PI / 180;
-          var dAz = (ia2.az - ia1.az) * Math.PI / 180;
-          var comp = pipeAtBit(mdTop, bitDepth);
-          var wEl = comp.wt * G * BF * dMD;
-          var geo = holeAt(mdTop, casings, ohTop, ohDiam_m, p);
-          var ff = geo.ff;
-          var t1 = F * dInc + wEl * Math.sin(iAvg);
-          var t2 = F * Math.sin(iAvg) * dAz;
-          var N = Math.sqrt(t1 * t1 + t2 * t2);
-          F += wEl * Math.cos(iAvg) + dragSign * ff * N;
-          if (dragSign === 0) Tq += ff * N * (comp.od_m / 2);
-        }
-        return { hl: (F + blockW) / 1000, tq: Tq };
-      }
-
-      return bitDepths.map(function (D) {
-        var to = integHL(D, 0, +1);
-        var rob = integHL(D, wobRot, 0);
-        var sl = integHL(D, wobSlid, -1);
-        return { md: D, hl_tripOut: to.hl, hl_rotOB: rob.hl, hl_slide: sl.hl, tq_rotOB: rob.tq };
-      });
-    }
+    // minCurvature, interpTraj, holeAt, pipeAt, interpSurv, computeModel,
+    // computeHookload now live in the shared module /js/tdModel.js (loaded
+    // via <script> above) as window.TDModelCore — the SAME module the
+    // backend uses, so there is exactly one implementation of this physics.
 
     // =============================================================
     // EDR
@@ -1782,10 +1748,13 @@
     // CALIBRATION
     // =============================================================
     var cachedSurv = null, cachedCas = null, cachedBHA = null, cachedPar = null;
+    // Captures everything needed to re-render the 5 non-3D charts read-only
+    // elsewhere (job.ejs) — populated at the end of a successful runModel().
+    var lastChartData = null;
 
     function calcRMSE(f1, f2, f3) {
       if (!cachedSurv || !edrData || !edrData.length) return null;
-      var hlRes = computeHookload(cachedSurv, cachedCas, cachedBHA, cachedPar, { ff1: f1, ff2: f2, ffOH: f3 });
+      var hlRes = TDModelCore.computeHookload(cachedSurv, cachedCas, cachedBHA, cachedPar, { ff1: f1, ff2: f2, ffOH: f3 });
       var mdArr = hlRes.map(function (r) { return r.md; });
       var hlArr = hlRes.map(function (r) { return r.hl_rotOB; });
       var s = 0, n = 0;
@@ -1815,12 +1784,12 @@
       var cls = pct < 5 ? 'color:var(--accent3)' : pct < 10 ? 'color:var(--yellow)' : 'color:var(--red)';
       var disp = UNIT === 'metric' ? rmse.toFixed(2) + ' kN' : (rmse * KN2KLBF).toFixed(2) + ' klbf';
       var qual = pct < 5 ? '<span style="color:var(--accent3)">Excellent fit</span>'
-        : pct < 10 ? '<span style="color:var(--yellow)">Acceptable — refine mu</span>'
-          : '<span style="color:var(--red)">Poor fit — adjust mu</span>';
+        : pct < 10 ? '<span style="color:var(--yellow)">Acceptable — refine FF</span>'
+          : '<span style="color:var(--red)">Poor fit — adjust FF</span>';
       document.getElementById('rmseBox').style.display = 'block';
       document.getElementById('rmseBox').innerHTML =
         'RMSE: <span style="' + cls + '">' + disp + ' (' + pct.toFixed(1) + '%)</span><br>'
-        + 'mu1=' + f1.toFixed(2) + '  mu2=' + f2.toFixed(2) + '  muOH=' + f3.toFixed(2) + '<br>' + qual;
+        + 'FF1=' + f1.toFixed(2) + '  FF2=' + f2.toFixed(2) + '  FFOH=' + f3.toFixed(2) + '<br>' + qual;
     }
 
     function applySliders() {
@@ -1833,7 +1802,7 @@
     function autoCalib() {
       if (!cachedSurv) { showErr('Run model first.'); return; }
       if (!edrData || !edrData.length) { showErr('Load EDR data first.'); return; }
-      setStatus('run', 'Auto-calibrating mu — scanning 400 combinations...');
+      setStatus('run', 'Auto-calibrating FF — scanning 400 combinations...');
       setTimeout(function () {
         var range = [0.08, 0.10, 0.12, 0.15, 0.17, 0.20, 0.22, 0.25, 0.28, 0.30, 0.32, 0.35, 0.38, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70];
         var best = Infinity, bf1 = 0.25, bf2 = 0.20, bf3 = 0.32;
@@ -1850,7 +1819,7 @@
         document.getElementById('v2').textContent = bf2.toFixed(2);
         document.getElementById('v3').textContent = bf3.toFixed(2);
         showRMSE(bf1, bf2, bf3);
-        setStatus('ok', 'Auto-calibrated: mu1=' + bf1.toFixed(2) + ' mu2=' + bf2.toFixed(2) + ' muOH=' + bf3.toFixed(2) + '  RMSE=' + best.toFixed(2) + ' kN');
+        setStatus('ok', 'Auto-calibrated: FF1=' + bf1.toFixed(2) + ' FF2=' + bf2.toFixed(2) + ' FFOH=' + bf3.toFixed(2) + '  RMSE=' + best.toFixed(2) + ' kN');
       }, 50);
     }
 
@@ -1878,9 +1847,9 @@
         cachedSurv = surv.slice(); cachedCas = cas.slice(); cachedBHA = bha.slice(); cachedPar = Object.assign({}, par);
 
         // ET model (fast — runs once at full TD)
-        var res = computeModel(surv, cas, bha, par);
+        var res = TDModelCore.computeModel(surv, cas, bha, par);
         // Trajectory at survey stations (for 3D plot)
-        var traj = minCurvature(surv);
+        var traj = TDModelCore.minCurvature(surv);
 
         // Display unit factors
         var M = (UNIT === 'metric');
@@ -1929,18 +1898,30 @@
           incArr, dlsArr, edrMD, edrHL, edrTQ,
           par.torqLim * dNm, depU, forU, tqU, res, traj, df);
 
+        lastChartData = {
+          mds: mds, etROB: etROB, etSLD: etSLD, etROff: etROff, etTO: etTO, etTI: etTI,
+          tqROB: tqROB, tqROff: tqROff, sfROB: sfROB, sfSLD: sfSLD, sfROff: sfROff, sfTO: sfTO, sfTI: sfTI,
+          incArr: incArr, dlsArr: dlsArr,
+          torqLimDisp: par.torqLim * dNm, depU: depU, forU: forU, tqU: tqU,
+          hlMDs: null, hlTO: null, hlROB: null, hlSLD: null,
+        };
+
         setStatus('run', 'Computing hookload vs bit depth (may take a few seconds)...');
 
         // Hookload (expensive — run deferred so UI can paint first)
         setTimeout(function () {
           try {
-            var hlRes = computeHookload(surv, cas, bha, par);
+            var hlRes = TDModelCore.computeHookload(surv, cas, bha, par);
             var hlMDs = hlRes.map(function (r) { return r.md * df; });
             var hlTO = hlRes.map(function (r) { return r.hl_tripOut * dkN; });
             var hlROB = hlRes.map(function (r) { return r.hl_rotOB * dkN; });
             var hlSLD = hlRes.map(function (r) { return r.hl_slide * dkN; });
             renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU);
             renderHookloadTable(hlMDs, hlTO, hlROB, hlSLD, depU, forU);
+            if(lastChartData){
+              lastChartData.hlMDs = hlMDs; lastChartData.hlTO = hlTO;
+              lastChartData.hlROB = hlROB; lastChartData.hlSLD = hlSLD;
+            }
             setStatus('ok', 'Model complete — ' + res.length + ' ET stations, ' + hlRes.length + ' hookload steps. TD=' + (par.td * df).toFixed(0) + ' ' + depU);
           } catch (e2) {
             showErr('Hookload error: ' + e2.message);
@@ -1967,24 +1948,37 @@
       }
     }
 
-    var CO = {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 400 },
-      plugins: {
-        legend: { labels: { color: '#c8d8e8', font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
-        tooltip: {
-          bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
-          backgroundColor: '#161e28', borderColor: '#1e2d3d', borderWidth: 1, padding: 7
+    function buildCO() {
+      var isLight = document.body.classList.contains('light-mode');
+      var textColor = isLight ? '#000000' : '#c8d8e8';
+      var tickColor = isLight ? '#495057' : '#5a7080';
+      var gridColor = isLight ? 'rgba(0,0,0,.15)' : 'rgba(30,45,61,.6)';
+      var tooltipBg = isLight ? '#ffffff' : '#161e28';
+      var tooltipBorder = isLight ? '#c8d4de' : '#1e2d3d';
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+          legend: { labels: { color: textColor, font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
+          tooltip: {
+            bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
+            backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1, padding: 7,
+            bodyColor: textColor, titleColor: textColor
+          }
+        },
+        scales: {
+          x: { type: 'linear', ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: gridColor } }
         }
-      },
-      scales: {
-        x: { type: 'linear', ticks: { color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: 'rgba(30,45,61,.6)' } },
-        y: { ticks: { color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: 'rgba(30,45,61,.6)' } }
-      }
-    };
+      };
+    }
+    var CO = buildCO();
 
-    function axT(txt) { return { display: true, text: txt, color: '#5a7080', font: { family: 'Share Tech Mono', size: 7 } }; }
+    function axT(txt) {
+      var isLight = document.body.classList.contains('light-mode');
+      return { display: true, text: txt, color: isLight ? '#000000' : '#5a7080', font: { family: 'Share Tech Mono', size: 7 } };
+    }
 
     function mkLine(lbl, data, xdata, color, dash, fillIt) {
       return {
@@ -2055,7 +2049,9 @@
       torqLimDisp, depU, forU, tqU, results, traj, df) {
 
       destroyCharts();
-      document.getElementById('ph').style.display = 'none';
+      CO = buildCO();
+      var phEl = document.getElementById('ph');
+      if(phEl) phEl.style.display = 'none';
 
       var area = document.getElementById('chartsArea');
       area.innerHTML =
@@ -2291,6 +2287,7 @@
 
     // Render hookload chart (called async after ET charts are shown)
     function renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU) {
+      CO = buildCO();
       var hlDS = [
         mkLine('Tripping Out', hlTO, hlMDs, '#39ff14', []),
         mkLine('Rotating OB', hlROB, hlMDs, '#00c8ff', []),
@@ -2354,6 +2351,9 @@
     // INIT
     // =============================================================
     (function init() {
+      var savedTheme = localStorage.getItem(TD_THEME_KEY);
+      if(savedTheme === 'light') setTheme('light');
+
       updateLabels();
       loadCNRL();
       loadCNRLCas();
@@ -2364,6 +2364,14 @@
       document.getElementById('v1').textContent = '0.25';
       document.getElementById('v2').textContent = '0.20';
       document.getElementById('v3').textContent = '0.32';
+
+      // Deep-link support: /uploadTorqueAndDrag?mtxJobId=1953 auto-loads that job
+      var urlParams = new URLSearchParams(window.location.search);
+      var deepLinkJobId = urlParams.get('mtxJobId');
+      if (deepLinkJobId) {
+        document.getElementById('tdMtxJobId').value = deepLinkJobId;
+        loadJobByMtxId();
+      }
     })();
   </script>
 </body>

@@ -484,13 +484,63 @@ body.light-mode #statusTextbox {
                 </div>
                 <!-- ================= END LEGS SUMMARY ================= -->
 
+                <!-- ================= TORQUE & DRAG MODEL ================= -->
+                <div class="accordion mb-2" id="accordionTD">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseTD">
+                                🔧 Torque &amp; Drag Model
+                            </button>
+                        </h2>
+                        <div id="collapseTD" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <select id="tdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
+                                       class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
+                                </div>
+                                <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    No Torque &amp; Drag model saved yet for this job.
+                                </div>
+                                <div id="tdChartsWrap" style="border-radius:.5rem;padding:1rem;display:none;">
+                                    <div class="td-chart-panel mb-3">
+                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Effective Tension vs Measured Depth</div>
+                                        <canvas id="td_c_et" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Hook Load vs Bit Depth</div>
+                                        <canvas id="td_c_hl" style="max-height:45vh;"></canvas>
+                                        <div id="td_c_hl_msg" style="color:#5a7080;font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Side Force vs Measured Depth</div>
+                                        <canvas id="td_c_sf" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Surface Torque vs Measured Depth</div>
+                                        <canvas id="td_c_tq" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel">
+                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Inclination and DLS vs Measured Depth</div>
+                                        <canvas id="td_c_inc" style="max-height:45vh;"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END TORQUE & DRAG MODEL ================= -->
+
                 <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
                 <div class="accordion mb-2" id="accordionPason">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button" type="button"
                                     data-bs-toggle="collapse" data-bs-target="#collapsePason">
-                                📈 Drilling Mechanics
+                                ⚙️ Drilling Mechanics
                             </button>
                         </h2>
                         <div id="collapsePason" class="accordion-collapse collapse show">
@@ -874,7 +924,7 @@ body.light-mode #statusTextbox {
                 </style>
 
                 <div class="wbt-root" id="wbtRoot">
-                    <div class="wbt-title"><span class="wbt-dot"></span> Wellbore 3D Trajectory</div>
+                    <div class="wbt-title"><span class="wbt-dot"></span> 🧭 Wellbore 3D Trajectory</div>
 
                     <!-- ── 3D Viewer: sidebar + canvas ── -->
                     <div class="wbt-viewer-outer">
@@ -2185,6 +2235,8 @@ body.light-mode #statusTextbox {
     </script>
 
 
+
+    <script type="application/json" id="tdModelData"><%- JSON.stringify((typeof tdModel !== 'undefined' && tdModel) ? tdModel : null) %></script>
 
     <% if (_wbt && _wbt.length) { %>
     <script type="application/json" id="wbtData"><%- JSON.stringify(_wbt) %></script>
@@ -5708,5 +5760,339 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 })();
 </script>
 <!-- ================= END PASON EDR PLOTS SCRIPT ================= -->
+
+<!-- ================= TORQUE & DRAG MODEL SCRIPT (read-only + live recalc) ================= -->
+<script>
+(function(){
+    const PASON_NOTE_ID = "<%- note._id %>";
+    const dataEl = document.getElementById('tdModelData');
+    if(!dataEl){ console.log('[T&D] #tdModelData element not found on this page.'); return; }
+    let tdDoc;
+    try { tdDoc = JSON.parse(dataEl.textContent); } catch(e){ console.error('[T&D] Failed to parse tdModelData JSON:', e); tdDoc = null; }
+    if(tdDoc && !tdDoc.resultsByWell) tdDoc.resultsByWell = {};
+    console.log('[T&D] tdModel loaded:', tdDoc ? { wellsWithResults: Object.keys(tdDoc.resultsByWell || {}) } : null);
+
+    // Same bracket-prefix + _LNN subject-well convention used everywhere else.
+    function tdIsSubjectWell(well){
+        var wn = (well.wellName || '').trim();
+        if(well.wellCategory === 'subject') return true;
+        if(well.wellCategory === 'offset') return false;
+        return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+    }
+    function getSubjectWellKeys(){
+        var dataEl2 = document.getElementById('wbtData');
+        if(!dataEl2) return [];
+        var wbtArr;
+        try { wbtArr = JSON.parse(dataEl2.textContent); } catch(e){ return []; }
+        return wbtArr.filter(function(w){ return w.survey && w.survey.length && tdIsSubjectWell(w); })
+                      .map(function(w){ return w.wellName; })
+                      .sort();
+    }
+
+    const isLight = document.body.classList.contains('light-mode');
+    const tdTextColor = isLight ? '#000000' : '#c8d8e8';
+    const tdTickColor = isLight ? '#495057' : '#5a7080';
+    const tdGridColor = isLight ? 'rgba(0,0,0,.15)' : 'rgba(30,45,61,.6)';
+    const tdTooltipBg = isLight ? '#ffffff' : '#161e28';
+    const tdTooltipBorder = isLight ? '#c8d4de' : '#1e2d3d';
+    const tdWrapEl = document.getElementById('tdChartsWrap');
+    if(tdWrapEl) tdWrapEl.style.background = isLight ? '#ffffff' : '#1b1e21';
+
+    const CO = {
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+            legend: { labels: { color: tdTextColor, font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
+            tooltip: {
+                bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
+                backgroundColor: tdTooltipBg, borderColor: tdTooltipBorder, borderWidth: 1, padding: 7,
+                bodyColor: tdTextColor, titleColor: tdTextColor
+            },
+            zoom: { pan:{enabled:true, mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }
+        },
+        scales: {
+            x: { type: 'linear', ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: tdGridColor } },
+            y: { ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: tdGridColor } }
+        }
+    };
+    function axT(txt){ return { display:true, text:txt, color: tdTickColor, font:{family:'Share Tech Mono', size:7} }; }
+    function mkLine(lbl, data, xdata, color, dash, fillIt){
+        return {
+            label: lbl,
+            data: xdata.map((x,i) => ({x, y: data[i]})),
+            borderColor: color,
+            backgroundColor: fillIt ? color.replace(')', ',0.1)').replace('rgb','rgba') : undefined,
+            borderWidth: 1.8, pointRadius: 0, fill: fillIt ? 'origin' : false,
+            tension: 0.3, borderDash: dash || [], parsing: false, type: 'line'
+        };
+    }
+
+    // Give a canvas an explicit pixel size (attribute + inline CSS, both
+    // required) so Chart.js never needs to measure a possibly-hidden
+    // ancestor's layout box.
+    function sizeCanvas(canvas, w, h){
+        canvas.width = w; canvas.height = h;
+        canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    }
+
+    let tdChartInstances = [];
+    function destroyTDCharts(){
+        tdChartInstances.forEach(ch => { try{ ch.destroy(); }catch(e){} });
+        tdChartInstances = [];
+    }
+
+    function buildTDCharts(r){
+        destroyTDCharts();
+
+        const wrap = document.getElementById('tdChartsWrap');
+        const chartW = Math.max(600, wrap ? wrap.clientWidth - 32 : 900);
+        const chartH = 380;
+
+        // ── 1. Effective Tension vs Measured Depth ──
+        const etDS = [
+            mkLine('Tripping In', r.etTI, r.mds, '#ff4060', []),
+            mkLine('Tripping Out', r.etTO, r.mds, '#39ff14', []),
+            mkLine('Rotating OB', r.etROB, r.mds, '#00c8ff', []),
+            mkLine('Slide Drilling', r.etSLD, r.mds, '#ff6b35', [4,3]),
+            mkLine('Rotating Off', r.etROff, r.mds, '#c084fc', [2,4]),
+            { label:'Zero', data: r.mds.map(x => ({x, y:0})), borderColor:'rgba(255,255,255,.2)',
+              borderWidth:1, borderDash:[2,5], pointRadius:0, fill:false, tension:0, parsing:false, type:'line' }
+        ];
+        const etCanvas = document.getElementById('td_c_et');
+        sizeCanvas(etCanvas, chartW, chartH);
+        tdChartInstances.push(new Chart(etCanvas.getContext('2d'), {
+            type: 'line', data: { datasets: etDS },
+            options: Object.assign({}, CO, {
+                scales: {
+                    x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + r.depU + ')') }),
+                    y: Object.assign({}, CO.scales.y, { title: axT('Effective Tension (' + r.forU + ')') })
+                }
+            })
+        }));
+
+        // ── 2. Hook Load vs Bit Depth ──
+        if(r.hlMDs && r.hlMDs.length){
+            const hlMsgEl = document.getElementById('td_c_hl_msg');
+            if(hlMsgEl) hlMsgEl.style.display = 'none';
+            const hlDS = [
+                mkLine('Tripping Out', r.hlTO, r.hlMDs, '#39ff14', []),
+                mkLine('Rotating OB', r.hlROB, r.hlMDs, '#00c8ff', []),
+                mkLine('Slide Drilling', r.hlSLD, r.hlMDs, '#ff6b35', [4,3]),
+            ];
+            const hlCanvas = document.getElementById('td_c_hl');
+            hlCanvas.style.display = '';
+            sizeCanvas(hlCanvas, chartW, chartH);
+            tdChartInstances.push(new Chart(hlCanvas.getContext('2d'), {
+                type: 'line', data: { datasets: hlDS },
+                options: Object.assign({}, CO, {
+                    scales: {
+                        x: Object.assign({}, CO.scales.x, { title: axT('Bit Depth (' + r.depU + ')') }),
+                        y: Object.assign({}, CO.scales.y, { title: axT('Surface Hook Load (' + r.forU + ')') })
+                    }
+                })
+            }));
+        } else {
+            const hlCanvas = document.getElementById('td_c_hl');
+            if(hlCanvas) hlCanvas.style.display = 'none';
+            const hlMsg = document.getElementById('td_c_hl_msg');
+            if(hlMsg) hlMsg.style.display = '';
+        }
+
+        // ── 3. Side Force vs Measured Depth ──
+        const sfDS = [
+            mkLine('Tripping In', r.sfTI, r.mds, '#ff4060', []),
+            mkLine('Tripping Out', r.sfTO, r.mds, '#39ff14', []),
+            mkLine('Rotating OB', r.sfROB, r.mds, '#00c8ff', []),
+            mkLine('Slide Drilling', r.sfSLD, r.mds, '#ff6b35', [4,3]),
+            mkLine('Rotating Off', r.sfROff, r.mds, '#c084fc', [2,4]),
+        ];
+        const sfCanvas = document.getElementById('td_c_sf');
+        sizeCanvas(sfCanvas, chartW, chartH);
+        tdChartInstances.push(new Chart(sfCanvas.getContext('2d'), {
+            type: 'line', data: { datasets: sfDS },
+            options: Object.assign({}, CO, {
+                scales: {
+                    x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + r.depU + ')') }),
+                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Side Force (kgf/m)') })
+                }
+            })
+        }));
+
+        // ── 4. Surface Torque vs Measured Depth ──
+        const tqDS = [
+            mkLine('Rotating OB', r.tqROB, r.mds, '#ff6b35', [], true),
+            mkLine('Rotating Off', r.tqROff, r.mds, '#c084fc', [2,3]),
+            { label:'Limit', data: r.mds.map(x => ({x, y: r.torqLimDisp})),
+              borderColor:'#ff4060', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0, parsing:false, type:'line' }
+        ];
+        const tqCanvas = document.getElementById('td_c_tq');
+        sizeCanvas(tqCanvas, chartW, chartH);
+        tdChartInstances.push(new Chart(tqCanvas.getContext('2d'), {
+            type: 'line', data: { datasets: tqDS },
+            options: Object.assign({}, CO, {
+                scales: {
+                    x: Object.assign({}, CO.scales.x, { title: axT('MD (' + r.depU + ')') }),
+                    y: Object.assign({}, CO.scales.y, { title: axT('Torque (' + r.tqU + ')') })
+                }
+            })
+        }));
+
+        // ── 5. Inclination and DLS vs Measured Depth ──
+        const incCanvas = document.getElementById('td_c_inc');
+        sizeCanvas(incCanvas, chartW, chartH);
+        tdChartInstances.push(new Chart(incCanvas.getContext('2d'), {
+            type: 'line',
+            data: { datasets: [
+                mkLine('Inclination (deg)', r.incArr, r.mds, '#39ff14', [], true),
+                mkLine('DLS (deg/30m)', r.dlsArr, r.mds, '#ffd060', [3,2]),
+            ]},
+            options: Object.assign({}, CO, {
+                scales: {
+                    x: Object.assign({}, CO.scales.x, { title: axT('MD (' + r.depU + ')') }),
+                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Inc (deg) / DLS (deg/30m)') })
+                }
+            })
+        }));
+
+        console.log('[T&D] Charts built (' + chartW + 'x' + chartH + ' each).');
+    }
+
+    // ── Well selection, status text, auto-recalculation ───────────────────
+    const wellSelect = document.getElementById('tdWellSelect2');
+    const statusText = document.getElementById('tdStatusText');
+    const emptyMsg = document.getElementById('tdEmptyMsg');
+    const chartsWrap = document.getElementById('tdChartsWrap');
+
+    // "Current settings" — whichever well's casings/bha/params were most
+    // recently in play. Reused as-is when switching wells, so a well switch
+    // is a true apples-to-apples comparison ("same settings, different well").
+    let currentCasings = null, currentBha = null, currentParams = null;
+
+    function fmtWhen(iso){
+        if(!iso) return '';
+        return new Date(iso).toLocaleString();
+    }
+
+    function showWellEntry(wellKey, entry){
+        if(!entry || !entry.results || !entry.results.mds || !entry.results.mds.length){
+            if(chartsWrap) chartsWrap.style.display = 'none';
+            if(emptyMsg){
+                emptyMsg.style.display = '';
+                emptyMsg.textContent = 'No results yet for ' + wellKey + ' — select a well with results, or use "Recalculate" below.';
+            }
+            statusText.textContent = 'No results for ' + wellKey + '.';
+            return;
+        }
+        currentCasings = entry.casings; currentBha = entry.bha; currentParams = entry.params;
+        if(emptyMsg) emptyMsg.style.display = 'none';
+        if(chartsWrap) chartsWrap.style.display = '';
+        statusText.textContent = 'Last calculated: ' + fmtWhen(entry.calculatedAt) +
+            (entry.calculatedByName ? ' by ' + entry.calculatedByName : '') +
+            ' — Well/Leg: ' + wellKey;
+        buildTDCharts(entry.results);
+    }
+
+    async function recalcAndShow(wellKey){
+        if(!currentCasings || !currentBha || !currentParams){
+            statusText.textContent = 'No saved parameters to reuse yet — run the model for at least one well in the modeler first.';
+            if(emptyMsg){ emptyMsg.style.display = ''; emptyMsg.textContent = 'No Torque & Drag parameters saved yet for this job.'; }
+            if(chartsWrap) chartsWrap.style.display = 'none';
+            return;
+        }
+        statusText.textContent = 'Recalculating for ' + wellKey + '…';
+        try {
+            const res = await fetch('/notes/tdModel/recalculate/' + PASON_NOTE_ID, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wellKey, casings: currentCasings, bha: currentBha, params: currentParams })
+            });
+            const data = await res.json();
+            if(!res.ok){
+                statusText.textContent = '❌ ' + (data.error || res.statusText);
+                console.error('[T&D] recalculate failed:', data);
+                return;
+            }
+            tdDoc.resultsByWell[wellKey] = {
+                casings: currentCasings, bha: currentBha, params: currentParams,
+                results: data.results, calculatedAt: data.calculatedAt, calculatedByName: data.calculatedByName,
+            };
+            console.log('[T&D] Recalculated and saved for', wellKey, 'at', data.calculatedAt, 'by', data.calculatedByName);
+            showWellEntry(wellKey, tdDoc.resultsByWell[wellKey]);
+        } catch(err) {
+            statusText.textContent = '❌ Error: ' + err.message;
+            console.error('[T&D] recalculate error:', err);
+        }
+    }
+
+    function onWellChange(){
+        const wellKey = wellSelect.value;
+        if(!wellKey) return;
+        const existing = tdDoc.resultsByWell[wellKey];
+        // Auto-recalculate using the currently-loaded settings every time the
+        // well changes, so the comparison is always apples-to-apples — unless
+        // this is the very first load and that well already has a saved run,
+        // in which case just show it (avoids an unnecessary recalculation
+        // the instant the page opens).
+        if(existing && existing.results && !onWellChange._loaded){
+            onWellChange._loaded = true;
+            showWellEntry(wellKey, existing);
+        } else {
+            recalcAndShow(wellKey);
+        }
+    }
+
+    function initTD(){
+        if(!tdDoc){
+            statusText.textContent = 'No Torque & Drag model saved yet for this job.';
+            emptyMsg.style.display = '';
+            return;
+        }
+        const subjectWells = getSubjectWellKeys();
+        if(!subjectWells.length){
+            statusText.textContent = 'No subject-well trajectories uploaded for this job yet.';
+            emptyMsg.style.display = '';
+            return;
+        }
+        wellSelect.innerHTML = '';
+        subjectWells.forEach(function(wk){
+            const opt = document.createElement('option');
+            opt.value = wk; opt.textContent = wk;
+            wellSelect.appendChild(opt);
+        });
+        wellSelect.style.display = '';
+        wellSelect.addEventListener('change', onWellChange);
+
+        // Default: whichever well has the MOST RECENT calculatedAt, else the
+        // first subject well alphabetically.
+        let defaultWell = subjectWells[0];
+        let latest = null;
+        Object.keys(tdDoc.resultsByWell).forEach(function(wk){
+            const entry = tdDoc.resultsByWell[wk];
+            if(!entry || !entry.calculatedAt) return;
+            if(!latest || new Date(entry.calculatedAt) > new Date(latest)){
+                latest = entry.calculatedAt;
+                if(subjectWells.indexOf(wk) !== -1) defaultWell = wk;
+            }
+        });
+        wellSelect.value = defaultWell;
+        onWellChange();
+    }
+
+    // Build the first time the accordion is actually opened — guarantees
+    // #tdChartsWrap has real dimensions instead of the 0x0 it would report
+    // while the accordion is still collapsed.
+    let tdInitDone = false;
+    function initTDOnce(){ if(tdInitDone) return; tdInitDone = true; initTD(); }
+    const collapseEl = document.getElementById('collapseTD');
+    if(collapseEl){
+        collapseEl.addEventListener('shown.bs.collapse', initTDOnce);
+        if(collapseEl.classList.contains('show')) initTDOnce();
+    } else {
+        initTDOnce();
+    }
+})();
+</script>
+<!-- ================= END TORQUE & DRAG MODEL SCRIPT ================= -->
 
 <%- include ('partials/footer.ejs') %>

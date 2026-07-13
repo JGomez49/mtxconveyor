@@ -28,6 +28,10 @@ const {
     getPadAC,
     savePasonPlots,
     getPasonPlots,
+    findJobByMtxId,
+    getTDModel,
+    recalculateTDModel,
+    saveTDModel,
     renderBanner,
     saveBanner,
     deleteLogEntry,
@@ -158,6 +162,10 @@ router.post('/notes/padAC/:noteId', isAuthenticated, savePadAC);
 router.get('/notes/padAC/:noteId',  isAuthenticated, getPadAC);
 router.post('/notes/pasonPlots/:noteId', isAuthenticated, savePasonPlots);
 router.get('/notes/pasonPlots/:noteId',  isAuthenticated, getPasonPlots);
+router.get('/notes/tdModel/lookupByMtxId/:mtxJobId', isAuthenticated, findJobByMtxId);
+router.get('/notes/tdModel/:noteId',  isAuthenticated, getTDModel);
+router.post('/notes/tdModel/:noteId', isAuthenticated, saveTDModel);
+router.post('/notes/tdModel/recalculate/:noteId', isAuthenticated, recalculateTDModel);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
 router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
 router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
