@@ -485,6 +485,7 @@ body.light-mode #statusTextbox {
                 <!-- ================= END LEGS SUMMARY ================= -->
 
                 <!-- ================= TORQUE & DRAG MODEL ================= -->
+                <% if (user.role === 'admin') { %>
                 <div class="accordion mb-2" id="accordionTD">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
@@ -533,6 +534,7 @@ body.light-mode #statusTextbox {
                     </div>
                 </div>
                 <!-- ================= END TORQUE & DRAG MODEL ================= -->
+                <% } %>
 
                 <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
                 <div class="accordion mb-2" id="accordionPason">
@@ -5765,6 +5767,9 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 <script>
 (function(){
     const PASON_NOTE_ID = "<%- note._id %>";
+    // The whole T&D accordion is admin-only — if its HTML wasn't rendered
+    // (non-admin viewing this page), there's nothing for this script to do.
+    if(!document.getElementById('tdWellSelect2')) return;
     const dataEl = document.getElementById('tdModelData');
     if(!dataEl){ console.log('[T&D] #tdModelData element not found on this page.'); return; }
     let tdDoc;
