@@ -985,19 +985,41 @@
           <div class="fg">
             <div><label id="lMW">Mud Weight (kg/m3)</label><input type="number" id="mudWeight" value="1040" step="1" />
             </div>
-            <div><label id="lBW">Block Weight (kN)</label><input type="number" id="blockWeight" value="10" step="0.1" />
+            <div><label id="lBW">Block Weight (kDaN)</label><input type="number" id="blockWeight" value="10" step="0.1" />
             </div>
           </div>
           <div class="fg">
-            <div><label id="lWOBr">WOB Rotating (kN)</label><input type="number" id="wobRot" value="20" step="0.5" />
+            <div><label id="lWOBr">WOB Rotating (kDaN)</label><input type="number" id="wobRot" value="20" step="0.5" />
             </div>
-            <div><label id="lWOBs">WOB Sliding (kN)</label><input type="number" id="wobSlid" value="19" step="0.5" />
+            <div><label id="lWOBs">WOB Sliding (kDaN)</label><input type="number" id="wobSlid" value="19" step="0.5" />
             </div>
           </div>
           <div class="fg">
             <div><label id="lTQ">Torque Limit (N.m)</label><input type="number" id="torqueLimit" value="35000"
                 step="100" /></div>
             <div><label>Steel Density (kg/m3)</label><input type="number" id="steelDens" value="7850" step="10" /></div>
+          </div>
+          <div class="fg">
+            <div><label title="WellPlan 'Contact Force Normalization Length'. Side force plots as kgf per this length of string. One Range 2 DP joint = 9.45 m.">SF
+                Norm. Length (m)</label><input type="number" id="normLen" value="9.45" step="0.01" min="0.1" /></div>
+            <div><label title="Helical buckling onset. Chen-Lin-Cheatham (1990): sqrt(2) x sinusoidal. Wu &amp; Juvkam-Wold (1993): 1.83 x sinusoidal.">Helical
+                Criterion</label><select id="helMode"
+                style="background:var(--panel);border:1px solid var(--border);color:var(--text-bright);font-family:var(--mono);font-size:10px;width:100%;padding:5px">
+                <option value="chen" selected>Chen-Cheatham (1.41x)</option>
+                <option value="wu">Wu-Juvkam-Wold (1.83x)</option>
+              </select></div>
+          </div>
+          <div class="fg">
+            <div><label title="Torque applied at the bit while on bottom (WellPlan 'Torque at Bit'). Carried to surface unchanged when sliding (no rotation).">Torque
+                at Bit (N.m)</label><input type="number" id="torqBit" value="15" step="1" /></div>
+            <div><label title="Trip speed for Tripping In / Out (WellPlan 'Trip Speed').">Trip Speed
+                (m/min)</label><input type="number" id="tripSpeed" value="18.29" step="0.1" /></div>
+          </div>
+          <div class="fg">
+            <div><label title="Rotary speed while tripping in. If > 0, wall friction splits between axial drag and torque along the resultant velocity (WellPlan 'tripping with rotation').">Trip
+                In RPM</label><input type="number" id="tripInRPM" value="5" step="1" min="0" /></div>
+            <div><label title="Rotary speed while tripping out (WellPlan job reports often use 0 / NA).">Trip
+                Out RPM</label><input type="number" id="tripOutRPM" value="0" step="1" min="0" /></div>
           </div>
           <div class="fg tri">
             <div><label>FF Casing 1</label><input type="number" id="ff1" value="0.25" step="0.01" min="0.01"
@@ -1152,6 +1174,10 @@
             <div class="brow">
               <button class="btn btn-g" style="font-size:9px" onclick="loadExEDR()">Load Example EDR</button>
             </div>
+            <div class="brow">
+              <button class="btn btn-cal" id="btnUseDMEdr" onclick="useDrillingMechanicsEDR()" disabled>📊 Use Saved Hook Load Data (Drilling Mechanics)</button>
+            </div>
+            <p class="hint" id="dmEdrHint">Load a Job (section 00) first — if that job already has a Hook Load vs Measured Depth plot saved in Drilling Mechanics, this reuses it instead of re-uploading the same CSV.</p>
           </div>
         </div>
       </div>
@@ -1190,6 +1216,38 @@
         </div>
       </div>
 
+      <!-- SECTION 08: MODEL REFERENCES -->
+      <div>
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">08</span><span class="sec-ttl">Model References</span><span class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <p class="hint" style="line-height:1.75">
+            <strong>Soft-string T&amp;D:</strong> Johancsik, Friesen &amp; Dawson (1984), JPT 36(6), SPE-11380-PA;
+            Sheppard, Wick &amp; Burgess (1987), SPE Drilling Eng. 2(4), SPE-15463-PA.<br>
+            <strong>Sinusoidal buckling onset:</strong> Dawson &amp; Paslay (1984), JPT 36(10), SPE-11167-PA
+            (F<sub>sin</sub> = 2&radic;(EIw&middot;sin&theta;/r<sub>c</sub>)); near-vertical (&lt;3&deg;):
+            Lubinski (1950), API Drill. &amp; Prod. Practice (F &asymp; 1.94(EIw&sup2;)<sup>1/3</sup>).<br>
+            <strong>Helical onset:</strong> Chen, Lin &amp; Cheatham (1990), JPT 42(2), SPE-19176-PA
+            (&radic;2&times;F<sub>sin</sub>) or Wu &amp; Juvkam-Wold (1993), ASME JERT 115 (1.83&times;F<sub>sin</sub>)
+            — selectable in Global Parameters.<br>
+            <strong>Buckled wall contact:</strong> Mitchell (1986), SPE Drilling Eng. 1(6), SPE-13064-PA
+            (N<sub>h</sub> = r<sub>c</sub>F&sup2;/4EI per unit length), applied where compression exceeds the
+            helical limit; this drives slack-off lock-up.<br>
+            <strong>Model limits:</strong> Mitchell &amp; Samuel (2009), SPE Drill. &amp; Compl. 24(1), SPE-105068-PA.
+            <strong>Constants &amp; survey method:</strong> Mitchell &amp; Miska (2011), Fundamentals of Drilling
+            Engineering, SPE Textbook Vol. 12 (E = 206.8 GPa); minimum curvature per Sawaryn &amp; Thorogood (2005),
+            SPE-84246-PA.<br>
+            <strong>Combined motion:</strong> when tripping with rotation, wall friction is resolved along the
+            resultant sliding velocity — axial drag &times; v<sub>a</sub>/|v|, torque &times; v<sub>t</sub>/|v|,
+            v<sub>t</sub> = &pi;&middot;OD&middot;RPM — per Samuel (2010), SPE-128059-MS and Mitchell &amp; Samuel
+            (2009); sliding without rotation carries Torque at Bit to surface unchanged.<br>
+            <strong>Display convention:</strong> side force normalized per WellPlan "Contact Force Normalization
+            Length" (default 9.45 m = one Range 2 drill-pipe joint).
+          </p>
+        </div>
+      </div>
+
       <!-- RUN -->
       <div style="padding:12px">
         <button class="btn btn-run" onclick="runModel()">RUN T&amp;D MODEL</button>
@@ -1210,6 +1268,7 @@
         </div>
       </div>
       <div id="errbox" class="errbox"></div>
+      <div id="buckPanel" style="display:none;margin:10px 14px 0;padding:10px 12px;border:1px solid var(--border);background:var(--panel);font-family:var(--mono);font-size:11px;line-height:1.7"></div>
       <div class="charts" id="chartsArea">
         <div class="ph" id="ph">
           <div class="ph-icon">O</div>
@@ -1240,17 +1299,22 @@
     var KGM2LBFT = 0.67197;
     var G = 9.81;
 
+    function normLenTxt() {
+      var nl = (cachedPar && cachedPar.normLen) || (+document.getElementById('normLen').value) || 9.45;
+      return 'kgf/' + nl + ' m';
+    }
+
     function dU(t) {
       if (UNIT === 'metric') {
         if (t === 'depth') return 'm';
-        if (t === 'force') return 'kN';
+        if (t === 'force') return 'kDaN';
         if (t === 'torque') return 'N.m';
-        if (t === 'sf') return 'kgf/m';
+        if (t === 'sf') return normLenTxt();
       } else {
         if (t === 'depth') return 'ft';
         if (t === 'force') return 'klbf';
         if (t === 'torque') return 'kft.lbf';
-        if (t === 'sf') return 'kgf/ft';
+        if (t === 'sf') return normLenTxt();
       }
       return '';
     }
@@ -1320,9 +1384,9 @@
     function updateLabels() {
       var M = (UNIT === 'metric');
       document.getElementById('lMW').textContent = M ? 'Mud Weight (kg/m3)' : 'Mud Weight (ppg)';
-      document.getElementById('lBW').textContent = M ? 'Block Weight (kN)' : 'Block Weight (klbf)';
-      document.getElementById('lWOBr').textContent = M ? 'WOB Rotating (kN)' : 'WOB Rotating (klbf)';
-      document.getElementById('lWOBs').textContent = M ? 'WOB Sliding (kN)' : 'WOB Sliding (klbf)';
+      document.getElementById('lBW').textContent = M ? 'Block Weight (kDaN)' : 'Block Weight (klbf)';
+      document.getElementById('lWOBr').textContent = M ? 'WOB Rotating (kDaN)' : 'WOB Rotating (klbf)';
+      document.getElementById('lWOBs').textContent = M ? 'WOB Sliding (kDaN)' : 'WOB Sliding (klbf)';
       document.getElementById('lTQ').textContent = M ? 'Torque Limit (N.m)' : 'Torque Limit (kft.lbf)';
       document.getElementById('th_md').textContent = M ? 'MD (m)' : 'MD (ft)';
       document.getElementById('th_ctop').textContent = M ? 'Top (m)' : 'Top (ft)';
@@ -1467,9 +1531,9 @@
       var M = (UNIT === 'metric');
       return {
         mudDens: M ? +document.getElementById('mudWeight').value : +document.getElementById('mudWeight').value / KGM32PPG,
-        blockW: M ? +document.getElementById('blockWeight').value * 1000 : +document.getElementById('blockWeight').value / KN2KLBF * 1000,
-        wobRot: M ? +document.getElementById('wobRot').value * 1000 : +document.getElementById('wobRot').value / KN2KLBF * 1000,
-        wobSlid: M ? +document.getElementById('wobSlid').value * 1000 : +document.getElementById('wobSlid').value / KN2KLBF * 1000,
+        blockW: M ? +document.getElementById('blockWeight').value * 10000 : +document.getElementById('blockWeight').value / KN2KLBF * 1000,
+        wobRot: M ? +document.getElementById('wobRot').value * 10000 : +document.getElementById('wobRot').value / KN2KLBF * 1000,
+        wobSlid: M ? +document.getElementById('wobSlid').value * 10000 : +document.getElementById('wobSlid').value / KN2KLBF * 1000,
         torqLim: M ? +document.getElementById('torqueLimit').value : +document.getElementById('torqueLimit').value / NM2FTLBF * 1000,
         ff1: +document.getElementById('ff1').value,
         ff2: +document.getElementById('ff2').value,
@@ -1477,7 +1541,16 @@
         steelDens: +document.getElementById('steelDens').value,
         ohDiam_m: +document.getElementById('ohDiam').value / 1000,
         ohTop: M ? +document.getElementById('ohTop').value : +document.getElementById('ohTop').value * FT,
-        td: M ? +document.getElementById('td').value : +document.getElementById('td').value * FT
+        td: M ? +document.getElementById('td').value : +document.getElementById('td').value * FT,
+        normLen: +document.getElementById('normLen').value || 9.45,
+        helicalMode: document.getElementById('helMode').value,
+        torqBit: +document.getElementById('torqBit').value || 0,
+        tripSpeed: +document.getElementById('tripSpeed').value || 18.29,
+        tripInRPM: +document.getElementById('tripInRPM').value || 0,
+        tripOutRPM: +document.getElementById('tripOutRPM').value || 0,
+        ffCal1: +document.getElementById('sl1').value,
+        ffCal2: +document.getElementById('sl2').value,
+        ffCal3: +document.getElementById('sl3').value
       };
     }
 
@@ -1552,12 +1625,14 @@
         });
         document.getElementById('tdWellRow').style.display = '';
         document.getElementById('tdSaveRow').style.display = '';
+        var dmEdrBtn = document.getElementById('btnUseDMEdr');
+        if(dmEdrBtn) dmEdrBtn.disabled = false;
         statusEl.textContent = '✅ Loaded "' + data.title + '" (noteId: ' + data.noteId + ') — ' + tdSubjectWells.length + ' subject well(s)/leg(s) found.'
           + ' Check this noteId matches the /notes/job/<id> URL you expect.'
           + (data.duplicateWarning ? '\n⚠ ' + data.duplicateWarning : '');
         console.log('[T&D] Loaded job:', data.title, '| noteId:', data.noteId, data.duplicateWarning ? '| ' + data.duplicateWarning : '');
 
-        await loadSavedTDParams();
+        await fetchSavedTDDoc();
         onTdWellChange();
       } catch (err) {
         statusEl.textContent = '❌ Error: ' + err.message;
@@ -1574,19 +1649,54 @@
       well.survey.forEach(function (s) { addSurv(s.md, s.inc, s.az); });
       var lastMd = well.survey[well.survey.length - 1].md;
       document.getElementById('td').value = (UNIT === 'metric') ? lastMd.toFixed(1) : (lastMd / FT).toFixed(1);
-      setStatus('ok', 'Survey loaded for ' + wellKey + ' (' + well.survey.length + ' stations). Adjust casing/BHA/params, then Run.');
+      // Apply THIS well's saved casing/BHA/params (per-well storage) so
+      // switching wells always restores its own setup.
+      var applied = applySavedWellParams(wellKey);
+      setStatus('ok', 'Survey loaded for ' + wellKey + ' (' + well.survey.length + ' stations).'
+        + (applied ? ' Restored saved casing/BHA/parameters for this well.' : ' Adjust casing/BHA/params, then Run.'));
     }
 
-    // Loads a previously saved casing/BHA/parameter set for the current job,
-    // if one exists. Values are stored in SI, so we force metric display
-    // before applying them so the raw field values line up directly.
-    async function loadSavedTDParams() {
+    // ------------------------------------------------------------------
+    // Saved-parameter plumbing.
+    // The backend stores one entry PER WELL in resultsByWell[wellKey]
+    // (casings, bha, params, results). The old loader read the legacy
+    // top-level doc.casings/bha/params fields, which are empty for
+    // anything saved since the per-well migration — which made it look
+    // like parameters were never saved. We now fetch the doc once per job
+    // (fetchSavedTDDoc) and apply the entry for the selected well on every
+    // well change (applySavedWellParams).
+    // ------------------------------------------------------------------
+    var tdSavedDoc = null;      // full TDModel doc for the loaded job
+    var tdApplyingSaved = false; // suppress auto-save while programmatically filling inputs
+
+    async function fetchSavedTDDoc() {
+      tdSavedDoc = null;
       if (!tdCurrentNoteId) return;
       try {
         var res = await fetch('/notes/tdModel/' + tdCurrentNoteId);
-        var doc = await res.json();
-        if (!doc) return; // nothing saved yet — leave current defaults/CNRL example as-is
+        tdSavedDoc = await res.json();
+      } catch (err) { console.warn('fetchSavedTDDoc error:', err); }
+    }
 
+    // Returns true if a saved entry existed and was applied.
+    function applySavedWellParams(wellKey) {
+      var entry = null;
+      if (tdSavedDoc) {
+        if (tdSavedDoc.resultsByWell && tdSavedDoc.resultsByWell[wellKey]) {
+          entry = tdSavedDoc.resultsByWell[wellKey];
+        } else if (tdSavedDoc.params && (tdSavedDoc.wellKey === wellKey || !tdSavedDoc.wellKey)) {
+          entry = tdSavedDoc; // legacy pre-migration document
+        }
+      }
+      if (!entry) return false;
+      tdApplyingSaved = true;
+      try { applySavedEntry(entry); } finally { tdApplyingSaved = false; }
+      return true;
+    }
+
+    // Values are stored in SI, so we force metric display before applying
+    // them so the raw field values line up directly.
+    function applySavedEntry(doc) {
         if (UNIT !== 'metric') setUnits('metric');
 
         if (doc.casings && doc.casings.length) {
@@ -1606,9 +1716,9 @@
         if (doc.params) {
           var p = doc.params;
           if (p.mudDens != null) document.getElementById('mudWeight').value = p.mudDens;
-          if (p.blockW != null) document.getElementById('blockWeight').value = (p.blockW / 1000);
-          if (p.wobRot != null) document.getElementById('wobRot').value = (p.wobRot / 1000);
-          if (p.wobSlid != null) document.getElementById('wobSlid').value = (p.wobSlid / 1000);
+          if (p.blockW != null) document.getElementById('blockWeight').value = (p.blockW / 10000);
+          if (p.wobRot != null) document.getElementById('wobRot').value = (p.wobRot / 10000);
+          if (p.wobSlid != null) document.getElementById('wobSlid').value = (p.wobSlid / 10000);
           if (p.torqLim != null) document.getElementById('torqueLimit').value = p.torqLim;
           if (p.ff1 != null) document.getElementById('ff1').value = p.ff1;
           if (p.ff2 != null) document.getElementById('ff2').value = p.ff2;
@@ -1616,12 +1726,128 @@
           if (p.steelDens != null) document.getElementById('steelDens').value = p.steelDens;
           if (p.ohDiam_m != null) document.getElementById('ohDiam').value = (p.ohDiam_m * 1000).toFixed(1);
           if (p.ohTop != null) document.getElementById('ohTop').value = p.ohTop;
+          if (p.normLen != null) document.getElementById('normLen').value = p.normLen;
+          if (p.helicalMode != null) document.getElementById('helMode').value = p.helicalMode;
+          if (p.torqBit != null) document.getElementById('torqBit').value = p.torqBit;
+          if (p.tripSpeed != null) document.getElementById('tripSpeed').value = p.tripSpeed;
+          if (p.tripInRPM != null) document.getElementById('tripInRPM').value = p.tripInRPM;
+          if (p.tripOutRPM != null) document.getElementById('tripOutRPM').value = p.tripOutRPM;
+          // FF calibration slider state
+          if (p.ffCal1 != null) { document.getElementById('sl1').value = p.ffCal1; document.getElementById('v1').textContent = (+p.ffCal1).toFixed(2); }
+          if (p.ffCal2 != null) { document.getElementById('sl2').value = p.ffCal2; document.getElementById('v2').textContent = (+p.ffCal2).toFixed(2); }
+          if (p.ffCal3 != null) { document.getElementById('sl3').value = p.ffCal3; document.getElementById('v3').textContent = (+p.ffCal3).toFixed(2); }
         }
-        document.getElementById('tdJobStatus').textContent += ' Loaded previously saved casing/BHA/parameters.';
+    }
+
+    // Reuses the current job's already-saved "Hook Load vs Measured Depth"
+    // plot from Drilling Mechanics as the EDR calibration reference,
+    // instead of re-uploading the same Pason CSV a second time. That plot
+    // stores its Average Hook Load in kDaN (Drilling Mechanics' convention);
+    // calcRMSE works internally in true kN, so we convert (1 kDaN = 10 kN).
+    async function useDrillingMechanicsEDR() {
+      var hint = document.getElementById('dmEdrHint');
+      if (!tdCurrentNoteId) { alert('Load a job first (section 00).'); return; }
+      hint.textContent = 'Loading saved Hook Load data...';
+      try {
+        var res = await fetch('/notes/pasonPlots/' + tdCurrentNoteId);
+        var doc = await res.json();
+        var hl = doc && doc.plots && doc.plots['hl'];
+        if (!hl || !hl.rows || !hl.rows.length) {
+          hint.textContent = 'No Hook Load vs Measured Depth plot saved for this job in Drilling Mechanics yet -- upload a Pason CSV there first, or use the manual upload above.';
+          return;
+        }
+        edrData = hl.rows
+          .filter(function (r) { return r[1] !== '' && r[1] !== null && r[1] !== undefined; })
+          .map(function (r) { return { md_m: Number(r[0]), hl_kN: Number(r[1]) * 10 }; })
+          .filter(function (r) { return !isNaN(r.md_m) && !isNaN(r.hl_kN); })
+          .sort(function (a, b) { return a.md_m - b.md_m; });
+
+        if (!edrData.length) {
+          hint.textContent = 'That plot had no usable Average Hook Load values.';
+          return;
+        }
+        hint.textContent = 'Loaded ' + edrData.length + ' Hook Load points from Drilling Mechanics (Average curve, converted kDaN to kN). Slide FF or click Auto-Fit below.';
+        var f1 = +document.getElementById('sl1').value;
+        var f2 = +document.getElementById('sl2').value;
+        var f3 = +document.getElementById('sl3').value;
+        if (cachedSurv) showRMSE(f1, f2, f3);
       } catch (err) {
-        console.warn('loadSavedTDParams error:', err);
+        hint.textContent = 'Error: ' + err.message;
+        console.error('useDrillingMechanicsEDR error:', err);
       }
     }
+
+    // ------------------------------------------------------------------
+    // AUTO-SAVE: any change to the T&D setup (casing program, BHA, open
+    // hole, global parameters, FF calibration) is persisted to the loaded
+    // job/well after a short debounce — no manual Save needed. The manual
+    // Save Model button still exists and additionally stores chart results.
+    // The backend preserves previously saved results when an auto-save
+    // carries none, so tweaking a parameter never wipes the last run.
+    // ------------------------------------------------------------------
+    var tdAutoSaveTimer = null;
+
+    function scheduleAutoSave() {
+      if (!tdCurrentNoteId || !tdCurrentWellKey) return; // no job/well loaded
+      if (tdApplyingSaved) return;                       // programmatic fill
+      if (tdAutoSaveTimer) clearTimeout(tdAutoSaveTimer);
+      tdAutoSaveTimer = setTimeout(autoSaveParams, 1500);
+    }
+
+    async function autoSaveParams() {
+      tdAutoSaveTimer = null;
+      if (!tdCurrentNoteId || !tdCurrentWellKey) return;
+      var statusEl = document.getElementById('tdJobStatus');
+      try {
+        var payload = {
+          noteId: tdCurrentNoteId,
+          wellKey: tdCurrentWellKey,
+          casings: getCasings(),
+          bha: getBHA(),
+          params: getParams(),
+          results: lastChartData, // may be null; backend keeps prior results
+          autosave: true
+        };
+        var res = await fetch('/notes/tdModel/' + tdCurrentNoteId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        if (res.ok && data.success) {
+          statusEl.textContent = 'Auto-saved parameters for ' + tdCurrentWellKey + ' at ' + new Date().toLocaleTimeString() + '.';
+          // keep the in-memory saved doc in sync so well switches re-apply the latest
+          if (tdSavedDoc) {
+            tdSavedDoc.resultsByWell = tdSavedDoc.resultsByWell || {};
+            tdSavedDoc.resultsByWell[tdCurrentWellKey] = Object.assign(
+              {}, tdSavedDoc.resultsByWell[tdCurrentWellKey] || {},
+              { casings: payload.casings, bha: payload.bha, params: payload.params });
+          }
+        } else {
+          statusEl.textContent = 'Auto-save failed: ' + (data.error || res.statusText);
+        }
+      } catch (err) {
+        statusEl.textContent = 'Auto-save failed: ' + err.message;
+      }
+    }
+
+    function initTdAutoSave() {
+      var left = document.querySelector('.left');
+      if (!left) return;
+      // Any typed or picked change in the setup column (params, casing/BHA
+      // cell edits, OH inputs, sliders, selects) — delegated:
+      left.addEventListener('input', scheduleAutoSave, true);
+      left.addEventListener('change', scheduleAutoSave, true);
+      // Structural changes (add/remove casing or BHA rows) don't fire
+      // input events — watch the table bodies:
+      ['casBody', 'bhaBody'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && window.MutationObserver) {
+          new MutationObserver(scheduleAutoSave).observe(el, { childList: true });
+        }
+      });
+    }
+    initTdAutoSave();
 
     async function saveModelToJob() {
       if (!tdCurrentNoteId) { alert('Load a job first (enter a Job ID and click Load Job).'); return; }
@@ -1782,7 +2008,7 @@
       var mean = edrData.reduce(function (s, r) { return s + r.hl_kN; }, 0) / edrData.length;
       var pct = rmse / mean * 100;
       var cls = pct < 5 ? 'color:var(--accent3)' : pct < 10 ? 'color:var(--yellow)' : 'color:var(--red)';
-      var disp = UNIT === 'metric' ? rmse.toFixed(2) + ' kN' : (rmse * KN2KLBF).toFixed(2) + ' klbf';
+      var disp = UNIT === 'metric' ? (rmse * 0.1).toFixed(2) + ' kDaN' : (rmse * KN2KLBF).toFixed(2) + ' klbf';
       var qual = pct < 5 ? '<span style="color:var(--accent3)">Excellent fit</span>'
         : pct < 10 ? '<span style="color:var(--yellow)">Acceptable — refine FF</span>'
           : '<span style="color:var(--red)">Poor fit — adjust FF</span>';
@@ -1819,7 +2045,7 @@
         document.getElementById('v2').textContent = bf2.toFixed(2);
         document.getElementById('v3').textContent = bf3.toFixed(2);
         showRMSE(bf1, bf2, bf3);
-        setStatus('ok', 'Auto-calibrated: FF1=' + bf1.toFixed(2) + ' FF2=' + bf2.toFixed(2) + ' FFOH=' + bf3.toFixed(2) + '  RMSE=' + best.toFixed(2) + ' kN');
+        setStatus('ok', 'Auto-calibrated: FF1=' + bf1.toFixed(2) + ' FF2=' + bf2.toFixed(2) + ' FFOH=' + bf3.toFixed(2) + '  RMSE=' + (best * 0.1).toFixed(2) + ' kDaN');
       }, 50);
     }
 
@@ -1854,7 +2080,7 @@
         // Display unit factors
         var M = (UNIT === 'metric');
         var df = M ? 1 : 1 / FT;
-        var dkN = M ? 1 : KN2KLBF;
+        var dkN = M ? 0.1 : KN2KLBF;
         var dNm = M ? 1 : NM2FTLBF / 1000;  // N.m -> kft.lbf
         var depU = dU('depth'), forU = dU('force'), tqU = dU('torque');
 
@@ -1866,12 +2092,19 @@
         var etTO = res.map(function (r) { return r.etTripOut * dkN; });
         var etTI = res.map(function (r) { return r.etTripIn * dkN; });
         var tqROB = res.map(function (r) { return r.torqRotOB * dNm; });
+        var tqSLD = res.map(function (r) { return r.torqSlide * dNm; });
+        var tqTI = res.map(function (r) { return r.torqTripIn * dNm; });
+        var tqTO = res.map(function (r) { return r.torqTripOut * dNm; });
         var tqROff = res.map(function (r) { return r.torqRotOff * dNm; });
-        var sfROB = res.map(function (r) { return r.sfRotOB * (M ? 1 : 1 / FT); });
-        var sfSLD = res.map(function (r) { return r.sfSlide * (M ? 1 : 1 / FT); });
-        var sfROff = res.map(function (r) { return r.sfRotOff * (M ? 1 : 1 / FT); });
-        var sfTO = res.map(function (r) { return r.sfTripOut * (M ? 1 : 1 / FT); });
-        var sfTI = res.map(function (r) { return r.sfTripIn * (M ? 1 : 1 / FT); });
+        // Side force: physics core returns kgf/m; display convention is
+        // kgf per normalization length (WellPlan-compatible, default 9.45 m
+        // = one Range 2 DP joint), same in both unit systems.
+        var NL = par.normLen || 9.45;
+        var sfROB = res.map(function (r) { return r.sfRotOB * NL; });
+        var sfSLD = res.map(function (r) { return r.sfSlide * NL; });
+        var sfROff = res.map(function (r) { return r.sfRotOff * NL; });
+        var sfTO = res.map(function (r) { return r.sfTripOut * NL; });
+        var sfTI = res.map(function (r) { return r.sfTripIn * NL; });
         var incArr = res.map(function (r) { return r.inc; });
         var dlsArr = res.map(function (r) { return r.dls; });
 
@@ -1892,15 +2125,52 @@
           '<span class="chip cr">TRIP IN @ TD: ' + (tdR.etTripIn * dkN).toFixed(1) + ' ' + forU + '</span>' +
           '<span class="chip cp">TORQUE OB: ' + (tdR.torqRotOB * dNm).toFixed(0) + ' ' + tqU + '</span>';
 
+        // -------- Buckling & lock-up summary (Dawson-Paslay / Lubinski /
+        // Chen-Cheatham or Wu / Mitchell — see Model References panel) ----
+        (function () {
+          var bw = par.blockW / 1000; // kN
+          var cases = [
+            { k: 'bkRotOB', et: 'etRotOB', lbl: 'Rotating On Bottom', slack: false },
+            { k: 'bkSlide', et: 'etSlide', lbl: 'Slide Drilling', slack: true },
+            { k: 'bkTripIn', et: 'etTripIn', lbl: 'Tripping In', slack: true },
+            { k: 'bkTripOut', et: 'etTripOut', lbl: 'Tripping Out', slack: false },
+            { k: 'bkRotOff', et: 'etRotOff', lbl: 'Rotating Off Bottom', slack: false }
+          ];
+          var html = '<div style="color:var(--text-bright);letter-spacing:.5px;margin-bottom:4px">BUCKLING &amp; LOCK-UP CHECK'
+            + ' <span style="opacity:.55">(measured weight = surface effective tension minus block; lock-up when it goes negative in a slack-off case)</span></div>';
+          var any = false;
+          cases.forEach(function (c) {
+            var mw = res[0][c.et] - bw; // kN at surface
+            var sinFrom = null, helFrom = null, lockFrom = null, sinLen = 0, helLen = 0;
+            for (var i = 0; i < res.length - 1; i++) {
+              var st = res[i][c.k], dmd = res[i + 1].md - res[i].md;
+              if (st >= 1) { sinLen += dmd; if (sinFrom === null) sinFrom = res[i].md; }
+              if (st >= 2) { helLen += dmd; if (helFrom === null) helFrom = res[i].md; }
+              if (st === 3 && lockFrom === null) lockFrom = res[i].md;
+            }
+            var lock = (lockFrom !== null) || (c.slack && mw < 0);
+            if (!(sinLen || helLen || lock)) return;
+            any = true;
+            html += '<div>' + c.lbl + ': MW ' + (mw * dkN).toFixed(1) + ' ' + forU;
+            if (sinLen) html += ' | sinusoidal from ' + (sinFrom * df).toFixed(0) + ' ' + depU + ' (' + (sinLen * df).toFixed(0) + ' ' + depU + ')';
+            if (helLen) html += ' | <span style="color:var(--red)">HELICAL</span> from ' + (helFrom * df).toFixed(0) + ' ' + depU + ' (' + (helLen * df).toFixed(0) + ' ' + depU + ')';
+            if (lock) html += ' | <span style="color:var(--red);font-weight:bold">LOCK-UP' + (lockFrom !== null ? ' at ' + (lockFrom * df).toFixed(0) + ' ' + depU : '') + ' — weight transfer stalls; loads above are lower-bound estimates</span>';
+            html += '</div>';
+          });
+          var bp = document.getElementById('buckPanel');
+          if (any) { bp.innerHTML = html; bp.style.display = 'block'; }
+          else { bp.innerHTML = html + '<div style="opacity:.6">No buckling detected in any case.</div>'; bp.style.display = 'block'; }
+        })();
+
         // Render ET plots and 3D (fast)
         renderAllCharts(mds, etROB, etSLD, etROff, etTO, etTI,
-          tqROB, tqROff, sfROB, sfSLD, sfROff, sfTO, sfTI,
+          tqROB, tqROff, tqSLD, tqTI, tqTO, sfROB, sfSLD, sfROff, sfTO, sfTI,
           incArr, dlsArr, edrMD, edrHL, edrTQ,
           par.torqLim * dNm, depU, forU, tqU, res, traj, df);
 
         lastChartData = {
           mds: mds, etROB: etROB, etSLD: etSLD, etROff: etROff, etTO: etTO, etTI: etTI,
-          tqROB: tqROB, tqROff: tqROff, sfROB: sfROB, sfSLD: sfSLD, sfROff: sfROff, sfTO: sfTO, sfTI: sfTI,
+          tqROB: tqROB, tqROff: tqROff, tqSLD: tqSLD, tqTI: tqTI, tqTO: tqTO, sfROB: sfROB, sfSLD: sfSLD, sfROff: sfROff, sfTO: sfTO, sfTI: sfTI,
           incArr: incArr, dlsArr: dlsArr,
           torqLimDisp: par.torqLim * dNm, depU: depU, forU: forU, tqU: tqU,
           hlMDs: null, hlTO: null, hlROB: null, hlSLD: null,
@@ -1914,13 +2184,15 @@
             var hlRes = TDModelCore.computeHookload(surv, cas, bha, par);
             var hlMDs = hlRes.map(function (r) { return r.md * df; });
             var hlTO = hlRes.map(function (r) { return r.hl_tripOut * dkN; });
+            var hlTI = hlRes.map(function (r) { return r.hl_tripIn * dkN; });
             var hlROB = hlRes.map(function (r) { return r.hl_rotOB * dkN; });
             var hlSLD = hlRes.map(function (r) { return r.hl_slide * dkN; });
-            renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU);
-            renderHookloadTable(hlMDs, hlTO, hlROB, hlSLD, depU, forU);
+            var hlROff = hlRes.map(function (r) { return r.hl_rotOff * dkN; });
+            renderHookloadChart(hlMDs, hlTO, hlTI, hlROB, hlSLD, hlROff, edrMD, edrHL, depU, forU);
+            renderHookloadTable(hlMDs, hlTO, hlTI, hlROB, hlSLD, hlROff, depU, forU);
             if(lastChartData){
-              lastChartData.hlMDs = hlMDs; lastChartData.hlTO = hlTO;
-              lastChartData.hlROB = hlROB; lastChartData.hlSLD = hlSLD;
+              lastChartData.hlMDs = hlMDs; lastChartData.hlTO = hlTO; lastChartData.hlTI = hlTI;
+              lastChartData.hlROB = hlROB; lastChartData.hlSLD = hlSLD; lastChartData.hlROff = hlROff;
             }
             setStatus('ok', 'Model complete — ' + res.length + ' ET stations, ' + hlRes.length + ' hookload steps. TD=' + (par.td * df).toFixed(0) + ' ' + depU);
           } catch (e2) {
@@ -1950,8 +2222,8 @@
 
     function buildCO() {
       var isLight = document.body.classList.contains('light-mode');
-      var textColor = isLight ? '#000000' : '#c8d8e8';
-      var tickColor = isLight ? '#495057' : '#5a7080';
+      var textColor = isLight ? '#000000' : '#ffffff';
+      var tickColor = isLight ? '#495057' : '#ffffff';
       var gridColor = isLight ? 'rgba(0,0,0,.15)' : 'rgba(30,45,61,.6)';
       var tooltipBg = isLight ? '#ffffff' : '#161e28';
       var tooltipBorder = isLight ? '#c8d4de' : '#1e2d3d';
@@ -1960,16 +2232,16 @@
         maintainAspectRatio: false,
         animation: { duration: 400 },
         plugins: {
-          legend: { labels: { color: textColor, font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
+          legend: { labels: { color: textColor, font: { family: 'Share Tech Mono', size: 13 }, boxWidth: 14, padding: 10 } },
           tooltip: {
-            bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
+            bodyFont: { family: 'Share Tech Mono', size: 13 }, titleFont: { family: 'Share Tech Mono', size: 13 },
             backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1, padding: 7,
             bodyColor: textColor, titleColor: textColor
           }
         },
         scales: {
-          x: { type: 'linear', ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
-          y: { ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: gridColor } }
+          x: { type: 'linear', ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 12 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 12 } }, grid: { color: gridColor } }
         }
       };
     }
@@ -1977,7 +2249,7 @@
 
     function axT(txt) {
       var isLight = document.body.classList.contains('light-mode');
-      return { display: true, text: txt, color: isLight ? '#000000' : '#5a7080', font: { family: 'Share Tech Mono', size: 7 } };
+      return { display: true, text: txt, color: isLight ? '#000000' : '#ffffff', font: { family: 'Share Tech Mono', size: 13 } };
     }
 
     function mkLine(lbl, data, xdata, color, dash, fillIt) {
@@ -2044,7 +2316,7 @@
     // RENDER ALL CHARTS
     // =============================================================
     function renderAllCharts(mds, etROB, etSLD, etROff, etTO, etTI,
-      tqROB, tqROff, sfROB, sfSLD, sfROff, sfTO, sfTI,
+      tqROB, tqROff, tqSLD, tqTI, tqTO, sfROB, sfSLD, sfROff, sfTO, sfTI,
       incArr, dlsArr, edrMD, edrHL, edrTQ,
       torqLimDisp, depU, forU, tqU, results, traj, df) {
 
@@ -2067,7 +2339,7 @@
           'c_hl', 'tbl_hl', 'tall')
         + '</div>'
         + makePanelHTML('c-te',
-          'Side Force vs Measured Depth (kgf/m) — Normal Contact Force | 5 Cases',
+          'Side Force vs Measured Depth (kgf per ' + ((cachedPar && cachedPar.normLen) || 9.45) + ' m) — Normal Contact Force incl. Helical-Buckling Wall Contact | 5 Cases',
           'c_sf', 'tbl_sf', 'tall')
         + makePanelHTML('c-pu',
           'Surface Torque vs Measured Depth (' + tqU + ') — Rotating Cases + Limit',
@@ -2154,7 +2426,7 @@
       );
 
       // Display factor closures — available to all table callbacks below
-      function dkN() { return M ? 1 : KN2KLBF; }
+      function dkN() { return M ? 0.1 : KN2KLBF; }
       function dNm() { return M ? 1 : NM2FTLBF / 1000; }
 
       // ---- 2. EFFECTIVE TENSION ----
@@ -2169,6 +2441,35 @@
           borderWidth: 1, borderDash: [2, 5], pointRadius: 0, fill: false, tension: 0, parsing: false, type: 'line'
         }
       ];
+      // Buckling onset shown on the same basis as the ET curves (which
+      // include block weight): string buckles when ET drops below
+      // (blockW - Fcrit). Sinusoidal: Dawson & Paslay (1984) / Lubinski
+      // (1950) near-vertical. Helical: Chen-Cheatham (1990) or
+      // Wu-Juvkam-Wold (1993) per the Helical Criterion setting.
+      // Inside stiff BHA/collar sections Fcrit is enormous and the limit
+      // sits kilometres below the plot — clip those points to NaN (line
+      // gap) so the y-axis autoscale stays on the ET curves themselves.
+      (function () {
+        var allET = [];
+        [etTI, etTO, etROB, etSLD, etROff].forEach(function (a) {
+          a.forEach(function (v) { if (isFinite(v)) allET.push(v); });
+        });
+        var etMin = Math.min.apply(null, allET), etMax = Math.max.apply(null, allET);
+        var floor = etMin - 0.15 * Math.max(etMax - etMin, 1);
+        function limLine(lbl, key, color, dash) {
+          return {
+            label: lbl, parsing: false, type: 'line', fill: false, tension: 0,
+            pointRadius: 0, borderWidth: 1.5, borderColor: color, borderDash: dash,
+            spanGaps: false,
+            data: results.map(function (r, i) {
+              var v = (cachedPar.blockW / 1000 - r[key]) * dkN();
+              return { x: mds[i], y: (v >= floor ? v : NaN) };
+            })
+          };
+        }
+        etDS.push(limLine('Sinusoidal Limit', 'fsin_kN', '#ffd166', [6, 4]));
+        etDS.push(limLine('Helical Limit', 'fhel_kN', '#ff2d55', [2, 3]));
+      })();
       charts.et = new Chart(document.getElementById('c_et').getContext('2d'), {
         type: 'line', data: { datasets: etDS },
         options: Object.assign({}, CO, {
@@ -2207,7 +2508,7 @@
         options: Object.assign({}, CO, {
           scales: {
             x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + depU + ')') }),
-            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Side Force (kgf/m)') })
+            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Side Force (kgf/' + ((cachedPar && cachedPar.normLen) || 9.45) + ' m)') })
           }
         })
       });
@@ -2216,7 +2517,7 @@
         ['MD', 'Trip In', 'Trip Out', 'Rot OB', 'Slide', 'Rot Off'],
         decimate(results, 80),
         function (r) {
-          var sf = M ? 1 : 1 / FT;
+          var sf = (cachedPar && cachedPar.normLen) || 9.45; // kgf per norm. length
           return [(r.md * df).toFixed(0),
           (r.sfTripIn * sf).toFixed(1), (r.sfTripOut * sf).toFixed(1),
           (r.sfRotOB * sf).toFixed(1), (r.sfSlide * sf).toFixed(1),
@@ -2226,9 +2527,16 @@
       );
 
       // ---- 5. TORQUE ----
+      // Torque profile along the string at TD for all 5 operations.
+      // Slide Drilling carries bit torque to surface unchanged (no
+      // rotation -> no tangential friction); Trip In/Out show torque only
+      // when their RPM > 0 (velocity-resolved friction, refs [8],[10]).
       var tqDS = [
         mkLine('Rotating OB', tqROB, mds, '#ff6b35', [], true),
         mkLine('Rotating Off', tqROff, mds, '#c084fc', [2, 3]),
+        mkLine('Slide Drilling', tqSLD, mds, '#ffd060', [4, 3]),
+        mkLine('Tripping In', tqTI, mds, '#ff5e7a', []),
+        mkLine('Tripping Out', tqTO, mds, '#39ff14', [6, 3]),
         {
           label: 'Limit', data: mds.map(function (x) { return { x: x, y: torqLimDisp }; }),
           borderColor: '#ff4060', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: false, tension: 0, parsing: false, type: 'line'
@@ -2246,13 +2554,15 @@
       });
 
       buildPanelTable('tbl_tq',
-        ['MD', 'TVD', 'Torque Rot OB', 'Torque Rot Off'],
+        ['MD', 'TVD', 'Rot OB', 'Rot Off', 'Slide', 'Trip In', 'Trip Out'],
         decimate(results, 80),
         function (r) {
           return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
-          (r.torqRotOB * dNm()).toFixed(0), (r.torqRotOff * dNm()).toFixed(0)];
+          (r.torqRotOB * dNm()).toFixed(0), (r.torqRotOff * dNm()).toFixed(0),
+          (r.torqSlide * dNm()).toFixed(0), (r.torqTripIn * dNm()).toFixed(0),
+          (r.torqTripOut * dNm()).toFixed(0)];
         },
-        [null, null, 'var(--accent2)', 'var(--purple)']
+        [null, null, 'var(--accent2)', 'var(--purple)', 'var(--gold)', 'var(--red)', 'var(--accent3)']
       );
 
       // ---- 6. INCLINATION + DLS ----
@@ -2286,12 +2596,14 @@
     }
 
     // Render hookload chart (called async after ET charts are shown)
-    function renderHookloadChart(hlMDs, hlTO, hlROB, hlSLD, edrMD, edrHL, depU, forU) {
+    function renderHookloadChart(hlMDs, hlTO, hlTI, hlROB, hlSLD, hlROff, edrMD, edrHL, depU, forU) {
       CO = buildCO();
       var hlDS = [
+        mkLine('Tripping In', hlTI, hlMDs, '#ff5e7a', []),
         mkLine('Tripping Out', hlTO, hlMDs, '#39ff14', []),
         mkLine('Rotating OB', hlROB, hlMDs, '#00c8ff', []),
-        mkLine('Slide Drilling', hlSLD, hlMDs, '#ff6b35', [4, 3])
+        mkLine('Slide Drilling', hlSLD, hlMDs, '#ff6b35', [4, 3]),
+        mkLine('Rotating Off', hlROff, hlMDs, '#c084fc', [2, 4])
       ];
       if (edrMD && edrHL) hlDS.push(mkScatter('EDR Measured', edrMD, edrHL, 'rgba(255,208,96,.7)'));
       if (charts.hl) { try { charts.hl.destroy(); } catch (e) { } }
@@ -2306,19 +2618,21 @@
       });
     }
 
-    function renderHookloadTable(hlMDs, hlTO, hlROB, hlSLD, depU, forU) {
+    function renderHookloadTable(hlMDs, hlTO, hlTI, hlROB, hlSLD, hlROff, depU, forU) {
       var step = Math.max(1, Math.floor(hlMDs.length / 80));
       var rows = hlMDs.map(function (md, i) {
-        return { md: md, to: hlTO[i], rob: hlROB[i], sl: hlSLD[i] };
+        return { md: md, ti: hlTI[i], to: hlTO[i], rob: hlROB[i], sl: hlSLD[i], roff: hlROff[i] };
       }).filter(function (_, i) { return i % step === 0 || i === hlMDs.length - 1; });
 
       buildPanelTable('tbl_hl',
-        ['Bit Depth (' + depU + ')', 'Trip Out (' + forU + ')', 'Rot OB (' + forU + ')', 'Slide (' + forU + ')'],
+        ['Bit Depth (' + depU + ')', 'Trip In (' + forU + ')', 'Trip Out (' + forU + ')',
+         'Rot OB (' + forU + ')', 'Slide (' + forU + ')', 'Rot Off (' + forU + ')'],
         rows,
         function (r) {
-          return [r.md.toFixed(0), r.to.toFixed(1), r.rob.toFixed(1), r.sl.toFixed(1)];
+          return [r.md.toFixed(0), r.ti.toFixed(1), r.to.toFixed(1),
+                  r.rob.toFixed(1), r.sl.toFixed(1), r.roff.toFixed(1)];
         },
-        [null, 'var(--accent3)', 'var(--accent)', 'var(--accent2)']
+        [null, 'var(--red)', 'var(--accent3)', 'var(--accent)', 'var(--accent2)', 'var(--purple)']
       );
     }
 

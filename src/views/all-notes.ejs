@@ -2262,6 +2262,16 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         return v ? ('YES-' + suffix) : ('NO-' + suffix);
     }
 
+    // Treats blank, whitespace-only, and common placeholder values
+    // ("***", "N/A", "NA", "-", "--", "N.A.") as an empty date field.
+    // Used for the FINAL + DP-Requested-but-not-Received orange rule below.
+    function nsIsEmptyDateField(raw){
+        const v = String(raw ?? '').trim().toUpperCase();
+        if(v === '') return true;
+        const placeholders = ['***', 'N/A', 'NA', '-', '--', 'N.A.'];
+        return placeholders.includes(v);
+    }
+
     function buildNewScheduleGanttBars(){
         ganttAllBars2 = [];
         const dataEl = document.getElementById('newScheduleGanttData');
@@ -2547,6 +2557,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 const vpKey = siteObj.vp + '|' + siteObj.group;
 
                 switch(true){
+                    // FINAL jobs that have been requested from the DP company but
+                    // not yet received back — flagged orange, still counted in the
+                    // same "FINAL/green" bucket for the summary table + pie charts.
+                    case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
+                        colors.push("#ff8c00");
+                        if(countable) colorCounts.green++;
+                        if(countableForThisYear) colorCounts.greenThisYear++;
+                        if(countableForNextYear) colorCounts.greenNextYear++;
+                        break;
                     case type === "FINAL":
                         colors.push("#4caf50");
                         if(countable) colorCounts.green++;

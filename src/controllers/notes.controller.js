@@ -901,14 +901,24 @@ notesCrtl.saveTDModel = async (req, res) => {
     let doc = await TDModel.findOne({ noteId });
     if(!doc) doc = new TDModel({ noteId, resultsByWell: {} });
     const resultsByWell = doc.resultsByWell ? Object.assign({}, doc.resultsByWell) : {};
+    // Preserve the previously saved run when this save carries no results
+    // (parameter auto-saves POST casings/bha/params continuously; wiping
+    // the last computed charts on every keystroke would be wrong). The
+    // calculated-at/by stamps stay tied to the run, not the param edit.
+    const prev = resultsByWell[wellKey] || {};
     resultsByWell[wellKey] = {
       casings: casings || [],
       bha: bha || [],
       params: params || {},
-      results: results || null,
-      calculatedAt: new Date(),
-      calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
-      calculatedByUserId: req.user ? req.user._id : null,
+      results: hasResults ? results : (prev.results || null),
+      calculatedAt: hasResults ? new Date() : (prev.calculatedAt || null),
+      calculatedByName: hasResults
+        ? (req.user ? (req.user.name || req.user.username || '') : '')
+        : (prev.calculatedByName || ''),
+      calculatedByUserId: hasResults
+        ? (req.user ? req.user._id : null)
+        : (prev.calculatedByUserId || null),
+      paramsSavedAt: new Date(),
     };
     doc.resultsByWell = resultsByWell;
     doc.markModified('resultsByWell');
@@ -958,18 +968,22 @@ notesCrtl.recalculateTDModel = async (req, res) => {
 
     // Metric display units (matching runModel()'s metric branch — this
     // endpoint always computes in metric, same as the CNRL defaults).
+    // Force values (Effective Tension, Hook Load) are converted from the
+    // raw kN the shared module returns to kDaN (1 kN = 0.1 kDaN), matching
+    // the WellPlan-style convention used elsewhere in this app. Side force
+    // (kgf/m) and torque (N.m) are unaffected — they're different units.
     const mds = res_.map(r => r.md);
     const results = {
       mds,
-      etTI: res_.map(r => r.etTripIn), etTO: res_.map(r => r.etTripOut),
-      etROB: res_.map(r => r.etRotOB), etSLD: res_.map(r => r.etSlide), etROff: res_.map(r => r.etRotOff),
+      etTI: res_.map(r => r.etTripIn * 0.1), etTO: res_.map(r => r.etTripOut * 0.1),
+      etROB: res_.map(r => r.etRotOB * 0.1), etSLD: res_.map(r => r.etSlide * 0.1), etROff: res_.map(r => r.etRotOff * 0.1),
       tqROB: res_.map(r => r.torqRotOB), tqROff: res_.map(r => r.torqRotOff),
       sfROB: res_.map(r => r.sfRotOB), sfSLD: res_.map(r => r.sfSlide), sfROff: res_.map(r => r.sfRotOff),
       sfTO: res_.map(r => r.sfTripOut), sfTI: res_.map(r => r.sfTripIn),
       incArr: res_.map(r => r.inc), dlsArr: res_.map(r => r.dls),
-      torqLimDisp: params.torqLim, depU: 'm', forU: 'kN', tqU: 'N.m',
-      hlMDs: hlRes.map(r => r.md), hlTO: hlRes.map(r => r.hl_tripOut),
-      hlROB: hlRes.map(r => r.hl_rotOB), hlSLD: hlRes.map(r => r.hl_slide),
+      torqLimDisp: params.torqLim, depU: 'm', forU: 'kDaN', tqU: 'N.m',
+      hlMDs: hlRes.map(r => r.md), hlTO: hlRes.map(r => r.hl_tripOut * 0.1),
+      hlROB: hlRes.map(r => r.hl_rotOB * 0.1), hlSLD: hlRes.map(r => r.hl_slide * 0.1),
     };
 
     let doc = await TDModel.findOne({ noteId });

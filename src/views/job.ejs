@@ -166,6 +166,10 @@ body.light-mode .input-group-text.bg-dark.text-white {
     border-color: #ced4da !important;
 }
 
+/* Torque & Drag chart panel titles: white in dark mode, black in light mode. */
+.td-chart-title { color: #ffffff; font-family: 'Share Tech Mono', monospace; font-weight: 600; }
+body.light-mode .td-chart-title { color: #000000 !important; }
+
 /* Log entry display textareas (existing log text, e.g. inside #logsSection
    cards) — these use an inline color:gray instead of the text-white class,
    so they need their own rule with !important to win over that inline style. */
@@ -508,24 +512,24 @@ body.light-mode #statusTextbox {
                                 </div>
                                 <div id="tdChartsWrap" style="border-radius:.5rem;padding:1rem;display:none;">
                                     <div class="td-chart-panel mb-3">
-                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Effective Tension vs Measured Depth</div>
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Effective Tension vs Measured Depth</div>
                                         <canvas id="td_c_et" style="max-height:45vh;"></canvas>
                                     </div>
                                     <div class="td-chart-panel mb-3">
-                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Hook Load vs Bit Depth</div>
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Hook Load vs Bit Depth</div>
                                         <canvas id="td_c_hl" style="max-height:45vh;"></canvas>
                                         <div id="td_c_hl_msg" style="color:#5a7080;font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
                                     </div>
                                     <div class="td-chart-panel mb-3">
-                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Side Force vs Measured Depth</div>
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Side Force vs Measured Depth</div>
                                         <canvas id="td_c_sf" style="max-height:45vh;"></canvas>
                                     </div>
                                     <div class="td-chart-panel mb-3">
-                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Surface Torque vs Measured Depth</div>
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Surface Torque vs Measured Depth</div>
                                         <canvas id="td_c_tq" style="max-height:45vh;"></canvas>
                                     </div>
                                     <div class="td-chart-panel">
-                                        <div style="font-size:11px;color:#c8d8e8;margin-bottom:4px;">Inclination and DLS vs Measured Depth</div>
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Inclination and DLS vs Measured Depth</div>
                                         <canvas id="td_c_inc" style="max-height:45vh;"></canvas>
                                     </div>
                                 </div>
@@ -5795,8 +5799,8 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     }
 
     const isLight = document.body.classList.contains('light-mode');
-    const tdTextColor = isLight ? '#000000' : '#c8d8e8';
-    const tdTickColor = isLight ? '#495057' : '#5a7080';
+    const tdTextColor = isLight ? '#000000' : '#ffffff';
+    const tdTickColor = isLight ? '#495057' : '#ffffff';
     const tdGridColor = isLight ? 'rgba(0,0,0,.15)' : 'rgba(30,45,61,.6)';
     const tdTooltipBg = isLight ? '#ffffff' : '#161e28';
     const tdTooltipBorder = isLight ? '#c8d4de' : '#1e2d3d';
@@ -5808,20 +5812,20 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         maintainAspectRatio: false,
         animation: { duration: 400 },
         plugins: {
-            legend: { labels: { color: tdTextColor, font: { family: 'Share Tech Mono', size: 8 }, boxWidth: 10, padding: 6 } },
+            legend: { labels: { color: tdTextColor, font: { family: 'Share Tech Mono', size: 13 }, boxWidth: 14, padding: 10 } },
             tooltip: {
-                bodyFont: { family: 'Share Tech Mono', size: 9 }, titleFont: { family: 'Share Tech Mono', size: 9 },
+                bodyFont: { family: 'Share Tech Mono', size: 13 }, titleFont: { family: 'Share Tech Mono', size: 13 },
                 backgroundColor: tdTooltipBg, borderColor: tdTooltipBorder, borderWidth: 1, padding: 7,
                 bodyColor: tdTextColor, titleColor: tdTextColor
             },
             zoom: { pan:{enabled:true, mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }
         },
         scales: {
-            x: { type: 'linear', ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 7 }, maxTicksLimit: 8 }, grid: { color: tdGridColor } },
-            y: { ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 7 } }, grid: { color: tdGridColor } }
+            x: { type: 'linear', ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 12 }, maxTicksLimit: 8 }, grid: { color: tdGridColor } },
+            y: { ticks: { color: tdTickColor, font: { family: 'Share Tech Mono', size: 12 } }, grid: { color: tdGridColor } }
         }
     };
-    function axT(txt){ return { display:true, text:txt, color: tdTickColor, font:{family:'Share Tech Mono', size:7} }; }
+    function axT(txt){ return { display:true, text:txt, color: tdTickColor, font:{family:'Share Tech Mono', size:13} }; }
     function mkLine(lbl, data, xdata, color, dash, fillIt){
         return {
             label: lbl,
@@ -5885,6 +5889,9 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 mkLine('Rotating OB', r.hlROB, r.hlMDs, '#00c8ff', []),
                 mkLine('Slide Drilling', r.hlSLD, r.hlMDs, '#ff6b35', [4,3]),
             ];
+            // 5-case series (models saved after the velocity-resolved update)
+            if(r.hlTI) hlDS.unshift(mkLine('Tripping In', r.hlTI, r.hlMDs, '#ff5e7a', []));
+            if(r.hlROff) hlDS.push(mkLine('Rotating Off', r.hlROff, r.hlMDs, '#c084fc', [2,4]));
             const hlCanvas = document.getElementById('td_c_hl');
             hlCanvas.style.display = '';
             sizeCanvas(hlCanvas, chartW, chartH);
@@ -5928,9 +5935,15 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         const tqDS = [
             mkLine('Rotating OB', r.tqROB, r.mds, '#ff6b35', [], true),
             mkLine('Rotating Off', r.tqROff, r.mds, '#c084fc', [2,3]),
+        ];
+        // 5-case series (models saved after the velocity-resolved update)
+        if(r.tqSLD) tqDS.push(mkLine('Slide Drilling', r.tqSLD, r.mds, '#ffd060', [4,3]));
+        if(r.tqTI) tqDS.push(mkLine('Tripping In', r.tqTI, r.mds, '#ff5e7a', []));
+        if(r.tqTO) tqDS.push(mkLine('Tripping Out', r.tqTO, r.mds, '#39ff14', [6,3]));
+        tqDS.push(
             { label:'Limit', data: r.mds.map(x => ({x, y: r.torqLimDisp})),
               borderColor:'#ff4060', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0, parsing:false, type:'line' }
-        ];
+        );
         const tqCanvas = document.getElementById('td_c_tq');
         sizeCanvas(tqCanvas, chartW, chartH);
         tdChartInstances.push(new Chart(tqCanvas.getContext('2d'), {
