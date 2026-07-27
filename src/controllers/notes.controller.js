@@ -196,6 +196,7 @@ notesCrtl.renderQueryNotesPartial = async (req,res)=>{
         user.email = usuario.email
         user.role = usuario.role
         user.rank = usuario.rank
+        user.list = usuario.list
 
     console.log("Partial...");
 
@@ -1190,6 +1191,33 @@ notesCrtl.deleteAllWellboreTrajectories = async (req, res) => {
   try{
     const noteId = req.params.noteId;
     const result = await WellboreTrajectory.deleteMany({ noteId });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// DELETE /notes/wellboreTrajectory/pad/:noteId/:pad — delete every well/version under one pad
+notesCrtl.deleteWellboreTrajectoryPad = async (req, res) => {
+  try{
+    const { noteId, pad } = req.params;
+    const result = await WellboreTrajectory.deleteMany({ noteId, pad });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// DELETE /notes/wellboreTrajectory/group/:noteId/:pad/:source — delete one
+// version (upload batch) of a pad, leaving other versions/pads untouched.
+notesCrtl.deleteWellboreTrajectoryGroup = async (req, res) => {
+  try{
+    const { noteId, pad, source } = req.params;
+    const result = await WellboreTrajectory.deleteMany({ noteId, pad, source });
     res.json({ success: true, deleted: result.deletedCount });
   } catch(error){
     console.error(error);

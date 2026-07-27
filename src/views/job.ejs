@@ -229,6 +229,7 @@ body.light-mode #statusTextbox {
 })();
 </script>
 
+<script src="/js/wbtTree.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -2507,7 +2508,7 @@ body.light-mode #statusTextbox {
                 // Track tube mesh for raycasting tooltip
                 wbtTubeMeshData.push({ mesh, name: well.wellName, colorHex: well.colorHex, survey });
 
-                wellsData.push({name: well.wellName, color, mesh});
+                wellsData.push({name: well.wellName, wellName: well.wellName, color, mesh, _id: well._id, pad: well.pad, source: well.source, wellCategory: well.wellCategory, colorHex: well.colorHex || ('#' + color.toString(16).padStart(6,'0')), surveyCount: well.surveyCount});
 
                 const item = document.createElement('div');
                 item.className = 'wbt-legend-item';
@@ -2576,22 +2577,16 @@ body.light-mode #statusTextbox {
         // ---------------- Wellbore visibility list ----------------
         function buildWbtWellList(){
             const container = document.getElementById('wbtWellList');
-            container.innerHTML = '';
-            wellsData.forEach((w) => {
-                const label = document.createElement('label');
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.checked = true;
-                cb.addEventListener('change', () => {
-                    w.mesh.visible = cb.checked;
-                });
-                const sw = document.createElement('span');
-                sw.className = 'wbt-swatch';
-                sw.style.background = '#' + w.color.toString(16).padStart(6,'0');
-                label.appendChild(cb);
-                label.appendChild(sw);
-                label.appendChild(document.createTextNode(w.name));
-                container.appendChild(label);
+            window.wbtBuildTree(container, wellsData, {
+                allowDelete: false,
+                getVisible: (id) => {
+                    const w = wellsData.find(x => String(x._id) === String(id));
+                    return w ? w.mesh.visible : true;
+                },
+                onToggleWell: (id, visible) => {
+                    const w = wellsData.find(x => String(x._id) === String(id));
+                    if(w) w.mesh.visible = visible;
+                }
             });
         }
 

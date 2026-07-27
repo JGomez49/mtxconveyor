@@ -43,6 +43,8 @@ const {
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     deleteAllWellboreTrajectories,
+    deleteWellboreTrajectoryPad,
+    deleteWellboreTrajectoryGroup,
     listWellboreTrajectories,
     addFracPlane,
     updateFracPlane,
@@ -177,6 +179,8 @@ router.post('/notes/banner',            isAuthenticated, saveBanner);
 //Wellbore 3D Trajectory (per job/note)
 router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);
 router.delete('/notes/wellboreTrajectory/all/:noteId', isAuthenticated, deleteAllWellboreTrajectories);
+router.delete('/notes/wellboreTrajectory/pad/:noteId/:pad', isAuthenticated, deleteWellboreTrajectoryPad);
+router.delete('/notes/wellboreTrajectory/group/:noteId/:pad/:source', isAuthenticated, deleteWellboreTrajectoryGroup);
 router.delete('/notes/wellboreTrajectory/:id', isAuthenticated, deleteWellboreTrajectory);
 router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTrajectories);
 

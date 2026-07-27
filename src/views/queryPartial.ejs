@@ -269,7 +269,12 @@ table.qp-table tbody th:last-child { border-right: none; }
                     const isAdmin   = user.role === 'admin';
                     const isLeader  = user.role === 'leader' && note.status !== 'Archived' && note.status !== 'Billed';
                     const isUser    = user.role === 'user'   && note.status !== 'Billed';
-                    const isViewer  = user.role === 'viewer' && note.status !== 'Archived' && note.status !== 'Billed';
+                    // Viewers can now see Archived jobs in search results (Billed stays hidden).
+                    // If the viewer's account has a "list" (customer) restriction set, only
+                    // that customer's jobs are shown — Archived jobs are subject to the same
+                    // restriction, not exempted from it.
+                    const isViewer  = user.role === 'viewer' && note.status !== 'Billed'
+                        && (!user.list || user.list === note.customer);
                     if (!isAdmin && !isLeader && !isUser && !isViewer) return;
 
                     // Status badge class

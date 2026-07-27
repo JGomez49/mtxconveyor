@@ -1,6 +1,7 @@
 
 <%- include ('partials/header.ejs') %>
 
+<script src="/js/wbtTree.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -634,19 +635,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                             </button>
                         </div>
                         <div class="wbt-list" id="wbtSavedList">
-                            <% if (wellboreTrajectories && wellboreTrajectories.length) { %>
-                                <% wellboreTrajectories.forEach(function(t){ %>
-                                    <div class="wbt-list-item" data-id="<%= t._id %>">
-                                        <span class="wbt-name">
-                                            <span class="wbt-swatch" style="background: <%= t.colorHex || '#00c8ff' %>;"></span>
-                                            <%= t.wellName %> <span style="color: var(--wbt-text-dim);">(<%= t.surveyCount %> pts)</span>
-                                        </span>
-                                        <button type="button" class="wbt-btn wbt-btn-del wbt-delete-btn" data-id="<%= t._id %>">Delete</button>
-                                    </div>
-                                <% }) %>
-                            <% } else { %>
-                                <div class="wbt-status" id="wbtNoSaved">No wellbore trajectories saved for this job yet.</div>
-                            <% } %>
+                            <div class="wbt-status">Loading saved wellbores...</div>
                         </div>
                     </div>
 
@@ -669,6 +658,10 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                             <div class="wbt-field">
                                 <label>Pad Name (optional)</label>
                                 <input type="text" id="wbtPadName" placeholder="e.g. 13-28-075-06W4 Pad T" value="<%= note.wells || '' %>">
+                            </div>
+                            <div class="wbt-field">
+                                <label>Version Label (optional)</label>
+                                <input type="text" id="wbtVersionLabel" placeholder="e.g. v1, Rev A">
                             </div>
                             <div class="wbt-field" style="flex:0 0 auto; min-width:140px;">
                                 <label>&nbsp;</label>
@@ -1728,6 +1721,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             window.addEventListener('resize', onResize);
             setupWbtUI();
             wbtFPInit();
+            refreshSavedList();
         }
 
         function onResize(){
@@ -1945,6 +1939,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
         function buildMongoDocuments(){
             const padName = document.getElementById('wbtPadName').value.trim();
+            const versionLabel = document.getElementById('wbtVersionLabel').value.trim();
             return wellsData.map(w => {
                 const survey = w.rows.map(r => {
                     const doc = {};
@@ -1965,7 +1960,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
                 return {
                     wellName: w.name,
-                    source: w.fileName,
+                    source: versionLabel || w.fileName,
                     pad: padName,
                     colorHex: '#' + w.color.toString(16).padStart(6,'0'),
                     surveyCount: survey.length,
@@ -2161,6 +2156,9 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
         }
 
         // ---------------- Saved list refresh / delete ----------------
+        // Renders the DB-saved trajectories as a Category > Pad > Version
+        // tree (wbtTree.js) instead of a flat per-well list, so an entire
+        // pad or a single upload version can be deleted in one action.
         async function refreshSavedList(){
             const container = document.getElementById('wbtSavedList');
             try{
@@ -2168,84 +2166,19 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                 const result = await res.json();
                 if(!res.ok) return;
 
-                container.innerHTML = '';
-                if(!result.trajectories || result.trajectories.length === 0){
-                    const div = document.createElement('div');
-                    div.className = 'wbt-status';
-                    div.id = 'wbtNoSaved';
-                    div.textContent = 'No wellbore trajectories saved for this job yet.';
-                    container.appendChild(div);
-                    return;
-                }
-
-                result.trajectories.forEach(t => {
-                    const item = document.createElement('div');
-                    item.className = 'wbt-list-item';
-                    item.dataset.id = t._id;
-
-                    const nameSpan = document.createElement('span');
-                    nameSpan.className = 'wbt-name';
-                    const sw = document.createElement('span');
-                    sw.className = 'wbt-swatch';
-                    sw.style.background = t.colorHex || '#00c8ff';
-                    nameSpan.appendChild(sw);
-                    nameSpan.appendChild(document.createTextNode(t.wellName + ' '));
-                    const countSpan = document.createElement('span');
-                    countSpan.style.color = 'var(--wbt-text-dim)';
-                    countSpan.textContent = '(' + t.surveyCount + ' pts)';
-                    nameSpan.appendChild(countSpan);
-
-                    const delBtn = document.createElement('button');
-                    delBtn.type = 'button';
-                    delBtn.className = 'wbt-btn wbt-btn-del wbt-delete-btn';
-                    delBtn.dataset.id = t._id;
-                    delBtn.textContent = 'Delete';
-
-                    item.appendChild(nameSpan);
-                    item.appendChild(delBtn);
-                    container.appendChild(item);
+                window.wbtBuildTree(container, result.trajectories || [], {
+                    noteId: NOTE_ID,
+                    allowDelete: true,
+                    onChanged: () => { refreshSavedList(); wbtFPLoadSaved(); }
                 });
-
-                attachDeleteHandlers();
             } catch(err){
                 console.error('Failed to refresh saved trajectories list', err);
             }
         }
 
-        async function deleteTrajectory(id, itemEl){
-            if(!confirm('Delete this wellbore trajectory from the database? This cannot be undone.')) return;
-            try{
-                const res = await fetch('/notes/wellboreTrajectory/' + id, { method: 'DELETE' });
-                const result = await res.json();
-                if(res.ok){
-                    itemEl.remove();
-                    const container = document.getElementById('wbtSavedList');
-                    if(!container.querySelector('.wbt-list-item')){
-                        const div = document.createElement('div');
-                        div.className = 'wbt-status';
-                        div.textContent = 'No wellbore trajectories saved for this job yet.';
-                        container.appendChild(div);
-                    }
-                } else {
-                    alert('Error deleting: ' + (result.error || res.statusText));
-                }
-            } catch(err){
-                alert('Error deleting: ' + err.message);
-            }
-        }
-
-        function attachDeleteHandlers(){
-            document.querySelectorAll('.wbt-delete-btn').forEach(btn => {
-                btn.onclick = () => {
-                    const item = btn.closest('.wbt-list-item');
-                    deleteTrajectory(btn.dataset.id, item);
-                };
-            });
-        }
-
         async function deleteAllTrajectories(){
             const container = document.getElementById('wbtSavedList');
-            const items = container.querySelectorAll('.wbt-list-item');
+            const items = container.querySelectorAll('input[type=checkbox]');
             if(!items.length){
                 alert('No trajectories to delete.');
                 return;
@@ -2325,8 +2258,6 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             document.getElementById('wbtSaveBtn').addEventListener('click', saveToDatabase);
 
             document.getElementById('wbtFolderInput').addEventListener('change', (e) => loadFiles(e.target.files));
-
-            attachDeleteHandlers();
         }
 
 
