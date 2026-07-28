@@ -5907,6 +5907,11 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         }
 
         // ── 3. Side Force vs Measured Depth ──
+        // Values are already scaled to "kgf per Contact Force Normalization
+        // Length" at save time (see uploadTorqueAndDrag.ejs) — WellPlan's
+        // display convention, default 9.45 m (one Range 2 DP joint). Label
+        // must reflect that; it is NOT kgf/m.
+        const sfNL = (currentParams && currentParams.normLen) || 9.45;
         const sfDS = [
             mkLine('Tripping In', r.sfTI, r.mds, '#ff4060', []),
             mkLine('Tripping Out', r.sfTO, r.mds, '#39ff14', []),
@@ -5921,7 +5926,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             options: Object.assign({}, CO, {
                 scales: {
                     x: Object.assign({}, CO.scales.x, { title: axT('Measured Depth (' + r.depU + ')') }),
-                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Side Force (kgf/m)') })
+                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Side Force (kgf/' + sfNL + ' m)') })
                 }
             })
         }));

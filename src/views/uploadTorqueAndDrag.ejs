@@ -1248,6 +1248,28 @@
         </div>
       </div>
 
+      <!-- SECTION 09: WELLBORE SCHEMATIC -->
+      <div class="sec">
+        <div class="sec-hdr" onclick="toggleSec(this)">
+          <span class="sec-num">09</span><span class="sec-ttl">Wellbore Schematic</span><span class="sec-tog">v</span>
+        </div>
+        <div class="sec-body">
+          <div class="brow">
+            <button class="btn btn-g" onclick="renderWellboreSchematic()">🖼 Generate / Refresh Schematic</button>
+          </div>
+          <div id="schematicWrap" style="overflow-x:auto;"></div>
+          <p class="hint">The Full Wellbore panel is drawn to true measured-depth scale from the Casing (01) and
+            Open Hole (05) sections above. The BHA panel (from section 04) uses equal-height rows for every
+            component instead — a BHA mixes long drill pipe joints with short subs, and scaling rows by true
+            length either crushes short components' labels together or wastes space on long ones — so true depth
+            is still shown as text at each row, just not as the row's pixel height. Only the Bit renders as a
+            real photo; every other component is a flat colored block, and each component type always gets the
+            same color across every job (e.g. Drill Collar is always the same gray). Not a substitute for the
+            official well schematic — a quick visual sanity check of what's currently entered before you run the
+            model.</p>
+        </div>
+      </div>
+
       <!-- RUN -->
       <div style="padding:12px">
         <button class="btn btn-run" onclick="runModel()">RUN T&amp;D MODEL</button>
@@ -2050,12 +2072,217 @@
     }
 
     // =============================================================
+    // WELLBORE SCHEMATIC — quick visual sanity check of Casing/BHA/Open
+    // Hole as currently entered. Two panels since a BHA (tens to a few
+    // hundred metres) and a full well (thousands of metres) can't share
+    // one readable linear scale:
+    //   Panel A — full wellbore (casing strings + open hole), true MD scale
+    //   Panel B — BHA detail, zoomed to its own MD range (bit at TD upward)
+    // Diameters within each panel are drawn proportional to true OD/mm so
+    // relative sizes are honest, not just illustrative icons.
+    // =============================================================
+    function renderWellboreSchematic() {
+      var wrap = document.getElementById('schematicWrap');
+      var casings = getCasings();
+      var bha = getBHA();
+      var ohDiam_mm = +document.getElementById('ohDiam').value || 0;
+      var M = (UNIT === 'metric');
+      var ohTop_m = M ? +document.getElementById('ohTop').value : +document.getElementById('ohTop').value * FT;
+      var td_m = M ? +document.getElementById('td').value : +document.getElementById('td').value * FT;
+      if (!td_m || td_m <= 0) { wrap.innerHTML = '<p class="hint">Enter a Total Depth (section 05) first.</p>'; return; }
+
+      var isLight = document.body.classList.contains('light-mode');
+      var COL = {
+        bg: isLight ? '#ffffff' : '#111820',
+        border: isLight ? '#c8d4de' : '#1e2d3d',
+        text: isLight ? '#000000' : '#c8d8e8',
+        textDim: isLight ? '#495057' : '#5a7080',
+        formation: isLight ? 'rgba(180,150,110,.30)' : 'rgba(180,150,110,.18)',
+        casing: isLight ? '#9aa5b1' : '#6b7686',
+        casingStroke: isLight ? '#5a6472' : '#3a4552',
+        pipe: isLight ? '#7a8b9a' : '#5a7080',
+        collar: isLight ? '#8a95a1' : '#7a8590',
+        collarStroke: isLight ? '#5a6472' : '#4a5561',
+        tick: isLight ? '#495057' : '#5a7080'
+      };
+      // Fixed color per component TYPE, keyword-matched, most-specific
+      // first (NMDC before the generic "collar" test, "heavy weight"
+      // before "drill pipe", etc.) so the same type always renders the
+      // same color across every job/run. Anything not recognized falls
+      // back to a deterministic hash-based color, so it still stays
+      // consistent for that exact name every time, without needing to be
+      // added to the list by hand.
+      var TYPE_PALETTE = ['#8a95a1', '#5a7080', '#7d9e34', '#d6336c', '#16a085', '#9b59b6', '#e67e22', '#3498db'];
+      function hashColor(name) {
+        var h = 0;
+        for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+        return TYPE_PALETTE[h % TYPE_PALETTE.length];
+      }
+      function componentColor(name) {
+        var n = (name || '').toLowerCase();
+        if (n.indexOf('bit') !== -1) return '#c0392b';
+        if (/nmdc|non[-\s]?mag/.test(n)) return '#8e44ad';
+        if (n.indexOf('stab') !== -1) return '#d4a017';
+        if (n.indexOf('motor') !== -1) return '#16a085';
+        if (n.indexOf('underream') !== -1) return '#7d9e34';
+        if (n.indexOf('accelerat') !== -1) return '#d6336c';
+        if (n.indexOf('heavy weight') !== -1 || n.indexOf('hwdp') !== -1) return '#e67e22';
+        if (n.indexOf('collar') !== -1) return '#7a8590';
+        if (n.indexOf('drill pipe') !== -1 || /^dp\b/.test(n)) return '#2e86c1';
+        if (n.indexOf('sub') !== -1) return '#5a7080';
+        return hashColor(n);
+      }
+      // Only the Bit gets a real image — everything else is a flat,
+      // type-colored rectangle (see componentColor above).
+      var BIT_ICON_URL = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1665762065/bit-pdc-2-removebg-preview_jqyvef.png';
+      function isBit(name) { return /\bbit\b/i.test(name || ''); }
+      // Bit image keeps its own aspect ratio (stretching it would look
+      // wrong) and gets a minimum display height so a short bit sub isn't
+      // reduced to an unreadable sliver at BHA-panel scale — the depth
+      // ticks beside it still show the true MD range.
+      function bitIconRect(x, y, w, h) {
+        var minH = Math.max(h, 40);
+        var yy = y - (minH - h) / 2;
+        // "slice" (cover-fit) forces the photo to fill the box's full
+        // width — the dimension that matters here, since width is what
+        // represents the bit's diameter relative to the rest of the
+        // string. "meet" (contain-fit) was scaling the image down by
+        // height instead, since the source photo is taller/narrower than
+        // its box, leaving it visually narrower than intended. Slice
+        // crops any vertical overflow, which is an acceptable trade-off
+        // for a simple, roughly-symmetric bit photo.
+        return '<image href="' + BIT_ICON_URL + '" xlink:href="' + BIT_ICON_URL + '" x="' + x + '" y="' + yy +
+          '" width="' + w + '" height="' + minH + '" preserveAspectRatio="xMidYMid slice"/>';
+      }
+      function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+      var depU = M ? 'm' : 'ft', df = M ? 1 : (1 / FT);
+      function fmtD(md) { return (md * df).toFixed(0) + ' ' + depU; }
+
+      // ---------------- Panel A: full wellbore, true MD scale ----------------
+      var pA_h = 620, pA_top = 20, pA_bot = pA_h - 20, pA_cx = 130, pA_maxHalfW = 55;
+      var maxOD_A = Math.max(ohDiam_mm, 1, casings.reduce(function (m, c) { return Math.max(m, c.od_m * 1000); }, 0));
+      function yA(md) { return pA_top + (md / td_m) * (pA_bot - pA_top); }
+      function hwA(od_mm) { return Math.max(3, (od_mm / maxOD_A) * pA_maxHalfW); }
+
+      var svgA = '<svg width="640" height="' + pA_h + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + '">';
+      // open hole (drawn first, sits behind casing)
+      var ohTopY = yA(Math.max(ohTop_m, 0)), ohBotY = yA(td_m), ohHw = hwA(ohDiam_mm);
+      svgA += '<rect x="' + (pA_cx - ohHw) + '" y="' + ohTopY + '" width="' + (ohHw * 2) + '" height="' + (ohBotY - ohTopY) + '" fill="' + COL.formation + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="2,3"/>';
+      svgA += '<text x="' + (pA_cx + ohHw + 10) + '" y="' + ((ohTopY + ohBotY) / 2) + '" font-size="11" fill="' + COL.textDim + '" font-family="monospace">Open Hole, ' + ohDiam_mm.toFixed(2) + ' mm</text>';
+      // casing strings (largest/outermost first as entered)
+      casings.forEach(function (c) {
+        var top = yA(c.top), bot = yA(c.shoe), hw = hwA(c.od_m * 1000);
+        svgA += '<rect x="' + (pA_cx - hw) + '" y="' + top + '" width="' + (hw * 2) + '" height="' + (bot - top) + '" fill="' + COL.casing + '" stroke="' + COL.casingStroke + '" stroke-width="1.5"/>';
+        svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 20) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
+        svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 7) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ID ' + (c.id_m * 1000).toFixed(2) + ' mm</text>';
+        [c.top, c.shoe].forEach(function (md) {
+          var y = yA(md);
+          svgA += '<line x1="8" y1="' + y + '" x2="' + (pA_cx - hw) + '" y2="' + y + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
+          svgA += '<text x="4" y="' + (y + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace" text-anchor="start">' + fmtD(md) + '</text>';
+        });
+      });
+      // drill pipe centerline, surface to top of BHA
+      var bhaTop_m = td_m;
+      bha.forEach(function (c) { bhaTop_m -= c.len; });
+      if (bhaTop_m > 0) {
+        var dpTopY = yA(0), dpBotY = yA(bhaTop_m);
+        svgA += '<rect x="' + (pA_cx - 5) + '" y="' + dpTopY + '" width="10" height="' + (dpBotY - dpTopY) + '" fill="' + COL.pipe + '" stroke="' + COL.casingStroke + '" stroke-width="1"/>';
+      }
+      // surface + TD ticks
+      [0, td_m].forEach(function (md) {
+        var y = yA(md);
+        svgA += '<line x1="8" y1="' + y + '" x2="' + pA_cx + '" y2="' + y + '" stroke="' + COL.tick + '" stroke-width="1"/>';
+        svgA += '<text x="4" y="' + (y + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(md) + '</text>';
+      });
+      svgA += '</svg>';
+
+      // ---------------- Panel B: BHA detail, zoomed ----------------
+      // Rows are NOT scaled by measured length anymore — a BHA mixes
+      // multi-hundred-metre drill pipe joints with sub-metre subs, and
+      // scaling by true length either crushes the short components'
+      // labels together or wastes huge blank space on the long ones.
+      // Every component gets the same fixed row height (except the Bit,
+      // which gets a bit more room for its photo); the true top/bottom
+      // MD for each is still printed as text, just not used for pixel
+      // position or row height.
+      var svgB = '';
+      if (bha.length) {
+        var pB_top = 20, pB_cx = 50, pB_maxHalfW = 15;
+        var OTHER_ROW_H = 50;
+        var maxOD_B = bha.reduce(function (m, c) { return Math.max(m, c.od_m * 1000); }, 1);
+        function hwB(od_mm) { return Math.max(4, (od_mm / maxOD_B) * pB_maxHalfW); }
+        // The Bit is normally the widest point in the BHA (it sets the
+        // hole diameter), so it gets its own true-OD-scaled width; every
+        // other component renders at a fixed 3/4 of that bit width,
+        // regardless of its own actual OD — matching the reference image
+        // (drill pipe/collars shown uniformly narrower than the bit, not
+        // individually scaled by their own diameters).
+        var bitEntry = bha.filter(function (c) { return isBit(c.name); })[0] || bha[0];
+        var baseBitHw = hwB(bitEntry.od_m * 1000);
+        var otherHw = baseBitHw * 0.75 * 0.8;
+        // Bit rendered 20% larger than its true-OD-scaled width, still
+        // centered on the same pB_cx as every other row (x = pB_cx - hw
+        // below applies to bit and non-bit rows alike).
+        var bitHw = baseBitHw * 1.2 * 1.2;
+        // Bit row height is derived from bit width (not a fixed 64px) so
+        // its box keeps the same width:height proportion regardless of
+        // how narrow the overall column gets — a fixed height on a
+        // shrinking width was over-cropping the photo (slice-fit zooms in
+        // to cover a box, so a too-narrow, too-tall box crops heavily).
+        var BIT_ROW_H = Math.max(40, bitHw * 1.9);
+
+        // True MD boundaries, bottom-up (bit = bha[0] sits at TD), for the
+        // depth text only — kept separate from row layout.
+        var cursor = td_m;
+        var withMD = bha.map(function (c) {
+          var bot = cursor, top = cursor - c.len; cursor = top;
+          return { c: c, top: top, bot: bot };
+        });
+        var bhaTopMD = cursor;
+
+        // Stack rows top-to-bottom on screen in the reverse (top-of-BHA
+        // first) order, so the Bit — last in that reversed list — always
+        // lands at the bottom of the panel, matching its real position.
+        var stack = withMD.slice().reverse();
+        var pB_h = pB_top + stack.reduce(function (h, r) { return h + (isBit(r.c.name) ? BIT_ROW_H : OTHER_ROW_H); }, 0) + 20;
+
+        svgB = '<svg width="640" height="' + pB_h + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + '">';
+        svgB += '<line x1="8" y1="' + pB_top + '" x2="' + pB_cx + '" y2="' + pB_top + '" stroke="' + COL.tick + '" stroke-width="1"/>';
+        svgB += '<text x="4" y="' + (pB_top + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(bhaTopMD) + '</text>';
+
+        var y = pB_top;
+        stack.forEach(function (r) {
+          var c = r.c, bit = isBit(c.name);
+          var rowH = bit ? BIT_ROW_H : OTHER_ROW_H;
+          var yTop = y, yBot = y + rowH;
+          var hw = bit ? bitHw : otherHw;
+          var fill = bit ? '#ffffff' : componentColor(c.name);
+          svgB += '<rect x="' + (pB_cx - hw) + '" y="' + yTop + '" width="' + (hw * 2) + '" height="' + rowH + '" fill="' + fill + '"' + (bit ? '' : ' stroke="' + COL.collarStroke + '" stroke-width="1"') + '/>';
+          if (bit) svgB += bitIconRect(pB_cx - hw, yTop, hw * 2, rowH);
+          svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 - 4) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
+          svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 + 9) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ' + c.wt.toFixed(2) + ' ' + (M ? 'kg/m' : 'lb/ft') + '</text>';
+          svgB += '<line x1="8" y1="' + yBot + '" x2="' + (pB_cx - hw) + '" y2="' + yBot + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
+          svgB += '<text x="4" y="' + (yBot + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace">' + fmtD(r.bot) + '</text>';
+          y = yBot;
+        });
+        svgB += '</svg>';
+      }
+
+      wrap.innerHTML =
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+        '<div><div class="hint" style="margin-bottom:4px;font-weight:bold;">Full Wellbore (true scale)</div>' + svgA + '</div>' +
+        (svgB ? '<div><div class="hint" style="margin-bottom:4px;font-weight:bold;">BHA Detail (zoomed, ' + fmtD(bhaTop_m) + ' \u2013 ' + fmtD(td_m) + ')</div>' + svgB + '</div>' : '') +
+        '</div>';
+    }
+
+    // =============================================================
     // RUN MODEL — orchestrates everything
     // =============================================================
     function runModel() {
       setStatus('run', 'Computing effective tension and trajectory...');
       hideErr();
       try {
+        renderWellboreSchematic();
         var surv = getSurvey();
         if (surv.length < 2) throw new Error('Need at least 2 survey stations.');
         var cas = getCasings();
