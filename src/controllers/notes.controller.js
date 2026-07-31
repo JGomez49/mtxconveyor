@@ -881,6 +881,17 @@ notesCrtl.getTDModel = async (req, res) => {
         calculatedAt: doc.calculatedAt, calculatedByName: null, calculatedByUserId: doc.user,
       }};
     }
+    // Backward-compat: documents saved before scenarios existed only have a
+    // top-level resultsByWell and no scenarios/activeScenario yet.
+    // Synthesize a single "Default" scenario from it so every reader can
+    // treat scenarios as always present.
+    if(!doc.scenarios || !Object.keys(doc.scenarios).length){
+      doc.scenarios = { Default: { resultsByWell: doc.resultsByWell || {} } };
+      doc.activeScenario = 'Default';
+    }
+    if(!doc.activeScenario || !doc.scenarios[doc.activeScenario]){
+      doc.activeScenario = Object.keys(doc.scenarios)[0];
+    }
     res.json(doc);
   } catch(err) {
     res.status(500).json({ error: err.message });
@@ -889,7 +900,7 @@ notesCrtl.getTDModel = async (req, res) => {
 
 notesCrtl.saveTDModel = async (req, res) => {
   try {
-    const { noteId, wellKey, casings, bha, params, results } = req.body;
+    const { noteId, wellKey, casings, bha, params, results, scenario } = req.body;
     if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
     if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
 
@@ -900,14 +911,21 @@ notesCrtl.saveTDModel = async (req, res) => {
     // MongoDB key-path issue with well names containing brackets/spaces,
     // and so other wells' saved runs are never touched.
     let doc = await TDModel.findOne({ noteId });
-    if(!doc) doc = new TDModel({ noteId, resultsByWell: {} });
-    const resultsByWell = doc.resultsByWell ? Object.assign({}, doc.resultsByWell) : {};
+    if(!doc) doc = new TDModel({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+
+    // Scenarios are job-wide (shared names across every well). If no
+    // scenario is specified, save into whichever is currently active (or
+    // "Default" the very first time this job saves anything).
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
+
     // Preserve the previously saved run when this save carries no results
     // (parameter auto-saves POST casings/bha/params continuously; wiping
     // the last computed charts on every keystroke would be wrong). The
     // calculated-at/by stamps stay tied to the run, not the param edit.
-    const prev = resultsByWell[wellKey] || {};
-    resultsByWell[wellKey] = {
+    const prev = scenarioResultsByWell[wellKey] || {};
+    scenarioResultsByWell[wellKey] = {
       casings: casings || [],
       bha: bha || [],
       params: params || {},
@@ -921,11 +939,21 @@ notesCrtl.saveTDModel = async (req, res) => {
         : (prev.calculatedByUserId || null),
       paramsSavedAt: new Date(),
     };
-    doc.resultsByWell = resultsByWell;
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    // Top-level resultsByWell always mirrors the ACTIVE scenario — saving
+    // into a non-active scenario updates that scenario without disturbing
+    // what job.ejs's accordion currently shows.
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
     doc.markModified('resultsByWell');
     await doc.save();
 
-    res.json({ success: true, savedResults: hasResults, wellKey, calculatedAt: resultsByWell[wellKey].calculatedAt });
+    res.json({
+      success: true, savedResults: hasResults, wellKey, scenario: scenarioName,
+      activeScenario: doc.activeScenario, calculatedAt: scenarioResultsByWell[wellKey].calculatedAt,
+    });
   } catch(err) {
     console.error('saveTDModel error:', err);
     res.status(500).json({ error: err.message });
@@ -942,7 +970,7 @@ notesCrtl.saveTDModel = async (req, res) => {
 notesCrtl.recalculateTDModel = async (req, res) => {
   try {
     const noteId = req.params.noteId;
-    const { wellKey, casings, bha, params } = req.body;
+    const { wellKey, casings, bha, params, scenario } = req.body;
     if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
     if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
     if(!casings || !bha || !params) return res.status(400).json({ error: 'Missing casings/bha/params' });
@@ -988,27 +1016,83 @@ notesCrtl.recalculateTDModel = async (req, res) => {
     };
 
     let doc = await TDModel.findOne({ noteId });
-    if(!doc) doc = new TDModel({ noteId, resultsByWell: {} });
-    const resultsByWell = doc.resultsByWell ? Object.assign({}, doc.resultsByWell) : {};
+    if(!doc) doc = new TDModel({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
     const calculatedAt = new Date();
-    resultsByWell[wellKey] = {
+    scenarioResultsByWell[wellKey] = {
       casings, bha, params, results,
       calculatedAt,
       calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
       calculatedByUserId: req.user ? req.user._id : null,
     };
-    doc.resultsByWell = resultsByWell;
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
     doc.markModified('resultsByWell');
     await doc.save();
 
-    console.log(`recalculateTDModel: noteId=${noteId}, wellKey="${wellKey}" -> ${mds.length} MD points, saved by ${req.user ? req.user.name : 'unknown'} at ${calculatedAt.toISOString()}`);
+    console.log(`recalculateTDModel: noteId=${noteId}, wellKey="${wellKey}", scenario="${scenarioName}" -> ${mds.length} MD points, saved by ${req.user ? req.user.name : 'unknown'} at ${calculatedAt.toISOString()}`);
 
     res.json({
-      success: true, wellKey, results, calculatedAt,
-      calculatedByName: resultsByWell[wellKey].calculatedByName,
+      success: true, wellKey, results, calculatedAt, scenario: scenarioName, activeScenario: doc.activeScenario,
+      calculatedByName: scenarioResultsByWell[wellKey].calculatedByName,
     });
   } catch(err) {
     console.error('recalculateTDModel error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /notes/tdModel/:noteId/scenario/setActive — switch which job-wide
+// scenario is "current". Just repoints the top-level resultsByWell mirror
+// to that scenario's data; every well's saved run under it becomes what
+// job.ejs's accordion and a freshly-opened modeler will show, with no
+// re-entry or re-run required.
+notesCrtl.setActiveScenario = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { scenario } = req.body;
+    if(!scenario) return res.status(400).json({ error: 'Missing scenario name' });
+    const doc = await TDModel.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No T&D model found for this job' });
+    if(!doc.scenarios || !doc.scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    doc.activeScenario = scenario;
+    doc.resultsByWell = doc.scenarios[scenario].resultsByWell || {};
+    doc.markModified('resultsByWell');
+    await doc.save();
+    res.json({ success: true, activeScenario: scenario });
+  } catch(err) {
+    console.error('setActiveScenario error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// DELETE /notes/tdModel/:noteId/scenario/:scenario
+notesCrtl.deleteScenario = async (req, res) => {
+  try {
+    const { noteId, scenario } = req.params;
+    const doc = await TDModel.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No T&D model found for this job' });
+    const scenarios = Object.assign({}, doc.scenarios || {});
+    if(!scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    const names = Object.keys(scenarios);
+    if(names.length <= 1) return res.status(400).json({ error: 'Cannot delete the only remaining scenario.' });
+    delete scenarios[scenario];
+    doc.scenarios = scenarios;
+    if(doc.activeScenario === scenario){
+      doc.activeScenario = Object.keys(scenarios)[0];
+      doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell || {};
+      doc.markModified('resultsByWell');
+    }
+    doc.markModified('scenarios');
+    await doc.save();
+    res.json({ success: true, activeScenario: doc.activeScenario, remaining: Object.keys(scenarios) });
+  } catch(err) {
+    console.error('deleteScenario error:', err);
     res.status(500).json({ error: err.message });
   }
 };

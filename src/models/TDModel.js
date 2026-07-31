@@ -12,6 +12,15 @@ const { Schema, model } = require("mongoose");
 // params/results plus who calculated it and when — switching wells never
 // overwrites another well's saved run.
 //
+// SCENARIOS: a job can hold several named, job-wide scenarios (e.g.
+// "BHA Option A" / "BHA Option B") — scenario names are shared across
+// every well in the job, and each scenario has its own resultsByWell
+// underneath. Exactly one scenario is "active" (activeScenario); the
+// TOP-LEVEL resultsByWell above is always kept as a live mirror of the
+// active scenario's resultsByWell, specifically so job.ejs's accordion
+// and anything else that just wants "the current answer" needs no
+// scenario-aware code — it already reads top-level resultsByWell.
+//
 // All calculation uses the ONE shared soft-string (Johancsik 1984) module
 // (src/public/js/tdModel.js, loaded by both the browser and this backend)
 // — this collection only stores the resulting numbers.
@@ -25,7 +34,12 @@ const TDModelSchema = new Schema({
     //   calculatedByName,       // display name, e.g. "Camilo"
     //   calculatedByUserId,     // ref to User
     // }
+    // Always mirrors scenarios[activeScenario].resultsByWell — see note above.
     resultsByWell: { type: Schema.Types.Mixed, default: {} },
+
+    // scenarios[scenarioName] = { resultsByWell: { <same shape as above> } }
+    scenarios: { type: Schema.Types.Mixed, default: {} },
+    activeScenario: { type: String, default: '' },
 
     // Legacy single-well fields, kept only so documents saved before this
     // per-well migration still read back correctly (see getTDModel).

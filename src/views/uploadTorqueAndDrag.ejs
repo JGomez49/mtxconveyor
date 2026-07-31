@@ -405,6 +405,17 @@
       color: var(--accent)
     }
 
+    .btn-del {
+      background: transparent;
+      border: 1px solid var(--red);
+      color: var(--red)
+    }
+
+    .btn-del:hover {
+      background: var(--red);
+      color: #fff
+    }
+
     .btn-run {
       background: linear-gradient(135deg, var(--accent2), #ff8c55);
       color: #fff;
@@ -967,6 +978,17 @@
               <label>Well / Leg</label>
               <select id="tdWellSelect" onchange="onTdWellChange()"></select>
             </div>
+          </div>
+          <div class="fg one" id="tdScenarioRow" style="display:none;">
+            <div>
+              <label>Scenario (job-wide — shared across every well)</label>
+              <select id="tdScenarioSelect" onchange="onTdScenarioChange()"></select>
+            </div>
+          </div>
+          <div class="brow" id="tdScenarioBtnRow" style="display:none;">
+            <button class="btn btn-g" onclick="tdSaveAsNewScenario()">➕ Save As New Scenario</button>
+            <button class="btn btn-g" onclick="tdSetActiveScenario()">⭐ Set as Active</button>
+            <button class="btn btn-g btn-del" onclick="tdDeleteScenario()">🗑 Delete Scenario</button>
           </div>
           <div class="brow" id="tdSaveRow" style="display:none;">
             <button class="btn btn-g" onclick="saveModelToJob()">💾 Save Parameters + Results to Job</button>
@@ -1689,22 +1711,114 @@
     // well change (applySavedWellParams).
     // ------------------------------------------------------------------
     var tdSavedDoc = null;      // full TDModel doc for the loaded job
+    var tdCurrentScenario = null; // job-wide scenario name currently shown/edited
     var tdApplyingSaved = false; // suppress auto-save while programmatically filling inputs
 
     async function fetchSavedTDDoc() {
       tdSavedDoc = null;
+      tdCurrentScenario = null;
       if (!tdCurrentNoteId) return;
       try {
         var res = await fetch('/notes/tdModel/' + tdCurrentNoteId);
         tdSavedDoc = await res.json();
+        if (tdSavedDoc) {
+          tdCurrentScenario = tdSavedDoc.activeScenario || 'Default';
+          populateScenarioSelect();
+        }
       } catch (err) { console.warn('fetchSavedTDDoc error:', err); }
+    }
+
+    // Scenarios are job-wide (shared names across every well) — see
+    // models/TDModel.js. The dropdown lists every scenario saved for this
+    // job; picking one just changes which scenario's data is shown/edited
+    // for the currently selected well, no re-run required to preview it.
+    function populateScenarioSelect() {
+      var row = document.getElementById('tdScenarioRow');
+      var btnRow = document.getElementById('tdScenarioBtnRow');
+      var sel = document.getElementById('tdScenarioSelect');
+      if (!tdSavedDoc || !tdSavedDoc.scenarios || !Object.keys(tdSavedDoc.scenarios).length) {
+        row.style.display = 'none'; btnRow.style.display = 'none'; return;
+      }
+      var names = Object.keys(tdSavedDoc.scenarios);
+      sel.innerHTML = '';
+      names.forEach(function (name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name + (name === tdSavedDoc.activeScenario ? ' \u2b50 (active)' : '');
+        sel.appendChild(opt);
+      });
+      sel.value = tdCurrentScenario;
+      row.style.display = '';
+      btnRow.style.display = '';
+    }
+
+    function onTdScenarioChange() {
+      var sel = document.getElementById('tdScenarioSelect');
+      tdCurrentScenario = sel.value;
+      var statusEl = document.getElementById('tdJobStatus');
+      if (tdCurrentWellKey) {
+        var applied = applySavedWellParams(tdCurrentWellKey);
+        statusEl.textContent = 'Switched to scenario "' + tdCurrentScenario + '"'
+          + (applied ? ' \u2014 restored its saved casing/BHA/parameters for ' + tdCurrentWellKey + '.'
+                     : ' \u2014 no saved data yet for ' + tdCurrentWellKey + ' under this scenario.');
+      }
+    }
+
+    async function tdSaveAsNewScenario() {
+      if (!tdCurrentNoteId || !tdCurrentWellKey) { alert('Load a job and select a well first.'); return; }
+      var name = prompt('Name for the new scenario (e.g. "BHA Option A"):');
+      if (!name) return;
+      name = name.trim();
+      if (!name) return;
+      if (tdSavedDoc && tdSavedDoc.scenarios && tdSavedDoc.scenarios[name]) {
+        if (!confirm('A scenario named "' + name + '" already exists. Overwrite its saved data for ' + tdCurrentWellKey + '?')) return;
+      }
+      tdCurrentScenario = name;
+      await saveModelToJob();
+      await fetchSavedTDDoc();
+      tdCurrentScenario = name;
+      populateScenarioSelect();
+      var sel = document.getElementById('tdScenarioSelect');
+      if (sel) sel.value = name;
+      document.getElementById('tdJobStatus').textContent = 'Saved as new scenario "' + name + '" for ' + tdCurrentWellKey + '.';
+    }
+
+    async function tdSetActiveScenario() {
+      if (!tdCurrentNoteId || !tdCurrentScenario) return;
+      if (!confirm('Make "' + tdCurrentScenario + '" the active scenario for this job? This is what the job page (and a freshly opened modeler) will show by default for every well.')) return;
+      try {
+        var res = await fetch('/notes/tdModel/' + tdCurrentNoteId + '/scenario/setActive', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario: tdCurrentScenario })
+        });
+        var data = await res.json();
+        if (!res.ok) { alert('Error: ' + (data.error || res.statusText)); return; }
+        await fetchSavedTDDoc();
+        document.getElementById('tdJobStatus').textContent = '\u2b50 "' + tdCurrentScenario + '" is now the active scenario for this job.';
+      } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    async function tdDeleteScenario() {
+      if (!tdCurrentNoteId || !tdCurrentScenario) return;
+      if (!confirm('Delete scenario "' + tdCurrentScenario + '" for this job? This removes its saved data for EVERY well in this job, not just ' + (tdCurrentWellKey || 'the current one') + '. This cannot be undone.\n\nClick Cancel to keep it.')) return;
+      try {
+        var res = await fetch('/notes/tdModel/' + tdCurrentNoteId + '/scenario/' + encodeURIComponent(tdCurrentScenario), { method: 'DELETE' });
+        var data = await res.json();
+        if (!res.ok) { alert('Error: ' + (data.error || res.statusText)); return; }
+        await fetchSavedTDDoc();
+        if (tdCurrentWellKey) applySavedWellParams(tdCurrentWellKey);
+        document.getElementById('tdJobStatus').textContent = 'Scenario deleted. Active scenario is now "' + tdSavedDoc.activeScenario + '".';
+      } catch (err) { alert('Error: ' + err.message); }
     }
 
     // Returns true if a saved entry existed and was applied.
     function applySavedWellParams(wellKey) {
       var entry = null;
       if (tdSavedDoc) {
-        if (tdSavedDoc.resultsByWell && tdSavedDoc.resultsByWell[wellKey]) {
+        var scenarioData = tdSavedDoc.scenarios && tdCurrentScenario && tdSavedDoc.scenarios[tdCurrentScenario];
+        if (scenarioData && scenarioData.resultsByWell && scenarioData.resultsByWell[wellKey]) {
+          entry = scenarioData.resultsByWell[wellKey];
+        } else if (tdSavedDoc.resultsByWell && tdSavedDoc.resultsByWell[wellKey]) {
           entry = tdSavedDoc.resultsByWell[wellKey];
         } else if (tdSavedDoc.params && (tdSavedDoc.wellKey === wellKey || !tdSavedDoc.wellKey)) {
           entry = tdSavedDoc; // legacy pre-migration document
@@ -1824,6 +1938,7 @@
         var payload = {
           noteId: tdCurrentNoteId,
           wellKey: tdCurrentWellKey,
+          scenario: tdCurrentScenario,
           casings: getCasings(),
           bha: getBHA(),
           params: getParams(),
@@ -1837,13 +1952,18 @@
         });
         var data = await res.json();
         if (res.ok && data.success) {
-          statusEl.textContent = 'Auto-saved parameters for ' + tdCurrentWellKey + ' at ' + new Date().toLocaleTimeString() + '.';
-          // keep the in-memory saved doc in sync so well switches re-apply the latest
-          if (tdSavedDoc) {
-            tdSavedDoc.resultsByWell = tdSavedDoc.resultsByWell || {};
-            tdSavedDoc.resultsByWell[tdCurrentWellKey] = Object.assign(
-              {}, tdSavedDoc.resultsByWell[tdCurrentWellKey] || {},
+          statusEl.textContent = 'Auto-saved parameters for ' + tdCurrentWellKey
+            + (data.scenario ? ' (scenario "' + data.scenario + '")' : '') + ' at ' + new Date().toLocaleTimeString() + '.';
+          // keep the in-memory saved doc in sync so well/scenario switches re-apply the latest
+          if (tdSavedDoc && data.scenario) {
+            tdSavedDoc.scenarios = tdSavedDoc.scenarios || {};
+            tdSavedDoc.scenarios[data.scenario] = tdSavedDoc.scenarios[data.scenario] || { resultsByWell: {} };
+            tdSavedDoc.scenarios[data.scenario].resultsByWell[tdCurrentWellKey] = Object.assign(
+              {}, tdSavedDoc.scenarios[data.scenario].resultsByWell[tdCurrentWellKey] || {},
               { casings: payload.casings, bha: payload.bha, params: payload.params });
+            if (data.activeScenario === data.scenario) {
+              tdSavedDoc.resultsByWell = tdSavedDoc.scenarios[data.scenario].resultsByWell;
+            }
           }
         } else {
           statusEl.textContent = 'Auto-save failed: ' + (data.error || res.statusText);
@@ -1882,6 +2002,7 @@
         var payload = {
           noteId: tdCurrentNoteId,
           wellKey: tdCurrentWellKey,
+          scenario: tdCurrentScenario,
           casings: getCasings(),
           bha: getBHA(),
           params: getParams(),
@@ -1895,9 +2016,10 @@
         var data = await res.json();
         console.log('[T&D] Save response:', data, '| noteId used:', tdCurrentNoteId);
         if (res.ok) {
-          statusEl.textContent = data.savedResults
-            ? '✅ Saved parameters and chart results (noteId: ' + tdCurrentNoteId + ') — job.ejs should now show the charts.'
-            : '⚠ Saved parameters only — NO chart results were saved (run the model first, then Save again, to make the charts appear on job.ejs).';
+          var scenarioNote = data.scenario ? ' [scenario: "' + data.scenario + '"' + (data.scenario !== data.activeScenario ? ', not active — job.ejs still shows "' + data.activeScenario + '"' : '') + ']' : '';
+          statusEl.textContent = (data.savedResults
+            ? '✅ Saved parameters and chart results (noteId: ' + tdCurrentNoteId + ')' + scenarioNote + '.'
+            : '⚠ Saved parameters only — NO chart results were saved (run the model first, then Save again, to make the charts appear on job.ejs).' + scenarioNote);
         } else {
           statusEl.textContent = '❌ Save failed: ' + (data.error || res.statusText);
         }
@@ -2160,11 +2282,31 @@
 
       // ---------------- Panel A: full wellbore, true MD scale ----------------
       var pA_h = 620, pA_top = 20, pA_bot = pA_h - 20, pA_cx = 130, pA_maxHalfW = 55;
-      var maxOD_A = Math.max(ohDiam_mm, 1, casings.reduce(function (m, c) { return Math.max(m, c.od_m * 1000); }, 0));
+      // Width is scaled against the MIN..MAX diameter actually present in
+      // this well, not against 0..max — a plain 0..max scale (od/maxOD)
+      // squashes every size that isn't the single largest component (e.g.
+      // a wide surface conductor) toward the same few pixels, hiding real
+      // differences between components that are all much smaller than it
+      // (a 168.3mm casing OD and a 159mm open hole both read as ~1/3 of a
+      // 508mm conductor's width — an ~9mm real difference disappears).
+      // Stretching to the actual min..max range keeps the narrowest
+      // component clearly narrower (fixed floor at 45% of the widest)
+      // instead of letting it shrink toward zero, so a real difference is
+      // always visibly a real difference. Ordering (bigger OD = wider) is
+      // always preserved — only the absolute pixel-to-mm ratio isn't
+      // constant across components, so read exact sizes from the labels.
+      var odsForScale = casings.map(function (c) { return c.od_m * 1000; }).concat([ohDiam_mm]).filter(function (v) { return v > 0; });
+      var minOD_A = odsForScale.length ? Math.min.apply(null, odsForScale) : 1;
+      var maxOD_A = odsForScale.length ? Math.max.apply(null, odsForScale) : 1;
+      var A_MIN_FRAC = 0.45;
       function yA(md) { return pA_top + (md / td_m) * (pA_bot - pA_top); }
-      function hwA(od_mm) { return Math.max(3, (od_mm / maxOD_A) * pA_maxHalfW); }
+      function hwA(od_mm) {
+        if (maxOD_A <= minOD_A) return pA_maxHalfW;
+        var frac = A_MIN_FRAC + (1 - A_MIN_FRAC) * (od_mm - minOD_A) / (maxOD_A - minOD_A);
+        return Math.max(3, frac * pA_maxHalfW);
+      }
 
-      var svgA = '<svg width="640" height="' + pA_h + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + '">';
+      var svgA = '<svg viewBox="0 0 640 ' + pA_h + '" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + ';display:block;">';
       // open hole (drawn first, sits behind casing)
       var ohTopY = yA(Math.max(ohTop_m, 0)), ohBotY = yA(td_m), ohHw = hwA(ohDiam_mm);
       svgA += '<rect x="' + (pA_cx - ohHw) + '" y="' + ohTopY + '" width="' + (ohHw * 2) + '" height="' + (ohBotY - ohTopY) + '" fill="' + COL.formation + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="2,3"/>';
@@ -2246,7 +2388,7 @@
         var stack = withMD.slice().reverse();
         var pB_h = pB_top + stack.reduce(function (h, r) { return h + (isBit(r.c.name) ? BIT_ROW_H : OTHER_ROW_H); }, 0) + 20;
 
-        svgB = '<svg width="640" height="' + pB_h + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + '">';
+        svgB = '<svg viewBox="0 0 640 ' + pB_h + '" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + ';display:block;">';
         svgB += '<line x1="8" y1="' + pB_top + '" x2="' + pB_cx + '" y2="' + pB_top + '" stroke="' + COL.tick + '" stroke-width="1"/>';
         svgB += '<text x="4" y="' + (pB_top + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(bhaTopMD) + '</text>';
 
@@ -2256,7 +2398,7 @@
           var rowH = bit ? BIT_ROW_H : OTHER_ROW_H;
           var yTop = y, yBot = y + rowH;
           var hw = bit ? bitHw : otherHw;
-          var fill = bit ? '#ffffff' : componentColor(c.name);
+          var fill = bit ? 'none' : componentColor(c.name);
           svgB += '<rect x="' + (pB_cx - hw) + '" y="' + yTop + '" width="' + (hw * 2) + '" height="' + rowH + '" fill="' + fill + '"' + (bit ? '' : ' stroke="' + COL.collarStroke + '" stroke-width="1"') + '/>';
           if (bit) svgB += bitIconRect(pB_cx - hw, yTop, hw * 2, rowH);
           svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 - 4) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
@@ -2268,10 +2410,17 @@
         svgB += '</svg>';
       }
 
+      var sharedH = Math.max(pA_h, svgB ? pB_h : 0);
       wrap.innerHTML =
         '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
-        '<div><div class="hint" style="margin-bottom:4px;font-weight:bold;">Full Wellbore (true scale)</div>' + svgA + '</div>' +
-        (svgB ? '<div><div class="hint" style="margin-bottom:4px;font-weight:bold;">BHA Detail (zoomed, ' + fmtD(bhaTop_m) + ' \u2013 ' + fmtD(td_m) + ')</div>' + svgB + '</div>' : '') +
+        '<div style="width:640px;">' +
+          '<div class="hint" style="margin-bottom:4px;font-weight:bold;">Full Wellbore (true scale)</div>' +
+          '<div style="width:640px;height:' + sharedH + 'px;">' + svgA + '</div>' +
+        '</div>' +
+        (svgB ? '<div style="width:640px;">' +
+          '<div class="hint" style="margin-bottom:4px;font-weight:bold;">BHA Detail (zoomed, ' + fmtD(bhaTop_m) + ' \u2013 ' + fmtD(td_m) + ')</div>' +
+          '<div style="width:640px;height:' + sharedH + 'px;">' + svgB + '</div>' +
+        '</div>' : '') +
         '</div>';
     }
 

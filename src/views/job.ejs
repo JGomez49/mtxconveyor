@@ -131,6 +131,11 @@ body.light-mode .accordion-button.collapsed {
     color: #111820 !important;
 }
 body.light-mode .accordion-button::after { filter: invert(1) brightness(0); }
+/* T&D charts, 2-column layout (viewer role) — see tdChartsWrap in job.ejs.
+   Canvas width is measured per-panel in JS (buildTDCharts), so this works
+   correctly whether td-2col is applied or not. */
+.td-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.td-2col .td-chart-panel { margin-bottom: 0 !important; }
 /* PAD AC risk colours */
 .risk-red   { background-color: #b22222 !important; color: #fff !important; }
 .risk-amber { background-color: #f0c640 !important; color: #000 !important; }
@@ -490,20 +495,22 @@ body.light-mode #statusTextbox {
                 <!-- ================= END LEGS SUMMARY ================= -->
 
                 <!-- ================= TORQUE & DRAG MODEL ================= -->
-                <% if (user.role === 'admin') { %>
                 <div class="accordion mb-2" id="accordionTD">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseTD">
+                            <button class="accordion-button" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseTD"
+                                    aria-expanded="true">
                                 🔧 Torque &amp; Drag Model
                             </button>
                         </h2>
-                        <div id="collapseTD" class="accordion-collapse collapse">
+                        <div id="collapseTD" class="accordion-collapse collapse show">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                     <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
                                     <select id="tdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <select id="tdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
                                     <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
                                     <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
@@ -511,7 +518,11 @@ body.light-mode #statusTextbox {
                                 <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Torque &amp; Drag model saved yet for this job.
                                 </div>
-                                <div id="tdChartsWrap" style="border-radius:.5rem;padding:1rem;display:none;">
+                                <div id="tdSchematicWrap" style="display:none;overflow-x:auto;margin-bottom:1rem;">
+                                    <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Wellbore Geometry &amp; BHA</div>
+                                    <div id="tdSchematicInner" style="display:flex;gap:16px;flex-wrap:wrap;"></div>
+                                </div>
+                                <div id="tdChartsWrap" class="td-2col" style="border-radius:.5rem;padding:1rem;display:none;">
                                     <div class="td-chart-panel mb-3">
                                         <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Effective Tension vs Measured Depth</div>
                                         <canvas id="td_c_et" style="max-height:45vh;"></canvas>
@@ -529,9 +540,13 @@ body.light-mode #statusTextbox {
                                         <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Surface Torque vs Measured Depth</div>
                                         <canvas id="td_c_tq" style="max-height:45vh;"></canvas>
                                     </div>
-                                    <div class="td-chart-panel">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Inclination and DLS vs Measured Depth</div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Inclination vs Measured Depth</div>
                                         <canvas id="td_c_inc" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">DLS vs Measured Depth</div>
+                                        <canvas id="td_c_dls" style="max-height:45vh;"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -539,7 +554,6 @@ body.light-mode #statusTextbox {
                     </div>
                 </div>
                 <!-- ================= END TORQUE & DRAG MODEL ================= -->
-                <% } %>
 
                 <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
                 <div class="accordion mb-2" id="accordionPason">
@@ -5766,8 +5780,8 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 <script>
 (function(){
     const PASON_NOTE_ID = "<%- note._id %>";
-    // The whole T&D accordion is admin-only — if its HTML wasn't rendered
-    // (non-admin viewing this page), there's nothing for this script to do.
+    // The T&D accordion is now available to every role. This guard just
+    // protects against the element genuinely being absent for any reason.
     if(!document.getElementById('tdWellSelect2')) return;
     const dataEl = document.getElementById('tdModelData');
     if(!dataEl){ console.log('[T&D] #tdModelData element not found on this page.'); return; }
@@ -5821,12 +5835,19 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         }
     };
     function axT(txt){ return { display:true, text:txt, color: tdTickColor, font:{family:'Share Tech Mono', size:13} }; }
+    function hexToRgba(hex, alpha){
+        var h = String(hex).replace('#','');
+        if(h.length === 3) h = h.split('').map(c => c + c).join('');
+        var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
     function mkLine(lbl, data, xdata, color, dash, fillIt){
         return {
             label: lbl,
             data: xdata.map((x,i) => ({x, y: data[i]})),
             borderColor: color,
-            backgroundColor: fillIt ? color.replace(')', ',0.1)').replace('rgb','rgba') : undefined,
+            backgroundColor: fillIt ? hexToRgba(color, 0.15) : undefined,
             borderWidth: 1.8, pointRadius: 0, fill: fillIt ? 'origin' : false,
             tension: 0.3, borderDash: dash || [], parsing: false, type: 'line'
         };
@@ -5846,11 +5867,179 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         tdChartInstances = [];
     }
 
+    // =============================================================
+    // WELLBORE GEOMETRY + BHA SCHEMATIC — ported from uploadTorqueAndDrag.ejs
+    // (see that file for the fuller commentary on the design decisions:
+    // bit-driven width ratio, min-max width stretch, equal-height BHA
+    // rows, bit-only photo). Reads from currentCasings/currentBha/
+    // currentParams (already loaded for the selected well/scenario, and
+    // always metric — job.ejs never runs in imperial) instead of live
+    // form inputs, since there's no editable T&D form on this page.
+    // =============================================================
+    function renderTDSchematic(){
+        var inner = document.getElementById('tdSchematicInner');
+        var wrap = document.getElementById('tdSchematicWrap');
+        if(!inner || !wrap) return;
+        var casings = currentCasings || [];
+        var bha = currentBha || [];
+        var p = currentParams || {};
+        var td_m = p.td;
+        if(!casings.length && !bha.length || !td_m){ wrap.style.display = 'none'; return; }
+        var ohDiam_mm = (p.ohDiam_m || 0) * 1000;
+        var ohTop_m = p.ohTop || 0;
+
+        var isLight = document.body.classList.contains('light-mode');
+        var COL = {
+            bg: isLight ? '#ffffff' : '#111820',
+            border: isLight ? '#c8d4de' : '#1e2d3d',
+            text: isLight ? '#000000' : '#c8d8e8',
+            textDim: isLight ? '#495057' : '#5a7080',
+            formation: isLight ? 'rgba(180,150,110,.30)' : 'rgba(180,150,110,.18)',
+            casing: isLight ? '#9aa5b1' : '#6b7686',
+            casingStroke: isLight ? '#5a6472' : '#3a4552',
+            pipe: isLight ? '#7a8b9a' : '#5a7080',
+            collarStroke: isLight ? '#5a6472' : '#4a5561',
+            tick: isLight ? '#495057' : '#5a7080'
+        };
+        var TYPE_PALETTE = ['#8a95a1', '#5a7080', '#7d9e34', '#d6336c', '#16a085', '#9b59b6', '#e67e22', '#3498db'];
+        function hashColor(name){
+            var h = 0;
+            for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+            return TYPE_PALETTE[h % TYPE_PALETTE.length];
+        }
+        function componentColor(name){
+            var n = (name || '').toLowerCase();
+            if (n.indexOf('bit') !== -1) return '#c0392b';
+            if (/nmdc|non[-\s]?mag/.test(n)) return '#8e44ad';
+            if (n.indexOf('stab') !== -1) return '#d4a017';
+            if (n.indexOf('motor') !== -1) return '#16a085';
+            if (n.indexOf('underream') !== -1) return '#7d9e34';
+            if (n.indexOf('accelerat') !== -1) return '#d6336c';
+            if (n.indexOf('heavy weight') !== -1 || n.indexOf('hwdp') !== -1) return '#e67e22';
+            if (n.indexOf('collar') !== -1) return '#7a8590';
+            if (n.indexOf('drill pipe') !== -1 || /^dp\b/.test(n)) return '#2e86c1';
+            if (n.indexOf('sub') !== -1) return '#5a7080';
+            return hashColor(n);
+        }
+        var BIT_ICON_URL = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1665762065/bit-pdc-2-removebg-preview_jqyvef.png';
+        function isBit(name){ return /\bbit\b/i.test(name || ''); }
+        function bitIconRect(x, y, w, h){
+            var minH = Math.max(h, 40);
+            var yy = y - (minH - h) / 2;
+            return '<image href="' + BIT_ICON_URL + '" xlink:href="' + BIT_ICON_URL + '" x="' + x + '" y="' + yy +
+              '" width="' + w + '" height="' + minH + '" preserveAspectRatio="xMidYMid slice"/>';
+        }
+        function esc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+        function fmtD(md){ return md.toFixed(0) + ' m'; }
+
+        // ---------------- Panel A: full wellbore, true MD scale ----------------
+        var pA_h = 620, pA_top = 20, pA_bot = pA_h - 20, pA_cx = 130, pA_maxHalfW = 55;
+        var odsForScale = casings.map(function (c) { return c.od_m * 1000; }).concat([ohDiam_mm]).filter(function (v) { return v > 0; });
+        var minOD_A = odsForScale.length ? Math.min.apply(null, odsForScale) : 1;
+        var maxOD_A = odsForScale.length ? Math.max.apply(null, odsForScale) : 1;
+        var A_MIN_FRAC = 0.45;
+        function yA(md){ return pA_top + (md / td_m) * (pA_bot - pA_top); }
+        function hwA(od_mm){
+            if (maxOD_A <= minOD_A) return pA_maxHalfW;
+            var frac = A_MIN_FRAC + (1 - A_MIN_FRAC) * (od_mm - minOD_A) / (maxOD_A - minOD_A);
+            return Math.max(3, frac * pA_maxHalfW);
+        }
+
+        var svgA = '<svg viewBox="0 0 640 ' + pA_h + '" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + ';display:block;">';
+        var ohTopY = yA(Math.max(ohTop_m, 0)), ohBotY = yA(td_m), ohHw = hwA(ohDiam_mm);
+        svgA += '<rect x="' + (pA_cx - ohHw) + '" y="' + ohTopY + '" width="' + (ohHw * 2) + '" height="' + (ohBotY - ohTopY) + '" fill="' + COL.formation + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="2,3"/>';
+        svgA += '<text x="' + (pA_cx + ohHw + 10) + '" y="' + ((ohTopY + ohBotY) / 2) + '" font-size="11" fill="' + COL.textDim + '" font-family="monospace">Open Hole, ' + ohDiam_mm.toFixed(2) + ' mm</text>';
+        casings.forEach(function (c) {
+            var top = yA(c.top), bot = yA(c.shoe), hw = hwA(c.od_m * 1000);
+            svgA += '<rect x="' + (pA_cx - hw) + '" y="' + top + '" width="' + (hw * 2) + '" height="' + (bot - top) + '" fill="' + COL.casing + '" stroke="' + COL.casingStroke + '" stroke-width="1.5"/>';
+            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 20) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
+            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 7) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ID ' + (c.id_m * 1000).toFixed(2) + ' mm</text>';
+            [c.top, c.shoe].forEach(function (md) {
+                var y = yA(md);
+                svgA += '<line x1="8" y1="' + y + '" x2="' + (pA_cx - hw) + '" y2="' + y + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
+                svgA += '<text x="4" y="' + (y + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace" text-anchor="start">' + fmtD(md) + '</text>';
+            });
+        });
+        var bhaTop_m = td_m;
+        bha.forEach(function (c) { bhaTop_m -= c.len; });
+        if (bhaTop_m > 0) {
+            var dpTopY = yA(0), dpBotY = yA(bhaTop_m);
+            svgA += '<rect x="' + (pA_cx - 5) + '" y="' + dpTopY + '" width="10" height="' + (dpBotY - dpTopY) + '" fill="' + COL.pipe + '" stroke="' + COL.casingStroke + '" stroke-width="1"/>';
+        }
+        [0, td_m].forEach(function (md) {
+            var y = yA(md);
+            svgA += '<line x1="8" y1="' + y + '" x2="' + pA_cx + '" y2="' + y + '" stroke="' + COL.tick + '" stroke-width="1"/>';
+            svgA += '<text x="4" y="' + (y + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(md) + '</text>';
+        });
+        svgA += '</svg>';
+
+        // ---------------- Panel B: BHA detail, equal-height rows ----------------
+        var svgB = '';
+        if (bha.length) {
+            var pB_top = 20, pB_cx = 50, pB_maxHalfW = 15;
+            var OTHER_ROW_H = 50;
+            var maxOD_B = bha.reduce(function (m, c) { return Math.max(m, c.od_m * 1000); }, 1);
+            function hwB(od_mm){ return Math.max(4, (od_mm / maxOD_B) * pB_maxHalfW); }
+            var bitEntry = bha.filter(function (c) { return isBit(c.name); })[0] || bha[0];
+            var baseBitHw = hwB(bitEntry.od_m * 1000);
+            var otherHw = baseBitHw * 0.75 * 0.8;
+            var bitHw = baseBitHw * 1.2 * 1.2;
+            var BIT_ROW_H = Math.max(40, bitHw * 1.9);
+
+            var cursor = td_m;
+            var withMD = bha.map(function (c) {
+                var bot = cursor, top = cursor - c.len; cursor = top;
+                return { c: c, top: top, bot: bot };
+            });
+            var bhaTopMD = cursor;
+            var stack = withMD.slice().reverse();
+            var pB_h = pB_top + stack.reduce(function (h, r) { return h + (isBit(r.c.name) ? BIT_ROW_H : OTHER_ROW_H); }, 0) + 20;
+
+            svgB = '<svg viewBox="0 0 640 ' + pB_h + '" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + ';display:block;">';
+            svgB += '<line x1="8" y1="' + pB_top + '" x2="' + pB_cx + '" y2="' + pB_top + '" stroke="' + COL.tick + '" stroke-width="1"/>';
+            svgB += '<text x="4" y="' + (pB_top + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(bhaTopMD) + '</text>';
+
+            var y = pB_top;
+            stack.forEach(function (r) {
+                var c = r.c, bit = isBit(c.name);
+                var rowH = bit ? BIT_ROW_H : OTHER_ROW_H;
+                var yTop = y, yBot = y + rowH;
+                var hw = bit ? bitHw : otherHw;
+                var fill = bit ? 'none' : componentColor(c.name);
+                svgB += '<rect x="' + (pB_cx - hw) + '" y="' + yTop + '" width="' + (hw * 2) + '" height="' + rowH + '" fill="' + fill + '"' + (bit ? '' : ' stroke="' + COL.collarStroke + '" stroke-width="1"') + '/>';
+                if (bit) svgB += bitIconRect(pB_cx - hw, yTop, hw * 2, rowH);
+                svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 - 4) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
+                svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 + 9) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ' + c.wt.toFixed(2) + ' kg/m</text>';
+                svgB += '<line x1="8" y1="' + yBot + '" x2="' + (pB_cx - hw) + '" y2="' + yBot + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
+                svgB += '<text x="4" y="' + (yBot + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace">' + fmtD(r.bot) + '</text>';
+                y = yBot;
+            });
+            svgB += '</svg>';
+        }
+
+        // Both containers share the taller panel's height, with the shorter
+        // SVG centered inside its own box — so a BHA with few components
+        // (short SVG) doesn't look like it's floating at a different height
+        // than the always-620px full wellbore panel next to it.
+        var sharedH = Math.max(pA_h, svgB ? pB_h : 0);
+        inner.innerHTML =
+            '<div style="width:640px;">' +
+              '<div class="hint" style="margin-bottom:4px;font-weight:bold;color:' + COL.textDim + ';font-size:11px;">Full Wellbore (true scale)</div>' +
+              '<div style="width:640px;height:' + sharedH + 'px;">' + svgA + '</div>' +
+            '</div>' +
+            (svgB ? '<div style="width:640px;">' +
+              '<div class="hint" style="margin-bottom:4px;font-weight:bold;color:' + COL.textDim + ';font-size:11px;">BHA Detail</div>' +
+              '<div style="width:640px;height:' + sharedH + 'px;">' + svgB + '</div>' +
+            '</div>' : '');
+        wrap.style.display = '';
+    }
+
     function buildTDCharts(r){
         destroyTDCharts();
 
         const wrap = document.getElementById('tdChartsWrap');
-        const chartW = Math.max(600, wrap ? wrap.clientWidth - 32 : 900);
+        const panelEl = wrap ? wrap.querySelector('.td-chart-panel') : null;
+        const chartW = Math.max(400, panelEl ? panelEl.clientWidth : (wrap ? wrap.clientWidth - 32 : 900));
         const chartH = 380;
 
         // ── 1. Effective Tension vs Measured Depth ──
@@ -5956,19 +6145,34 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             })
         }));
 
-        // ── 5. Inclination and DLS vs Measured Depth ──
+        // ── 5. Inclination vs Measured Depth ──
         const incCanvas = document.getElementById('td_c_inc');
         sizeCanvas(incCanvas, chartW, chartH);
         tdChartInstances.push(new Chart(incCanvas.getContext('2d'), {
             type: 'line',
             data: { datasets: [
                 mkLine('Inclination (deg)', r.incArr, r.mds, '#39ff14', [], true),
-                mkLine('DLS (deg/30m)', r.dlsArr, r.mds, '#ffd060', [3,2]),
             ]},
             options: Object.assign({}, CO, {
                 scales: {
                     x: Object.assign({}, CO.scales.x, { title: axT('MD (' + r.depU + ')') }),
-                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Inc (deg) / DLS (deg/30m)') })
+                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('Inclination (deg)') })
+                }
+            })
+        }));
+
+        // ── 6. DLS vs Measured Depth ──
+        const dlsCanvas = document.getElementById('td_c_dls');
+        sizeCanvas(dlsCanvas, chartW, chartH);
+        tdChartInstances.push(new Chart(dlsCanvas.getContext('2d'), {
+            type: 'line',
+            data: { datasets: [
+                mkLine('DLS (deg/30m)', r.dlsArr, r.mds, '#ffd060', [], true),
+            ]},
+            options: Object.assign({}, CO, {
+                scales: {
+                    x: Object.assign({}, CO.scales.x, { title: axT('MD (' + r.depU + ')') }),
+                    y: Object.assign({}, CO.scales.y, { min:0, title: axT('DLS (deg/30m)') })
                 }
             })
         }));
@@ -5978,9 +6182,51 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 
     // ── Well selection, status text, auto-recalculation ───────────────────
     const wellSelect = document.getElementById('tdWellSelect2');
+    const scenarioSelect = document.getElementById('tdScenarioSelect2');
     const statusText = document.getElementById('tdStatusText');
     const emptyMsg = document.getElementById('tdEmptyMsg');
     const chartsWrap = document.getElementById('tdChartsWrap');
+
+    // Scenarios are job-wide (shared names across every well) — see
+    // models/TDModel.js. currentScenario starts as whichever scenario the
+    // document says is active; picking a different one from the dropdown
+    // just previews it (recalculating per well as needed) — it does NOT
+    // change which scenario is "active" for the job. Use the modeler's
+    // "Set as Active" button for that.
+    let currentScenario = (tdDoc && tdDoc.activeScenario) || 'Default';
+
+    function scenarioEntry(scenarioName, wellKey){
+        const scen = tdDoc && tdDoc.scenarios && tdDoc.scenarios[scenarioName];
+        if(scen && scen.resultsByWell && scen.resultsByWell[wellKey]) return scen.resultsByWell[wellKey];
+        // Fall back to the top-level mirror (covers legacy documents saved
+        // before scenarios existed, and the case where the active scenario
+        // itself is selected).
+        return tdDoc && tdDoc.resultsByWell ? tdDoc.resultsByWell[wellKey] : null;
+    }
+
+    function initScenarioSelect(){
+        if(!tdDoc || !tdDoc.scenarios || !Object.keys(tdDoc.scenarios).length){
+            scenarioSelect.style.display = 'none';
+            return;
+        }
+        scenarioSelect.innerHTML = '';
+        Object.keys(tdDoc.scenarios).forEach(function(name){
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name + (name === tdDoc.activeScenario ? ' \u2b50 (active)' : '');
+            scenarioSelect.appendChild(opt);
+        });
+        scenarioSelect.value = currentScenario;
+        scenarioSelect.style.display = '';
+        scenarioSelect.addEventListener('change', function(){
+            currentScenario = scenarioSelect.value;
+            const wellKey = wellSelect.value;
+            if(!wellKey) return;
+            const existing = scenarioEntry(currentScenario, wellKey);
+            if(existing && existing.results){ showWellEntry(wellKey, existing); }
+            else { recalcAndShow(wellKey); }
+        });
+    }
 
     // "Current settings" — whichever well's casings/bha/params were most
     // recently in play. Reused as-is when switching wells, so a well switch
@@ -5995,6 +6241,8 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     function showWellEntry(wellKey, entry){
         if(!entry || !entry.results || !entry.results.mds || !entry.results.mds.length){
             if(chartsWrap) chartsWrap.style.display = 'none';
+            var schematicWrap0 = document.getElementById('tdSchematicWrap');
+            if(schematicWrap0) schematicWrap0.style.display = 'none';
             if(emptyMsg){
                 emptyMsg.style.display = '';
                 emptyMsg.textContent = 'No results yet for ' + wellKey + ' — select a well with results, or use "Recalculate" below.';
@@ -6008,6 +6256,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         statusText.textContent = 'Last calculated: ' + fmtWhen(entry.calculatedAt) +
             (entry.calculatedByName ? ' by ' + entry.calculatedByName : '') +
             ' — Well/Leg: ' + wellKey;
+        renderTDSchematic();
         buildTDCharts(entry.results);
     }
 
@@ -6023,7 +6272,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             const res = await fetch('/notes/tdModel/recalculate/' + PASON_NOTE_ID, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wellKey, casings: currentCasings, bha: currentBha, params: currentParams })
+                body: JSON.stringify({ wellKey, casings: currentCasings, bha: currentBha, params: currentParams, scenario: currentScenario })
             });
             const data = await res.json();
             if(!res.ok){
@@ -6031,12 +6280,18 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 console.error('[T&D] recalculate failed:', data);
                 return;
             }
-            tdDoc.resultsByWell[wellKey] = {
+            const entry = {
                 casings: currentCasings, bha: currentBha, params: currentParams,
                 results: data.results, calculatedAt: data.calculatedAt, calculatedByName: data.calculatedByName,
             };
-            console.log('[T&D] Recalculated and saved for', wellKey, 'at', data.calculatedAt, 'by', data.calculatedByName);
-            showWellEntry(wellKey, tdDoc.resultsByWell[wellKey]);
+            tdDoc.scenarios = tdDoc.scenarios || {};
+            tdDoc.scenarios[currentScenario] = tdDoc.scenarios[currentScenario] || { resultsByWell: {} };
+            tdDoc.scenarios[currentScenario].resultsByWell[wellKey] = entry;
+            if(data.activeScenario === currentScenario){
+                tdDoc.resultsByWell[wellKey] = entry;
+            }
+            console.log('[T&D] Recalculated and saved for', wellKey, 'scenario', currentScenario, 'at', data.calculatedAt, 'by', data.calculatedByName);
+            showWellEntry(wellKey, entry);
         } catch(err) {
             statusText.textContent = '❌ Error: ' + err.message;
             console.error('[T&D] recalculate error:', err);
@@ -6046,7 +6301,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     function onWellChange(){
         const wellKey = wellSelect.value;
         if(!wellKey) return;
-        const existing = tdDoc.resultsByWell[wellKey];
+        const existing = scenarioEntry(currentScenario, wellKey);
         // Auto-recalculate using the currently-loaded settings every time the
         // well changes, so the comparison is always apples-to-apples — unless
         // this is the very first load and that well already has a saved run,
@@ -6080,6 +6335,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         });
         wellSelect.style.display = '';
         wellSelect.addEventListener('change', onWellChange);
+        initScenarioSelect();
 
         // Default: whichever well has the MOST RECENT calculatedAt, else the
         // first subject well alphabetically.

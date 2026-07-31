@@ -31,6 +31,8 @@ const {
     findJobByMtxId,
     getTDModel,
     recalculateTDModel,
+    setActiveScenario,
+    deleteScenario,
     saveTDModel,
     renderBanner,
     saveBanner,
@@ -168,6 +170,8 @@ router.get('/notes/tdModel/lookupByMtxId/:mtxJobId', isAuthenticated, findJobByM
 router.get('/notes/tdModel/:noteId',  isAuthenticated, getTDModel);
 router.post('/notes/tdModel/:noteId', isAuthenticated, saveTDModel);
 router.post('/notes/tdModel/recalculate/:noteId', isAuthenticated, recalculateTDModel);
+router.post('/notes/tdModel/:noteId/scenario/setActive', isAuthenticated, setActiveScenario);
+router.delete('/notes/tdModel/:noteId/scenario/:scenario', isAuthenticated, deleteScenario);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
 router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
 router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
