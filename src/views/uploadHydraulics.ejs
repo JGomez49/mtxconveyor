@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bit Hydraulics Program</title>
+  <script src="/js/hydraulicsModel.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e14; --panel: #111820; --panel2: #161e28; --border: #1e2d3d;
+      --accent: #00c8ff; --accent2: #ff6b35; --accent3: #39ff14;
+      --text: #c8d8e8; --text-dim: #5a7080; --text-bright: #e8f4ff;
+      --red: #ff4060; --yellow: #ffd060;
+      --mono: 'Share Tech Mono', monospace; --sans: 'Barlow', sans-serif; --cond: 'Barlow Condensed', sans-serif;
+    }
+    body.light-mode {
+      --bg: #f0f4f8; --panel: #ffffff; --panel2: #ffffff; --border: #c8d4de;
+      --text: #000000; --text-dim: #495057; --text-bright: #000000;
+    }
+    *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+    html{ font-size:13px; }
+    body{ background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+    header{ background:linear-gradient(180deg,#0d1520,transparent); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; gap:14px; }
+    body.light-mode header{ background:#fff; }
+    .logo-hex{ width:34px; height:34px; background:var(--accent); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--bg); font-weight:700; flex-shrink:0; }
+    header h1{ font-family:var(--cond); font-size:19px; font-weight:700; color:var(--text-bright); letter-spacing:2px; text-transform:uppercase; }
+    header p{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+    main{ max-width:1400px; margin:0 auto; padding:16px 20px 60px; }
+    .panel{ background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:14px; }
+    .panel h2{ font-family:var(--cond); font-size:15px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .panel h2 .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+    .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+    label{ font-size:11px; color:var(--text-dim); white-space:nowrap; }
+    input[type=text], input[type=number], select{
+      background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:3px; padding:5px 7px; font-family:var(--mono); font-size:12px;
+    }
+    body.light-mode input, body.light-mode select{ background:#f1f3f5; }
+    .btn{ font-family:var(--cond); font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:7px 14px; border-radius:3px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--text-dim); transition:all .15s; }
+    .btn:hover{ border-color:var(--accent); color:var(--accent); }
+    .btn-p{ border-color:var(--accent); color:var(--accent); }
+    .btn-p:hover{ background:var(--accent); color:var(--bg); }
+    .btn-danger{ border-color:var(--red); color:var(--red); }
+    .btn-danger:hover{ background:var(--red); color:#fff; }
+    .btn:disabled{ opacity:.4; cursor:not-allowed; }
+    .status{ font-family:var(--mono); font-size:11px; color:var(--accent); white-space:pre-line; }
+    .status.err{ color:var(--red); }
+    table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px; }
+    th,td{ padding:5px 7px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+    th{ color:var(--text-dim); font-weight:600; text-align:right; }
+    th:first-child, td:first-child{ text-align:left; }
+    td input{ width:80px; text-align:right; }
+    td input.wide{ width:150px; text-align:left; }
+    .tbl-wrap{ overflow-x:auto; margin-bottom:8px; }
+    .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    @media (max-width:900px){ .grid4{grid-template-columns:repeat(2,1fr);} .grid3{grid-template-columns:repeat(2,1fr);} }
+    .field label{ display:block; margin-bottom:3px; }
+    .field input, .field select{ width:100%; }
+    .result-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+    .result-card{ background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:8px 10px; }
+    .result-card .k{ font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+    .result-card .v{ font-family:var(--mono); font-size:15px; color:var(--text-bright); }
+    .pl-bar{ height:22px; border-radius:3px; overflow:hidden; display:flex; border:1px solid var(--border); margin:8px 0; }
+    .pl-seg{ display:flex; align-items:center; justify-content:center; font-size:9px; color:#000; font-family:var(--mono); }
+    .warn-box{ border:1px solid var(--yellow); background:rgba(255,208,96,.08); color:var(--yellow); border-radius:4px; padding:8px 10px; font-size:11px; margin-bottom:8px; }
+    .err-box{ border:1px solid var(--red); background:rgba(255,64,96,.08); color:var(--red); border-radius:4px; padding:8px 10px; font-size:11px; margin-bottom:8px; }
+    .cite{ font-size:10px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
+
+    /* Library picker modal */
+    .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-overlay.show{ display:flex; }
+    .modal-box{ background:var(--panel); border:1px solid var(--accent); border-radius:6px; width:min(760px,92vw); max-height:82vh; display:flex; flex-direction:column; }
+    .modal-hdr{ padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .modal-hdr h3{ font-family:var(--cond); font-size:14px; letter-spacing:1px; text-transform:uppercase; color:var(--text-bright); }
+    .modal-body{ padding:10px 16px; overflow-y:auto; }
+    .modal-ftr{ padding:10px 16px; border-top:1px solid var(--border); text-align:right; }
+    .lib-row{ cursor:pointer; }
+    .lib-row:hover td{ background:rgba(0,200,255,.08); }
+    .lib-search{ width:100%; margin-bottom:8px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="logo-hex">🌊</div>
+  <div style="flex:1;">
+    <h1>Bit Hydraulics Program</h1>
+    <p>Pipe/annular pressure loss &amp; bit hydraulics — Bourgoyne et al. 1986 field-unit model</p>
+  </div>
+  <button class="btn" id="themeToggleBtn" type="button">🌓 Theme</button>
+</header>
+
+<main>
+
+  <!-- ============ JOB / WELL / SCENARIO CONNECTION ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Job Connection</h2>
+    <div class="row">
+      <label>MTX Job ID:</label>
+      <input type="text" id="hydMtxJobId" placeholder="e.g. 1953" style="max-width:140px;"
+             value="<%= (typeof note !== 'undefined' && note) ? note.mtxJobId : '' %>">
+      <button class="btn btn-p" id="hydLookupBtn" type="button" onclick="loadJobByMtxId()">🔍 Load Job</button>
+      <span class="status" id="hydJobStatus"></span>
+    </div>
+    <div class="row" id="hydWellRow" style="display:none;">
+      <label>Well/Leg:</label>
+      <select id="hydWellSelect" onchange="onHydWellChange()" style="min-width:220px;"></select>
+      <label>Scenario:</label>
+      <select id="hydScenarioSelect" onchange="onHydScenarioChange()" style="min-width:160px;"></select>
+      <button class="btn" id="hydNewScenarioBtn" type="button" onclick="newScenario()">+ Scenario</button>
+      <button class="btn btn-danger" id="hydDeleteScenarioBtn" type="button" onclick="deleteCurrentScenario()">✕ Delete Scenario</button>
+    </div>
+    <div class="row" id="hydSaveRow" style="display:none;">
+      <button class="btn btn-p" id="hydRunBtn" type="button" onclick="runAndSave()">▶ Run &amp; Save</button>
+      <span class="status" id="hydRunStatus"></span>
+    </div>
+  </div>
+
+  <!-- ============ INPUT PARAMETERS ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Data Input</h2>
+    <div class="grid4">
+      <div class="field"><label>Bit Diameter (mm)</label><input type="number" id="p_bit" step="0.001" value="155.575"></div>
+      <div class="field"><label>MD Out (m)</label><input type="number" id="p_mdout" step="0.01" value="7513.32"></div>
+      <div class="field"><label>TVD (m)</label><input type="number" id="p_tvd" step="0.01" value="4572"></div>
+      <div class="field"><label>Motor Bypass (%)</label><input type="number" id="p_bypass" step="0.1" value="0"></div>
+
+      <div class="field"><label>Mud Weight (kg/m³)</label><input type="number" id="p_mw" step="0.01" value="1917.28"></div>
+      <div class="field"><label>PV (cP)</label><input type="number" id="p_pv" step="0.1" value="32"></div>
+      <div class="field"><label>YP (Pa)</label><input type="number" id="p_yp" step="0.1" value="9"></div>
+      <div class="field"><label>Flow Rate (L/min)</label><input type="number" id="p_q" step="0.1" value="1135.62"></div>
+
+      <div class="field"><label>Max Pump Pressure (kPa)</label><input type="number" id="p_ppmax" step="1" value="51710"></div>
+      <div class="field"><label>Fluid Model</label>
+        <select id="p_fm">
+          <option value="1">Power Law — Water Based</option>
+          <option value="2">Bingham — Oil Based</option>
+          <option value="3" selected>Modified PL&amp;B — Synthetics Based</option>
+        </select>
+      </div>
+      <div class="field"><label>Surface Equipment Class</label>
+        <select id="p_se">
+          <option value="1">Class 1</option>
+          <option value="2">Class 2</option>
+          <option value="3" selected>Class 3</option>
+          <option value="4">Class 4</option>
+        </select>
+      </div>
+      <div class="field"><label># of Nozzles (≤10)</label><input type="number" id="p_nn" min="1" max="10" value="4"></div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <label>Nozzle Mode:</label>
+      <select id="p_nozzleMode" onchange="onNozzleModeChange()">
+        <option value="auto">Auto (optimize TFA)</option>
+        <option value="manual" selected>Manual</option>
+      </select>
+      <span id="manualNozzleWrap" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <label>Sizes (mm), one per nozzle:</label>
+        <span id="manualNozzleInputs"></span>
+      </span>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);">
+      Surface equipment class and fluid-model coefficients (c, m) match the legacy Hydraulics.xls "Other" sheet lookup —
+      c = 1 / 0.45 / 0.3 / 0.2 for Class 1–4, m = 1.8 (Power Law) / 1.95 (Bingham) / 1.85 (blended).
+    </div>
+  </div>
+
+  <!-- ============ DRILL STRING (top → bit) ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Drill String (surface → bit)</h2>
+    <div class="tbl-wrap">
+      <table id="dsTable">
+        <thead><tr>
+          <th>Component</th><th>OD (mm)</th><th>ID (mm)</th><th>TJ OD (mm)</th><th>TJ ID (mm)</th><th>Length (m)</th><th></th>
+        </tr></thead>
+        <tbody id="dsBody"></tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn btn-p" type="button" onclick="openDsPicker('drillPipe')">📚 + Drill Pipe</button>
+      <button class="btn btn-p" type="button" onclick="openDsPicker('drillCollar')">📚 + Drill Collar</button>
+      <button class="btn btn-p" type="button" onclick="openDsPicker('hwdp')">📚 + HWDP</button>
+      <button class="btn btn-p" type="button" onclick="openDsPicker('swdp')">📚 + SWDP</button>
+      <button class="btn btn-p" type="button" onclick="openDsPicker('mwd')">📚 + MWD</button>
+      <button class="btn btn-p" type="button" onclick="openDsPicker('motor')">📚 + Motor</button>
+      <button class="btn" type="button" onclick="addDsRow('Jar')">+ Jar</button>
+      <button class="btn" type="button" onclick="addDsRow('Pony')">+ Pony</button>
+      <button class="btn" type="button" onclick="addDsRow('Sub')">+ Sub</button>
+      <button class="btn" type="button" onclick="addDsRow('Stabilizer')">+ Stabilizer</button>
+      <button class="btn" type="button" onclick="addDsRow('Other')">+ Other</button>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);">
+      📚 buttons open the component library (converted from the legacy workbook's Casing/DP/Collar/HWDP/SWDP/MWD/Motor
+      lookup sheets) — pick a row to fill OD/ID/TJ dimensions automatically, exactly like the original spreadsheet's
+      popup pickers. Jar/Pony/Sub/Stabilizer/Other are manual-entry in the original tool too (no lookup table existed
+      for them), so they stay manual here.
+    </div>
+  </div>
+
+  <!-- ============ ANNULUS / CASING GEOMETRY ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Casing / Liner / Riser / Open Hole (top → bit)</h2>
+    <div class="tbl-wrap">
+      <table id="csTable">
+        <thead><tr><th>Section</th><th>ID (mm)</th><th>To (m, MD)</th><th></th></tr></thead>
+        <tbody id="csBody"></tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn btn-p" type="button" onclick="openCsPicker()">📚 + Casing</button>
+      <button class="btn" type="button" onclick="addCsRow('Liner')">+ Liner</button>
+      <button class="btn" type="button" onclick="addCsRow('Riser')">+ Riser</button>
+      <button class="btn" type="button" onclick="addCsRow('Open Hole')">+ Open Hole</button>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Results</h2>
+    <div id="resultsWarnings"></div>
+    <div id="resultsEmpty" style="color:var(--text-dim);font-size:12px;">Click "Run &amp; Save" to calculate.</div>
+    <div id="resultsBody" style="display:none;">
+      <div class="result-grid" id="resultCards"></div>
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">Pressure Loss Distribution</div>
+        <div class="pl-bar" id="plBar"></div>
+      </div>
+    </div>
+    <div class="cite">
+      Physics: Bourgoyne, A.T. Jr., Millheim, K.K., Chenevert, M.E., Young, F.S. Jr., "Applied Drilling Engineering,"
+      SPE Textbook Series Vol. 2, SPE, 1986, Ch. 4 (Bingham Plastic &amp; Power Law pipe/annular pressure loss,
+      laminar/turbulent transition). Reproduced verbatim from the legacy Hydraulics.xls VBA macro — see
+      /js/hydraulicsModel.js for the full derivation and per-equation notes.
+    </div>
+  </div>
+
+</main>
+
+<!-- ============ LIBRARY PICKER MODAL ============ -->
+<div class="modal-overlay" id="libModal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3 id="libModalTitle">Component Library</h3>
+      <button class="btn" type="button" onclick="closeLibModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" class="lib-search" id="libSearch" placeholder="Filter…" oninput="renderLibRows()">
+      <div class="tbl-wrap"><table id="libTable"><thead id="libThead"></thead><tbody id="libTbody"></tbody></table></div>
+    </div>
+    <div class="modal-ftr"><span style="font-size:10px;color:var(--text-dim);">Click a row to select it.</span></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  if(document.body.classList) {
+    var saved = localStorage.getItem('mtxTheme');
+    if(saved === 'light') document.body.classList.add('light-mode');
+  }
+  document.getElementById('themeToggleBtn').addEventListener('click', function(){
+    document.body.classList.toggle('light-mode');
+    localStorage.setItem('mtxTheme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+  });
+})();
+
+// =============================================================
+// COMPONENT LIBRARY — loaded once from /data/bhaLibrary.json
+// (converted from the legacy workbook's Casing/DP/Collar/HWDP/
+// SWDP/MWD/Motor lookup sheets). Reference dimensional data only.
+// =============================================================
+var BHA_LIBRARY = null;
+async function loadLibrary(){
+  if(BHA_LIBRARY) return BHA_LIBRARY;
+  var res = await fetch('/data/bhaLibrary.json');
+  BHA_LIBRARY = await res.json();
+  return BHA_LIBRARY;
+}
+
+var libTarget = null; // { category, onSelect }
+var libRowsCache = [];
+
+var LIB_COLUMNS = {
+  drillPipe:   { cols: ['grade','od_mm','id_mm','tjType','tjOd_mm','tjId_mm'], heads: ['Grade','OD (mm)','ID (mm)','TJ Type','TJ OD (mm)','TJ ID (mm)'] },
+  drillCollar: { cols: ['od_mm','id_mm','actWt_kgm'], heads: ['OD (mm)','ID (mm)','Wt (kg/m)'] },
+  hwdp:        { cols: ['od_mm','id_mm','tjType','tjOd_mm','tjId_mm'], heads: ['OD (mm)','ID (mm)','TJ Type','TJ OD (mm)','TJ ID (mm)'] },
+  swdp:        { cols: ['od_mm','id_mm','tjType','tjOd_mm','tjId_mm'], heads: ['OD (mm)','ID (mm)','TJ Type','TJ OD (mm)','TJ ID (mm)'] },
+  mwd:         { cols: ['description','od_mm','length_m','dp_kPa'], heads: ['Description','OD (mm)','Length (m)','ΔP (kPa)'] },
+  motor:       { cols: ['description','od_mm','length_m','maxDp_kPa'], heads: ['Description','OD (mm)','Length (m)','Max ΔP (kPa)'] },
+  casing:      { cols: ['od_mm','nomWt_kgm','id_mm','driftId_mm'], heads: ['OD (mm)','Nom Wt (kg/m)','ID (mm)','Drift ID (mm)'] },
+};
+
+async function openLibrary(category, onSelect, title){
+  var lib = await loadLibrary();
+  libRowsCache = lib[category] || [];
+  libTarget = { category: category, onSelect: onSelect };
+  document.getElementById('libModalTitle').textContent = title || 'Component Library';
+  document.getElementById('libSearch').value = '';
+  renderLibRows();
+  document.getElementById('libModal').classList.add('show');
+}
+function closeLibModal(){ document.getElementById('libModal').classList.remove('show'); libTarget = null; }
+
+function renderLibRows(){
+  if(!libTarget) return;
+  var def = LIB_COLUMNS[libTarget.category];
+  var thead = document.getElementById('libThead');
+  thead.innerHTML = '<tr>' + def.heads.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+  var q = (document.getElementById('libSearch').value || '').toLowerCase();
+  var tbody = document.getElementById('libTbody');
+  tbody.innerHTML = '';
+  libRowsCache.forEach(function(row){
+    var text = def.cols.map(function(c){ return String(row[c] != null ? row[c] : ''); }).join(' ').toLowerCase();
+    if(q && text.indexOf(q) === -1) return;
+    var tr = document.createElement('tr');
+    tr.className = 'lib-row';
+    tr.innerHTML = def.cols.map(function(c){
+      var v = row[c];
+      return '<td' + (typeof v === 'string' ? ' style="text-align:left;"' : '') + '>' + (v != null ? v : '—') + '</td>';
+    }).join('');
+    tr.onclick = function(){ libTarget.onSelect(row); closeLibModal(); };
+    tbody.appendChild(tr);
+  });
+}
+
+// =============================================================
+// DRILL STRING TABLE
+// =============================================================
+function addDsRow(name, od, id_, tjOd, tjId, len){
+  var tbody = document.getElementById('dsBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input class="wide" type="text" value="'+(name||'')+'"></td>' +
+    '<td><input type="number" step="0.001" value="'+(od!=null?od:'')+'"></td>' +
+    '<td><input type="number" step="0.001" value="'+(id_!=null?id_:'')+'"></td>' +
+    '<td><input type="number" step="0.001" value="'+(tjOd!=null?tjOd:(od!=null?od:''))+'"></td>' +
+    '<td><input type="number" step="0.001" value="'+(tjId!=null?tjId:(id_!=null?id_:''))+'"></td>' +
+    '<td><input type="number" step="0.01" value="'+(len!=null?len:'')+'"></td>' +
+    '<td><button class="btn btn-danger" type="button" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(tr);
+}
+function openDsPicker(category){
+  var titles = { drillPipe:'Drill Pipe', drillCollar:'Drill Collar', hwdp:'Heavy Weight Drill Pipe', swdp:'Spiral Weight Drill Pipe', mwd:'MWD', motor:'Motor' };
+  openLibrary(category, function(row){
+    if(category === 'drillPipe'){
+      addDsRow('Drill Pipe (' + row.grade.replace('Grade ','') + ')', row.od_mm, row.id_mm, row.tjOd_mm, row.tjId_mm);
+    } else if(category === 'drillCollar'){
+      addDsRow('Drill Collar', row.od_mm, row.id_mm, row.od_mm, row.id_mm);
+    } else if(category === 'hwdp'){
+      addDsRow('Heavy Weight Drill Pipe', row.od_mm, row.id_mm, row.tjOd_mm, row.tjId_mm);
+    } else if(category === 'swdp'){
+      addDsRow('Spiral Weight Drill Pipe', row.od_mm, row.id_mm, row.tjOd_mm, row.tjId_mm);
+    } else if(category === 'mwd'){
+      addDsRow(row.description, row.od_mm, row.equivId_mm, row.od_mm, row.equivId_mm, row.length_m);
+    } else if(category === 'motor'){
+      addDsRow(row.description, row.od_mm, null, row.od_mm, null, row.length_m);
+    }
+  }, titles[category]);
+}
+function getDrillString(){
+  return Array.from(document.querySelectorAll('#dsBody tr')).map(function(r){
+    var ins = r.querySelectorAll('input');
+    return {
+      name: ins[0].value, od_mm: +ins[1].value, id_mm: +ins[2].value,
+      tjOd_mm: +ins[3].value, tjId_mm: +ins[4].value, length_m: +ins[5].value,
+    };
+  }).filter(function(r){ return r.od_mm > 0 && r.length_m > 0; });
+}
+
+// =============================================================
+// ANNULUS/CASING TABLE
+// =============================================================
+function addCsRow(name, id_, to_){
+  var tbody = document.getElementById('csBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input class="wide" type="text" value="'+(name||'')+'"></td>' +
+    '<td><input type="number" step="0.001" value="'+(id_!=null?id_:'')+'"></td>' +
+    '<td><input type="number" step="0.01" value="'+(to_!=null?to_:'')+'"></td>' +
+    '<td><button class="btn btn-danger" type="button" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(tr);
+}
+function openCsPicker(){
+  openLibrary('casing', function(row){ addCsRow('Casing', row.id_mm); }, 'Casing');
+}
+function getAnnulusGeom(){
+  return Array.from(document.querySelectorAll('#csBody tr')).map(function(r){
+    var ins = r.querySelectorAll('input');
+    return { name: ins[0].value, id_mm: +ins[1].value, to_m: +ins[2].value };
+  }).filter(function(r){ return r.id_mm > 0 && r.to_m > 0; }).sort(function(a,b){ return a.to_m - b.to_m; });
+}
+
+// =============================================================
+// MANUAL NOZZLE INPUTS
+// =============================================================
+function onNozzleModeChange(){
+  var mode = document.getElementById('p_nozzleMode').value;
+  document.getElementById('manualNozzleWrap').style.display = mode === 'manual' ? 'flex' : 'none';
+  if(mode === 'manual') rebuildManualNozzleInputs();
+}
+function rebuildManualNozzleInputs(vals){
+  var n = Math.min(10, Math.max(1, +document.getElementById('p_nn').value || 1));
+  var wrap = document.getElementById('manualNozzleInputs');
+  wrap.innerHTML = '';
+  for(var i=0;i<n;i++){
+    var inp = document.createElement('input');
+    inp.type = 'number'; inp.step = '0.001'; inp.style.width = '60px';
+    inp.value = (vals && vals[i] != null) ? vals[i] : '';
+    wrap.appendChild(inp);
+  }
+}
+document.getElementById('p_nn').addEventListener('change', function(){ rebuildManualNozzleInputs(); });
+function getManualNozzles(){
+  return Array.from(document.getElementById('manualNozzleInputs').querySelectorAll('input')).map(function(i){ return +i.value; }).filter(function(v){ return v > 0; });
+}
+
+// =============================================================
+// PARAMS get/set
+// =============================================================
+function getParams(){
+  return {
+    bitDiameter_mm: +document.getElementById('p_bit').value,
+    mdOut_m: +document.getElementById('p_mdout').value,
+    tvd_m: +document.getElementById('p_tvd').value,
+    motorBypassPct: +document.getElementById('p_bypass').value,
+    mudWeight_kgm3: +document.getElementById('p_mw').value,
+    pv_cP: +document.getElementById('p_pv').value,
+    yp_Pa: +document.getElementById('p_yp').value,
+    flowRate_Lmin: +document.getElementById('p_q').value,
+    maxPumpPressure_kPa: +document.getElementById('p_ppmax').value,
+    fluidModel: +document.getElementById('p_fm').value,
+    surfaceEquipClass: +document.getElementById('p_se').value,
+    nozzleCount: +document.getElementById('p_nn').value,
+    nozzleMode: document.getElementById('p_nozzleMode').value,
+    manualNozzles_mm: getManualNozzles(),
+  };
+}
+function setParams(p){
+  if(!p) return;
+  document.getElementById('p_bit').value = p.bitDiameter_mm != null ? p.bitDiameter_mm : '';
+  document.getElementById('p_mdout').value = p.mdOut_m != null ? p.mdOut_m : '';
+  document.getElementById('p_tvd').value = p.tvd_m != null ? p.tvd_m : '';
+  document.getElementById('p_bypass').value = p.motorBypassPct != null ? p.motorBypassPct : 0;
+  document.getElementById('p_mw').value = p.mudWeight_kgm3 != null ? p.mudWeight_kgm3 : '';
+  document.getElementById('p_pv').value = p.pv_cP != null ? p.pv_cP : '';
+  document.getElementById('p_yp').value = p.yp_Pa != null ? p.yp_Pa : '';
+  document.getElementById('p_q').value = p.flowRate_Lmin != null ? p.flowRate_Lmin : '';
+  document.getElementById('p_ppmax').value = p.maxPumpPressure_kPa != null ? p.maxPumpPressure_kPa : '';
+  document.getElementById('p_fm').value = p.fluidModel || 3;
+  document.getElementById('p_se').value = p.surfaceEquipClass || 1;
+  document.getElementById('p_nn').value = p.nozzleCount || 4;
+  document.getElementById('p_nozzleMode').value = p.nozzleMode || 'manual';
+  onNozzleModeChange();
+  if(p.nozzleMode === 'manual') rebuildManualNozzleInputs(p.manualNozzles_mm);
+}
+
+// =============================================================
+// RESULTS RENDERING
+// =============================================================
+function fmt(v, d){ return (v == null || isNaN(v)) ? '—' : v.toFixed(d != null ? d : 1); }
+function renderResults(results){
+  var warnEl = document.getElementById('resultsWarnings');
+  warnEl.innerHTML = '';
+  (results.warnings || []).forEach(function(w){
+    var d = document.createElement('div');
+    d.className = /No pressure available|higher than maximum/.test(w) ? 'err-box' : 'warn-box';
+    d.textContent = '⚠ ' + w;
+    warnEl.appendChild(d);
+  });
+  if(!results.bitHydraulics){
+    document.getElementById('resultsBody').style.display = 'none';
+    document.getElementById('resultsEmpty').style.display = 'block';
+    document.getElementById('resultsEmpty').textContent = 'No pressure available at the bit with the current inputs — see warnings above.';
+    return;
+  }
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsBody').style.display = 'block';
+  var bh = results.bitHydraulics;
+  var cards = [
+    ['Min. TFA', fmt(bh.minTfa_mm2,1) + ' mm²'],
+    ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²'],
+    ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s'],
+    ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa'],
+    ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W'],
+    ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²'],
+    ['Impact Force', fmt(bh.impactForce_N,0) + ' N'],
+    ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³'],
+    ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa'],
+  ];
+  if(bh.nozzleSizes_mm && bh.nozzleSizes_mm.length){
+    cards.push(['Nozzles (mm)', bh.nozzleSizes_mm.map(function(v){ return fmt(v,2); }).join(', ')]);
+  }
+  var cardsEl = document.getElementById('resultCards');
+  cardsEl.innerHTML = '';
+  cards.forEach(function(c){
+    var d = document.createElement('div');
+    d.className = 'result-card';
+    d.innerHTML = '<div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div>';
+    cardsEl.appendChild(d);
+  });
+
+  var pct = results.pressureLossPct || {};
+  var segs = [
+    { label:'DS', pct: pct.drillString || 0, color:'#00c8ff' },
+    { label:'ANN', pct: pct.annulus || 0, color:'#ff6b35' },
+    { label:'SURF', pct: pct.surface || 0, color:'#39ff14' },
+    { label:'BIT', pct: pct.bit || 0, color:'#ffd060' },
+  ];
+  var bar = document.getElementById('plBar');
+  bar.innerHTML = '';
+  segs.forEach(function(s){
+    if(s.pct <= 0) return;
+    var d = document.createElement('div');
+    d.className = 'pl-seg';
+    d.style.width = s.pct + '%';
+    d.style.background = s.color;
+    d.title = s.label + ': ' + s.pct.toFixed(1) + '%';
+    d.textContent = s.pct > 6 ? (s.label + ' ' + s.pct.toFixed(0) + '%') : '';
+    bar.appendChild(d);
+  });
+}
+
+// =============================================================
+// JOB / WELL / SCENARIO CONNECTION (mirrors uploadTorqueAndDrag.ejs)
+// =============================================================
+var hydCurrentNoteId = null;
+var hydCurrentWellKey = null;
+var hydSubjectWells = [];
+var hydSavedDoc = null; // full doc: { resultsByWell, scenarios, activeScenario }
+var hydCurrentScenario = null;
+
+async function loadJobByMtxId(){
+  var mtxId = document.getElementById('hydMtxJobId').value.trim();
+  var statusEl = document.getElementById('hydJobStatus');
+  if(!mtxId){ statusEl.textContent = 'Enter a Job ID first.'; statusEl.className='status err'; return; }
+  statusEl.textContent = 'Looking up job ' + mtxId + '…'; statusEl.className='status';
+  try {
+    var res = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(mtxId));
+    var data = await res.json();
+    if(!res.ok){ statusEl.textContent = '❌ ' + (data.error || res.statusText); statusEl.className='status err'; return; }
+    hydCurrentNoteId = data.noteId;
+    // Hydraulics isn't tied to a trajectory survey the way T&D is, so fall
+    // back to a single "General" well key if this job has no subject wells
+    // tagged yet — the tool still works, just without per-well switching.
+    hydSubjectWells = (data.subjectWells && data.subjectWells.length) ? data.subjectWells : [{ wellKey: 'General' }];
+
+    var sel = document.getElementById('hydWellSelect');
+    sel.innerHTML = '';
+    hydSubjectWells.forEach(function(w){
+      var opt = document.createElement('option');
+      opt.value = w.wellKey; opt.textContent = w.wellKey;
+      sel.appendChild(opt);
+    });
+    document.getElementById('hydWellRow').style.display = '';
+    document.getElementById('hydSaveRow').style.display = '';
+    statusEl.textContent = '✅ Loaded "' + data.title + '" (noteId: ' + data.noteId + ')' + (data.duplicateWarning ? '\n⚠ ' + data.duplicateWarning : '');
+    statusEl.className = 'status';
+
+    await fetchSavedDoc();
+    onHydWellChange();
+  } catch(err){
+    statusEl.textContent = '❌ Error: ' + err.message; statusEl.className='status err';
+  }
+}
+
+async function fetchSavedDoc(){
+  if(!hydCurrentNoteId) return;
+  var res = await fetch('/notes/hydraulicsModel/' + hydCurrentNoteId);
+  hydSavedDoc = await res.json();
+  refreshScenarioSelect();
+}
+
+function refreshScenarioSelect(){
+  var sel = document.getElementById('hydScenarioSelect');
+  sel.innerHTML = '';
+  var names = hydSavedDoc && hydSavedDoc.scenarios ? Object.keys(hydSavedDoc.scenarios) : ['Default'];
+  if(!names.length) names = ['Default'];
+  names.forEach(function(n){
+    var opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  hydCurrentScenario = (hydSavedDoc && hydSavedDoc.activeScenario && names.indexOf(hydSavedDoc.activeScenario) !== -1)
+    ? hydSavedDoc.activeScenario : names[0];
+  sel.value = hydCurrentScenario;
+}
+
+function onHydWellChange(){
+  hydCurrentWellKey = document.getElementById('hydWellSelect').value;
+  applySavedWellParams();
+}
+async function onHydScenarioChange(){
+  var newScenario = document.getElementById('hydScenarioSelect').value;
+  if(newScenario === hydCurrentScenario) return;
+  var res = await fetch('/notes/hydraulicsModel/' + hydCurrentNoteId + '/scenario/setActive', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scenario: newScenario })
+  });
+  if(res.ok){ hydCurrentScenario = newScenario; await fetchSavedDoc(); applySavedWellParams(); }
+}
+function newScenario(){
+  var name = prompt('New scenario name:');
+  if(!name) return;
+  hydCurrentScenario = name;
+  var opt = document.createElement('option');
+  opt.value = name; opt.textContent = name; opt.selected = true;
+  document.getElementById('hydScenarioSelect').appendChild(opt);
+  document.getElementById('hydRunStatus').textContent = 'New scenario "' + name + '" — Run & Save to create it.';
+}
+async function deleteCurrentScenario(){
+  var sel = document.getElementById('hydScenarioSelect');
+  var name = sel.value;
+  if(!confirm('Delete scenario "' + name + '"? This cannot be undone.')) return;
+  var res = await fetch('/notes/hydraulicsModel/' + hydCurrentNoteId + '/scenario/' + encodeURIComponent(name), { method:'DELETE' });
+  var data = await res.json();
+  if(!res.ok){ alert(data.error || 'Failed to delete scenario'); return; }
+  await fetchSavedDoc();
+  applySavedWellParams();
+}
+
+function applySavedWellParams(){
+  document.getElementById('dsBody').innerHTML = '';
+  document.getElementById('csBody').innerHTML = '';
+  if(!hydSavedDoc || !hydSavedDoc.resultsByWell || !hydSavedDoc.resultsByWell[hydCurrentWellKey]){
+    document.getElementById('hydRunStatus').textContent = 'No saved setup for this well/scenario yet — enter data and Run & Save.';
+    document.getElementById('hydRunStatus').className = 'status';
+    return;
+  }
+  var entry = hydSavedDoc.resultsByWell[hydCurrentWellKey];
+  setParams(entry.params);
+  (entry.drillString || []).forEach(function(r){ addDsRow(r.name, r.od_mm, r.id_mm, r.tjOd_mm, r.tjId_mm, r.length_m); });
+  (entry.annulusGeom || []).forEach(function(r){ addCsRow(r.name, r.id_mm, r.to_m); });
+  if(entry.results) renderResults(entry.results);
+  document.getElementById('hydRunStatus').textContent = entry.calculatedAt
+    ? ('Loaded saved run from ' + new Date(entry.calculatedAt).toLocaleString() + (entry.calculatedByName ? ' by ' + entry.calculatedByName : ''))
+    : 'Loaded saved setup (not yet calculated).';
+  document.getElementById('hydRunStatus').className = 'status';
+}
+
+async function runAndSave(){
+  if(!hydCurrentNoteId || !hydCurrentWellKey){ alert('Load a job and select a well first.'); return; }
+  var statusEl = document.getElementById('hydRunStatus');
+  statusEl.textContent = 'Calculating…'; statusEl.className = 'status';
+  var drillString = getDrillString();
+  var annulusGeom = getAnnulusGeom();
+  var params = getParams();
+  if(!drillString.length){ statusEl.textContent = '❌ Add at least one drill string component.'; statusEl.className='status err'; return; }
+  if(!annulusGeom.length){ statusEl.textContent = '❌ Add at least one casing/liner/open hole section.'; statusEl.className='status err'; return; }
+
+  try {
+    var res = await fetch('/notes/hydraulicsModel/recalculate/' + hydCurrentNoteId, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ wellKey: hydCurrentWellKey, drillString: drillString, annulusGeom: annulusGeom, params: params, scenario: hydCurrentScenario })
+    });
+    var data = await res.json();
+    if(!res.ok){ statusEl.textContent = '❌ ' + (data.error || res.statusText); statusEl.className='status err'; return; }
+    renderResults(data.results);
+    statusEl.textContent = '✅ Saved — ' + new Date(data.calculatedAt).toLocaleString() + (data.calculatedByName ? ' by ' + data.calculatedByName : '');
+    statusEl.className = 'status';
+    await fetchSavedDoc();
+  } catch(err){
+    statusEl.textContent = '❌ Error: ' + err.message; statusEl.className='status err';
+  }
+}
+
+// Deep-link support: /notes/uploadHydraulics?mtxJobId=1953 auto-loads.
+(function(){
+  onNozzleModeChange();
+  var params = new URLSearchParams(window.location.search);
+  var deepLinkJobId = params.get('mtxJobId');
+  if(deepLinkJobId){
+    document.getElementById('hydMtxJobId').value = deepLinkJobId;
+    loadJobByMtxId();
+  }
+})();
+</script>
+
+</body>
+</html>

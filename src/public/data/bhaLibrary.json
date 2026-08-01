@@ -1,0 +1,2939 @@
+{
+  "_meta": {
+    "source": "Converted from Hydraulics.xls lookup sheets (Casing, DP, Collar, HWDP, SWDP, MWD, Motor). Reference dimensional data only \u2014 not a physics model.",
+    "units": "All dimensions in mm; weights in kg/m or kg; lengths in m; pressures in kPa; flow in L/min."
+  },
+  "casing": [
+    {
+      "od_mm": 114.3,
+      "nomWt_kgm": 14.1,
+      "id_mm": 103.9,
+      "driftId_mm": 100.7
+    },
+    {
+      "od_mm": 114.3,
+      "nomWt_kgm": 15.6,
+      "id_mm": 102.9,
+      "driftId_mm": 99.7
+    },
+    {
+      "od_mm": 114.3,
+      "nomWt_kgm": 17.3,
+      "id_mm": 101.6,
+      "driftId_mm": 98.4
+    },
+    {
+      "od_mm": 114.3,
+      "nomWt_kgm": 20.1,
+      "id_mm": 99.6,
+      "driftId_mm": 96.4
+    },
+    {
+      "od_mm": 127,
+      "nomWt_kgm": 17.1,
+      "id_mm": 115.8,
+      "driftId_mm": 112.6
+    },
+    {
+      "od_mm": 127,
+      "nomWt_kgm": 19.3,
+      "id_mm": 114.1,
+      "driftId_mm": 111
+    },
+    {
+      "od_mm": 127,
+      "nomWt_kgm": 22.3,
+      "id_mm": 112,
+      "driftId_mm": 108.8
+    },
+    {
+      "od_mm": 127,
+      "nomWt_kgm": 26.8,
+      "id_mm": 108.6,
+      "driftId_mm": 105.4
+    },
+    {
+      "od_mm": 139.7,
+      "nomWt_kgm": 20.8,
+      "id_mm": 127.3,
+      "driftId_mm": 124.1
+    },
+    {
+      "od_mm": 139.7,
+      "nomWt_kgm": 23.1,
+      "id_mm": 125.7,
+      "driftId_mm": 122.6
+    },
+    {
+      "od_mm": 139.7,
+      "nomWt_kgm": 25.3,
+      "id_mm": 124.3,
+      "driftId_mm": 121.1
+    },
+    {
+      "od_mm": 139.7,
+      "nomWt_kgm": 29.8,
+      "id_mm": 121.4,
+      "driftId_mm": 118.2
+    },
+    {
+      "od_mm": 139.7,
+      "nomWt_kgm": 34.2,
+      "id_mm": 118.6,
+      "driftId_mm": 115.4
+    },
+    {
+      "od_mm": 168.3,
+      "nomWt_kgm": 29.8,
+      "id_mm": 153.6,
+      "driftId_mm": 150.5
+    },
+    {
+      "od_mm": 168.3,
+      "nomWt_kgm": 35.7,
+      "id_mm": 150.4,
+      "driftId_mm": 147.2
+    },
+    {
+      "od_mm": 168.3,
+      "nomWt_kgm": 41.7,
+      "id_mm": 147.1,
+      "driftId_mm": 143.9
+    },
+    {
+      "od_mm": 168.3,
+      "nomWt_kgm": 47.6,
+      "id_mm": 144.1,
+      "driftId_mm": 141
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 25.3,
+      "id_mm": 166.1,
+      "driftId_mm": 162.9
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 29.8,
+      "id_mm": 164,
+      "driftId_mm": 160.8
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 34.2,
+      "id_mm": 161.7,
+      "driftId_mm": 158.5
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 38.7,
+      "id_mm": 159.4,
+      "driftId_mm": 156.2
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 43.2,
+      "id_mm": 157.1,
+      "driftId_mm": 153.9
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 47.6,
+      "id_mm": 154.8,
+      "driftId_mm": 151.6
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 52.1,
+      "id_mm": 152.5,
+      "driftId_mm": 149.3
+    },
+    {
+      "od_mm": 177.8,
+      "nomWt_kgm": 56.6,
+      "id_mm": 150.4,
+      "driftId_mm": 147.2
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 29.8,
+      "id_mm": 181,
+      "driftId_mm": 177.8
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 35.7,
+      "id_mm": 178.4,
+      "driftId_mm": 175.3
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 39.3,
+      "id_mm": 177,
+      "driftId_mm": 173.8
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 44.2,
+      "id_mm": 174.6,
+      "driftId_mm": 171.5
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 50.2,
+      "id_mm": 171.8,
+      "driftId_mm": 168.7
+    },
+    {
+      "od_mm": 193.7,
+      "nomWt_kgm": 58,
+      "id_mm": 168.3,
+      "driftId_mm": 165.1
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 35.7,
+      "id_mm": 205.7,
+      "driftId_mm": 202.5
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 41.7,
+      "id_mm": 203.6,
+      "driftId_mm": 200.5
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 47.6,
+      "id_mm": 201.2,
+      "driftId_mm": 198
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 53.6,
+      "id_mm": 198.8,
+      "driftId_mm": 195.6
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 59.5,
+      "id_mm": 196.2,
+      "driftId_mm": 193
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 65.5,
+      "id_mm": 193.7,
+      "driftId_mm": 190.5
+    },
+    {
+      "od_mm": 219.1,
+      "nomWt_kgm": 72.9,
+      "id_mm": 190.8,
+      "driftId_mm": 187.6
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 43.6,
+      "id_mm": 230.2,
+      "driftId_mm": 226.2
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 48.1,
+      "id_mm": 228.6,
+      "driftId_mm": 224.7
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 53.6,
+      "id_mm": 226.6,
+      "driftId_mm": 222.6
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 59.5,
+      "id_mm": 224.4,
+      "driftId_mm": 220.4
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 64.7,
+      "id_mm": 222.4,
+      "driftId_mm": 218.4
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 69.9,
+      "id_mm": 220.5,
+      "driftId_mm": 216.5
+    },
+    {
+      "od_mm": 244.5,
+      "nomWt_kgm": 79.6,
+      "id_mm": 216.8,
+      "driftId_mm": 212.8
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 48.7,
+      "id_mm": 258.9,
+      "driftId_mm": 254.9
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 60.3,
+      "id_mm": 255.3,
+      "driftId_mm": 253.6
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 67.7,
+      "id_mm": 252.7,
+      "driftId_mm": 248.8
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 75.9,
+      "id_mm": 250.2,
+      "driftId_mm": 246.2
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 82.6,
+      "id_mm": 247.9,
+      "driftId_mm": 243.9
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 90.3,
+      "id_mm": 245.4,
+      "driftId_mm": 241.4
+    },
+    {
+      "od_mm": 273.1,
+      "nomWt_kgm": 97.8,
+      "id_mm": 242.8,
+      "driftId_mm": 238.9
+    },
+    {
+      "od_mm": 298.5,
+      "nomWt_kgm": 62.5,
+      "id_mm": 281.5,
+      "driftId_mm": 277.6
+    },
+    {
+      "od_mm": 298.5,
+      "nomWt_kgm": 69.9,
+      "id_mm": 279.4,
+      "driftId_mm": 275.4
+    },
+    {
+      "od_mm": 298.5,
+      "nomWt_kgm": 80.4,
+      "id_mm": 276.4,
+      "driftId_mm": 272.4
+    },
+    {
+      "od_mm": 298.5,
+      "nomWt_kgm": 89.3,
+      "id_mm": 273.6,
+      "driftId_mm": 269.6
+    },
+    {
+      "od_mm": 339.7,
+      "nomWt_kgm": 71.4,
+      "id_mm": 323,
+      "driftId_mm": 319
+    },
+    {
+      "od_mm": 339.7,
+      "nomWt_kgm": 81.1,
+      "id_mm": 320.4,
+      "driftId_mm": 316.5
+    },
+    {
+      "od_mm": 339.7,
+      "nomWt_kgm": 90.8,
+      "id_mm": 317.9,
+      "driftId_mm": 313.9
+    },
+    {
+      "od_mm": 339.7,
+      "nomWt_kgm": 102.4,
+      "id_mm": 315.3,
+      "driftId_mm": 311.4
+    },
+    {
+      "od_mm": 339.7,
+      "nomWt_kgm": 107.1,
+      "id_mm": 313.6,
+      "driftId_mm": 309.7
+    },
+    {
+      "od_mm": 406.4,
+      "nomWt_kgm": 96.7,
+      "id_mm": 387.4,
+      "driftId_mm": 382.6
+    },
+    {
+      "od_mm": 406.4,
+      "nomWt_kgm": 111.6,
+      "id_mm": 384.1,
+      "driftId_mm": 379.4
+    },
+    {
+      "od_mm": 406.4,
+      "nomWt_kgm": 125,
+      "id_mm": 381.3,
+      "driftId_mm": 376.5
+    },
+    {
+      "od_mm": 473.1,
+      "nomWt_kgm": 130.2,
+      "id_mm": 451,
+      "driftId_mm": 446.2
+    },
+    {
+      "od_mm": 508,
+      "nomWt_kgm": 139.9,
+      "id_mm": 485.7,
+      "driftId_mm": 481
+    },
+    {
+      "od_mm": 508,
+      "nomWt_kgm": 158.5,
+      "id_mm": 482.6,
+      "driftId_mm": 477.8
+    },
+    {
+      "od_mm": 508,
+      "nomWt_kgm": 197.9,
+      "id_mm": 475.7,
+      "driftId_mm": 471
+    },
+    {
+      "od_mm": 508,
+      "nomWt_kgm": 251.5,
+      "id_mm": 466.8,
+      "driftId_mm": 462
+    }
+  ],
+  "drillCollar": [
+    {
+      "od_mm": 88.9,
+      "id_mm": 31.8,
+      "actWt_kgm": 43.2
+    },
+    {
+      "od_mm": 88.9,
+      "id_mm": 38.1,
+      "actWt_kgm": 40.2
+    },
+    {
+      "od_mm": 88.9,
+      "id_mm": 44.5,
+      "actWt_kgm": 37.2
+    },
+    {
+      "od_mm": 120.7,
+      "id_mm": 38.1,
+      "actWt_kgm": 80.4
+    },
+    {
+      "od_mm": 120.7,
+      "id_mm": 44.5,
+      "actWt_kgm": 77.4
+    },
+    {
+      "od_mm": 120.7,
+      "id_mm": 50.8,
+      "actWt_kgm": 74.4
+    },
+    {
+      "od_mm": 120.7,
+      "id_mm": 57.2,
+      "actWt_kgm": 69.9
+    },
+    {
+      "od_mm": 120.7,
+      "id_mm": 63.5,
+      "actWt_kgm": 65.5
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 38.1,
+      "actWt_kgm": 159.2
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 44.5,
+      "actWt_kgm": 156.3
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 50.8,
+      "actWt_kgm": 151.8
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 57.2,
+      "actWt_kgm": 147.3
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 63.5,
+      "actWt_kgm": 142.9
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 71.5,
+      "actWt_kgm": 136.9
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 76.2,
+      "actWt_kgm": 131
+    },
+    {
+      "od_mm": 165.1,
+      "id_mm": 82.6,
+      "actWt_kgm": 126.5
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 38.1,
+      "actWt_kgm": 172.6
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 44.5,
+      "actWt_kgm": 169.7
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 50.8,
+      "actWt_kgm": 165.2
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 57.2,
+      "actWt_kgm": 160.7
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 63.5,
+      "actWt_kgm": 156.3
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 71.5,
+      "actWt_kgm": 150.3
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 76.2,
+      "actWt_kgm": 145.8
+    },
+    {
+      "od_mm": 171.5,
+      "id_mm": 82.6,
+      "actWt_kgm": 139.9
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 38.1,
+      "actWt_kgm": 245.5
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 44.5,
+      "actWt_kgm": 242.6
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 50.8,
+      "actWt_kgm": 238.1
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 57.2,
+      "actWt_kgm": 233.6
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 63.5,
+      "actWt_kgm": 229.2
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 71.4,
+      "actWt_kgm": 223.2
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 76.2,
+      "actWt_kgm": 218.8
+    },
+    {
+      "od_mm": 203.2,
+      "id_mm": 82.6,
+      "actWt_kgm": 212.8
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 44.5,
+      "actWt_kgm": 346.7
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 50.8,
+      "actWt_kgm": 342.3
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 57.2,
+      "actWt_kgm": 339.3
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 63.5,
+      "actWt_kgm": 333.3
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 71.4,
+      "actWt_kgm": 327.4
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 76.2,
+      "actWt_kgm": 322.9
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 82.6,
+      "actWt_kgm": 317
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 88.9,
+      "actWt_kgm": 309.5
+    },
+    {
+      "od_mm": 241.3,
+      "id_mm": 95.3,
+      "actWt_kgm": 302.1
+    }
+  ],
+  "hwdp": [
+    {
+      "od_mm": 88.9,
+      "id_mm": 52.4,
+      "actWt_kgm": 37.7,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 37.7,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 55.6
+    },
+    {
+      "od_mm": 101.6,
+      "id_mm": 65.1,
+      "actWt_kgm": 44.2,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 44.2,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 68.3
+    },
+    {
+      "od_mm": 114.3,
+      "id_mm": 69.9,
+      "actWt_kgm": 61,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 61,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 73
+    },
+    {
+      "od_mm": 127,
+      "id_mm": 76.2,
+      "actWt_kgm": 73.4,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 73.4,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 79.4
+    },
+    {
+      "od_mm": 139.7,
+      "id_mm": 85.7,
+      "actWt_kgm": 84.8,
+      "tjType": "FH",
+      "nomWt_kgm": 84.8,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 88.9
+    },
+    {
+      "od_mm": 168.3,
+      "id_mm": 114.3,
+      "actWt_kgm": 105.4,
+      "tjType": "FH",
+      "nomWt_kgm": 105.4,
+      "tjOd_mm": 203.2,
+      "tjId_mm": 114.3
+    }
+  ],
+  "swdp": [
+    {
+      "od_mm": 60.3,
+      "id_mm": 54,
+      "actWt_kgm": 11.2,
+      "tjType": "SLH90",
+      "nomWt_kgm": 11.2,
+      "tjOd_mm": 76.2,
+      "tjId_mm": 54
+    },
+    {
+      "od_mm": 73,
+      "id_mm": 54,
+      "actWt_kgm": 23.5,
+      "tjType": "SLH90",
+      "nomWt_kgm": 23.5,
+      "tjOd_mm": 95.3,
+      "tjId_mm": 54
+    },
+    {
+      "od_mm": 88.9,
+      "id_mm": 57.2,
+      "actWt_kgm": 39.7,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 39.7,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 58.7
+    },
+    {
+      "od_mm": 101.6,
+      "id_mm": 65.1,
+      "actWt_kgm": 48.7,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 48.7,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 68.3
+    },
+    {
+      "od_mm": 114.3,
+      "id_mm": 69.9,
+      "actWt_kgm": 63.4,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 63.4,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 73
+    },
+    {
+      "od_mm": 127,
+      "id_mm": 76.2,
+      "actWt_kgm": 79.8,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 79.8,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 79.4
+    },
+    {
+      "od_mm": 139.7,
+      "id_mm": 101.6,
+      "actWt_kgm": 75.4,
+      "tjType": "FH",
+      "nomWt_kgm": 75.4,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 101.6
+    },
+    {
+      "od_mm": 168.3,
+      "id_mm": 127,
+      "actWt_kgm": 84.8,
+      "tjType": "FH",
+      "nomWt_kgm": 84.8,
+      "tjOd_mm": 203.2,
+      "tjId_mm": 127
+    }
+  ],
+  "drillPipe": [
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 50.7,
+      "actWt_kgm": 7.7,
+      "tjType": "NC26(IF)",
+      "nomWt_kgm": 7.2,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 50.7,
+      "actWt_kgm": 7.3,
+      "tjType": "OH",
+      "nomWt_kgm": 7.2,
+      "tjOd_mm": 79.4,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 50.7,
+      "actWt_kgm": 7.4,
+      "tjType": "SLH90",
+      "nomWt_kgm": 7.2,
+      "tjOd_mm": 82.6,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 50.7,
+      "actWt_kgm": 7.5,
+      "tjType": "WO",
+      "nomWt_kgm": 7.2,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 46.1,
+      "actWt_kgm": 10.3,
+      "tjType": "NC26(IF)",
+      "nomWt_kgm": 9.9,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 46.1,
+      "actWt_kgm": 10.2,
+      "tjType": "OH",
+      "nomWt_kgm": 9.9,
+      "tjOd_mm": 82.6,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 46.1,
+      "actWt_kgm": 10,
+      "tjType": "SLH90",
+      "nomWt_kgm": 9.9,
+      "tjOd_mm": 82.6,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 60.3,
+      "id_mm": 62,
+      "actWt_kgm": 11,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 10.2,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 54
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 62,
+      "actWt_kgm": 10.2,
+      "tjType": "OH",
+      "nomWt_kgm": 10.2,
+      "tjOd_mm": 95.3,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 62,
+      "actWt_kgm": 10.4,
+      "tjType": "SLH90",
+      "nomWt_kgm": 10.2,
+      "tjOd_mm": 98.4,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 62,
+      "actWt_kgm": 10.7,
+      "tjType": "WO",
+      "nomWt_kgm": 10.2,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 54
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 15.6,
+      "tjType": "OH",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 98.4,
+      "tjId_mm": 54.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 15.6,
+      "tjType": "SLH90",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 98.4,
+      "tjId_mm": 54.8
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.4,
+      "tjType": "XH",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 108,
+      "tjId_mm": 47.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 15.3,
+      "tjType": "NC26(SH)",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 76,
+      "actWt_kgm": 15.5,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 14.1,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 68.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 76,
+      "actWt_kgm": 14.7,
+      "tjType": "OH",
+      "nomWt_kgm": 14.1,
+      "tjOd_mm": 114.3,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 76,
+      "actWt_kgm": 15,
+      "tjType": "SLH90",
+      "nomWt_kgm": 14.1,
+      "tjOd_mm": 117.5,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 20.5,
+      "tjType": "NC38(if)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 68.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 20.5,
+      "tjType": "OH",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 68.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 19.9,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 54
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 21.4,
+      "tjType": "H90",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 88.9,
+      "id_mm": 66.1,
+      "actWt_kgm": 24.4,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 23.1,
+      "tjOd_mm": 127,
+      "tjId_mm": 65.1
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 88.3,
+      "actWt_kgm": 19.5,
+      "tjType": "H90",
+      "nomWt_kgm": 17.6,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 88.3,
+      "actWt_kgm": 20.1,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 17.6,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 88.3,
+      "actWt_kgm": 18,
+      "tjType": "OH",
+      "nomWt_kgm": 17.6,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 88.1
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 88.3,
+      "actWt_kgm": 19.2,
+      "tjType": "WO",
+      "nomWt_kgm": 17.6,
+      "tjOd_mm": 146.1,
+      "tjId_mm": 87.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 22.4,
+      "tjType": "NC40",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 22.9,
+      "tjType": "H90",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 23.6,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 22.4,
+      "tjType": "OH",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 21.4,
+      "tjType": "SH",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 117.5,
+      "tjId_mm": 65.1
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 25,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 68.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 25.4,
+      "tjType": "H90",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 26.1,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27,
+      "tjType": "FH",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 26.5,
+      "tjType": "H90",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 26.8,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 25.4,
+      "tjType": "OH",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 149.2,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.3,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.2,
+      "tjType": "FH",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.2,
+      "tjType": "H90",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.2,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 92.1
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.9,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 31.1,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 42.1,
+      "tjType": "5 FH",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 40,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 139.7,
+      "id_mm": 121.4,
+      "actWt_kgm": 35.4,
+      "tjType": "FH",
+      "nomWt_kgm": 32.6,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 101.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 139.7,
+      "id_mm": 118.6,
+      "actWt_kgm": 39.2,
+      "tjType": "FH",
+      "nomWt_kgm": 36.8,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 101.6
+    },
+    {
+      "grade": "Grade E",
+      "od_mm": 168.3,
+      "id_mm": 151.5,
+      "actWt_kgm": 40.6,
+      "tjType": "FH",
+      "nomWt_kgm": 37.5,
+      "tjOd_mm": 203.2,
+      "tjId_mm": 127
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 60.3,
+      "id_mm": 46.1,
+      "actWt_kgm": 10.4,
+      "tjType": "NC26(IF)",
+      "nomWt_kgm": 9.9,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.3,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.1,
+      "tjType": "SLH90",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 101.6,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 21.6,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 127,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 20.9,
+      "tjType": "SLH90",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 65.1
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 88.9,
+      "id_mm": 66.1,
+      "actWt_kgm": 25.1,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 23.1,
+      "tjOd_mm": 127,
+      "tjId_mm": 54
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 88.9,
+      "id_mm": 66.1,
+      "actWt_kgm": 25.2,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 23.1,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 23.7,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 23.1,
+      "tjType": "H90",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 24,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 25.6,
+      "tjType": "H90",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 26.4,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.7,
+      "tjType": "FH",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.4,
+      "tjType": "H90",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.3,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 28.1,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.9,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 33.9,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 63.5
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 33.2,
+      "tjType": "H90",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 32.6,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 43.2,
+      "tjType": "5 FH",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 42.1,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 168.3,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 139.7,
+      "id_mm": 121.4,
+      "actWt_kgm": 37.5,
+      "tjType": "FH",
+      "nomWt_kgm": 32.6,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 139.7,
+      "id_mm": 118.6,
+      "actWt_kgm": 41.3,
+      "tjType": "FH",
+      "nomWt_kgm": 36.8,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade G",
+      "od_mm": 168.3,
+      "id_mm": 151.5,
+      "actWt_kgm": 40.6,
+      "tjType": "FH",
+      "nomWt_kgm": 37.5,
+      "tjOd_mm": 209.6,
+      "tjId_mm": 114.3
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.9,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 111.1,
+      "tjId_mm": 41.3
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 21.9,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 127,
+      "tjId_mm": 54
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 22.4,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 136.5,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 88.9,
+      "id_mm": 66.1,
+      "actWt_kgm": 26.1,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 23.1,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 57.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 24.4,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 26.8,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 28.7,
+      "tjType": "FH",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 63.5
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.4,
+      "tjType": "H90",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.7,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 28.4,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 34.6,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 168.3,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 34.6,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 57.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 33.6,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 168.3,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 43.7,
+      "tjType": "FH",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 139.7,
+      "id_mm": 121.4,
+      "actWt_kgm": 39.2,
+      "tjType": "FH",
+      "nomWt_kgm": 32.6,
+      "tjOd_mm": 190.5,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 139.7,
+      "id_mm": 118.6,
+      "actWt_kgm": 43,
+      "tjType": "FH",
+      "nomWt_kgm": 36.8,
+      "tjOd_mm": 190.5,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade S",
+      "od_mm": 168.3,
+      "id_mm": 151.5,
+      "actWt_kgm": 40.6,
+      "tjType": "FH",
+      "nomWt_kgm": 37.5,
+      "tjOd_mm": 215.9,
+      "tjId_mm": 101.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 60.3,
+      "id_mm": 46.1,
+      "actWt_kgm": 10.4,
+      "tjType": "NC26(IF)",
+      "nomWt_kgm": 9.9,
+      "tjOd_mm": 85.7,
+      "tjId_mm": 44.5
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.3,
+      "tjType": "NC31(IF)",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 104.8,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 73,
+      "id_mm": 54.6,
+      "actWt_kgm": 16.1,
+      "tjType": "SLH90",
+      "nomWt_kgm": 15.5,
+      "tjOd_mm": 101.6,
+      "tjId_mm": 50.8
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 21.4,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 127,
+      "tjId_mm": 65.1
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 20.9,
+      "tjType": "SLH90",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 120.7,
+      "tjId_mm": 65.1
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 88.9,
+      "id_mm": 70.2,
+      "actWt_kgm": 21.8,
+      "tjType": "H90",
+      "nomWt_kgm": 19.8,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 88.9,
+      "id_mm": 66.1,
+      "actWt_kgm": 24.8,
+      "tjType": "NC38(IF)",
+      "nomWt_kgm": 23.1,
+      "tjOd_mm": 127,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 22.8,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 133.4,
+      "tjId_mm": 68.3
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 23.1,
+      "tjType": "H90",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 84.8,
+      "actWt_kgm": 24,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 20.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 26.1,
+      "tjType": "NC40(FH)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 61.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 25.6,
+      "tjType": "H90",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 139.7,
+      "tjId_mm": 71.4
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 101.6,
+      "id_mm": 82.3,
+      "actWt_kgm": 26.4,
+      "tjType": "NC46(IF)",
+      "nomWt_kgm": 23.4,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.7,
+      "tjType": "FH",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.4,
+      "tjType": "H90",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.3,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 28.1,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 33.2,
+      "tjType": "FH",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 63.5
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.4,
+      "tjType": "H90",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.4,
+      "tjType": "H90",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 27.3,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 97.2,
+      "actWt_kgm": 28.1,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 24.7,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 33.2,
+      "tjType": "FH",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 63.5
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.3,
+      "tjType": "H90",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 152.4,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 32.9,
+      "tjType": "NC50(IF)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 114.3,
+      "id_mm": 92.5,
+      "actWt_kgm": 33.6,
+      "tjType": "NC46(XH)",
+      "nomWt_kgm": 29.8,
+      "tjOd_mm": 158.8,
+      "tjId_mm": 69.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 31.9,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 161.9,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 127,
+      "id_mm": 108.6,
+      "actWt_kgm": 32.9,
+      "tjType": "H90",
+      "nomWt_kgm": 29,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 82.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 42.3,
+      "tjType": "5 FH",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 127,
+      "id_mm": 101.6,
+      "actWt_kgm": 41.5,
+      "tjType": "NC50(XH)",
+      "nomWt_kgm": 38.1,
+      "tjOd_mm": 165.1,
+      "tjId_mm": 76.2
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 139.7,
+      "id_mm": 121.4,
+      "actWt_kgm": 36.3,
+      "tjType": "FH",
+      "nomWt_kgm": 32.6,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 95.3
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 139.7,
+      "id_mm": 121.4,
+      "actWt_kgm": 36.7,
+      "tjType": "H90",
+      "nomWt_kgm": 32.6,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 139.7,
+      "id_mm": 118.6,
+      "actWt_kgm": 41.3,
+      "tjType": "FH",
+      "nomWt_kgm": 36.8,
+      "tjOd_mm": 184.2,
+      "tjId_mm": 88.9
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 149.2,
+      "id_mm": 101.6,
+      "actWt_kgm": 0,
+      "tjType": "XT 57",
+      "nomWt_kgm": 0,
+      "tjOd_mm": 177.8,
+      "tjId_mm": 101.6
+    },
+    {
+      "grade": "Grade X",
+      "od_mm": 168.3,
+      "id_mm": 151.5,
+      "actWt_kgm": 40.6,
+      "tjType": "FH",
+      "nomWt_kgm": 37.5,
+      "tjOd_mm": 203.2,
+      "tjId_mm": 120.7
+    }
+  ],
+  "mwd": [
+    {
+      "description": "DWD SUPERSLIM",
+      "od_mm": 88.9,
+      "equivId_mm": null,
+      "length_m": 6.4,
+      "dp_kPa": 830,
+      "weight_kg": null
+    },
+    {
+      "description": "DGWD SUPERSLIM",
+      "od_mm": 88.9,
+      "equivId_mm": null,
+      "length_m": 11,
+      "dp_kPa": 830,
+      "weight_kg": null
+    },
+    {
+      "description": "DWG SLIMHOLE",
+      "od_mm": 120.7,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 970,
+      "weight_kg": null
+    },
+    {
+      "description": "DGWD SLIMHOLE",
+      "od_mm": 120.7,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 970,
+      "weight_kg": null
+    },
+    {
+      "description": "6-3/4\" DWD 650 SYSTEM",
+      "od_mm": 171.5,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "6-3/4\" DGWD 650 SYSTEM",
+      "od_mm": 171.5,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "6-3/4\" DWD1200 SYSTEM",
+      "od_mm": 171.5,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "6-3/4\" DGWD 1200 SYSTEM",
+      "od_mm": 171.5,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "8\" DWD 650 SYSTEM",
+      "od_mm": 203.2,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "8\" DGWD 650 SYSTEM",
+      "od_mm": 203.2,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "8\" DWD 1200 SYSTEM",
+      "od_mm": 203.2,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "8\" DWD 1200 SYSTEM",
+      "od_mm": 203.2,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "9-1/2\" DWD 650 SYSTEM",
+      "od_mm": 241.3,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "9-1/2\" DGWD 650 SYSTEM",
+      "od_mm": 241.3,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 1240,
+      "weight_kg": null
+    },
+    {
+      "description": "9-1/2\" DWD 1200 SYSTEM",
+      "od_mm": 241.3,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "9-1/2\" DGWD 1200 SYSTEM",
+      "od_mm": 241.3,
+      "equivId_mm": null,
+      "length_m": 9.1,
+      "dp_kPa": 2070,
+      "weight_kg": null
+    },
+    {
+      "description": "4-3/4\" SLIMPHASE 4 W/DGR & EWR",
+      "od_mm": 120.7,
+      "equivId_mm": 31.8,
+      "length_m": 6.9,
+      "dp_kPa": null,
+      "weight_kg": 589.7
+    },
+    {
+      "description": "4-3/4\" REALTIME SLIMPHASE 4 (PHASE 2)",
+      "od_mm": 120.7,
+      "equivId_mm": 31.8,
+      "length_m": 12,
+      "dp_kPa": null,
+      "weight_kg": 1045.5
+    },
+    {
+      "description": "6-3/4\" RLL W/DGR + EWR",
+      "od_mm": 171.5,
+      "equivId_mm": 48.8,
+      "length_m": 5.1,
+      "dp_kPa": null,
+      "weight_kg": 816.5
+    },
+    {
+      "description": "6-3/4\" RLL W/DGR + EWR + CNO",
+      "od_mm": 171.5,
+      "equivId_mm": 48.8,
+      "length_m": 7.5,
+      "dp_kPa": null,
+      "weight_kg": 1177.1
+    },
+    {
+      "description": "6-3/4\" RLL W/DGR + EWR + SFD",
+      "od_mm": 171.5,
+      "equivId_mm": 48.5,
+      "length_m": 9.6,
+      "dp_kPa": null,
+      "weight_kg": 1520.9
+    },
+    {
+      "description": "6-3/4\" MPT W/DIR",
+      "od_mm": 171.5,
+      "equivId_mm": 45,
+      "length_m": 7.8,
+      "dp_kPa": null,
+      "weight_kg": 1233.3
+    },
+    {
+      "description": "6-3/4\" MPT W/DGR + EWR",
+      "od_mm": 171.5,
+      "equivId_mm": 46.7,
+      "length_m": 8.6,
+      "dp_kPa": null,
+      "weight_kg": 1383.4
+    },
+    {
+      "description": "6-3/4\" MPT W/DGR + EWR + DIR",
+      "od_mm": 171.5,
+      "equivId_mm": 46,
+      "length_m": 11.4,
+      "dp_kPa": null,
+      "weight_kg": 1584.4
+    },
+    {
+      "description": "6-3/4\" MPT W/DGR + EWR + CNO",
+      "od_mm": 171.5,
+      "equivId_mm": 47,
+      "length_m": 10.9,
+      "dp_kPa": null,
+      "weight_kg": 1511.4
+    },
+    {
+      "description": "6-3/4\" MPT W/DGR + EWR + CNO + DIR",
+      "od_mm": 171.5,
+      "equivId_mm": 46.5,
+      "length_m": 13.7,
+      "dp_kPa": null,
+      "weight_kg": 1945
+    },
+    {
+      "description": "6-3/4\" MPT W/DGR + EWR + SFD",
+      "od_mm": 171.5,
+      "equivId_mm": 46.7,
+      "length_m": 15.6,
+      "dp_kPa": null,
+      "weight_kg": 1855.2
+    },
+    {
+      "description": "8\" RLL W/DGR + EWR",
+      "od_mm": 203.2,
+      "equivId_mm": 48.8,
+      "length_m": 5.2,
+      "dp_kPa": null,
+      "weight_kg": 1115.8
+    },
+    {
+      "description": "8\" RLL W/DGR + EWR + CNO",
+      "od_mm": 203.2,
+      "equivId_mm": 48.8,
+      "length_m": 7.6,
+      "dp_kPa": null,
+      "weight_kg": 1610.2
+    },
+    {
+      "description": "8\" MPT W/DIR",
+      "od_mm": 203.2,
+      "equivId_mm": 45,
+      "length_m": 7.8,
+      "dp_kPa": null,
+      "weight_kg": 1624.3
+    },
+    {
+      "description": "8\" MPT W/DGR + EWR",
+      "od_mm": 203.2,
+      "equivId_mm": 46.7,
+      "length_m": 8.7,
+      "dp_kPa": null,
+      "weight_kg": 1467.8
+    },
+    {
+      "description": "8\" MPT W/DGR + EWR + DIR",
+      "od_mm": 203.2,
+      "equivId_mm": 46,
+      "length_m": 11.5,
+      "dp_kPa": null,
+      "weight_kg": 2075.2
+    },
+    {
+      "description": "8\" MPT W/DGR + EWR + CNO",
+      "od_mm": 203.2,
+      "equivId_mm": 47,
+      "length_m": 11.1,
+      "dp_kPa": null,
+      "weight_kg": 1962.2
+    },
+    {
+      "description": "8\" MPT W/DGR + EWR + CNO + DIR",
+      "od_mm": 203.2,
+      "equivId_mm": 46.5,
+      "length_m": 13.9,
+      "dp_kPa": null,
+      "weight_kg": 2569.6
+    },
+    {
+      "description": "9-1/2\" RLL W/DGR + EWR",
+      "od_mm": 241.3,
+      "equivId_mm": 60.5,
+      "length_m": 5.5,
+      "dp_kPa": null,
+      "weight_kg": 1625.7
+    },
+    {
+      "description": "9-1/2\" MPT W/DIR",
+      "od_mm": 241.3,
+      "equivId_mm": 62.2,
+      "length_m": 8.1,
+      "dp_kPa": null,
+      "weight_kg": 2390.4
+    },
+    {
+      "description": "9-1/2\" MPT W/DGR + EWR",
+      "od_mm": 241.3,
+      "equivId_mm": 63.5,
+      "length_m": 9.2,
+      "dp_kPa": null,
+      "weight_kg": 2874.9
+    },
+    {
+      "description": "9-1/2\" MPT W/DGR + EWR + DIR",
+      "od_mm": 241.3,
+      "equivId_mm": 62,
+      "length_m": 12,
+      "dp_kPa": null,
+      "weight_kg": 3508.1
+    }
+  ],
+  "motor": [
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 1/2 - 3.0 STG",
+      "od_mm": 120.7,
+      "length_m": 6.6,
+      "maxDp_kPa": 2620,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 757.1,
+      "weight_kg": 326.6,
+      "stabType": null
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 120.7,
+      "length_m": 6.6,
+      "maxDp_kPa": 2620,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 326.6,
+      "stabType": null
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 4/5 - 3.5 STG",
+      "od_mm": 120.7,
+      "length_m": 6,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 335.7,
+      "stabType": null
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 1/2 - 6.3 STG",
+      "od_mm": 120.7,
+      "length_m": 7.9,
+      "maxDp_kPa": 6210,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 462.7,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 1/2 - 7.0 STG",
+      "od_mm": 120.7,
+      "length_m": 9.5,
+      "maxDp_kPa": 6890,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 550.7,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 7/8 - 2.2 STG",
+      "od_mm": 120.7,
+      "length_m": 6,
+      "maxDp_kPa": 2480,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 335.7,
+      "stabType": null
+    },
+    {
+      "description": "4-3/4\" SPERRYDRILL LOBE 7/8 - 4.4 STG",
+      "od_mm": 120.7,
+      "length_m": 9.5,
+      "maxDp_kPa": 4960,
+      "minFlow_Lmin": 378.5,
+      "maxFlow_Lmin": 946.4,
+      "weight_kg": 550.7,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "6-1/4\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 158.8,
+      "length_m": 7.6,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 662.4,
+      "maxFlow_Lmin": 1324.9,
+      "weight_kg": 630.5,
+      "stabType": null
+    },
+    {
+      "description": "6-1/4\" SPERRYDRILL LOBE 4/5 - 4.3 STG",
+      "od_mm": 158.8,
+      "length_m": 6.7,
+      "maxDp_kPa": 4310,
+      "minFlow_Lmin": 567.8,
+      "maxFlow_Lmin": 1514.2,
+      "weight_kg": 558.8,
+      "stabType": null
+    },
+    {
+      "description": "6-1/4\" SPERRYDRILL LOBE 7/8 - 2.8 STG",
+      "od_mm": 158.8,
+      "length_m": 6.7,
+      "maxDp_kPa": 3170,
+      "minFlow_Lmin": 567.8,
+      "maxFlow_Lmin": 1514.2,
+      "weight_kg": 553.4,
+      "stabType": null
+    },
+    {
+      "description": "6-1/4\" SPERRYDRILL LOBE 8/9 - 4.0 STG",
+      "od_mm": 158.8,
+      "length_m": 7,
+      "maxDp_kPa": 4310,
+      "minFlow_Lmin": 643.5,
+      "maxFlow_Lmin": 1514.2,
+      "weight_kg": 589.7,
+      "stabType": null
+    },
+    {
+      "description": "6-1/2\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 165.1,
+      "length_m": 8.8,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 757.1,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 694,
+      "stabType": null
+    },
+    {
+      "description": "6-1/2\" SPERRYDRILL LOBE 4/5 - 4.8 STG",
+      "od_mm": 165.1,
+      "length_m": 7.8,
+      "maxDp_kPa": 4830,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 735.3,
+      "stabType": null
+    },
+    {
+      "description": "6-1/2\" SPERRYDRILL LOBE 8/9 - 3.0 STG",
+      "od_mm": 165.1,
+      "length_m": 7.2,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 851.7,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 675.9,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 1/2 - 3.0 STG",
+      "od_mm": 171.5,
+      "length_m": 7.1,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 757.1,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 669,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 171.5,
+      "length_m": 8.1,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 757.1,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 766.6,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 4/5 - 4.8 STG",
+      "od_mm": 171.5,
+      "length_m": 7.5,
+      "maxDp_kPa": 4830,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 757.5,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 4/5 - 7.0 STG",
+      "od_mm": 171.5,
+      "length_m": 9.1,
+      "maxDp_kPa": 6960,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 933.5,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "6-3/2\" SPERRYDRILL LOBE 4/5 - 9.6 STG",
+      "od_mm": 171.5,
+      "length_m": 12.1,
+      "maxDp_kPa": 9650,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 1247.8,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 6/7 - 5.0 STG",
+      "od_mm": 171.5,
+      "length_m": 8.8,
+      "maxDp_kPa": 5340,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 889.5,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 7/8 - 3.0 STG",
+      "od_mm": 171.5,
+      "length_m": 6.9,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 703.1,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 7/8 - 6.0 STG",
+      "od_mm": 171.5,
+      "length_m": 10.9,
+      "maxDp_kPa": 6890,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 1000.6,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 8/9 - 2.0 STG",
+      "od_mm": 171.5,
+      "length_m": 6,
+      "maxDp_kPa": 1720,
+      "minFlow_Lmin": 851.7,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 603.3,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 8/9 - 3.0 STG",
+      "od_mm": 171.5,
+      "length_m": 6.9,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 851.7,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 703.1,
+      "stabType": null
+    },
+    {
+      "description": "6-3/4\" SPERRYDRILL LOBE 8/9 - 6.0 STG",
+      "od_mm": 171.5,
+      "length_m": 10.9,
+      "maxDp_kPa": 5170,
+      "minFlow_Lmin": 851.7,
+      "maxFlow_Lmin": 1892.7,
+      "weight_kg": 1000.6,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 1/2 - 3.0 STG",
+      "od_mm": 203.2,
+      "length_m": 7.3,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 1119.5,
+      "stabType": null
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 203.2,
+      "length_m": 8.3,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 1274.6,
+      "stabType": null
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 4/5 - 3.6 STG",
+      "od_mm": 203.2,
+      "length_m": 8,
+      "maxDp_kPa": 3590,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 1161.2,
+      "stabType": null
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 4/5 - 5.3 STG",
+      "od_mm": 203.2,
+      "length_m": 9.7,
+      "maxDp_kPa": 5240,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 1511.4,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 4/5 - 7.2 STG",
+      "od_mm": 203.2,
+      "length_m": 12.9,
+      "maxDp_kPa": 7170,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 2027.6,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 6/7 - 4.0 STG",
+      "od_mm": 203.2,
+      "length_m": 9.2,
+      "maxDp_kPa": 4270,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 1330.8,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 7/8 - 3.0 STG",
+      "od_mm": 203.2,
+      "length_m": 8,
+      "maxDp_kPa": 3380,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 1161.2,
+      "stabType": null
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 7/8 - 6.0 STG",
+      "od_mm": 203.2,
+      "length_m": 12.9,
+      "maxDp_kPa": 6760,
+      "minFlow_Lmin": 1135.6,
+      "maxFlow_Lmin": 3406.9,
+      "weight_kg": 2088.8,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 8/9 - 4.0 STG",
+      "od_mm": 203.2,
+      "length_m": 8.3,
+      "maxDp_kPa": 3790,
+      "minFlow_Lmin": 1059.9,
+      "maxFlow_Lmin": 2649.8,
+      "weight_kg": 1279.1,
+      "stabType": null
+    },
+    {
+      "description": "8\" SPERRYDRILL LOBE 9/10 - 3.0 STG",
+      "od_mm": 203.2,
+      "length_m": 7,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 757.1,
+      "maxFlow_Lmin": 2271.2,
+      "weight_kg": 1088.6,
+      "stabType": null
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 1/2 - 4.0 STG",
+      "od_mm": 244.5,
+      "length_m": 10.3,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 1892.7,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2041.2,
+      "stabType": null
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 1/2 - 5.0 STG",
+      "od_mm": 244.5,
+      "length_m": 10.3,
+      "maxDp_kPa": 4270,
+      "minFlow_Lmin": 1514.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2041.2,
+      "stabType": null
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 3/4 - 4.5 STG",
+      "od_mm": 244.5,
+      "length_m": 9.4,
+      "maxDp_kPa": 4270,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2118.3,
+      "stabType": null
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 3/4 - 6.0 STG",
+      "od_mm": 244.5,
+      "length_m": 10.7,
+      "maxDp_kPa": 5650,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2290.2,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 3/4 - 9.0 STG",
+      "od_mm": 244.5,
+      "length_m": 14.9,
+      "maxDp_kPa": 8550,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 3412.4,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 5/6 - 3.0 STG",
+      "od_mm": 244.5,
+      "length_m": 9.4,
+      "maxDp_kPa": 3100,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2177.2,
+      "stabType": null
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 5/6 - 6.0 STG",
+      "od_mm": 244.5,
+      "length_m": 14.9,
+      "maxDp_kPa": 6210,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 3430.5,
+      "stabType": "TANDEM"
+    },
+    {
+      "description": "9-5/8\" SPERRYDRILL LOBE 6/7 - 5.0 STG",
+      "od_mm": 244.5,
+      "length_m": 10.1,
+      "maxDp_kPa": 5340,
+      "minFlow_Lmin": 2271.2,
+      "maxFlow_Lmin": 4542.5,
+      "weight_kg": 2222.1,
+      "stabType": "PERFORMANCE"
+    },
+    {
+      "description": "SLIM HOLE MOTOR",
+      "od_mm": null,
+      "length_m": null,
+      "maxDp_kPa": null,
+      "minFlow_Lmin": null,
+      "maxFlow_Lmin": null,
+      "weight_kg": null,
+      "stabType": null
+    },
+    {
+      "description": "Motor description",
+      "od_mm": "OD (mm)",
+      "length_m": "Length (m)",
+      "maxDp_kPa": "Max DP (kPa)",
+      "minFlow_Lmin": "Min flow (L/min)",
+      "maxFlow_Lmin": "Max flow (L/min)",
+      "weight_kg": "Weight (kg)",
+      "stabType": null
+    },
+    {
+      "description": "1-3/4\" SPERRYDRILL LOBE 1/2 - 4.6 STG",
+      "od_mm": 44.5,
+      "length_m": 3.4,
+      "maxDp_kPa": 3960,
+      "minFlow_Lmin": 37.9,
+      "maxFlow_Lmin": 75.7,
+      "weight_kg": 19.1,
+      "stabType": null
+    },
+    {
+      "description": "1-3/4\" SPERRYDRILL LOBE 1/2 - 2.3 STG",
+      "od_mm": 44.5,
+      "length_m": 3.4,
+      "maxDp_kPa": 1970,
+      "minFlow_Lmin": 37.9,
+      "maxFlow_Lmin": 75.7,
+      "weight_kg": 19.1,
+      "stabType": null
+    },
+    {
+      "description": "2-3/8\" SPERRYDRILL LOBE 1/2 - 7.0 STG",
+      "od_mm": 60.3,
+      "length_m": 4.5,
+      "maxDp_kPa": 6030,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 189.3,
+      "weight_kg": 57.6,
+      "stabType": null
+    },
+    {
+      "description": "2-3/8\" SPERRYDRILL LOBE 1/2 - 3.5 STG",
+      "od_mm": 60.3,
+      "length_m": 4.5,
+      "maxDp_kPa": 3030,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 189.3,
+      "weight_kg": 57.6,
+      "stabType": null
+    },
+    {
+      "description": "2-3/8\" SPERRYDRILL LOBE 5/6 - 2.5 STG",
+      "od_mm": 60.3,
+      "length_m": 3.1,
+      "maxDp_kPa": 2620,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 189.3,
+      "weight_kg": 39,
+      "stabType": null
+    },
+    {
+      "description": "2-7/8\" SPERRYDRILL LOBE 1/2 - 7.0 STG",
+      "od_mm": 73,
+      "length_m": 5.1,
+      "maxDp_kPa": 5760,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 265,
+      "weight_kg": 74.8,
+      "stabType": null
+    },
+    {
+      "description": "2-7/8\" SPERRYDRILL LOBE 1/2 - 5.2 STG",
+      "od_mm": 73,
+      "length_m": 5.1,
+      "maxDp_kPa": 4480,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 265,
+      "weight_kg": 74.8,
+      "stabType": null
+    },
+    {
+      "description": "2-7/8\" SPERRYDRILL LOBE 5/6 - 3.3 STG",
+      "od_mm": 73,
+      "length_m": 3.5,
+      "maxDp_kPa": 3450,
+      "minFlow_Lmin": 75.7,
+      "maxFlow_Lmin": 302.8,
+      "weight_kg": 56.7,
+      "stabType": null
+    },
+    {
+      "description": "3-3/8\" SPERRYDRILL LOBE 1/2 - 5.5 STG",
+      "od_mm": 85.7,
+      "length_m": 7,
+      "maxDp_kPa": 4720,
+      "minFlow_Lmin": 113.6,
+      "maxFlow_Lmin": 378.5,
+      "weight_kg": 183.7,
+      "stabType": null
+    },
+    {
+      "description": "3-3/8\" SPERRYDRILL LOBE 4/5 - 5.0 STG",
+      "od_mm": 85.7,
+      "length_m": 5.4,
+      "maxDp_kPa": 5000,
+      "minFlow_Lmin": 113.6,
+      "maxFlow_Lmin": 416.4,
+      "weight_kg": 162.4,
+      "stabType": null
+    },
+    {
+      "description": "3-3/8\" SPERRYDRILL LOBE 7/8 - 3.0 STG",
+      "od_mm": 85.7,
+      "length_m": 5.4,
+      "maxDp_kPa": 3310,
+      "minFlow_Lmin": 113.6,
+      "maxFlow_Lmin": 416.4,
+      "weight_kg": 166.5,
+      "stabType": null
+    },
+    {
+      "description": "3-5/8\" SPERRYDRILL LOBE 1/2 - 4.4 STG",
+      "od_mm": 92.1,
+      "length_m": 7,
+      "maxDp_kPa": 3790,
+      "minFlow_Lmin": 227.1,
+      "maxFlow_Lmin": 530,
+      "weight_kg": 248.6,
+      "stabType": null
+    },
+    {
+      "description": "3-5/8\" SPERRYDRILL LOBE 4/5 - 3.5 STG",
+      "od_mm": 92.1,
+      "length_m": 5.8,
+      "maxDp_kPa": 3410,
+      "minFlow_Lmin": 302.8,
+      "maxFlow_Lmin": 605.7,
+      "weight_kg": 207.7,
+      "stabType": null
+    },
+    {
+      "description": "3-5/8\" SPERRYDRILL LOBE 7/8 - 2.3 STG",
+      "od_mm": 92.1,
+      "length_m": 5.8,
+      "maxDp_kPa": 2590,
+      "minFlow_Lmin": 302.8,
+      "maxFlow_Lmin": 605.7,
+      "weight_kg": 215.5,
+      "stabType": null
+    }
+  ]
+}

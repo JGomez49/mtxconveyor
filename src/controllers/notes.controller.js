@@ -12,6 +12,8 @@ const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
 const TDModel = require("../models/TDModel");
 const TDModelCore = require("../public/js/tdModel.js");
+const HydraulicsModel = require("../models/HydraulicsModel");
+const HydraulicsModelCore = require("../public/js/hydraulicsModel.js");
 const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
 const SiteConfig    = require("../models/SiteConfig");
@@ -340,7 +342,8 @@ notesCrtl.renderJob = async (req,res)=>{
     let wellboreTrajectories = await WellboreTrajectory.find({noteId: noteid});
     let pasonPlots = await PasonPlots.findOne({noteId: noteid}).lean();
     let tdModel = await TDModel.findOne({noteId: noteid}).lean();
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel})
+    let hydraulicsModel = await HydraulicsModel.findOne({noteId: noteid}).lean();
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel})
 }
 
 
@@ -759,6 +762,17 @@ notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{
     res.render('uploadTorqueAndDrag.ejs', {note, user});
 };
 
+// Bit Hydraulics Program standalone editor — same "no bound note" pattern as
+// renderUploadTorqueAndDrag: the page loads on its own, then resolves the
+// job client-side via ?mtxJobId=... using the existing findJobByMtxId
+// lookup (reused as-is; it already returns subject-well keys, which is all
+// this tool needs the job lookup for).
+notesCrtl.renderUploadHydraulics = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    const note = await Note.findById(req.params.id);
+    res.render('uploadHydraulics.ejs', {note, user});
+};
+
 
 
 
@@ -1093,6 +1107,177 @@ notesCrtl.deleteScenario = async (req, res) => {
     res.json({ success: true, activeScenario: doc.activeScenario, remaining: Object.keys(scenarios) });
   } catch(err) {
     console.error('deleteScenario error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ============================================================================
+// BIT HYDRAULICS PROGRAM — ported from the legacy Hydraulics.xls VBA macro.
+// Follows the exact same per-well/per-scenario save pattern as the T&D
+// Model above (see notes there); physics lives in the ONE shared module
+// src/public/js/hydraulicsModel.js (Bourgoyne 1986 — cited in that file's
+// header), used by both this controller and the browser.
+// ============================================================================
+
+notesCrtl.getHydraulicsModel = async (req, res) => {
+  try {
+    const doc = await HydraulicsModel.findOne({ noteId: req.params.noteId }).lean();
+    if(!doc) return res.json(null);
+    if(!doc.scenarios || !Object.keys(doc.scenarios).length){
+      doc.scenarios = { Default: { resultsByWell: doc.resultsByWell || {} } };
+      doc.activeScenario = 'Default';
+    }
+    if(!doc.activeScenario || !doc.scenarios[doc.activeScenario]){
+      doc.activeScenario = Object.keys(doc.scenarios)[0];
+    }
+    res.json(doc);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.saveHydraulicsModel = async (req, res) => {
+  try {
+    const { noteId, wellKey, drillString, annulusGeom, params, results, scenario } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+
+    const hasResults = !!(results && results.pressureLoss_kPa);
+    console.log(`saveHydraulicsModel: noteId=${noteId}, wellKey="${wellKey}", drillString=${(drillString||[]).length}, annulusGeom=${(annulusGeom||[]).length}, results=${hasResults ? 'present' : 'NONE (params-only auto-save)'}`);
+
+    // Fetch-modify-save, same reasoning as saveTDModel: avoids dot-notation
+    // key-path issues with well names, never disturbs other wells' runs.
+    let doc = await HydraulicsModel.findOne({ noteId });
+    if(!doc) doc = new HydraulicsModel({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
+
+    // Preserve the previously computed results when this save carries none
+    // (params auto-save continuously as the operator edits the form).
+    const prev = scenarioResultsByWell[wellKey] || {};
+    scenarioResultsByWell[wellKey] = {
+      drillString: drillString || [],
+      annulusGeom: annulusGeom || [],
+      params: params || {},
+      results: hasResults ? results : (prev.results || null),
+      calculatedAt: hasResults ? new Date() : (prev.calculatedAt || null),
+      calculatedByName: hasResults
+        ? (req.user ? (req.user.name || req.user.username || '') : '')
+        : (prev.calculatedByName || ''),
+      calculatedByUserId: hasResults
+        ? (req.user ? req.user._id : null)
+        : (prev.calculatedByUserId || null),
+      paramsSavedAt: new Date(),
+    };
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    res.json({
+      success: true, savedResults: hasResults, wellKey, scenario: scenarioName,
+      activeScenario: doc.activeScenario, calculatedAt: scenarioResultsByWell[wellKey].calculatedAt,
+    });
+  } catch(err) {
+    console.error('saveHydraulicsModel error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Recomputes the hydraulics model for a specific well using the shared
+// calculation module (src/public/js/hydraulicsModel.js) — the SAME module
+// the browser uses, so results match a manual run exactly. Keeps whatever
+// drillString/annulusGeom/params are passed in and auto-saves the fresh
+// results (with who/when) before returning, mirroring recalculateTDModel.
+notesCrtl.recalculateHydraulicsModel = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { wellKey, drillString, annulusGeom, params, scenario } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+    if(!drillString || !annulusGeom || !params) return res.status(400).json({ error: 'Missing drillString/annulusGeom/params' });
+
+    const results = HydraulicsModelCore.computeHydraulics(drillString, annulusGeom, params);
+
+    let doc = await HydraulicsModel.findOne({ noteId });
+    if(!doc) doc = new HydraulicsModel({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
+    const calculatedAt = new Date();
+    scenarioResultsByWell[wellKey] = {
+      drillString, annulusGeom, params, results,
+      calculatedAt,
+      calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
+      calculatedByUserId: req.user ? req.user._id : null,
+    };
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    console.log(`recalculateHydraulicsModel: noteId=${noteId}, wellKey="${wellKey}", scenario="${scenarioName}", warnings=${(results.warnings||[]).length}, saved by ${req.user ? req.user.name : 'unknown'} at ${calculatedAt.toISOString()}`);
+
+    res.json({
+      success: true, wellKey, results, calculatedAt, scenario: scenarioName, activeScenario: doc.activeScenario,
+      calculatedByName: scenarioResultsByWell[wellKey].calculatedByName,
+    });
+  } catch(err) {
+    console.error('recalculateHydraulicsModel error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /notes/hydraulicsModel/:noteId/scenario/setActive
+notesCrtl.setActiveHydraulicsScenario = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { scenario } = req.body;
+    if(!scenario) return res.status(400).json({ error: 'Missing scenario name' });
+    const doc = await HydraulicsModel.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No Hydraulics model found for this job' });
+    if(!doc.scenarios || !doc.scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    doc.activeScenario = scenario;
+    doc.resultsByWell = doc.scenarios[scenario].resultsByWell || {};
+    doc.markModified('resultsByWell');
+    await doc.save();
+    res.json({ success: true, activeScenario: scenario });
+  } catch(err) {
+    console.error('setActiveHydraulicsScenario error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// DELETE /notes/hydraulicsModel/:noteId/scenario/:scenario
+notesCrtl.deleteHydraulicsScenario = async (req, res) => {
+  try {
+    const { noteId, scenario } = req.params;
+    const doc = await HydraulicsModel.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No Hydraulics model found for this job' });
+    const scenarios = Object.assign({}, doc.scenarios || {});
+    if(!scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    const names = Object.keys(scenarios);
+    if(names.length <= 1) return res.status(400).json({ error: 'Cannot delete the only remaining scenario.' });
+    delete scenarios[scenario];
+    doc.scenarios = scenarios;
+    if(doc.activeScenario === scenario){
+      doc.activeScenario = Object.keys(scenarios)[0];
+      doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell || {};
+      doc.markModified('resultsByWell');
+    }
+    doc.markModified('scenarios');
+    await doc.save();
+    res.json({ success: true, activeScenario: doc.activeScenario, remaining: Object.keys(scenarios) });
+  } catch(err) {
+    console.error('deleteHydraulicsScenario error:', err);
     res.status(500).json({ error: err.message });
   }
 };

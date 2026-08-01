@@ -8,6 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Torque and Drag Modeler v5</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
   <script src="/js/tdModel.js"></script>
   <link
@@ -1138,8 +1139,11 @@
           <div class="brow">
             <button class="btn btn-g" onclick="addBHA()">+ Component</button>
             <button class="btn btn-g" onclick="loadCNRLBHA()">Load CNRL</button>
+            <button class="btn btn-g" onclick="exportBHAExcel()">⬇ Export to Excel</button>
+            <button class="btn btn-g" onclick="document.getElementById('bhaImportFile').click()">⬆ Import from Excel</button>
+            <input type="file" id="bhaImportFile" accept=".xlsx,.xls" style="display:none;" onchange="importBHAExcel(event)"/>
           </div>
-          <p class="hint">List bottom-up: Bit first, then up to DP. OD/ID always in mm.</p>
+          <p class="hint">List bottom-up: Bit first, then up to DP. OD/ID always in mm. Import <strong>replaces</strong> the whole table below — export first if you want to keep the current one.</p>
         </div>
       </div>
 
@@ -1477,6 +1481,90 @@
       var tr = document.createElement('tr');
       tr.innerHTML = mkText(nm, 'Component') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(len, 'Len') + mkCell(wt, 'Wt') + delBtn();
       document.getElementById('bhaBody').appendChild(tr);
+    }
+
+    // ---------------- BHA Excel export / import (reuse BHAs across jobs) ----------------
+    // Exports exactly what's currently shown in the table (same units as
+    // the on-screen inputs), so round-tripping export -> import on the
+    // same session always reproduces the table exactly.
+    function exportBHAExcel() {
+      var rows = Array.from(document.querySelectorAll('#bhaBody tr')).map(function (r) {
+        var ins = r.querySelectorAll('input');
+        return { name: ins[0].value, od: ins[1].value, id: ins[2].value, len: ins[3].value, wt: ins[4].value };
+      });
+      if (!rows.length) { alert('BHA table is empty — nothing to export.'); return; }
+      var M = (UNIT === 'metric');
+      var lenLabel = 'Length (' + (M ? 'm' : 'ft') + ')';
+      var wtLabel = 'Wt (' + (M ? 'kg/m' : 'lb/ft') + ')';
+      var sheetRows = rows.map(function (r) {
+        var o = {};
+        o['Component'] = r.name;
+        o['OD (mm)'] = +r.od || 0;
+        o['ID (mm)'] = +r.id || 0;
+        o[lenLabel] = +r.len || 0;
+        o[wtLabel] = +r.wt || 0;
+        return o;
+      });
+      var ws = XLSX.utils.json_to_sheet(sheetRows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'BHA');
+      var wellPart = (tdCurrentWellKey || 'BHA').replace(/[^a-z0-9\-_ ]/gi, '_');
+      XLSX.writeFile(wb, 'BHA_' + wellPart + '.xlsx');
+    }
+
+    // Import REPLACES the whole table. Column headers are matched loosely
+    // (Component/Name, OD, ID, Length/Len, Wt/Weight) so files exported by
+    // this tool always round-trip, and reasonably-named hand-built sheets
+    // work too. Length/Wt unit is detected from the header text when
+    // present (e.g. "Length (ft)", "Wt (lb/ft)") and converted into
+    // whatever unit the table is CURRENTLY displaying — so importing an
+    // imperial file while in metric mode (or vice versa) still lands in
+    // the right cells, not just the right numbers.
+    function importBHAExcel(evt) {
+      var file = evt.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var wb = XLSX.read(data, { type: 'array' });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          if (!rows.length) { alert('No rows found in that file.'); return; }
+
+          var headers = Object.keys(rows[0]);
+          function findCol(re) { return headers.filter(function (h) { return re.test(h); })[0]; }
+          var cName = findCol(/component|name/i);
+          var cOD = findCol(/^od\b|od\s*\(/i);
+          var cID = findCol(/^id\b|id\s*\(/i);
+          var cLen = findCol(/length|len\b/i);
+          var cWt = findCol(/wt|weight/i);
+          if (!cName || !cOD || !cID || !cLen || !cWt) {
+            alert('Could not find all expected columns (Component, OD, ID, Length, Wt) in that file.\nFound columns: ' + headers.join(', '));
+            return;
+          }
+          var lenIsFt = /\(ft\)/i.test(cLen);
+          var wtIsLbFt = /lb\s*\/\s*ft/i.test(cWt);
+          var M = (UNIT === 'metric');
+
+          document.getElementById('bhaBody').innerHTML = '';
+          rows.forEach(function (row) {
+            var od_mm = +row[cOD] || 0;
+            var id_mm = +row[cID] || 0;
+            var len_m = (lenIsFt ? (+row[cLen] || 0) * FT : (+row[cLen] || 0));
+            var wt_kgm = (wtIsLbFt ? (+row[cWt] || 0) / KGM2LBFT : (+row[cWt] || 0));
+            var lenOut = M ? len_m : len_m / FT;
+            var wtOut = M ? wt_kgm : wt_kgm * KGM2LBFT;
+            addBHA(String(row[cName] || ''), od_mm, id_mm, +lenOut.toFixed(3), +wtOut.toFixed(3));
+          });
+          setStatus('ok', 'Imported ' + rows.length + ' BHA component(s) from "' + file.name + '" — replaced the previous table.');
+        } catch (err) {
+          alert('Could not read that Excel file: ' + err.message);
+        } finally {
+          evt.target.value = ''; // allow re-importing the same filename again later
+        }
+      };
+      reader.readAsArrayBuffer(file);
     }
 
     // =============================================================

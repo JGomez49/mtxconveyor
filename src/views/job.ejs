@@ -642,6 +642,61 @@ body.light-mode #statusTextbox {
                 </div>
                 <!-- ================= END PASON EDR PLOTS ================= -->
 
+                <!-- ================= BIT HYDRAULICS PROGRAM ================= -->
+                <div class="accordion mb-2" id="accordionHyd">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseHyd"
+                                    aria-expanded="false">
+                                🌊 Bit Hydraulics Program
+                            </button>
+                        </h2>
+                        <div id="collapseHyd" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <select id="hydWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <select id="hydScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <span id="hydStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank"
+                                       class="btn btn-sm btn-outline-info">🌊 Open in Bit Hydraulics Program</a>
+                                </div>
+                                <div id="hydEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    No Bit Hydraulics model saved yet for this job.
+                                </div>
+                                <div id="hydResultsWrap" style="display:none;">
+                                    <div id="hydWarnings"></div>
+                                    <div id="hydResultCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px;"></div>
+                                    <div style="font-size:11px;color:#5a7080;margin-bottom:4px;">Pressure Loss Distribution</div>
+                                    <div id="hydPlBar" style="height:22px;border-radius:3px;overflow:hidden;display:flex;border:1px solid var(--an-border);margin-bottom:10px;"></div>
+                                    <div class="td-2col" style="border-radius:.5rem;padding:1rem;">
+                                        <div class="td-chart-panel mb-3">
+                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Drill String</div>
+                                            <div class="wbt-table-wrap" style="max-height:220px;">
+                                                <table class="wbt-table" id="hydDsTable"><thead><tr><th>Component</th><th>Cap. (bbl)</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            </div>
+                                        </div>
+                                        <div class="td-chart-panel mb-3">
+                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Annulus</div>
+                                            <div class="wbt-table-wrap" style="max-height:220px;">
+                                                <table class="wbt-table" id="hydAnnTable"><thead><tr><th>Section</th><th>Length (m)</th><th>Regime</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                        Physics: Bourgoyne, Millheim, Chenevert, Young, "Applied Drilling Engineering," SPE Textbook Series Vol. 2, 1986, Ch. 4
+                                        (Bingham Plastic &amp; Power Law pipe/annular pressure loss). Edit setup and recalculate in the
+                                        <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank">Bit Hydraulics Program</a>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END BIT HYDRAULICS PROGRAM ================= -->
+
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
                 <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
                 <% if (_wbt && _wbt.length) { %>
@@ -2258,6 +2313,7 @@ body.light-mode #statusTextbox {
 
 
     <script type="application/json" id="tdModelData"><%- JSON.stringify((typeof tdModel !== 'undefined' && tdModel) ? tdModel : null) %></script>
+    <script type="application/json" id="hydraulicsModelData"><%- JSON.stringify((typeof hydraulicsModel !== 'undefined' && hydraulicsModel) ? hydraulicsModel : null) %></script>
 
     <% if (_wbt && _wbt.length) { %>
     <script type="application/json" id="wbtData"><%- JSON.stringify(_wbt) %></script>
@@ -6368,5 +6424,215 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 })();
 </script>
 <!-- ================= END TORQUE & DRAG MODEL SCRIPT ================= -->
+
+<!-- ================= BIT HYDRAULICS PROGRAM SCRIPT (read-only) ================= -->
+<script>
+(function(){
+    const HYD_NOTE_ID = "<%- note._id %>";
+    if(!document.getElementById('hydWellSelect2')) return;
+    const dataEl = document.getElementById('hydraulicsModelData');
+    if(!dataEl){ console.log('[Hyd] #hydraulicsModelData element not found on this page.'); return; }
+    let hydDoc;
+    try { hydDoc = JSON.parse(dataEl.textContent); } catch(e){ console.error('[Hyd] Failed to parse hydraulicsModelData JSON:', e); hydDoc = null; }
+    if(hydDoc && !hydDoc.resultsByWell) hydDoc.resultsByWell = {};
+
+    function hydIsSubjectWell(well){
+        var wn = (well.wellName || '').trim();
+        if(well.wellCategory === 'subject') return true;
+        if(well.wellCategory === 'offset') return false;
+        return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+    }
+    function getSubjectWellKeys(){
+        var dataEl2 = document.getElementById('wbtData');
+        if(!dataEl2) return [];
+        var wbtArr;
+        try { wbtArr = JSON.parse(dataEl2.textContent); } catch(e){ return []; }
+        return wbtArr.filter(function(w){ return w.survey && w.survey.length && hydIsSubjectWell(w); })
+                      .map(function(w){ return w.wellName; })
+                      .sort();
+    }
+
+    const wellSelect = document.getElementById('hydWellSelect2');
+    const scenarioSelect = document.getElementById('hydScenarioSelect2');
+    const statusText = document.getElementById('hydStatusText');
+    const emptyMsg = document.getElementById('hydEmptyMsg');
+    const resultsWrap = document.getElementById('hydResultsWrap');
+
+    function fmt(v, d){ return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d != null ? d : 1); }
+
+    function renderEntry(entry){
+        if(!entry || !entry.results){
+            resultsWrap.style.display = 'none';
+            emptyMsg.style.display = 'block';
+            emptyMsg.textContent = 'No saved run for this well/scenario yet — use "Open in Bit Hydraulics Program" to set one up.';
+            statusText.textContent = '';
+            return;
+        }
+        emptyMsg.style.display = 'none';
+        resultsWrap.style.display = 'block';
+        var r = entry.results;
+
+        var warnEl = document.getElementById('hydWarnings');
+        warnEl.innerHTML = '';
+        (r.warnings || []).forEach(function(w){
+            var d = document.createElement('div');
+            var severe = /No pressure available|higher than maximum/.test(w);
+            d.style.cssText = 'border:1px solid ' + (severe ? '#ff4060' : '#ffd060') + ';background:rgba(' + (severe ? '255,64,96' : '255,208,96') + ',.08);color:' + (severe ? '#ff4060' : '#ffd060') + ';border-radius:4px;padding:8px 10px;font-size:11px;margin-bottom:6px;';
+            d.textContent = '⚠ ' + w;
+            warnEl.appendChild(d);
+        });
+
+        var cardsEl = document.getElementById('hydResultCards');
+        cardsEl.innerHTML = '';
+        if(r.bitHydraulics){
+            var bh = r.bitHydraulics;
+            var cards = [
+                ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²'],
+                ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s'],
+                ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa'],
+                ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W'],
+                ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²'],
+                ['Impact Force', fmt(bh.impactForce_N,0) + ' N'],
+                ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³'],
+                ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa'],
+            ];
+            cards.forEach(function(c){
+                var d = document.createElement('div');
+                d.style.cssText = 'background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px 10px;';
+                d.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">'+c[0]+'</div><div style="font-family:monospace;font-size:15px;color:#e8f4ff;">'+c[1]+'</div>';
+                cardsEl.appendChild(d);
+            });
+        }
+
+        var pct = r.pressureLossPct || {};
+        var segs = [
+            { label:'DS', pct: pct.drillString || 0, color:'#00c8ff' },
+            { label:'ANN', pct: pct.annulus || 0, color:'#ff6b35' },
+            { label:'SURF', pct: pct.surface || 0, color:'#39ff14' },
+            { label:'BIT', pct: pct.bit || 0, color:'#ffd060' },
+        ];
+        var bar = document.getElementById('hydPlBar');
+        bar.innerHTML = '';
+        segs.forEach(function(s){
+            if(s.pct <= 0) return;
+            var d = document.createElement('div');
+            d.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-family:monospace;width:' + s.pct + '%;background:' + s.color + ';';
+            d.title = s.label + ': ' + s.pct.toFixed(1) + '%';
+            d.textContent = s.pct > 6 ? (s.label + ' ' + s.pct.toFixed(0) + '%') : '';
+            bar.appendChild(d);
+        });
+
+        var dsBody = document.querySelector('#hydDsTable tbody');
+        dsBody.innerHTML = '';
+        (r.pipeRows || []).forEach(function(row){
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>'+row.name+'</td><td>'+fmt(row.capacity_bbl,2)+'</td><td>'+fmt(row.pressureLoss_kPa,0)+'</td>';
+            dsBody.appendChild(tr);
+        });
+
+        var annBody = document.querySelector('#hydAnnTable tbody');
+        annBody.innerHTML = '';
+        (r.annulusRows || []).forEach(function(row){
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>'+row.section+'</td><td>'+fmt(row.length_m,1)+'</td><td>'+row.flowRegime+'</td><td>'+fmt(row.pressureLoss_kPa,0)+'</td>';
+            annBody.appendChild(tr);
+        });
+
+        statusText.textContent = entry.calculatedAt
+            ? ('Calculated ' + new Date(entry.calculatedAt).toLocaleString() + (entry.calculatedByName ? ' by ' + entry.calculatedByName : ''))
+            : '';
+    }
+
+    function onWellChange(){
+        var wk = wellSelect.value;
+        var scenarios = hydDoc && hydDoc.scenarios ? hydDoc.scenarios : {};
+        var scenarioName = scenarioSelect.value || (hydDoc && hydDoc.activeScenario);
+        var rbw = (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || (hydDoc && hydDoc.resultsByWell) || {};
+        renderEntry(rbw[wk]);
+    }
+
+    async function onScenarioChange(){
+        var scenarioName = scenarioSelect.value;
+        if(!hydDoc || scenarioName === hydDoc.activeScenario){ onWellChange(); return; }
+        try {
+            var res = await fetch('/notes/hydraulicsModel/' + HYD_NOTE_ID + '/scenario/setActive', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scenario: scenarioName })
+            });
+            if(res.ok){
+                var res2 = await fetch('/notes/hydraulicsModel/' + HYD_NOTE_ID);
+                hydDoc = await res2.json();
+                if(hydDoc && !hydDoc.resultsByWell) hydDoc.resultsByWell = {};
+            }
+        } catch(e){ console.error('[Hyd] scenario switch failed:', e); }
+        onWellChange();
+    }
+
+    function initHyd(){
+        if(!hydDoc){
+            emptyMsg.style.display = 'block';
+            emptyMsg.textContent = 'No Bit Hydraulics model saved yet for this job.';
+            statusText.textContent = '';
+            return;
+        }
+        var subjectWells = getSubjectWellKeys();
+        var wellKeys = Object.keys(hydDoc.resultsByWell || {});
+        // Union of tagged subject wells and whatever wells actually have a
+        // saved run (covers the "General" fallback key used when a job has
+        // no subject-well trajectories tagged yet).
+        var allKeys = subjectWells.slice();
+        wellKeys.forEach(function(k){ if(allKeys.indexOf(k) === -1) allKeys.push(k); });
+        if(!allKeys.length){
+            emptyMsg.style.display = 'block';
+            emptyMsg.textContent = 'No Bit Hydraulics model saved yet for this job.';
+            statusText.textContent = '';
+            return;
+        }
+        wellSelect.innerHTML = '';
+        allKeys.forEach(function(wk){
+            var opt = document.createElement('option');
+            opt.value = wk; opt.textContent = wk;
+            wellSelect.appendChild(opt);
+        });
+        wellSelect.style.display = '';
+        wellSelect.addEventListener('change', onWellChange);
+
+        var scenarioNames = hydDoc.scenarios ? Object.keys(hydDoc.scenarios) : ['Default'];
+        if(!scenarioNames.length) scenarioNames = ['Default'];
+        scenarioSelect.innerHTML = '';
+        scenarioNames.forEach(function(n){
+            var opt = document.createElement('option');
+            opt.value = n; opt.textContent = n;
+            scenarioSelect.appendChild(opt);
+        });
+        scenarioSelect.value = (hydDoc.activeScenario && scenarioNames.indexOf(hydDoc.activeScenario) !== -1) ? hydDoc.activeScenario : scenarioNames[0];
+        scenarioSelect.style.display = '';
+        scenarioSelect.addEventListener('change', onScenarioChange);
+
+        // Default to whichever well/scenario has the most recent calculation.
+        var latest = null, defaultWell = allKeys[0];
+        Object.keys(hydDoc.resultsByWell || {}).forEach(function(wk){
+            var entry = hydDoc.resultsByWell[wk];
+            if(!entry || !entry.calculatedAt) return;
+            if(!latest || new Date(entry.calculatedAt) > new Date(latest)){
+                latest = entry.calculatedAt;
+                defaultWell = wk;
+            }
+        });
+        wellSelect.value = defaultWell;
+        onWellChange();
+    }
+
+    let hydInitDone = false;
+    function initHydOnce(){ if(hydInitDone) return; hydInitDone = true; initHyd(); }
+    const collapseHydEl = document.getElementById('collapseHyd');
+    if(collapseHydEl){
+        collapseHydEl.addEventListener('shown.bs.collapse', initHydOnce);
+        if(collapseHydEl.classList.contains('show')) initHydOnce();
+    } else {
+        initHydOnce();
+    }
+})();
+</script>
+<!-- ================= END BIT HYDRAULICS PROGRAM SCRIPT ================= -->
 
 <%- include ('partials/footer.ejs') %>

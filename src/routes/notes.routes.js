@@ -34,6 +34,12 @@ const {
     setActiveScenario,
     deleteScenario,
     saveTDModel,
+    getHydraulicsModel,
+    saveHydraulicsModel,
+    recalculateHydraulicsModel,
+    setActiveHydraulicsScenario,
+    deleteHydraulicsScenario,
+    renderUploadHydraulics,
     renderBanner,
     saveBanner,
     deleteLogEntry,
@@ -172,6 +178,12 @@ router.post('/notes/tdModel/:noteId', isAuthenticated, saveTDModel);
 router.post('/notes/tdModel/recalculate/:noteId', isAuthenticated, recalculateTDModel);
 router.post('/notes/tdModel/:noteId/scenario/setActive', isAuthenticated, setActiveScenario);
 router.delete('/notes/tdModel/:noteId/scenario/:scenario', isAuthenticated, deleteScenario);
+
+router.get('/notes/hydraulicsModel/:noteId',  isAuthenticated, getHydraulicsModel);
+router.post('/notes/hydraulicsModel/:noteId', isAuthenticated, saveHydraulicsModel);
+router.post('/notes/hydraulicsModel/recalculate/:noteId', isAuthenticated, recalculateHydraulicsModel);
+router.post('/notes/hydraulicsModel/:noteId/scenario/setActive', isAuthenticated, setActiveHydraulicsScenario);
+router.delete('/notes/hydraulicsModel/:noteId/scenario/:scenario', isAuthenticated, deleteHydraulicsScenario);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
 router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
 router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
@@ -201,6 +213,7 @@ router.get('/notes/uploadFracPlanes', isAuthenticated, renderUploadFracPlanes);
 
 //Get Upload Torque and Drag form
 router.get('/notes/uploadTorqueAndDrag', isAuthenticated, renderUploadTorqueAndDrag);
+router.get('/notes/uploadHydraulics', isAuthenticated, renderUploadHydraulics);
 
 
 
