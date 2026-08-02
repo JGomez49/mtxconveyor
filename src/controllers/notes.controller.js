@@ -14,6 +14,8 @@ const TDModel = require("../models/TDModel");
 const TDModelCore = require("../public/js/tdModel.js");
 const HydraulicsModel = require("../models/HydraulicsModel");
 const HydraulicsModelCore = require("../public/js/hydraulicsModel.js");
+const CasingDesign = require("../models/CasingDesign");
+const CasingLoadCasesCore = require("../public/js/casingLoadCases.js");
 const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
 const SiteConfig    = require("../models/SiteConfig");
@@ -343,7 +345,8 @@ notesCrtl.renderJob = async (req,res)=>{
     let pasonPlots = await PasonPlots.findOne({noteId: noteid}).lean();
     let tdModel = await TDModel.findOne({noteId: noteid}).lean();
     let hydraulicsModel = await HydraulicsModel.findOne({noteId: noteid}).lean();
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel})
+    let casingDesign = await CasingDesign.findOne({noteId: noteid}).lean();
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign})
 }
 
 
@@ -1278,6 +1281,186 @@ notesCrtl.deleteHydraulicsScenario = async (req, res) => {
     res.json({ success: true, activeScenario: doc.activeScenario, remaining: Object.keys(scenarios) });
   } catch(err) {
     console.error('deleteHydraulicsScenario error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+// ============================================================================
+// CASING DESIGN MODULE — Simple Method load cases + triaxial (VME) check.
+// Follows the exact same per-well/per-scenario save pattern as the T&D
+// Model and Bit Hydraulics Program above; physics lives in the shared
+// modules src/public/js/casingModel.js (pipe capacity ratings + triaxial)
+// and src/public/js/casingLoadCases.js (Simple Method load-case builder,
+// sourced from this well's "Casing Design Foundation" doc), used by both
+// this controller and the browser.
+// ============================================================================
+
+notesCrtl.renderUploadCasingDesign = async(req,res)=>{
+    let user = {};
+    if(req.session && req.session.passport){
+        user.id = req.session.passport.user;
+        let usuario = await User.findById(user.id);
+        user.role = usuario.role; user.rank = usuario.rank; user.name = usuario.name;
+    }
+    const mtxJobId = req.query.mtxJobId || '';
+    let note = null;
+    if(mtxJobId) note = await Note.findOne({ mtxJobId });
+    res.render('uploadCasingDesign.ejs', {note, user});
+};
+
+notesCrtl.getCasingDesign = async (req, res) => {
+  try {
+    const doc = await CasingDesign.findOne({ noteId: req.params.noteId }).lean();
+    if(!doc) return res.json(null);
+    if(!doc.scenarios || !Object.keys(doc.scenarios).length){
+      doc.scenarios = { Default: { resultsByWell: doc.resultsByWell || {} } };
+      doc.activeScenario = 'Default';
+    }
+    if(!doc.activeScenario || !doc.scenarios[doc.activeScenario]){
+      doc.activeScenario = Object.keys(doc.scenarios)[0];
+    }
+    res.json(doc);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+notesCrtl.saveCasingDesign = async (req, res) => {
+  try {
+    const { noteId, wellKey, casingStrings, loadParams, results, scenario } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+
+    const hasResults = !!(results && results.byString);
+    console.log(`saveCasingDesign: noteId=${noteId}, wellKey="${wellKey}", casingStrings=${(casingStrings||[]).length}, results=${hasResults ? 'present' : 'NONE (params-only auto-save)'}`);
+
+    let doc = await CasingDesign.findOne({ noteId });
+    if(!doc) doc = new CasingDesign({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
+
+    const prev = scenarioResultsByWell[wellKey] || {};
+    scenarioResultsByWell[wellKey] = {
+      casingStrings: casingStrings || [],
+      loadParams: loadParams || {},
+      results: hasResults ? results : (prev.results || null),
+      calculatedAt: hasResults ? new Date() : (prev.calculatedAt || null),
+      calculatedByName: hasResults
+        ? (req.user ? (req.user.name || req.user.username || '') : '')
+        : (prev.calculatedByName || ''),
+      calculatedByUserId: hasResults
+        ? (req.user ? req.user._id : null)
+        : (prev.calculatedByUserId || null),
+      paramsSavedAt: new Date(),
+    };
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    res.json({
+      success: true, savedResults: hasResults, wellKey, scenario: scenarioName,
+      activeScenario: doc.activeScenario, calculatedAt: scenarioResultsByWell[wellKey].calculatedAt,
+    });
+  } catch(err) {
+    console.error('saveCasingDesign error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Recomputes the casing design for a specific well using the shared
+// calculation modules (casingModel.js + casingLoadCases.js) — the SAME
+// modules the browser uses, so results match a manual run exactly.
+notesCrtl.recalculateCasingDesign = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { wellKey, casingStrings, loadParams, scenario } = req.body;
+    if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
+    if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
+    if(!casingStrings || !casingStrings.length) return res.status(400).json({ error: 'Missing casingStrings' });
+
+    const results = CasingLoadCasesCore.computeCasingDesign(casingStrings, loadParams || {});
+
+    let doc = await CasingDesign.findOne({ noteId });
+    if(!doc) doc = new CasingDesign({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
+    const scenarios = doc.scenarios ? Object.assign({}, doc.scenarios) : {};
+    const scenarioName = scenario || doc.activeScenario || 'Default';
+    const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
+    const calculatedAt = new Date();
+    scenarioResultsByWell[wellKey] = {
+      casingStrings, loadParams: loadParams || {}, results,
+      calculatedAt,
+      calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
+      calculatedByUserId: req.user ? req.user._id : null,
+    };
+    scenarios[scenarioName] = { resultsByWell: scenarioResultsByWell };
+    doc.scenarios = scenarios;
+    if(!doc.activeScenario || !scenarios[doc.activeScenario]) doc.activeScenario = scenarioName;
+    doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell;
+    doc.markModified('scenarios');
+    doc.markModified('resultsByWell');
+    await doc.save();
+
+    console.log(`recalculateCasingDesign: noteId=${noteId}, wellKey="${wellKey}", scenario="${scenarioName}", strings=${casingStrings.length}, saved by ${req.user ? req.user.name : 'unknown'} at ${calculatedAt.toISOString()}`);
+
+    res.json({
+      success: true, wellKey, results, calculatedAt, scenario: scenarioName, activeScenario: doc.activeScenario,
+      calculatedByName: scenarioResultsByWell[wellKey].calculatedByName,
+    });
+  } catch(err) {
+    console.error('recalculateCasingDesign error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /notes/casingDesign/:noteId/scenario/setActive
+notesCrtl.setActiveCasingDesignScenario = async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    const { scenario } = req.body;
+    if(!scenario) return res.status(400).json({ error: 'Missing scenario name' });
+    const doc = await CasingDesign.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No Casing Design model found for this job' });
+    if(!doc.scenarios || !doc.scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    doc.activeScenario = scenario;
+    doc.resultsByWell = doc.scenarios[scenario].resultsByWell || {};
+    doc.markModified('resultsByWell');
+    await doc.save();
+    res.json({ success: true, activeScenario: scenario });
+  } catch(err) {
+    console.error('setActiveCasingDesignScenario error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// DELETE /notes/casingDesign/:noteId/scenario/:scenario
+notesCrtl.deleteCasingDesignScenario = async (req, res) => {
+  try {
+    const { noteId, scenario } = req.params;
+    const doc = await CasingDesign.findOne({ noteId });
+    if(!doc) return res.status(404).json({ error: 'No Casing Design model found for this job' });
+    const scenarios = Object.assign({}, doc.scenarios || {});
+    if(!scenarios[scenario]) return res.status(404).json({ error: 'Scenario "' + scenario + '" not found' });
+    const names = Object.keys(scenarios);
+    if(names.length <= 1) return res.status(400).json({ error: 'Cannot delete the only remaining scenario.' });
+    delete scenarios[scenario];
+    doc.scenarios = scenarios;
+    if(doc.activeScenario === scenario){
+      doc.activeScenario = Object.keys(scenarios)[0];
+      doc.resultsByWell = scenarios[doc.activeScenario].resultsByWell || {};
+      doc.markModified('resultsByWell');
+    }
+    doc.markModified('scenarios');
+    await doc.save();
+    res.json({ success: true, activeScenario: doc.activeScenario, remaining: Object.keys(scenarios) });
+  } catch(err) {
+    console.error('deleteCasingDesignScenario error:', err);
     res.status(500).json({ error: err.message });
   }
 };

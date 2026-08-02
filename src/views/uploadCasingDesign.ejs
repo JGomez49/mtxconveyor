@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Casing Design</title>
+  <script src="/js/casingModel.js"></script>
+  <script src="/js/casingLoadCases.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e14; --panel: #111820; --panel2: #161e28; --border: #1e2d3d;
+      --accent: #00c8ff; --accent2: #ff6b35; --accent3: #39ff14;
+      --text: #c8d8e8; --text-dim: #5a7080; --text-bright: #e8f4ff;
+      --red: #ff4060; --yellow: #ffd060; --green: #39ff14;
+      --mono: 'Share Tech Mono', monospace; --sans: 'Barlow', sans-serif; --cond: 'Barlow Condensed', sans-serif;
+    }
+    body.light-mode {
+      --bg: #f0f4f8; --panel: #ffffff; --panel2: #ffffff; --border: #c8d4de;
+      --text: #000000; --text-dim: #495057; --text-bright: #000000;
+    }
+    *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+    html{ font-size:13px; }
+    body{ background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+    header{ background:linear-gradient(180deg,#0d1520,transparent); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; gap:14px; }
+    body.light-mode header{ background:#fff; }
+    .logo-hex{ width:34px; height:34px; background:var(--accent); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--bg); font-weight:700; flex-shrink:0; }
+    header h1{ font-family:var(--cond); font-size:19px; font-weight:700; color:var(--text-bright); letter-spacing:2px; text-transform:uppercase; }
+    header p{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+    main{ max-width:1400px; margin:0 auto; padding:16px 20px 60px; }
+    .panel{ background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:14px; }
+    .panel h2{ font-family:var(--cond); font-size:15px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .panel h2 .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+    .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+    label{ font-size:11px; color:var(--text-dim); white-space:nowrap; }
+    input[type=text], input[type=number], select{
+      background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:3px; padding:5px 7px; font-family:var(--mono); font-size:12px;
+    }
+    body.light-mode input, body.light-mode select{ background:#f1f3f5; }
+    .btn{ font-family:var(--cond); font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:7px 14px; border-radius:3px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--text-dim); transition:all .15s; }
+    .btn:hover{ border-color:var(--accent); color:var(--accent); }
+    .btn-p{ border-color:var(--accent); color:var(--accent); }
+    .btn-p:hover{ background:var(--accent); color:var(--bg); }
+    .btn-danger{ border-color:var(--red); color:var(--red); }
+    .btn-danger:hover{ background:var(--red); color:#fff; }
+    .btn:disabled{ opacity:.4; cursor:not-allowed; }
+    .status{ font-family:var(--mono); font-size:11px; color:var(--accent); white-space:pre-line; }
+    .status.err{ color:var(--red); }
+    table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px; }
+    th,td{ padding:5px 7px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+    th{ color:var(--text-dim); font-weight:600; text-align:right; }
+    th:first-child, td:first-child{ text-align:left; }
+    td input, td select{ width:90px; text-align:right; }
+    td select{ text-align:left; }
+    td input.wide{ width:130px; text-align:left; }
+    .tbl-wrap{ overflow-x:auto; margin-bottom:8px; }
+    .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    @media (max-width:900px){ .grid4{grid-template-columns:repeat(2,1fr);} }
+    .field label{ display:block; margin-bottom:3px; }
+    .field input, .field select{ width:100%; }
+    .result-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:10px; }
+    .result-card{ background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:8px 10px; }
+    .result-card.pass{ border-color:var(--green); }
+    .result-card.fail{ border-color:var(--red); }
+    .result-card .k{ font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+    .result-card .v{ font-family:var(--mono); font-size:15px; color:var(--text-bright); }
+    .result-card.pass .v{ color:var(--green); }
+    .result-card.fail .v{ color:var(--red); }
+    .string-block{ border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:12px; }
+    .string-block h3{ font-family:var(--cond); font-size:14px; color:var(--accent); margin-bottom:8px; }
+    .chart-wrap{ height:360px; background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:8px; display:flex; flex-direction:column; }
+    .chart-wrap canvas{ flex:1; min-height:0; }
+    .cite{ font-size:10px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
+
+    /* Library picker modal (shared /data/bhaLibrary.json casing catalog — same as Bit Hydraulics Program) */
+    .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-overlay.show{ display:flex; }
+    .modal-box{ background:var(--panel); border:1px solid var(--accent); border-radius:6px; width:min(600px,92vw); max-height:82vh; display:flex; flex-direction:column; }
+    .modal-hdr{ padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .modal-hdr h3{ font-family:var(--cond); font-size:14px; letter-spacing:1px; text-transform:uppercase; color:var(--text-bright); }
+    .modal-body{ padding:10px 16px; overflow-y:auto; }
+    .modal-ftr{ padding:10px 16px; border-top:1px solid var(--border); text-align:right; }
+    .lib-row{ cursor:pointer; }
+    .lib-row:hover td{ background:rgba(0,200,255,.08); }
+    .lib-search{ width:100%; margin-bottom:8px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="logo-hex">🧱</div>
+  <div style="flex:1;">
+    <h1>Casing Design</h1>
+    <p>Simple Method load cases + triaxial (von Mises) design check — API TR 5C3 / Bourgoyne Ch.7 / CNRL Casing Design Foundation</p>
+  </div>
+  <button class="btn" id="themeToggleBtn" type="button">🌓 Theme</button>
+</header>
+
+<main>
+
+  <!-- ============ JOB / WELL / SCENARIO CONNECTION ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Job Connection</h2>
+    <div class="row">
+      <label>MTX Job ID:</label>
+      <input type="text" id="cdMtxJobId" placeholder="e.g. 1953" style="max-width:140px;"
+             value="<%= (typeof note !== 'undefined' && note) ? note.mtxJobId : '' %>">
+      <button class="btn btn-p" id="cdLookupBtn" type="button" onclick="loadJobByMtxId()">🔍 Load Job</button>
+      <span class="status" id="cdJobStatus"></span>
+    </div>
+    <div class="row" id="cdWellRow" style="display:none;">
+      <label>Well/Leg:</label>
+      <select id="cdWellSelect" onchange="onCdWellChange()" style="min-width:220px;"></select>
+      <label>Scenario:</label>
+      <select id="cdScenarioSelect" onchange="onCdScenarioChange()" style="min-width:160px;"></select>
+      <button class="btn" id="cdNewScenarioBtn" type="button" onclick="newScenario()">+ Scenario</button>
+      <button class="btn btn-danger" id="cdDeleteScenarioBtn" type="button" onclick="deleteCurrentScenario()">✕ Delete Scenario</button>
+    </div>
+    <div class="row" id="cdSaveRow" style="display:none;">
+      <button class="btn btn-p" id="cdRunBtn" type="button" onclick="runAndSave()">▶ Run &amp; Save</button>
+      <span class="status" id="cdRunStatus"></span>
+    </div>
+  </div>
+
+  <!-- ============ CASING STRINGS ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Casing Strings</h2>
+    <div class="tbl-wrap">
+      <table id="csTable">
+        <thead><tr>
+          <th>Name</th><th>Type</th><th>OD (mm)</th><th>ID (mm)</th><th>Grade</th>
+          <th>Weight (kg/m)</th><th>Shoe MD (m)</th><th>Shoe TVD (m)</th><th></th>
+        </tr></thead>
+        <tbody id="csBody"></tbody>
+      </table>
+    </div>
+    <button class="btn" type="button" onclick="addCsRow()">+ Add String</button>
+    <div class="cite">
+      Type sets which Simple Method burst formula applies (Surface: 5× next string TVD; Intermediate/Production:
+      formation-pressure gradient × shoe TVD). Grade must be a standard API 5CT grade (H40/J55/K55/N80/L80/C90/C95/T95/
+      C110/P110/Q125/S135) — non-standard grades aren't supported by this editor yet.
+    </div>
+  </div>
+
+  <!-- ============ LOAD PARAMETERS (per string) ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>Load Parameters (Simple Method)</h2>
+    <div id="lpWrap"></div>
+    <div class="cite">
+      Simple Method per the uploaded "Casing Design Foundation" (CNRL, Rev 0) Section 2. Burst: surface = 5× TVD of
+      next casing string; intermediate/production = formation pressure gradient (default 11 kPa/m if unknown) × shoe
+      TVD. Collapse: full evacuation; external = max(12 kPa/m, mud gradient) × shoe TVD. Tension: unbuoyed nominal
+      weight × shoe TVD. Design factors 1.0/1.6 (1.25 or 1.15 for burst if H2S partial pressure &gt; 0.3 kPa) per the
+      same document. Alternative and Engineered methods are not implemented yet.
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="panel" id="resultsPanel" style="display:none;">
+    <h2><span class="dot"></span>Results</h2>
+    <div id="resultsBody" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:10px;align-items:start;"></div>
+  </div>
+
+</main>
+
+<!-- ============ LIBRARY PICKER MODAL (shared catalog — same /data/bhaLibrary.json casing table as Bit Hydraulics Program) ============ -->
+<div class="modal-overlay" id="libModal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3 id="libModalTitle">Casing Catalog</h3>
+      <button class="btn" type="button" onclick="closeLibModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" class="lib-search" id="libSearch" placeholder="Filter…" oninput="renderLibRows()">
+      <div class="tbl-wrap"><table id="libTable"><thead id="libThead"></thead><tbody id="libTbody"></tbody></table></div>
+    </div>
+    <div class="modal-ftr"><span style="font-size:10px;color:var(--text-dim);">Click a row to select it. Fills OD/ID/nominal weight — Grade isn't in this catalog (dimensional data only), so pick it separately.</span></div>
+  </div>
+</div>
+
+<script>
+// =============================================================
+// SHARED CASING CATALOG — same /data/bhaLibrary.json "casing" table used
+// by the Bit Hydraulics Program (Casing/Liner/Riser/Open Hole picker).
+// Dimensional data only (OD/nominal weight/ID/drift ID) — no grade, so
+// Grade stays a separate manual selection after picking from here.
+// =============================================================
+var BHA_LIBRARY = null;
+async function loadLibrary(){
+  if(BHA_LIBRARY) return BHA_LIBRARY;
+  var res = await fetch('/data/bhaLibrary.json');
+  BHA_LIBRARY = await res.json();
+  return BHA_LIBRARY;
+}
+var libTarget = null;
+var libRowsCache = [];
+var LIB_COLUMNS = {
+  casing: { cols: ['od_mm','nomWt_kgm','id_mm','driftId_mm'], heads: ['OD (mm)','Nom Wt (kg/m)','ID (mm)','Drift ID (mm)'] }
+};
+async function openLibrary(category, onSelect, title){
+  var lib = await loadLibrary();
+  libRowsCache = lib[category] || [];
+  libTarget = { category: category, onSelect: onSelect };
+  document.getElementById('libModalTitle').textContent = title || 'Casing Catalog';
+  document.getElementById('libSearch').value = '';
+  renderLibRows();
+  document.getElementById('libModal').classList.add('show');
+}
+function closeLibModal(){ document.getElementById('libModal').classList.remove('show'); libTarget = null; }
+function renderLibRows(){
+  if(!libTarget) return;
+  var def = LIB_COLUMNS[libTarget.category];
+  var thead = document.getElementById('libThead');
+  thead.innerHTML = '<tr>' + def.heads.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+  var q = (document.getElementById('libSearch').value || '').toLowerCase();
+  var tbody = document.getElementById('libTbody');
+  tbody.innerHTML = '';
+  libRowsCache.forEach(function(row){
+    var text = def.cols.map(function(c){ return String(row[c] != null ? row[c] : ''); }).join(' ').toLowerCase();
+    if(q && text.indexOf(q) === -1) return;
+    var tr = document.createElement('tr');
+    tr.className = 'lib-row';
+    tr.innerHTML = def.cols.map(function(c){
+      var v = row[c];
+      return '<td' + (typeof v === 'string' ? ' style="text-align:left;"' : '') + '>' + (v != null ? v : '—') + '</td>';
+    }).join('');
+    tr.onclick = function(){ libTarget.onSelect(row); closeLibModal(); };
+    tbody.appendChild(tr);
+  });
+}
+function pickFromLibrary(rowId){
+  var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+  if(!tr) return;
+  openLibrary('casing', function(row){
+    var inputs = tr.querySelectorAll('input, select');
+    inputs[2].value = row.od_mm;      // OD (mm)
+    inputs[3].value = row.id_mm;      // ID (mm)
+    inputs[5].value = row.nomWt_kgm;  // Weight (kg/m)
+    rebuildLoadParamRows();
+  }, 'Casing Catalog');
+}
+
+// =============================================================
+// Casing string / load-param row management
+// =============================================================
+var csRowSeq = 0;
+function addCsRow(vals){
+  vals = vals || {};
+  var tr = document.createElement('tr');
+  var id = 'cs' + (csRowSeq++);
+  tr.dataset.rowId = id;
+  tr.innerHTML =
+    '<td><input class="wide" type="text" value="' + (vals.name||'') + '" placeholder="e.g. Surface"></td>' +
+    '<td><select>' +
+      '<option value="surface"'+(vals.stringType==='surface'?' selected':'')+'>Surface</option>' +
+      '<option value="intermediate"'+(vals.stringType==='intermediate'||!vals.stringType?' selected':'')+'>Intermediate</option>' +
+      '<option value="production"'+(vals.stringType==='production'?' selected':'')+'>Production</option>' +
+      '<option value="liner"'+(vals.stringType==='liner'?' selected':'')+'>Liner</option>' +
+    '</select></td>' +
+    '<td><input type="number" step="0.01" value="'+(vals.od_mm!=null?vals.od_mm:'')+'"></td>' +
+    '<td><input type="number" step="0.01" value="'+(vals.id_mm!=null?vals.id_mm:'')+'"></td>' +
+    '<td><select>' + gradeOptions(vals.grade) + '</select></td>' +
+    '<td><input type="number" step="0.1" value="'+(vals.weight_kgpm!=null?vals.weight_kgpm:'')+'"></td>' +
+    '<td><input type="number" step="0.1" value="'+(vals.shoeMD_m!=null?vals.shoeMD_m:'')+'"></td>' +
+    '<td><input type="number" step="0.1" value="'+(vals.shoeTVD_m!=null?vals.shoeTVD_m:'')+'"></td>' +
+    '<td style="white-space:nowrap;"><button class="btn" type="button" onclick="pickFromLibrary(\'' + id + '\')" title="Pick OD/ID/weight from shared catalog">📚</button> ' +
+    '<button class="btn btn-danger" type="button" onclick="this.closest(\'tr\').remove(); rebuildLoadParamRows();">✕</button></td>';
+  document.getElementById('csBody').appendChild(tr);
+  tr.querySelector('input.wide').addEventListener('change', rebuildLoadParamRows);
+  tr.querySelector('td:first-child input').addEventListener('input', rebuildLoadParamRows);
+  rebuildLoadParamRows();
+}
+function gradeOptions(sel){
+  var grades = ['H40','J55','K55','N80','L80','C90','C95','T95','C110','P110','Q125','S135'];
+  return grades.map(function(g){ return '<option value="'+g+'"'+(g===sel?' selected':(!sel&&g==='L80'?' selected':''))+'>'+g+'</option>'; }).join('');
+}
+function getCasingStrings(){
+  return Array.from(document.querySelectorAll('#csBody tr')).map(function(tr){
+    var c = tr.querySelectorAll('input, select');
+    return {
+      name: c[0].value.trim(), stringType: c[1].value,
+      od_mm: parseFloat(c[2].value), id_mm: parseFloat(c[3].value),
+      grade: c[4].value, weight_kgpm: parseFloat(c[5].value),
+      shoeMD_m: parseFloat(c[6].value), shoeTVD_m: parseFloat(c[7].value)
+    };
+  }).filter(function(s){ return s.name && !isNaN(s.od_mm) && !isNaN(s.id_mm) && !isNaN(s.shoeTVD_m); });
+}
+
+// Load-param rows are rebuilt to track whatever strings currently exist,
+// preserving previously entered values by string name.
+var lpValues = {}; // { name: { nextStringShoeTVD_m, formationPressureGradient_kPa_m, mudGradient_kPa_m, h2sPartialPressure_kPa } }
+function rebuildLoadParamRows(){
+  var strings = getCasingStrings();
+  var wrap = document.getElementById('lpWrap');
+  wrap.innerHTML = '';
+  strings.forEach(function(str, i){
+    var v = lpValues[str.name] || {};
+    var block = document.createElement('div');
+    block.className = 'string-block';
+    block.dataset.stringName = str.name;
+    var nextTVD = strings[i+1] ? strings[i+1].shoeTVD_m : '';
+    var fields = '<div style="font-size:11px;color:var(--accent);margin:4px 0;">Simple Method</div><div class="grid4">';
+    if(str.stringType === 'surface'){
+      fields += field('Next String Shoe TVD (m)', 'nextStringShoeTVD_m', v.nextStringShoeTVD_m, nextTVD);
+    } else {
+      fields += field('Formation Pressure Gradient (kPa/m)', 'formationPressureGradient_kPa_m', v.formationPressureGradient_kPa_m, 11);
+    }
+    fields += field('Mud Gradient at Casing Point (kPa/m)', 'mudGradient_kPa_m', v.mudGradient_kPa_m, 10.5);
+    fields += field('H₂S Partial Pressure (kPa)', 'h2sPartialPressure_kPa', v.h2sPartialPressure_kPa, 0);
+    fields += '</div>';
+
+    fields += '<div style="font-size:11px;color:var(--accent2);margin:8px 0 4px;">Alternative Method (evaluated automatically if Simple fails)</div><div class="grid4">';
+    fields += field('Max Formation Pressure, Next Section (kPa)', 'nextStringMFP_kPa', v.nextStringMFP_kPa, '');
+    fields += field('Fracture Gradient (kPa/m)', 'fractureGradient_kPa_m', v.fractureGradient_kPa_m, 22);
+    fields += field('External Fluid Gradient (kPa/m)', 'externalFluidGradient_kPa_m', v.externalFluidGradient_kPa_m, 10);
+    if(str.stringType !== 'surface'){
+      fields += field('Gas Gradient (kPa/m)', 'gasGradient_kPa_m', v.gasGradient_kPa_m, 2);
+      fields += field('Well TVD, for 1800m factor (m)', 'wellTVD_m', v.wellTVD_m, str.shoeTVD_m);
+    }
+    if(str.stringType === 'intermediate'){
+      fields += field('Next String Shoe TVD (m), collapse (m)', 'nextStringShoeTVD_m', v.nextStringShoeTVD_m, nextTVD);
+      fields += field('Lightest Planned Fluid Gradient (kPa/m)', 'lightestPlannedFluidGradient_kPa_m', v.lightestPlannedFluidGradient_kPa_m, '');
+    }
+    if(str.stringType === 'production' || str.stringType === 'liner'){
+      fields += field('Known External Pore Pressure (kPa)', 'externalPorePressure_kPa', v.externalPorePressure_kPa, '');
+    }
+    fields += field('Max Planned Mud Gradient (kPa/m)', 'maxPlannedMudGradient_kPa_m', v.maxPlannedMudGradient_kPa_m, '');
+    fields += '</div><div class="row" style="margin-top:6px;"><label>Connection Type:</label>' +
+      '<select data-key="connectionType">' +
+        '<option value="API"' + (v.connectionType!=='Premium'?' selected':'') + '>API (DF 1.75)</option>' +
+        '<option value="Premium"' + (v.connectionType==='Premium'?' selected':'') + '>Premium w/ MTM seals (DF 1.6)</option>' +
+      '</select></div>';
+
+    if(str.stringType === 'liner'){
+      fields += '<div style="font-size:11px;color:#00c8ff;margin:8px 0 4px;">Liner (uses Production loads/DFs — Foundation doc "Liners")</div><div class="grid4">';
+      fields += field('Liner Top / Hanger TVD (m)', 'topTVD_m', v.topTVD_m, '');
+      var otherNames = strings.filter(function(s){ return s.name !== str.name; }).map(function(s){ return s.name; });
+      fields += '<div class="field"><label>Parent String (for parent check)</label><select data-key="parentStringName">' +
+        '<option value="">— none —</option>' +
+        otherNames.map(function(n){ return '<option value="'+n+'"'+(v.parentStringName===n?' selected':'')+'>'+n+'</option>'; }).join('') +
+        '</select></div>';
+      fields += field('Parent Wall Wear (fraction, e.g. 0.05)', 'parentWallWearFraction', v.parentWallWearFraction, 0);
+      fields += '</div>';
+    }
+
+    if(str.stringType !== 'surface'){
+      fields += '<div style="font-size:11px;color:#39ff14;margin:8px 0 4px;">Engineered Method (evaluated automatically if Simple and Alternative both fail)</div><div class="grid4">';
+      fields += field('Formation Pressure at Shoe (kPa)', 'formationPressure_kPa', v.formationPressure_kPa, '');
+      fields += field('Min Planned Mud Gradient (kPa/m)', 'minMudWeightGradient_kPa_m', v.minMudWeightGradient_kPa_m, '');
+      fields += field('Top of String TVD (m)', 'topTVD_m', v.topTVD_m, 0);
+      fields += field('Depth Sweep Points', 'steps', v.steps, 30);
+      fields += '</div>';
+      fields += '<div style="font-size:10px;color:var(--text-dim);margin:2px 0 4px;">Kick tolerance report (optional — leave blank to skip):</div><div class="grid4">';
+      fields += field('BOP Pressure Limit (kPa)', 'bopPressureLimit_kPa', v.bopPressureLimit_kPa, '');
+      fields += field('Drill Pipe Displacement (L/m)', 'drillPipeDisplacement_Lpm', v.drillPipeDisplacement_Lpm, '');
+      fields += '</div>';
+    }
+
+    block.innerHTML = '<h3>' + str.name + ' (' + str.stringType + ')</h3>' + fields;
+    wrap.appendChild(block);
+  });
+}
+function field(labelText, key, val, placeholder){
+  var v = (val != null && val !== '') ? val : '';
+  return '<div class="field"><label>' + labelText + '</label>' +
+    '<input type="number" step="0.01" data-key="' + key + '" value="' + v + '" placeholder="' + placeholder + '"></div>';
+}
+function getLoadParams(){
+  var out = {};
+  document.querySelectorAll('.string-block').forEach(function(block){
+    var name = block.dataset.stringName;
+    var p = {};
+    block.querySelectorAll('input[data-key]').forEach(function(inp){
+      var val = inp.value !== '' ? parseFloat(inp.value) : (inp.placeholder !== '' ? parseFloat(inp.placeholder) : undefined);
+      if(!isNaN(val) && val !== undefined) p[inp.dataset.key] = val;
+    });
+    block.querySelectorAll('select[data-key]').forEach(function(sel){
+      if(sel.value !== '') p[sel.dataset.key] = sel.value;
+    });
+    out[name] = p;
+  });
+  return out;
+}
+function setLoadParams(lp){
+  lpValues = lp || {};
+}
+
+// =============================================================
+// Results rendering (governing-status cards + triaxial chart per string)
+// =============================================================
+var cdCharts = {};
+if(typeof Chart !== 'undefined' && typeof ChartZoom !== 'undefined' && Chart.registry && !Chart.registry.plugins.get('zoom')){
+  Chart.register(ChartZoom);
+}
+function fmt(v, d){ return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d != null ? d : 1); }
+function fmtPa_kPa(pa){ return fmt(pa/1000, 0); }
+function fmtN_kN(n){ return fmt(n/1000, 0); }
+
+function renderResults(results){
+  var panel = document.getElementById('resultsPanel');
+  var body = document.getElementById('resultsBody');
+  if(!results || !results.byString || !Object.keys(results.byString).length){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  body.innerHTML = '';
+  Object.keys(results.byString).forEach(function(name){
+    var entry = results.byString[name];
+    var gov = entry.governing;
+    var block = document.createElement('div');
+    block.className = 'string-block';
+    block.innerHTML = '<h3>' + name + '</h3>';
+
+    var grid = document.createElement('div');
+    grid.className = 'result-grid';
+    ['burst', 'collapse', 'tension'].forEach(function(key){
+      var label = key.charAt(0).toUpperCase() + key.slice(1);
+      var g = gov[key];
+      var src = g.governedBy === 'engineered' ? entry.engineered.check[key] : (g.governedBy === 'alternative' ? entry.alternative.check[key] : entry.simple.check[key]);
+      var isForce = key === 'tension';
+      var card = document.createElement('div');
+      card.className = 'result-card ' + (g.status === 'pass' ? 'pass' : 'fail');
+      var loadStr = isForce ? fmtN_kN(src.load) + ' kN' : fmtPa_kPa(src.load) + ' kPa';
+      var ratingStr = isForce ? fmtN_kN(src.rating) + ' kN' : fmtPa_kPa(src.rating) + ' kPa';
+      var methodTag = g.governedBy === 'engineered' ? ' (Engineered)' : (g.governedBy === 'alternative' ? ' (Alternative)' : ' (Simple)');
+      card.innerHTML = '<div class="k">' + label + (g.status === 'pass' ? ' ✓' : ' ✗') + methodTag + '</div>' +
+        '<div class="v">DF ' + fmt(src.achievedDF, 2) + '</div>' +
+        '<div style="font-size:10px;color:var(--text-dim);">req ' + fmt(src.requiredDF, 2) +
+        ' · load ' + loadStr + ' · rating ' + ratingStr + (src.regime ? ' (' + src.regime + ')' : '') +
+        (g.note ? '<br>⚠ ' + g.note : '') + '</div>';
+      grid.appendChild(card);
+    });
+    block.appendChild(grid);
+
+    if(entry.engineered && entry.engineered.loads.kickTolerance){
+      var kt = entry.engineered.loads.kickTolerance;
+      var ktDiv = document.createElement('div');
+      ktDiv.style.cssText = 'font-size:11px;font-family:monospace;color:var(--text-dim);background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin-bottom:8px;';
+      ktDiv.innerHTML = '<b style="color:var(--text-bright);">Kick Tolerance (Gas-Over-Mud, Boyle\'s Law)</b> — ' +
+        'GMR limit (BOP): ' + fmt(kt.gmrLimitBOP,2) + ' · KV limit (BOP): ' + fmt(kt.kvLimitBOP_m3,1) + ' m³ · ' +
+        'GMR limit (casing): ' + fmt(kt.gmrLimitCasing,2) + ' · KV limit (casing): ' + fmt(kt.kvLimitCasing_m3,1) + ' m³ · ' +
+        'KV @ design GMR (' + fmt(entry.engineered.loads.burst.gasOverMudRatio,2) + '): ' + fmt(kt.kvAtDesignGMR_m3,1) + ' m³';
+      block.appendChild(ktDiv);
+    }
+
+    if(entry.parentCheck){
+      var pc = entry.parentCheck;
+      var pcDiv = document.createElement('div');
+      if(pc.error){
+        pcDiv.style.cssText = 'font-size:11px;font-family:monospace;color:#ff4060;background:var(--panel2);border:1px solid #ff4060;border-radius:4px;padding:6px 8px;margin-bottom:8px;';
+        pcDiv.innerHTML = '<b>Parent String Check</b> — ' + pc.error;
+      } else {
+        var pcOk = pc.check.burst.pass && pc.check.collapse.pass && pc.check.tension.pass;
+        pcDiv.style.cssText = 'font-size:11px;font-family:monospace;color:var(--text-dim);background:var(--panel2);border:1px solid ' + (pcOk ? '#39ff14' : '#ff4060') + ';border-radius:4px;padding:6px 8px;margin-bottom:8px;';
+        pcDiv.innerHTML = '<b style="color:var(--text-bright);">Parent String Check</b> — ' + pc.parentStringName +
+          ' at ' + fmt(pc.wallWearFraction*100,0) + '% wall wear (worn ID ' + fmt(pc.wornId_mm,1) + ' mm), ' +
+          'must meet Production-tier loads over the liner overlap: ' +
+          'Burst DF ' + fmt(pc.check.burst.achievedDF,2) + (pc.check.burst.pass?' ✓':' ✗') + ' · ' +
+          'Collapse DF ' + fmt(pc.check.collapse.achievedDF,2) + (pc.check.collapse.pass?' ✓':' ✗') + ' · ' +
+          'Tension DF ' + fmt(pc.check.tension.achievedDF,2) + (pc.check.tension.pass?' ✓':' ✗');
+      }
+      block.appendChild(pcDiv);
+    }
+
+
+    var chartWrap = document.createElement('div');
+    chartWrap.className = 'chart-wrap';
+    var chartHdr = document.createElement('div');
+    chartHdr.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:4px;';
+    var resetBtn = document.createElement('button');
+    resetBtn.className = 'btn';
+    resetBtn.type = 'button';
+    resetBtn.textContent = '⤢ Reset Zoom';
+    resetBtn.style.fontSize = '10px';
+    resetBtn.onclick = function(){ if(cdCharts[name]) cdCharts[name].resetZoom(); };
+    chartHdr.appendChild(resetBtn);
+    chartWrap.appendChild(chartHdr);
+    var canvas = document.createElement('canvas');
+    canvas.id = 'triChart_' + name.replace(/[^a-z0-9]/gi, '_');
+    chartWrap.appendChild(canvas);
+    block.appendChild(chartWrap);
+
+    body.appendChild(block);
+
+    var envelope = entry.triaxial.envelope;
+    var high = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
+    var low = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
+    var loadPts = entry.triaxial.points.map(function(p){ return { x: p.dp_Pa/1e6, y: p.Fa_N/1000, label: p.label }; });
+    var simplePts = loadPts.filter(function(p){ return p.label.indexOf('simple') !== -1; });
+    var altPts = loadPts.filter(function(p){ return p.label.indexOf('alternative') !== -1; });
+    var engPts = loadPts.filter(function(p){ return p.label.indexOf('engineered') !== -1; });
+
+    if(cdCharts[name]) cdCharts[name].destroy();
+    cdCharts[name] = new Chart(canvas.getContext('2d'), {
+      type: 'scatter',
+      data: {
+        datasets: [
+          { label: 'VME envelope (upper)', data: high, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'VME envelope (lower)', data: low, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'Load cases (Simple)', data: simplePts, showLine: false, backgroundColor: '#ff6b35', pointRadius: 6,
+            pointStyle: 'circle' },
+          { label: 'Load cases (Alternative)', data: altPts, showLine: false, backgroundColor: '#ffd060', pointRadius: 6,
+            pointStyle: 'triangle' },
+          { label: 'Load cases (Engineered)', data: engPts, showLine: false, backgroundColor: '#39ff14', pointRadius: 6,
+            pointStyle: 'rect' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: 'Differential Pressure, Δp = pi − po (MPa)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
+          y: { title: { display: true, text: 'Effective Axial Force, Fa (kN)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
+        },
+        plugins: {
+          legend: { labels: { color: '#c8d8e8' } },
+          tooltip: { callbacks: { label: function(ctx){
+            var d = ctx.raw;
+            return (d.label || ctx.dataset.label) + ': Δp=' + d.x.toFixed(2) + ' MPa, Fa=' + d.y.toFixed(0) + ' kN';
+          } } },
+          zoom: {
+            pan: { enabled: true, mode: 'xy', modifierKey: null },
+            zoom: {
+              wheel: { enabled: true, speed: 0.08 },
+              pinch: { enabled: true },
+              drag: { enabled: false },
+              mode: 'xy'
+            },
+            limits: { x: { min: 'original', max: 'original' }, y: { min: 'original', max: 'original' } }
+          }
+        }
+      }
+    });
+  });
+}
+
+// =============================================================
+// JOB / WELL / SCENARIO CONNECTION (mirrors uploadHydraulics.ejs)
+// =============================================================
+var cdCurrentNoteId = null;
+var cdCurrentWellKey = null;
+var cdSubjectWells = [];
+var cdSavedDoc = null;
+var cdCurrentScenario = null;
+
+async function loadJobByMtxId(){
+  var mtxId = document.getElementById('cdMtxJobId').value.trim();
+  var statusEl = document.getElementById('cdJobStatus');
+  if(!mtxId){ statusEl.textContent = 'Enter a Job ID first.'; statusEl.className='status err'; return; }
+  statusEl.textContent = 'Looking up job ' + mtxId + '…'; statusEl.className='status';
+  try {
+    var res = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(mtxId));
+    var data = await res.json();
+    if(!res.ok){ statusEl.textContent = '❌ ' + (data.error || res.statusText); statusEl.className='status err'; return; }
+    cdCurrentNoteId = data.noteId;
+    cdSubjectWells = (data.subjectWells && data.subjectWells.length) ? data.subjectWells : [{ wellKey: 'General' }];
+
+    var sel = document.getElementById('cdWellSelect');
+    sel.innerHTML = '';
+    cdSubjectWells.forEach(function(w){
+      var opt = document.createElement('option');
+      opt.value = w.wellKey; opt.textContent = w.wellKey;
+      sel.appendChild(opt);
+    });
+    document.getElementById('cdWellRow').style.display = '';
+    document.getElementById('cdSaveRow').style.display = '';
+    statusEl.textContent = '✅ Loaded "' + data.title + '" (noteId: ' + data.noteId + ')' + (data.duplicateWarning ? '\n⚠ ' + data.duplicateWarning : '');
+    statusEl.className = 'status';
+
+    await fetchSavedDoc();
+    onCdWellChange();
+  } catch(err){
+    statusEl.textContent = '❌ Error: ' + err.message; statusEl.className='status err';
+  }
+}
+
+async function fetchSavedDoc(){
+  if(!cdCurrentNoteId) return;
+  var res = await fetch('/notes/casingDesign/' + cdCurrentNoteId);
+  cdSavedDoc = await res.json();
+  refreshScenarioSelect();
+}
+
+function refreshScenarioSelect(){
+  var sel = document.getElementById('cdScenarioSelect');
+  sel.innerHTML = '';
+  var names = cdSavedDoc && cdSavedDoc.scenarios ? Object.keys(cdSavedDoc.scenarios) : ['Default'];
+  if(!names.length) names = ['Default'];
+  names.forEach(function(n){
+    var opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  cdCurrentScenario = (cdSavedDoc && cdSavedDoc.activeScenario && names.indexOf(cdSavedDoc.activeScenario) !== -1)
+    ? cdSavedDoc.activeScenario : names[0];
+  sel.value = cdCurrentScenario;
+}
+
+function onCdWellChange(){
+  cdCurrentWellKey = document.getElementById('cdWellSelect').value;
+  applySavedWellParams();
+}
+async function onCdScenarioChange(){
+  var newScenarioName = document.getElementById('cdScenarioSelect').value;
+  if(newScenarioName === cdCurrentScenario) return;
+  var res = await fetch('/notes/casingDesign/' + cdCurrentNoteId + '/scenario/setActive', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scenario: newScenarioName })
+  });
+  if(res.ok){ cdCurrentScenario = newScenarioName; await fetchSavedDoc(); applySavedWellParams(); }
+}
+function newScenario(){
+  var name = prompt('New scenario name:');
+  if(!name) return;
+  cdCurrentScenario = name;
+  var opt = document.createElement('option');
+  opt.value = name; opt.textContent = name; opt.selected = true;
+  document.getElementById('cdScenarioSelect').appendChild(opt);
+  document.getElementById('cdRunStatus').textContent = 'New scenario "' + name + '" — Run & Save to create it.';
+}
+async function deleteCurrentScenario(){
+  var sel = document.getElementById('cdScenarioSelect');
+  var name = sel.value;
+  if(!confirm('Delete scenario "' + name + '"? This cannot be undone.')) return;
+  var res = await fetch('/notes/casingDesign/' + cdCurrentNoteId + '/scenario/' + encodeURIComponent(name), { method:'DELETE' });
+  var data = await res.json();
+  if(!res.ok){ alert(data.error || 'Failed to delete scenario'); return; }
+  await fetchSavedDoc();
+  applySavedWellParams();
+}
+
+function applySavedWellParams(){
+  document.getElementById('csBody').innerHTML = '';
+  document.getElementById('resultsPanel').style.display = 'none';
+  if(!cdSavedDoc || !cdSavedDoc.resultsByWell || !cdSavedDoc.resultsByWell[cdCurrentWellKey]){
+    document.getElementById('cdRunStatus').textContent = 'No saved setup for this well/scenario yet — add strings and Run & Save.';
+    document.getElementById('cdRunStatus').className = 'status';
+    return;
+  }
+  var entry = cdSavedDoc.resultsByWell[cdCurrentWellKey];
+  setLoadParams(entry.loadParams);
+  (entry.casingStrings || []).forEach(function(s){ addCsRow(s); });
+  if(entry.results) renderResults(entry.results);
+  document.getElementById('cdRunStatus').textContent = entry.calculatedAt
+    ? ('Loaded saved run from ' + new Date(entry.calculatedAt).toLocaleString() + (entry.calculatedByName ? ' by ' + entry.calculatedByName : ''))
+    : 'Loaded saved setup (not yet calculated).';
+  document.getElementById('cdRunStatus').className = 'status';
+}
+
+async function runAndSave(){
+  if(!cdCurrentNoteId || !cdCurrentWellKey){ alert('Load a job and select a well first.'); return; }
+  var statusEl = document.getElementById('cdRunStatus');
+  statusEl.textContent = 'Calculating…'; statusEl.className = 'status';
+  var casingStrings = getCasingStrings();
+  var loadParams = getLoadParams();
+  if(!casingStrings.length){ statusEl.textContent = '❌ Add at least one casing string.'; statusEl.className='status err'; return; }
+
+  try {
+    var res = await fetch('/notes/casingDesign/recalculate/' + cdCurrentNoteId, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ wellKey: cdCurrentWellKey, casingStrings: casingStrings, loadParams: loadParams, scenario: cdCurrentScenario })
+    });
+    var data = await res.json();
+    if(!res.ok){ statusEl.textContent = '❌ ' + (data.error || res.statusText); statusEl.className='status err'; return; }
+    renderResults(data.results);
+    statusEl.textContent = '✅ Saved — ' + new Date(data.calculatedAt).toLocaleString() + (data.calculatedByName ? ' by ' + data.calculatedByName : '');
+    statusEl.className = 'status';
+    await fetchSavedDoc();
+  } catch(err){
+    statusEl.textContent = '❌ Error: ' + err.message; statusEl.className='status err';
+  }
+}
+
+document.getElementById('themeToggleBtn').addEventListener('click', function(){
+  document.body.classList.toggle('light-mode');
+});
+
+// Deep-link support: /notes/uploadCasingDesign?mtxJobId=1953 auto-loads.
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var deepLinkJobId = params.get('mtxJobId');
+  if(deepLinkJobId){
+    document.getElementById('cdMtxJobId').value = deepLinkJobId;
+    loadJobByMtxId();
+  }
+})();
+</script>
+
+</body>
+</html>

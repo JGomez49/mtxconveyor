@@ -40,6 +40,12 @@ const {
     setActiveHydraulicsScenario,
     deleteHydraulicsScenario,
     renderUploadHydraulics,
+    getCasingDesign,
+    saveCasingDesign,
+    recalculateCasingDesign,
+    setActiveCasingDesignScenario,
+    deleteCasingDesignScenario,
+    renderUploadCasingDesign,
     renderBanner,
     saveBanner,
     deleteLogEntry,
@@ -184,6 +190,12 @@ router.post('/notes/hydraulicsModel/:noteId', isAuthenticated, saveHydraulicsMod
 router.post('/notes/hydraulicsModel/recalculate/:noteId', isAuthenticated, recalculateHydraulicsModel);
 router.post('/notes/hydraulicsModel/:noteId/scenario/setActive', isAuthenticated, setActiveHydraulicsScenario);
 router.delete('/notes/hydraulicsModel/:noteId/scenario/:scenario', isAuthenticated, deleteHydraulicsScenario);
+
+router.get('/notes/casingDesign/:noteId',  isAuthenticated, getCasingDesign);
+router.post('/notes/casingDesign/:noteId', isAuthenticated, saveCasingDesign);
+router.post('/notes/casingDesign/recalculate/:noteId', isAuthenticated, recalculateCasingDesign);
+router.post('/notes/casingDesign/:noteId/scenario/setActive', isAuthenticated, setActiveCasingDesignScenario);
+router.delete('/notes/casingDesign/:noteId/scenario/:scenario', isAuthenticated, deleteCasingDesignScenario);
 router.get('/notes/banner',             isAuthenticated, renderBanner);
 router.delete('/notes/log/:logId',      isAuthenticated, deleteLogEntry);
 router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
@@ -214,6 +226,7 @@ router.get('/notes/uploadFracPlanes', isAuthenticated, renderUploadFracPlanes);
 //Get Upload Torque and Drag form
 router.get('/notes/uploadTorqueAndDrag', isAuthenticated, renderUploadTorqueAndDrag);
 router.get('/notes/uploadHydraulics', isAuthenticated, renderUploadHydraulics);
+router.get('/notes/uploadCasingDesign', isAuthenticated, renderUploadCasingDesign);
 
 
 
