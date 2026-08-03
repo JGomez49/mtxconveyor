@@ -1110,6 +1110,7 @@
           <div class="brow">
             <button class="btn btn-g" onclick="addCas()">+ String</button>
             <button class="btn btn-g" onclick="loadCNRLCas()">Load CNRL</button>
+            <button class="btn btn-g" onclick="importFromCasingDesign()" title="Pull casing strings (name, OD, ID, shoe MD) from a saved Casing Design scenario for this well">🧱 Import from Casing Design</button>
           </div>
           <p class="hint">FF idx: 1=FF1 (Casing 1), 2=FF2 (Casing 2). OD/ID always in mm.</p>
         </div>
@@ -1627,6 +1628,43 @@
       var f = M ? 1 : 1 / FT;
       addCas('20in Conductor', 508, 475, (0 * f).toFixed(0), (200 * f).toFixed(0), '1');
       addCas('6-5/8in Casing', 168.3, 161.7, (0 * f).toFixed(0), (1138 * f).toFixed(0), '2');
+    }
+
+    // Pulls the casing strings saved for the CURRENT well in the Casing
+    // Design module (whichever scenario is active there) and replaces the
+    // Casing/Liner Program table with them. OD/ID/shoe MD come directly
+    // from Casing Design's own inputs; FF is left at its default (1) since
+    // Casing Design doesn't track friction factors — set those manually
+    // per string after import. "Top" is 0 for surface/intermediate/
+    // production (matches the CNRL example convention above); for a liner,
+    // it's approximated from the liner's hanger TVD if that was entered in
+    // Casing Design (TVD, not MD — close enough for near-vertical/low-
+    // inclination hanger depths, but check it for high-angle wells).
+    async function importFromCasingDesign() {
+      if (!tdCurrentNoteId || !tdCurrentWellKey) { alert('Load a job and select a well first (section 00).'); return; }
+      try {
+        var res = await fetch('/notes/casingDesign/' + tdCurrentNoteId);
+        if (!res.ok) { alert('Could not reach the Casing Design module for this job.'); return; }
+        var doc = await res.json();
+        if (!doc || !doc.resultsByWell || !doc.resultsByWell[tdCurrentWellKey]) {
+          alert('No saved Casing Design setup found for well "' + tdCurrentWellKey + '" on this job. Set one up in Casing Design first.');
+          return;
+        }
+        var entry = doc.resultsByWell[tdCurrentWellKey];
+        var strings = entry.casingStrings || [];
+        if (!strings.length) { alert('Casing Design has no strings saved for this well.'); return; }
+        var loadParams = entry.loadParams || {};
+        document.getElementById('casBody').innerHTML = '';
+        var M = (UNIT === 'metric');
+        var f = M ? 1 : 1 / FT;
+        strings.slice().sort(function (a, b) { return a.shoeMD_m - b.shoeMD_m; }).forEach(function (s) {
+          var topM = (s.stringType === 'liner' && loadParams[s.name] && loadParams[s.name].topTVD_m != null) ? loadParams[s.name].topTVD_m : 0;
+          addCas(s.name, s.od_mm, s.id_mm, (topM * f).toFixed(1), (s.shoeMD_m * f).toFixed(1), '1');
+        });
+        setStatus('ok', 'Imported ' + strings.length + ' string(s) from Casing Design (' + tdCurrentWellKey + ').');
+      } catch (err) {
+        alert('Error importing from Casing Design: ' + err.message);
+      }
     }
 
     function loadCNRLBHA() {

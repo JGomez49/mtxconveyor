@@ -64,6 +64,7 @@
     .result-card{ background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:8px 10px; }
     .result-card .k{ font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
     .result-card .v{ font-family:var(--mono); font-size:15px; color:var(--text-bright); }
+    .result-card .v2{ font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-top:2px; }
     .pl-bar{ height:22px; border-radius:3px; overflow:hidden; display:flex; border:1px solid var(--border); margin:8px 0; }
     .pl-seg{ display:flex; align-items:center; justify-content:center; font-size:9px; color:#000; font-family:var(--mono); }
     .warn-box{ border:1px solid var(--yellow); background:rgba(255,208,96,.08); color:var(--yellow); border-radius:4px; padding:8px 10px; font-size:11px; margin-bottom:8px; }
@@ -192,12 +193,15 @@
       <button class="btn" type="button" onclick="addDsRow('Sub')">+ Sub</button>
       <button class="btn" type="button" onclick="addDsRow('Stabilizer')">+ Stabilizer</button>
       <button class="btn" type="button" onclick="addDsRow('Other')">+ Other</button>
+      <button class="btn" type="button" onclick="importBHAFromTD()" title="Pull the BHA (name, OD, ID, length) from a saved Torque &amp; Drag scenario for this well">⚙️ Import from T&amp;D</button>
     </div>
     <div style="font-size:10px;color:var(--text-dim);">
       📚 buttons open the component library (converted from the legacy workbook's Casing/DP/Collar/HWDP/SWDP/MWD/Motor
       lookup sheets) — pick a row to fill OD/ID/TJ dimensions automatically, exactly like the original spreadsheet's
       popup pickers. Jar/Pony/Sub/Stabilizer/Other are manual-entry in the original tool too (no lookup table existed
-      for them), so they stay manual here.
+      for them), so they stay manual here. ⚙️ Import from T&amp;D fills Component/OD/ID/Length from the Torque &amp; Drag
+      module's saved BHA for this well — T&amp;D doesn't track tool-joint dimensions, so TJ OD/ID default to the body
+      OD/ID and should be set manually per component after import.
     </div>
   </div>
 
@@ -215,6 +219,7 @@
       <button class="btn" type="button" onclick="addCsRow('Liner')">+ Liner</button>
       <button class="btn" type="button" onclick="addCsRow('Riser')">+ Riser</button>
       <button class="btn" type="button" onclick="addCsRow('Open Hole')">+ Open Hole</button>
+      <button class="btn" type="button" onclick="importFromCasingDesign()" title="Pull casing strings (name, ID, shoe MD) from a saved Casing Design scenario for this well">🧱 Import from Casing Design</button>
     </div>
   </div>
 
@@ -370,6 +375,31 @@ function getDrillString(){
   }).filter(function(r){ return r.od_mm > 0 && r.length_m > 0; });
 }
 
+// Pulls the BHA saved for the CURRENT well in the Torque & Drag module
+// (whichever scenario is active there) and replaces the Drill String
+// table with it. T&D's BHA doesn't track tool-joint dimensions, so TJ
+// OD/ID are left for addDsRow's own default (falls back to body OD/ID) —
+// set those manually per component afterward if they differ.
+async function importBHAFromTD(){
+  if(!hydCurrentNoteId || !hydCurrentWellKey){ alert('Load a job and select a well first.'); return; }
+  try {
+    var res = await fetch('/notes/tdModel/' + hydCurrentNoteId);
+    if(!res.ok){ alert('Could not reach the Torque & Drag module for this job.'); return; }
+    var doc = await res.json();
+    var entry = doc && doc.resultsByWell && doc.resultsByWell[hydCurrentWellKey];
+    if(!entry || !entry.bha || !entry.bha.length){
+      alert('No saved BHA found for well "' + hydCurrentWellKey + '" in Torque & Drag. Set one up there first.');
+      return;
+    }
+    document.getElementById('dsBody').innerHTML = '';
+    entry.bha.forEach(function(c){
+      addDsRow(c.name, (c.od_m*1000).toFixed(1), (c.id_m*1000).toFixed(1), null, null, c.len.toFixed(2));
+    });
+  } catch(err){
+    alert('Error importing BHA from Torque & Drag: ' + err.message);
+  }
+}
+
 // =============================================================
 // ANNULUS/CASING TABLE
 // =============================================================
@@ -391,6 +421,32 @@ function getAnnulusGeom(){
     var ins = r.querySelectorAll('input');
     return { name: ins[0].value, id_mm: +ins[1].value, to_m: +ins[2].value };
   }).filter(function(r){ return r.id_mm > 0 && r.to_m > 0; }).sort(function(a,b){ return a.to_m - b.to_m; });
+}
+
+// Pulls the casing strings (name, ID, shoe MD) saved for the CURRENT well
+// in the Casing Design module (whichever scenario is active there) and
+// replaces the Casing/Liner/Riser/Open Hole table with them. Casing Design
+// doesn't track riser or open-hole intervals, so those still need adding
+// manually with "+ Riser" / "+ Open Hole" after import.
+async function importFromCasingDesign(){
+  if(!hydCurrentNoteId || !hydCurrentWellKey){ alert('Load a job and select a well first.'); return; }
+  try {
+    var res = await fetch('/notes/casingDesign/' + hydCurrentNoteId);
+    if(!res.ok){ alert('Could not reach the Casing Design module for this job.'); return; }
+    var doc = await res.json();
+    if(!doc || !doc.resultsByWell || !doc.resultsByWell[hydCurrentWellKey]){
+      alert('No saved Casing Design setup found for well "' + hydCurrentWellKey + '" on this job. Set one up in Casing Design first.');
+      return;
+    }
+    var strings = doc.resultsByWell[hydCurrentWellKey].casingStrings || [];
+    if(!strings.length){ alert('Casing Design has no strings saved for this well.'); return; }
+    document.getElementById('csBody').innerHTML = '';
+    strings.slice().sort(function(a,b){ return a.shoeMD_m - b.shoeMD_m; }).forEach(function(s){
+      addCsRow(s.name, s.id_mm, s.shoeMD_m);
+    });
+  } catch(err){
+    alert('Error importing from Casing Design: ' + err.message);
+  }
 }
 
 // =============================================================
@@ -479,26 +535,38 @@ function renderResults(results){
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsBody').style.display = 'block';
   var bh = results.bitHydraulics;
+
+  // Imperial conversion constants (same values used throughout the app —
+  // see casingModel.js's PSI2PA/LBF2N for the shared source of truth).
+  var IN2_PER_MM2 = 645.16;       // 1 in = 25.4 mm -> 1 in^2 = 25.4^2 mm^2
+  var FT_PER_M = 1 / 0.3048;
+  var PSI_PER_KPA = 1 / 6.894757293168;
+  var HP_PER_W = 1 / 745.699872;
+  var LBF_PER_N = 1 / 4.4482216152605;
+  var PPG_PER_KGM3 = 1 / 119.826427; // 1 ppg = 0.45359237/0.003785411784 kg/m^3
+
   var cards = [
-    ['Min. TFA', fmt(bh.minTfa_mm2,1) + ' mm²'],
-    ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²'],
-    ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s'],
-    ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa'],
-    ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W'],
-    ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²'],
-    ['Impact Force', fmt(bh.impactForce_N,0) + ' N'],
-    ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³'],
-    ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa'],
+    ['Min. TFA', fmt(bh.minTfa_mm2,1) + ' mm²', fmt(bh.minTfa_mm2/IN2_PER_MM2,3) + ' in²'],
+    ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²', fmt(bh.totalTfa_mm2/IN2_PER_MM2,3) + ' in²'],
+    ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s', fmt(bh.jetVelocity_ms*FT_PER_M,1) + ' ft/s'],
+    ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa', fmt(bh.bitPressureDrop_kPa*PSI_PER_KPA,0) + ' psi'],
+    ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W', fmt(bh.bitHydraulicPower_W*HP_PER_W,2) + ' hp'],
+    ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²', fmt(bh.hsi_Wmm2*IN2_PER_MM2*HP_PER_W,3) + ' hp/in²'],
+    ['Impact Force', fmt(bh.impactForce_N,0) + ' N', fmt(bh.impactForce_N*LBF_PER_N,1) + ' lbf'],
+    ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³', fmt(bh.ecd_kgm3*PPG_PER_KGM3,3) + ' ppg'],
+    ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa', fmt(bh.standpipePressure_kPa*PSI_PER_KPA,0) + ' psi'],
   ];
   if(bh.nozzleSizes_mm && bh.nozzleSizes_mm.length){
-    cards.push(['Nozzles (mm)', bh.nozzleSizes_mm.map(function(v){ return fmt(v,2); }).join(', ')]);
+    cards.push(['Nozzles',
+      bh.nozzleSizes_mm.map(function(v){ return fmt(v,2); }).join(', ') + ' mm',
+      bh.nozzleSizes_mm.map(function(v){ return Math.round(v/25.4*32); }).join(', ') + ' /32in']);
   }
   var cardsEl = document.getElementById('resultCards');
   cardsEl.innerHTML = '';
   cards.forEach(function(c){
     var d = document.createElement('div');
     d.className = 'result-card';
-    d.innerHTML = '<div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div>';
+    d.innerHTML = '<div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div><div class="v2">'+c[2]+'</div>';
     cardsEl.appendChild(d);
   });
 

@@ -468,6 +468,58 @@ body.light-mode #statusTextbox {
                     </div>
                 </div>
 
+                <!-- ================= ANTI-COLLISION PLOTS ================= -->
+                <div class="accordion mb-2" id="accordionAcPlots">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseAcPlots">
+                                📉 Anti-collision Plots
+                            </button>
+                        </h2>
+                        <div id="collapseAcPlots" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Reference Well:</label>
+                                    <select id="acpRefSelect" class="form-select form-select-sm" style="max-width:280px;"></select>
+                                    <button id="acpResetZoomBtn" class="btn btn-sm btn-outline-info">⤢ Reset Zoom</button>
+                                    <div class="form-check form-check-inline ms-2">
+                                        <input class="form-check-input" type="checkbox" id="acpShowLegend">
+                                        <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:#c8d8e8;">Show Legend</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" id="acpShowSF">
+                                        <label class="form-check-label" for="acpShowSF" style="font-size:11px;color:#c8d8e8;">Show Separation Factor (2nd axis)</label>
+                                    </div>
+                                    <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                </div>
+                                <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    Need at least 2 wellbores with survey data loaded in the 3D viewer above.
+                                </div>
+                                <div id="acpDataWarnings" style="margin-bottom:6px;"></div>
+                                <div id="acpChartWrap" style="height:420px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:none;">
+                                    <canvas id="acpChart"></canvas>
+                                </div>
+                                <div id="acpDetailPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #00c8ff;border-radius:4px;padding:8px 10px;margin-top:8px;"></div>
+                                <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                    Center-to-center (C2C) distance from the reference well to the closest point on each
+                                    other wellbore's 3D trajectory, at every survey station along the reference well —
+                                    same closest-approach method as the Frac Planes / AC Scan tool. Uses Northing/Easting
+                                    and <b>TVDss (Sub-Sea)</b>, not raw TVD — TVD is referenced to each well's own RKB/KB
+                                    elevation, which can differ between wells, so it isn't safe to compare directly across
+                                    wells; Sub-Sea is a common datum and is correct for this. Default view is 0–20 m;
+                                    scroll/pinch to zoom, drag to pan, or use Reset Zoom. Click any point on the chart to
+                                    inspect the raw N/E/TVDss of both matched stations.<br>
+                                    <b>Separation Factor (SF), when shown:</b> an approximate/indicative value using one
+                                    fixed simplified error model (same as the Frac Planes tool) — it is <b>not</b> a
+                                    real per-tool ISCWSA IPM calculation and should not be used as a substitute for one
+                                    in an actual collision decision.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ================= LEGS SUMMARY ================= -->
                 <div class="accordion mb-2" id="accordionLegs">
                     <div class="accordion-item">
@@ -5045,6 +5097,348 @@ body.light-mode #statusTextbox {
 </script>
 <!-- ================= END PAD AC SCRIPT ================= -->
 
+<!-- ================= ANTI-COLLISION PLOTS SCRIPT ================= -->
+<script>
+(function(){
+    const dataEl = document.getElementById('wbtData');
+    const refSelect = document.getElementById('acpRefSelect');
+    const statusEl = document.getElementById('acpStatus');
+    const emptyEl = document.getElementById('acpEmpty');
+    const chartWrap = document.getElementById('acpChartWrap');
+    if(!dataEl || !refSelect) return;
+
+    let WELLS = [];
+    try { WELLS = JSON.parse(dataEl.textContent) || []; } catch(e){ WELLS = []; }
+    // Only wellbores with actual survey data are usable.
+    WELLS = WELLS.filter(function(w){ return w.survey && w.survey.length >= 2; });
+
+    function num(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+    // 3D points for a wellbore, in a consistent local frame (x=Easting,
+    // y=Northing, z=-TVDss). Uses Sub-Sea (TVDss), NOT raw TVD, for the
+    // vertical axis: TVD is referenced to each well's own RKB/KB elevation,
+    // which can differ well-to-well (different rig, different survey
+    // vintage, etc.), so comparing raw TVD across two different wells can
+    // silently introduce a vertical error. Sub-Sea is referenced to a
+    // common datum (MSL) and is the correct basis for any cross-well
+    // spatial comparison — confirmed against this job's own data: two
+    // wells 5 m apart in Sub-Sea read only ~0.5 m apart in raw TVD.
+    function wellPoints(well){
+        return (well.survey || []).map(function(s){
+            return { md: num(s.md), x: num(s.easting), y: num(s.northing), z: -num(s.subSea), tvd: num(s.tvd),
+                     incl: num(s.incl), azim: num(s.azim) };
+        }).sort(function(a,b){ return a.md - b.md; });
+    }
+
+    // True if a well's survey has no usable Sub-Sea data (missing column
+    // on upload, or a legacy upload from before this field existed) — in
+    // that case every station's subSea defaults to 0, which would make the
+    // whole well read as perfectly flat at z=0 and silently produce
+    // meaningless C2C values against it.
+    function hasSubSea(well){
+        return (well.survey || []).some(function(s){ return Math.abs(num(s.subSea)) > 0.01; });
+    }
+
+    // Flags likely data artifacts: duplicate/near-duplicate consecutive MD
+    // values (zero-length or near-zero-length segments), and repeated
+    // identical N/E/TVDss at different MDs (e.g. an appended/duplicated
+    // tail block from a bad upload). Either can make closestOnSegment
+    // "snap" to a bogus point and report an artificially tiny C2C that has
+    // nothing to do with true separation. This is diagnostic only — it
+    // doesn't change the computed values, just flags wells worth checking.
+    function scanForDataIssues(well){
+        var issues = [];
+        if(!hasSubSea(well)) issues.push('no Sub-Sea (TVDss) data found — this well\'s vertical position may read as flat/incorrect; re-upload with a Sub-Sea column if C2C against this well looks wrong');
+        var pts = wellPoints(well);
+        var dupMdCount = 0, zeroLenSegCount = 0;
+        var seenPos = {};
+        var repeatedPosCount = 0;
+        for(var i=0; i<pts.length; i++){
+            if(i > 0 && Math.abs(pts[i].md - pts[i-1].md) < 0.01) dupMdCount++;
+            if(i > 0){
+                var dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y, dz=pts[i].z-pts[i-1].z;
+                if(Math.sqrt(dx*dx+dy*dy+dz*dz) < 0.01 && Math.abs(pts[i].md-pts[i-1].md) > 0.01) zeroLenSegCount++;
+            }
+            var key = pts[i].x.toFixed(2) + ',' + pts[i].y.toFixed(2) + ',' + pts[i].z.toFixed(2);
+            seenPos[key] = (seenPos[key] || 0) + 1;
+        }
+        Object.keys(seenPos).forEach(function(k){ if(seenPos[k] > 1) repeatedPosCount += seenPos[k]; });
+        if(dupMdCount > 0) issues.push(dupMdCount + ' duplicate MD value(s)');
+        if(zeroLenSegCount > 0) issues.push(zeroLenSegCount + ' zero-length segment(s) at different MDs (station stuck at same N/E/TVDss while MD changes)');
+        if(repeatedPosCount > 2) issues.push(repeatedPosCount + ' stations sharing an identical N/E/TVDss position with another station');
+        return issues;
+    }
+
+    // Closest point on segment A-B to point P, plus how far along the
+    // segment (t, 0..1) — used to interpolate the offset well's own MD at
+    // that point, so the tooltip can show exactly where on the offset
+    // trajectory the closest approach is happening (diagnostic: lets you
+    // tell a true parallel-lateral match apart from an unexpected nearby
+    // crossing, e.g. near a shared surface slot).
+    function closestOnSegment(P, A, B){
+        var ABx=B.x-A.x, ABy=B.y-A.y, ABz=B.z-A.z;
+        var APx=P.x-A.x, APy=P.y-A.y, APz=P.z-A.z;
+        var ab2 = ABx*ABx+ABy*ABy+ABz*ABz;
+        var t = ab2 === 0 ? 0 : (APx*ABx+APy*ABy+APz*ABz)/ab2;
+        t = Math.max(0, Math.min(1, t));
+        return { x: A.x+t*ABx, y: A.y+t*ABy, z: A.z+t*ABz, t: t };
+    }
+
+    // Minimum 3D distance from point P to the offset wellbore's polyline
+    // (true closest-approach, not same-MD comparison) — also returns the
+    // offset well's MD/incl/azim (interpolated) at that closest point, for
+    // the diagnostic panel and the Separation Factor calc below.
+    function closestApproachDistance(P, offsetPts){
+        var minD = Infinity, offMd = null, offIncl = null, offAzim = null;
+        for(var i=0; i<offsetPts.length-1; i++){
+            var A = offsetPts[i], B = offsetPts[i+1];
+            var Q = closestOnSegment(P, A, B);
+            var dx=P.x-Q.x, dy=P.y-Q.y, dz=P.z-Q.z;
+            var d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+            if(d < minD){
+                minD = d; offMd = A.md + Q.t*(B.md - A.md);
+                offIncl = A.incl + Q.t*(B.incl - A.incl);
+                offAzim = A.azim + Q.t*(B.azim - A.azim);
+            }
+        }
+        return { dist: minD, offMd: offMd, offIncl: offIncl, offAzim: offAzim };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // SEPARATION FACTOR (SF) — SAME SIMPLIFIED MODEL AS THE FRAC PLANES /
+    // AC SCAN TOOL (rev5_3D + separationFactor3D there). This is NOT a
+    // selectable-toolcode ISCWSA IPM implementation — it's one fixed,
+    // simplified set of lumped error terms (inclination bias, azimuth
+    // bias, azimuth scale, sag, depth, declination reference, magnetic
+    // interference), each with a single hardcoded coefficient, offered as
+    // an approximate/indicative SF only. Do not treat this as a substitute
+    // for a real per-tool ISCWSA error model in an actual collision
+    // decision — see the accordion's on-screen note.
+    // ─────────────────────────────────────────────────────────────────
+    function rad(d){ return d * Math.PI / 180; }
+    function simplifiedCovariance(md, inclDeg){
+        var inc = rad(inclDeg);
+        var sI = Math.sin(inc), cI = Math.cos(inc);
+        var sigABXY_inc = rad(0.10) * md;
+        var sigABXY_azi = rad(0.30) * md;
+        var sigASXY     = 0.001 * md;
+        var sigSAG      = rad(0.02) * md * sI;
+        var sigmaMD     = 0.0005 * md;
+        var sigDECR     = rad(0.36) * md * sI;
+        var sigDBHG     = rad(0.12) * md * sI;
+        var varH = Math.pow(sigABXY_inc*sI,2) + Math.pow(sigABXY_azi*sI,2) + Math.pow(sigASXY*sI,2) +
+                   Math.pow(sigSAG*sI,2) + Math.pow(sigDECR,2) + Math.pow(sigDBHG,2);
+        var varZ = Math.pow(sigABXY_inc*cI,2) + Math.pow(sigSAG*cI,2) + Math.pow(sigmaMD,2);
+        return { xx: varH/2, yy: varH/2, zz: varZ };
+    }
+    function separationFactorSimplified(refPt, offPt, dist){
+        var K95 = 2.447; // 95% confidence factor — same constant as the Frac Planes / AC Scan tool
+        if(dist < 1e-9) return 0;
+        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
+        var cRef = simplifiedCovariance(refPt.md, refPt.incl);
+        var cOff = simplifiedCovariance(offPt.md, offPt.incl);
+        var Cxx=cRef.xx+cOff.xx, Cyy=cRef.yy+cOff.yy, Czz=cRef.zz+cOff.zz;
+        var varSep = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz;
+        var sigmaSep = Math.sqrt(Math.max(varSep,0));
+        return sigmaSep > 1e-9 ? dist / (K95*sigmaSep) : Infinity;
+    }
+
+    // Full C2C-vs-MD profile: for every survey station on the reference
+    // well, the closest-approach distance to the offset well's trajectory,
+    // plus the offset well's own MD at that closest point, plus an
+    // approximate Separation Factor (see the SF section above for caveats).
+    function computeC2CProfile(refPts, offsetPts){
+        return refPts.map(function(P){
+            var r = closestApproachDistance(P, offsetPts);
+            var offPt = { md: r.offMd, incl: r.offIncl, azim: r.offAzim };
+            var sf = separationFactorSimplified(P, offPt, r.dist);
+            return { md: P.md, c2c: r.dist, offMd: r.offMd, sf: sf };
+        });
+    }
+
+    var palette = ['#ff6b35', '#39ff14', '#ffd060', '#c084fc', '#2dd4bf', '#ff4060', '#79c0ff', '#e879f9'];
+    var acpChart = null;
+
+    function fmtN(v){ return (v==null||isNaN(v)) ? '—' : v.toFixed(2); }
+
+    function showDetailPanel(refWell, refPt, offWell, offPt, c2c){
+        var panel = document.getElementById('acpDetailPanel');
+        panel.style.display = 'block';
+        panel.innerHTML =
+            '<b style="color:#00c8ff;">Closest-point detail</b> (click another point to update)<br>' +
+            '<table style="margin-top:6px;border-collapse:collapse;">' +
+            '<tr><td style="padding:2px 12px 2px 0;color:#5a7080;">Well</td><td style="padding:2px 12px;">MD (m)</td><td style="padding:2px 12px;">Northing</td><td style="padding:2px 12px;">Easting</td><td style="padding:2px 12px;">TVDss (used)</td><td style="padding:2px 12px;color:#5a7080;">TVD (RKB, ref only)</td></tr>' +
+            '<tr><td style="padding:2px 12px 2px 0;color:#c8d8e8;">' + refWell + ' (ref)</td><td style="padding:2px 12px;">' + fmtN(refPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-refPt.z) + '</td><td style="padding:2px 12px;color:#5a7080;">' + fmtN(refPt.tvd) + '</td></tr>' +
+            '<tr><td style="padding:2px 12px 2px 0;color:#c8d8e8;">' + offWell + ' (offset)</td><td style="padding:2px 12px;">' + fmtN(offPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-offPt.z) + '</td><td style="padding:2px 12px;color:#5a7080;">' + fmtN(offPt.tvd) + '</td></tr>' +
+            '</table>' +
+            '<div style="margin-top:6px;color:#5a7080;">3D distance (using TVDss): <b style="color:#e8f4ff;">' + fmtN(c2c) + ' m</b> ' +
+            '(ΔN=' + fmtN(refPt.y-offPt.y) + ', ΔE=' + fmtN(refPt.x-offPt.x) + ', ΔTVDss=' + fmtN(-refPt.z-(-offPt.z)) + '). ' +
+            'The dimmed TVD (RKB) column is shown for reference only and is NOT used in the distance — TVD is per-well-referenced and not safe to compare across wells; if it disagrees sharply with TVDss here, that well\'s RKB/KB elevation differs from the others.</div>';
+    }
+
+    function renderDataWarnings(refWell, others){
+        var warnEl = document.getElementById('acpDataWarnings');
+        var allIssues = [];
+        [refWell].concat(others).forEach(function(w){
+            var issues = scanForDataIssues(w);
+            if(issues.length) allIssues.push(w.wellName + ': ' + issues.join('; '));
+        });
+        if(!allIssues.length){ warnEl.innerHTML = ''; return; }
+        warnEl.innerHTML = '<div style="border:1px solid #ffd060;background:rgba(255,208,96,.08);color:#ffd060;border-radius:4px;padding:6px 10px;font-size:11px;font-family:monospace;">' +
+            '⚠ Possible survey data issues detected (can cause artificially small C2C values):<br>' +
+            allIssues.map(function(s){ return '&nbsp;&nbsp;• ' + s; }).join('<br>') + '</div>';
+    }
+
+    function renderPlot(){
+        var refName = refSelect.value;
+        var refWell = WELLS.find(function(w){ return w.wellName === refName; });
+        if(!refWell){ return; }
+        var refPts = wellPoints(refWell);
+        var others = WELLS.filter(function(w){ return w.wellName !== refName; });
+        document.getElementById('acpDetailPanel').style.display = 'none';
+        renderDataWarnings(refWell, others);
+
+        var showLegend = document.getElementById('acpShowLegend').checked;
+        var showSF = document.getElementById('acpShowSF').checked;
+
+        // Keep the full point arrays around (keyed by dataset index) so the
+        // click handler can look up the exact matched stations, not just
+        // the MD values already on the chart data.
+        var offPtsByIdx = [];
+        var c2cDatasetCount = others.length;
+
+        var c2cDatasets = others.map(function(w, i){
+            var offPts = wellPoints(w);
+            offPtsByIdx.push({ name: w.wellName, pts: offPts });
+            var profile = computeC2CProfile(refPts, offPts);
+            return {
+                label: w.wellName,
+                data: profile.map(function(p){ return { x: p.md, y: p.c2c, offMd: p.offMd, sf: p.sf }; }),
+                borderColor: palette[i % palette.length],
+                backgroundColor: 'transparent',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                showLine: true,
+                yAxisID: 'y'
+            };
+        });
+
+        // SF datasets (approximate — see module header caveats), dashed,
+        // same color per well, plotted on the secondary axis. Only built
+        // when the toggle is on, to avoid doubling the chart's series
+        // count (and recompute cost) for every offset well by default.
+        var sfDatasets = !showSF ? [] : c2cDatasets.map(function(ds, i){
+            return {
+                label: ds.label + ' (SF)',
+                data: ds.data.map(function(p){ return { x: p.x, y: p.sf }; }),
+                borderColor: palette[i % palette.length],
+                backgroundColor: 'transparent',
+                borderWidth: 1,
+                borderDash: [4, 3],
+                pointRadius: 0,
+                showLine: true,
+                yAxisID: 'y1'
+            };
+        });
+
+        var datasets = c2cDatasets.concat(sfDatasets);
+
+        if(acpChart) acpChart.destroy();
+        acpChart = new Chart(document.getElementById('acpChart').getContext('2d'), {
+            type: 'scatter',
+            data: { datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                onClick: function(evt){
+                    var points = acpChart.getElementsAtEventForMode(evt, 'nearest', { intersect: false }, true);
+                    if(!points.length) return;
+                    var el = points[0];
+                    if(el.datasetIndex >= c2cDatasetCount) return; // clicked an SF (dashed) series — nothing to inspect there
+                    var ds = datasets[el.datasetIndex];
+                    var raw = ds.data[el.index];
+                    var refPt = refPts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.x) < Math.abs(best.md-raw.x)) ? p : best; }, null);
+                    var offInfo = offPtsByIdx[el.datasetIndex];
+                    var offPt = offInfo.pts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.offMd) < Math.abs(best.md-raw.offMd)) ? p : best; }, null);
+                    showDetailPanel(refName, refPt, offInfo.name, offPt, raw.y);
+                },
+                plugins: {
+                    legend: { display: showLegend, labels: { color: '#c8d8e8' } },
+                    tooltip: { callbacks: { label: function(ctx){
+                        if(ctx.dataset.yAxisID === 'y1'){
+                            return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, SF≈' + (isFinite(ctx.raw.y) ? ctx.raw.y.toFixed(2) : '∞');
+                        }
+                        var offMdStr = (ctx.raw.offMd != null) ? (', at offset MD=' + ctx.raw.offMd.toFixed(0) + ' m') : '';
+                        return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, C2C=' + ctx.raw.y.toFixed(2) + ' m' + offMdStr + ' (click to inspect)';
+                    } } },
+                    zoom: {
+                        pan: { enabled: true, mode: 'xy' },
+                        zoom: { wheel: { enabled: true, speed: 0.08 }, pinch: { enabled: true }, mode: 'xy' }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
+                    y: { min: 0, max: 20, position: 'left', title: { display: true, text: 'C2C (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
+                    y1: { display: showSF, min: 0, max: 5, position: 'right', title: { display: true, text: 'SF (approx.)', color: '#5a7080' }, grid: { drawOnChartArea: false }, ticks: { color: '#c8d8e8' } }
+                }
+            }
+        });
+        // Diagnostic summary: where does the overall minimum fall? If it's
+        // near MD=0 (surface/conductor) rather than in a lateral section,
+        // that's the "global closest point isn't the parallel pair" case
+        // rather than a units bug — this line makes that visible at a
+        // glance instead of requiring a tooltip hover.
+        var overallMin = null;
+        c2cDatasets.forEach(function(ds){
+            ds.data.forEach(function(p){
+                if(!overallMin || p.y < overallMin.c2c){
+                    overallMin = { c2c: p.y, refMd: p.x, offMd: p.offMd, well: ds.label };
+                }
+            });
+        });
+        var minStr = overallMin
+            ? (' Closest approach: ' + overallMin.c2c.toFixed(2) + ' m to ' + overallMin.well +
+               ' (ref MD=' + overallMin.refMd.toFixed(0) + ' m, offset MD=' + (overallMin.offMd!=null?overallMin.offMd.toFixed(0):'—') + ' m). Click that point on the chart to see the raw survey rows.')
+            : '';
+        statusEl.textContent = others.length + ' offset well' + (others.length===1?'':'s') + ' plotted against ' + refName + '.' + minStr;
+    }
+
+    function init(){
+        if(WELLS.length < 2){
+            emptyEl.style.display = 'block';
+            chartWrap.style.display = 'none';
+            return;
+        }
+        emptyEl.style.display = 'none';
+        chartWrap.style.display = 'block';
+        refSelect.innerHTML = '';
+        WELLS.forEach(function(w){
+            var opt = document.createElement('option');
+            opt.value = w.wellName; opt.textContent = w.wellName;
+            refSelect.appendChild(opt);
+        });
+        refSelect.addEventListener('change', renderPlot);
+        var resetBtn = document.getElementById('acpResetZoomBtn');
+        if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); });
+        document.getElementById('acpShowLegend').addEventListener('change', renderPlot);
+        document.getElementById('acpShowSF').addEventListener('change', renderPlot);
+        renderPlot();
+    }
+
+    let acpInitDone = false;
+    function initOnce(){ if(acpInitDone) return; acpInitDone = true; init(); }
+    const collapseEl = document.getElementById('collapseAcPlots');
+    if(collapseEl){
+        collapseEl.addEventListener('shown.bs.collapse', initOnce);
+        if(collapseEl.classList.contains('show')) initOnce();
+    } else {
+        initOnce();
+    }
+})();
+</script>
+<!-- ================= END ANTI-COLLISION PLOTS SCRIPT ================= -->
+
 <!-- ================= LEGS SUMMARY SCRIPT ================= -->
 <%
 // ── Build legs data server-side ──────────────────────────────────────────
@@ -6526,20 +6920,33 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         cardsEl.innerHTML = '';
         if(r.bitHydraulics){
             var bh = r.bitHydraulics;
+            // Same conversion constants as uploadHydraulics.ejs.
+            var IN2_PER_MM2 = 645.16;
+            var FT_PER_M = 1 / 0.3048;
+            var PSI_PER_KPA = 1 / 6.894757293168;
+            var HP_PER_W = 1 / 745.699872;
+            var LBF_PER_N = 1 / 4.4482216152605;
+            var PPG_PER_KGM3 = 1 / 119.826427;
             var cards = [
-                ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²'],
-                ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s'],
-                ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa'],
-                ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W'],
-                ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²'],
-                ['Impact Force', fmt(bh.impactForce_N,0) + ' N'],
-                ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³'],
-                ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa'],
+                ['Min. TFA', fmt(bh.minTfa_mm2,1) + ' mm²', fmt(bh.minTfa_mm2/IN2_PER_MM2,3) + ' in²'],
+                ['Total TFA', fmt(bh.totalTfa_mm2,1) + ' mm²', fmt(bh.totalTfa_mm2/IN2_PER_MM2,3) + ' in²'],
+                ['Jet Velocity', fmt(bh.jetVelocity_ms,2) + ' m/s', fmt(bh.jetVelocity_ms*FT_PER_M,1) + ' ft/s'],
+                ['Bit Pressure Drop', fmt(bh.bitPressureDrop_kPa,0) + ' kPa', fmt(bh.bitPressureDrop_kPa*PSI_PER_KPA,0) + ' psi'],
+                ['Bit Hyd. Power', fmt(bh.bitHydraulicPower_W,0) + ' W', fmt(bh.bitHydraulicPower_W*HP_PER_W,2) + ' hp'],
+                ['H.S.I.', fmt(bh.hsi_Wmm2,3) + ' W/mm²', fmt(bh.hsi_Wmm2*IN2_PER_MM2*HP_PER_W,3) + ' hp/in²'],
+                ['Impact Force', fmt(bh.impactForce_N,0) + ' N', fmt(bh.impactForce_N*LBF_PER_N,1) + ' lbf'],
+                ['ECD', fmt(bh.ecd_kgm3,1) + ' kg/m³', fmt(bh.ecd_kgm3*PPG_PER_KGM3,3) + ' ppg'],
+                ['Standpipe Pressure', fmt(bh.standpipePressure_kPa,0) + ' kPa', fmt(bh.standpipePressure_kPa*PSI_PER_KPA,0) + ' psi'],
             ];
+            if(bh.nozzleSizes_mm && bh.nozzleSizes_mm.length){
+                cards.push(['Nozzles',
+                    bh.nozzleSizes_mm.map(function(v){ return fmt(v,2); }).join(', ') + ' mm',
+                    bh.nozzleSizes_mm.map(function(v){ return Math.round(v/25.4*32); }).join(', ') + ' /32in']);
+            }
             cards.forEach(function(c){
                 var d = document.createElement('div');
                 d.style.cssText = 'background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px 10px;';
-                d.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">'+c[0]+'</div><div style="font-family:monospace;font-size:15px;color:#e8f4ff;">'+c[1]+'</div>';
+                d.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">'+c[0]+'</div><div style="font-family:monospace;font-size:15px;color:#e8f4ff;">'+c[1]+'</div><div style="font-family:monospace;font-size:11px;color:#5a7080;margin-top:2px;">'+c[2]+'</div>';
                 cardsEl.appendChild(d);
             });
         }
