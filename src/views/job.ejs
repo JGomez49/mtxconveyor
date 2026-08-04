@@ -472,12 +472,13 @@ body.light-mode #statusTextbox {
                 <div class="accordion mb-2" id="accordionAcPlots">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseAcPlots">
+                            <button class="accordion-button" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseAcPlots"
+                                    aria-expanded="true">
                                 📉 Anti-collision Plots
                             </button>
                         </h2>
-                        <div id="collapseAcPlots" class="accordion-collapse collapse">
+                        <div id="collapseAcPlots" class="accordion-collapse collapse show">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                     <label style="font-size:11px;color:#c8d8e8;">Reference Well:</label>
@@ -487,33 +488,73 @@ body.light-mode #statusTextbox {
                                         <input class="form-check-input" type="checkbox" id="acpShowLegend">
                                         <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:#c8d8e8;">Show Legend</label>
                                     </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="checkbox" id="acpShowSF">
-                                        <label class="form-check-label" for="acpShowSF" style="font-size:11px;color:#c8d8e8;">Show Separation Factor (2nd axis)</label>
-                                    </div>
+                                    <label style="font-size:11px;color:#c8d8e8;">Toolcode:</label>
+                                    <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
+                                        <option value="">— Simplified (approximate) —</option>
+                                    </select>
                                     <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
                                 </div>
                                 <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     Need at least 2 wellbores with survey data loaded in the 3D viewer above.
                                 </div>
+                                <div id="acpMagCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;margin-bottom:8px;"></div>
                                 <div id="acpDataWarnings" style="margin-bottom:6px;"></div>
-                                <div id="acpChartWrap" style="height:420px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:none;">
-                                    <canvas id="acpChart"></canvas>
+                                <div id="acpChartWrap" style="display:none;gap:8px;">
+                                    <div id="acpChartC2CWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                            <span>X:</span>
+                                            <input type="number" id="acpC2cXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpC2cXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span style="margin-left:10px;">Y:</span>
+                                            <input type="number" id="acpC2cYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpC2cYMax" placeholder="20" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                        </div>
+                                        <div style="flex:1;min-height:0;position:relative;">
+                                            <canvas id="acpChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div id="acpChartSFWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                            <span>X:</span>
+                                            <input type="number" id="acpSfXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpSfXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span style="margin-left:10px;">Y:</span>
+                                            <input type="number" id="acpSfYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpSfYMax" placeholder="2" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                        </div>
+                                        <div style="flex:1;min-height:0;position:relative;">
+                                            <canvas id="acpChartSF"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div id="acpDetailPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #00c8ff;border-radius:4px;padding:8px 10px;margin-top:8px;"></div>
                                 <div style="font-size:10px;color:#5a7080;margin-top:8px;">
-                                    Center-to-center (C2C) distance from the reference well to the closest point on each
-                                    other wellbore's 3D trajectory, at every survey station along the reference well —
+                                    <b>Left — C2C:</b> center-to-center distance from the reference well to the closest point
+                                    on each other wellbore's 3D trajectory, at every survey station along the reference well —
                                     same closest-approach method as the Frac Planes / AC Scan tool. Uses Northing/Easting
                                     and <b>TVDss (Sub-Sea)</b>, not raw TVD — TVD is referenced to each well's own RKB/KB
                                     elevation, which can differ between wells, so it isn't safe to compare directly across
                                     wells; Sub-Sea is a common datum and is correct for this. Default view is 0–20 m;
-                                    scroll/pinch to zoom, drag to pan, or use Reset Zoom. Click any point on the chart to
+                                    scroll/pinch to zoom, drag to pan, or use Reset Zoom. Click any point on either chart to
                                     inspect the raw N/E/TVDss of both matched stations.<br>
-                                    <b>Separation Factor (SF), when shown:</b> an approximate/indicative value using one
-                                    fixed simplified error model (same as the Frac Planes tool) — it is <b>not</b> a
-                                    real per-tool ISCWSA IPM calculation and should not be used as a substitute for one
-                                    in an actual collision decision.
+                                    <b>Right — SF:</b> the <b>reference well</b> uses its own saved <b>Toolcode</b> (editable
+                                    via the dropdown above, persisted per wellbore). <b>Offset wells</b> are temporarily all
+                                    assumed to use <code>MWD+HRGM</code> — there's no per-offset-well toolcode picker yet
+                                    (planned as a pad-level control); until then this is a simplification, not each well's
+                                    real tool. Both use the real ISCWSA MWD Rev5 error model (validated against ISCWSA's own
+                                    test-well data — see <code>iscwsaModel.js</code>) and each well's Total Field/Dip/
+                                    Declination from the magnetics cards above. Falls back to a simplified approximate model
+                                    automatically for any well missing survey inc/azim or magnetics data. Gyro toolcodes
+                                    aren't implemented yet (MWD only). Default view is 0–2 (SF is a dimensionless ratio; the
+                                    decision-relevant range is near 1) — zoom/pan to see further; values are capped at 20 for
+                                    display (very shallow depths, near-zero uncertainty, would otherwise compute as
+                                    infinite). Global-term correlation between wells uses the base ISCWSA propagation-mode
+                                    rule (fully correlated, not the fractional refinement from ISCWSA's separate
+                                    geomagnetic-correlation supplement).
                                 </div>
                             </div>
                         </div>
@@ -5098,6 +5139,8 @@ body.light-mode #statusTextbox {
 <!-- ================= END PAD AC SCRIPT ================= -->
 
 <!-- ================= ANTI-COLLISION PLOTS SCRIPT ================= -->
+<script src="/js/wmmModel.js"></script>
+<script src="/js/iscwsaModel.js"></script>
 <script>
 (function(){
     const dataEl = document.getElementById('wbtData');
@@ -5186,10 +5229,12 @@ body.light-mode #statusTextbox {
 
     // Minimum 3D distance from point P to the offset wellbore's polyline
     // (true closest-approach, not same-MD comparison) — also returns the
-    // offset well's MD/incl/azim (interpolated) at that closest point, for
-    // the diagnostic panel and the Separation Factor calc below.
+    // offset well's MD/incl/azim AND actual x/y/z position (all
+    // interpolated) at that closest point, for the diagnostic panel and
+    // the Separation Factor calc below (which needs the real coordinates
+    // to compute the separation direction, not just MD/incl/azim).
     function closestApproachDistance(P, offsetPts){
-        var minD = Infinity, offMd = null, offIncl = null, offAzim = null;
+        var minD = Infinity, offMd = null, offIncl = null, offAzim = null, offX = null, offY = null, offZ = null;
         for(var i=0; i<offsetPts.length-1; i++){
             var A = offsetPts[i], B = offsetPts[i+1];
             var Q = closestOnSegment(P, A, B);
@@ -5199,22 +5244,36 @@ body.light-mode #statusTextbox {
                 minD = d; offMd = A.md + Q.t*(B.md - A.md);
                 offIncl = A.incl + Q.t*(B.incl - A.incl);
                 offAzim = A.azim + Q.t*(B.azim - A.azim);
+                offX = Q.x; offY = Q.y; offZ = Q.z;
             }
         }
-        return { dist: minD, offMd: offMd, offIncl: offIncl, offAzim: offAzim };
+        return { dist: minD, offMd: offMd, offIncl: offIncl, offAzim: offAzim, offX: offX, offY: offY, offZ: offZ };
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // SEPARATION FACTOR (SF) — SAME SIMPLIFIED MODEL AS THE FRAC PLANES /
-    // AC SCAN TOOL (rev5_3D + separationFactor3D there). This is NOT a
-    // selectable-toolcode ISCWSA IPM implementation — it's one fixed,
-    // simplified set of lumped error terms (inclination bias, azimuth
-    // bias, azimuth scale, sag, depth, declination reference, magnetic
-    // interference), each with a single hardcoded coefficient, offered as
-    // an approximate/indicative SF only. Do not treat this as a substitute
-    // for a real per-tool ISCWSA error model in an actual collision
-    // decision — see the accordion's on-screen note.
+    // SEPARATION FACTOR (SF)
+    //
+    // Two paths, both projecting a combined 3x3 covariance onto the
+    // separation vector the same way (K95=2.447, ISCWSA's 95% confidence
+    // factor):
+    //   1. REAL — ISCWSAModel.js + a selected toolcode + this well's WMM
+    //      magnetics (see WELL_MAGNETICS below). Used whenever a toolcode
+    //      is selected and both wells have usable magnetics.
+    //   2. SIMPLIFIED — the fixed lumped-term approximation this accordion
+    //      shipped with originally (same model as the Frac Planes / AC
+    //      Scan tool). Used as a fallback when no toolcode is selected, or
+    //      when a well is missing magnetics (no lat/long, or WMM failed).
     // ─────────────────────────────────────────────────────────────────
+    var K95 = 2.447; // ISCWSA 95% confidence factor
+    function sfFromCovariance(refPt, offPt, dist, Cxx, Cyy, Czz){
+        if(dist < 1e-9) return 0;
+        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
+        var varSep = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz;
+        var sigmaSep = Math.sqrt(Math.max(varSep,0));
+        return sigmaSep > 1e-9 ? dist / (K95*sigmaSep) : Infinity;
+    }
+
     function rad(d){ return d * Math.PI / 180; }
     function simplifiedCovariance(md, inclDeg){
         var inc = rad(inclDeg);
@@ -5232,33 +5291,65 @@ body.light-mode #statusTextbox {
         return { xx: varH/2, yy: varH/2, zz: varZ };
     }
     function separationFactorSimplified(refPt, offPt, dist){
-        var K95 = 2.447; // 95% confidence factor — same constant as the Frac Planes / AC Scan tool
-        if(dist < 1e-9) return 0;
-        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
-        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
         var cRef = simplifiedCovariance(refPt.md, refPt.incl);
         var cOff = simplifiedCovariance(offPt.md, offPt.incl);
-        var Cxx=cRef.xx+cOff.xx, Cyy=cRef.yy+cOff.yy, Czz=cRef.zz+cOff.zz;
-        var varSep = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz;
-        var sigmaSep = Math.sqrt(Math.max(varSep,0));
-        return sigmaSep > 1e-9 ? dist / (K95*sigmaSep) : Infinity;
+        return sfFromCovariance(refPt, offPt, dist, cRef.xx+cOff.xx, cRef.yy+cOff.yy, cRef.zz+cOff.zz);
+    }
+
+    // REAL model: NEV covariance (N,E,V) needs rotating into our plot's
+    // local x/y/z frame (x=Easting=E, y=Northing=N, z=-SubSea=-V, i.e.
+    // V=-z) before projecting — done inline in nevCovToLocal below since
+    // it's a simple axis relabel, not a true rotation (both frames share
+    // the same vertical axis orientation convention already used
+    // throughout this accordion).
+    function nevToLocalCov(cov){
+        // cov: {NN,EE,VV,NE,NV,EV} (off-diagonals unused by the diagonal-
+        // only projection sfFromCovariance performs) -> {xx,yy,zz}
+        return { xx: cov.EE, yy: cov.NN, zz: cov.VV };
+    }
+    function separationFactorReal(refPt, offPt, dist, refCovStation, offCovStation){
+        if(!refCovStation || !offCovStation) return null;
+        var toolTermsRef = refCovStation._terms, toolTermsOff = offCovStation._terms;
+        var C = ISCWSAModel.relativeCovariance(refCovStation, offCovStation, toolTermsRef, toolTermsOff);
+        var local = nevToLocalCov(C);
+        return sfFromCovariance(refPt, offPt, dist, local.xx, local.yy, local.zz);
     }
 
     // Full C2C-vs-MD profile: for every survey station on the reference
     // well, the closest-approach distance to the offset well's trajectory,
-    // plus the offset well's own MD at that closest point, plus an
-    // approximate Separation Factor (see the SF section above for caveats).
-    function computeC2CProfile(refPts, offsetPts){
+    // plus the offset well's own MD at that closest point, plus a
+    // Separation Factor. refCov/offCov are the precomputed per-station
+    // ISCWSA covariance arrays (from computeWellCov) when a real toolcode
+    // is active for both wells; null falls back to the simplified model.
+    function findNearestCovStation(covArray, targetMd){
+        if(!covArray || !covArray.length || targetMd == null) return null;
+        var best = null, bestDiff = Infinity;
+        for(var i=0; i<covArray.length; i++){
+            var diff = Math.abs(covArray[i].md - targetMd);
+            if(diff < bestDiff){ bestDiff = diff; best = covArray[i]; }
+        }
+        return best;
+    }
+    function computeC2CProfile(refPts, offsetPts, refCov, offCov){
         return refPts.map(function(P){
             var r = closestApproachDistance(P, offsetPts);
-            var offPt = { md: r.offMd, incl: r.offIncl, azim: r.offAzim };
-            var sf = separationFactorSimplified(P, offPt, r.dist);
+            var offPt = { md: r.offMd, incl: r.offIncl, azim: r.offAzim, x: r.offX, y: r.offY, z: r.offZ };
+            var sf;
+            if(refCov && offCov){
+                var refSt = findNearestCovStation(refCov, P.md);
+                var offSt = findNearestCovStation(offCov, r.offMd);
+                sf = separationFactorReal(P, offPt, r.dist, refSt, offSt);
+                if(sf == null) sf = separationFactorSimplified(P, offPt, r.dist);
+            } else {
+                sf = separationFactorSimplified(P, offPt, r.dist);
+            }
             return { md: P.md, c2c: r.dist, offMd: r.offMd, sf: sf };
         });
     }
 
     var palette = ['#ff6b35', '#39ff14', '#ffd060', '#c084fc', '#2dd4bf', '#ff4060', '#79c0ff', '#e879f9'];
     var acpChart = null;
+    var acpChartSF = null;
 
     function fmtN(v){ return (v==null||isNaN(v)) ? '—' : v.toFixed(2); }
 
@@ -5294,24 +5385,33 @@ body.light-mode #statusTextbox {
         var refName = refSelect.value;
         var refWell = WELLS.find(function(w){ return w.wellName === refName; });
         if(!refWell){ return; }
+        renderMagCards();
+        syncToolcodeSelectToRefWell();
         var refPts = wellPoints(refWell);
         var others = WELLS.filter(function(w){ return w.wellName !== refName; });
         document.getElementById('acpDetailPanel').style.display = 'none';
         renderDataWarnings(refWell, others);
 
         var showLegend = document.getElementById('acpShowLegend').checked;
-        var showSF = document.getElementById('acpShowSF').checked;
+
+        // Each well uses its OWN saved toolcode (persisted per wellbore —
+        // see wellToolcode()/saveWellToolcode()), not one global selection.
+        // refCov is this well's own covariance; each offset well below
+        // computes its own using ITS OWN toolcode.
+        var refCov = computeWellCov(refWell, wellToolcode(refWell));
+        var usedRealModelCount = 0, missingMagCount = 0;
 
         // Keep the full point arrays around (keyed by dataset index) so the
         // click handler can look up the exact matched stations, not just
         // the MD values already on the chart data.
         var offPtsByIdx = [];
-        var c2cDatasetCount = others.length;
 
         var c2cDatasets = others.map(function(w, i){
             var offPts = wellPoints(w);
             offPtsByIdx.push({ name: w.wellName, pts: offPts });
-            var profile = computeC2CProfile(refPts, offPts);
+            var offCov = computeWellCov(w, OFFSET_TOOLCODE_DEFAULT);
+            if(refCov && offCov) usedRealModelCount++; else missingMagCount++;
+            var profile = computeC2CProfile(refPts, offPts, refCov, offCov);
             return {
                 label: w.wellName,
                 data: profile.map(function(p){ return { x: p.md, y: p.c2c, offMd: p.offMd, sf: p.sf }; }),
@@ -5320,55 +5420,65 @@ body.light-mode #statusTextbox {
                 borderWidth: 1.5,
                 pointRadius: 0,
                 pointHoverRadius: 5,
-                showLine: true,
-                yAxisID: 'y'
+                showLine: true
             };
         });
 
-        // SF datasets (approximate — see module header caveats), dashed,
-        // same color per well, plotted on the secondary axis. Only built
-        // when the toggle is on, to avoid doubling the chart's series
-        // count (and recompute cost) for every offset well by default.
-        var sfDatasets = !showSF ? [] : c2cDatasets.map(function(ds, i){
+        // SF datasets, same colors/well mapping, own chart. SF values are
+        // capped (see SF_CAP) rather than left as raw Infinity — a single
+        // infinite point (typical right at MD=0, where position is known
+        // exactly) breaks Chart.js's connected-line rendering for the
+        // WHOLE dataset, not just that one point.
+        var sfDatasets = c2cDatasets.map(function(ds, i){
             return {
-                label: ds.label + ' (SF)',
-                data: ds.data.map(function(p){ return { x: p.x, y: p.sf }; }),
+                label: ds.label,
+                data: ds.data.map(function(p){ return { x: p.x, y: Math.min(p.sf, SF_CAP), offMd: p.offMd, sfRaw: p.sf }; }),
                 borderColor: palette[i % palette.length],
                 backgroundColor: 'transparent',
-                borderWidth: 1,
-                borderDash: [4, 3],
+                borderWidth: 1.5,
                 pointRadius: 0,
-                showLine: true,
-                yAxisID: 'y1'
+                pointHoverRadius: 5,
+                showLine: true
             };
         });
 
-        var datasets = c2cDatasets.concat(sfDatasets);
+        function makeClickHandler(chartRef, datasets){
+            return function(evt){
+                var points = chartRef.getElementsAtEventForMode(evt, 'nearest', { intersect: false }, true);
+                if(!points.length) return;
+                var el = points[0];
+                var ds = datasets[el.datasetIndex];
+                var raw = ds.data[el.index];
+                var refPt = refPts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.x) < Math.abs(best.md-raw.x)) ? p : best; }, null);
+                var offInfo = offPtsByIdx[el.datasetIndex];
+                var offPt = offInfo.pts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.offMd) < Math.abs(best.md-raw.offMd)) ? p : best; }, null);
+                showDetailPanel(refName, refPt, offInfo.name, offPt, raw.y);
+            };
+        }
+
+        // Reads a from/to textbox pair; blank means "use the given default"
+        // (min defaults are real numbers so the axis always starts at a
+        // known point rather than whatever Chart.js's auto-scale picks;
+        // max left blank stays auto-scaled to the data unless the user
+        // types one in).
+        function readAxisRange(minId, maxId, defaultMin, defaultMax){
+            var minEl = document.getElementById(minId), maxEl = document.getElementById(maxId);
+            var minVal = minEl && minEl.value !== '' ? parseFloat(minEl.value) : defaultMin;
+            var maxVal = maxEl && maxEl.value !== '' ? parseFloat(maxEl.value) : defaultMax;
+            return { min: isNaN(minVal) ? defaultMin : minVal, max: isNaN(maxVal) ? defaultMax : maxVal };
+        }
 
         if(acpChart) acpChart.destroy();
+        var c2cXRange = readAxisRange('acpC2cXMin', 'acpC2cXMax', 0, undefined);
+        var c2cYRange = readAxisRange('acpC2cYMin', 'acpC2cYMax', 0, 20);
         acpChart = new Chart(document.getElementById('acpChart').getContext('2d'), {
             type: 'scatter',
-            data: { datasets: datasets },
+            data: { datasets: c2cDatasets },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                onClick: function(evt){
-                    var points = acpChart.getElementsAtEventForMode(evt, 'nearest', { intersect: false }, true);
-                    if(!points.length) return;
-                    var el = points[0];
-                    if(el.datasetIndex >= c2cDatasetCount) return; // clicked an SF (dashed) series — nothing to inspect there
-                    var ds = datasets[el.datasetIndex];
-                    var raw = ds.data[el.index];
-                    var refPt = refPts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.x) < Math.abs(best.md-raw.x)) ? p : best; }, null);
-                    var offInfo = offPtsByIdx[el.datasetIndex];
-                    var offPt = offInfo.pts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.offMd) < Math.abs(best.md-raw.offMd)) ? p : best; }, null);
-                    showDetailPanel(refName, refPt, offInfo.name, offPt, raw.y);
-                },
                 plugins: {
                     legend: { display: showLegend, labels: { color: '#c8d8e8' } },
                     tooltip: { callbacks: { label: function(ctx){
-                        if(ctx.dataset.yAxisID === 'y1'){
-                            return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, SF≈' + (isFinite(ctx.raw.y) ? ctx.raw.y.toFixed(2) : '∞');
-                        }
                         var offMdStr = (ctx.raw.offMd != null) ? (', at offset MD=' + ctx.raw.offMd.toFixed(0) + ' m') : '';
                         return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, C2C=' + ctx.raw.y.toFixed(2) + ' m' + offMdStr + ' (click to inspect)';
                     } } },
@@ -5378,12 +5488,43 @@ body.light-mode #statusTextbox {
                     }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
-                    y: { min: 0, max: 20, position: 'left', title: { display: true, text: 'C2C (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
-                    y1: { display: showSF, min: 0, max: 5, position: 'right', title: { display: true, text: 'SF (approx.)', color: '#5a7080' }, grid: { drawOnChartArea: false }, ticks: { color: '#c8d8e8' } }
+                    x: { min: c2cXRange.min, max: c2cXRange.max, title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
+                    y: { min: c2cYRange.min, max: c2cYRange.max, title: { display: true, text: 'C2C (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
                 }
             }
         });
+        // onClick set after creation (getElementsAtEventForMode needs the
+        // real chart instance, which isn't assigned yet while the
+        // constructor's own options object is being built).
+        acpChart.options.onClick = makeClickHandler(acpChart, c2cDatasets);
+
+        if(acpChartSF) acpChartSF.destroy();
+        var sfXRange = readAxisRange('acpSfXMin', 'acpSfXMax', 0, undefined);
+        var sfYRange = readAxisRange('acpSfYMin', 'acpSfYMax', 0, 2);
+        acpChartSF = new Chart(document.getElementById('acpChartSF').getContext('2d'), {
+            type: 'scatter',
+            data: { datasets: sfDatasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: showLegend, labels: { color: '#c8d8e8' } },
+                    tooltip: { callbacks: { label: function(ctx){
+                        var raw = isFinite(ctx.raw.sfRaw) ? ctx.raw.sfRaw.toFixed(2) : ('>' + SF_CAP);
+                        return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, SF≈' + raw + ' (click to inspect)';
+                    } } },
+                    zoom: {
+                        pan: { enabled: true, mode: 'xy' },
+                        zoom: { wheel: { enabled: true, speed: 0.08 }, pinch: { enabled: true }, mode: 'xy' }
+                    }
+                },
+                scales: {
+                    x: { min: sfXRange.min, max: sfXRange.max, title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
+                    y: { min: sfYRange.min, max: sfYRange.max, title: { display: true, text: 'SF', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
+                }
+            }
+        });
+        acpChartSF.options.onClick = makeClickHandler(acpChartSF, sfDatasets);
+
         // Diagnostic summary: where does the overall minimum fall? If it's
         // near MD=0 (surface/conductor) rather than in a lateral section,
         // that's the "global closest point isn't the parallel pair" case
@@ -5401,7 +5542,147 @@ body.light-mode #statusTextbox {
             ? (' Closest approach: ' + overallMin.c2c.toFixed(2) + ' m to ' + overallMin.well +
                ' (ref MD=' + overallMin.refMd.toFixed(0) + ' m, offset MD=' + (overallMin.offMd!=null?overallMin.offMd.toFixed(0):'—') + ' m). Click that point on the chart to see the raw survey rows.')
             : '';
-        statusEl.textContent = others.length + ' offset well' + (others.length===1?'':'s') + ' plotted against ' + refName + '.' + minStr;
+        var sfModelStr = ' SF: ' + usedRealModelCount + ' well(s) via real ISCWSA model' +
+            (missingMagCount ? ', ' + missingMagCount + ' via simplified fallback (no magnetics/survey inc-azim).' : '.');
+        statusEl.textContent = others.length + ' offset well' + (others.length===1?'':'s') + ' plotted against ' + refName + '.' + minStr + sfModelStr;
+    }
+
+    // Per-well surface magnetics (Total Field, Declination, Dip), computed
+    // once via the WMM2025 module from each well's surface (MD~0) station
+    // lat/long, cached here so the ISCWSA error-model calc (real SF) can
+    // reuse the same numbers rather than recomputing.
+    var WELL_MAGNETICS = {};
+    function computeWellMagnetics(well){
+        if(WELL_MAGNETICS[well.wellName]) return WELL_MAGNETICS[well.wellName];
+        if(typeof WMMModel === 'undefined' || !well.survey || !well.survey.length) return null;
+        var surf = well.survey.slice().sort(function(a,b){ return num(a.md)-num(b.md); })[0];
+        var lat = num(surf.latitude), lon = num(surf.longitude);
+        if(!lat && !lon) return null; // no usable location data for this well
+        var now = new Date();
+        var decimalYear = now.getFullYear() + (now - new Date(now.getFullYear(),0,1)) / (365.25*24*3600*1000);
+        var r = WMMModel.computeField(lat, lon, 0, decimalYear);
+        WELL_MAGNETICS[well.wellName] = r;
+        return r;
+    }
+    // Real ISCWSA toolcode data (public/data/iscwsaToolcodes.json), loaded
+    // once. MWD-only toolcodes are offered (GYRO-* excluded — iscwsaModel.js
+    // doesn't implement the gyro stationary/continuous-mode propagation).
+    var TOOLCODES = null;
+    var toolcodeSelect = document.getElementById('acpToolcode');
+    var DEFAULT_TOOLCODE = 'MWD+SRGM';
+    var SF_CAP = 20; // display ceiling for SF — see renderPlot's note on why raw Infinity breaks Chart.js
+    // TEMPORARY: offset wells don't yet have their own toolcode-selection
+    // UI (only the reference well does, via the dropdown), so every offset
+    // well is assumed to use this toolcode for now. Once a pad-level
+    // per-well toolcode picker exists, replace this with each offset
+    // well's own wellToolcode(w) the same way the reference well already
+    // works.
+    var OFFSET_TOOLCODE_DEFAULT = 'MWD+HRGM';
+
+    // Each well remembers its OWN toolcode (WellboreTrajectory.toolcode,
+    // persisted server-side — see saveWellToolcode below). Falls back to
+    // DEFAULT_TOOLCODE if the well has never had one explicitly set.
+    function wellToolcode(well){
+        return (well && well.toolcode) ? well.toolcode : DEFAULT_TOOLCODE;
+    }
+    // Keeps the Toolcode dropdown showing/editing the CURRENTLY SELECTED
+    // reference well's own toolcode (not a single global setting).
+    function syncToolcodeSelectToRefWell(){
+        if(!toolcodeSelect || !TOOLCODES) return;
+        var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
+        toolcodeSelect.value = wellToolcode(refWell);
+    }
+    // Persists the reference well's toolcode choice server-side and
+    // updates the in-memory copy so other charts referencing this well
+    // (as an offset well elsewhere) immediately see the new value too.
+    async function saveWellToolcode(well, toolcodeName){
+        well.toolcode = toolcodeName;
+        WELL_COVARIANCE = {}; // invalidate cache — this well's covariance is now stale
+        if(!well._id) return;
+        try {
+            await fetch('/notes/wellboreTrajectory/' + well._id + '/toolcode', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ toolcode: toolcodeName })
+            });
+        } catch(err){ console.error('[AC Plots] Failed to save toolcode for', well.wellName, err); }
+    }
+
+    function loadToolcodes(){
+        if(!toolcodeSelect || typeof ISCWSAModel === 'undefined') return Promise.resolve(null);
+        return fetch('/data/iscwsaToolcodes.json').then(function(r){ return r.json(); }).then(function(data){
+            TOOLCODES = data;
+            var names = Object.keys(data).filter(function(n){
+                return (n.indexOf('MWD') === 0 || n.indexOf('EMS') === 0 || n.indexOf('DIPMETER') === 0) && n.indexOf('GYRO') === -1;
+            }).sort();
+            toolcodeSelect.innerHTML = names.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('');
+            syncToolcodeSelectToRefWell();
+            return data;
+        }).catch(function(err){ console.error('[AC Plots] Failed to load ISCWSA toolcodes:', err); return null; });
+    }
+
+    // Per-well, per-toolcode ISCWSA covariance, computed once via
+    // ISCWSAModel.computeWellCovariance() using this well's own survey and
+    // its WMM-derived magnetics (Dip, Total Field, Declination — see
+    // WELL_MAGNETICS above). Returns null (falls back to the simplified
+    // model) if the toolcode data isn't loaded yet, the well lacks survey
+    // inc/azim data, or magnetics aren't available for this well.
+    var WELL_COVARIANCE = {};
+    function computeWellCov(well, toolcodeName){
+        if(!toolcodeName || !TOOLCODES || !TOOLCODES[toolcodeName]) return null;
+        var cacheKey = well.wellName + '::' + toolcodeName;
+        if(WELL_COVARIANCE[cacheKey] !== undefined) return WELL_COVARIANCE[cacheKey];
+        var mag = computeWellMagnetics(well);
+        if(!mag || !well.survey || !well.survey.length){ WELL_COVARIANCE[cacheKey] = null; return null; }
+        var survey = well.survey.slice().sort(function(a,b){ return num(a.md)-num(b.md); }).map(function(s){
+            return { md: num(s.md), inc: num(s.incl) * Math.PI/180, azT: num(s.azim) * Math.PI/180, tvd: num(s.tvd) };
+        });
+        var terms = TOOLCODES[toolcodeName];
+        var wellParams = {
+            dip: mag.inclination_deg * Math.PI/180,
+            bField: mag.totalIntensity_nT,
+            declination: mag.declination_deg * Math.PI/180,
+            gField: 9.80665
+        };
+        var result;
+        try {
+            result = ISCWSAModel.computeWellCovariance(survey, terms, wellParams);
+            result.forEach(function(st){ st._terms = terms; });
+        } catch(err){
+            console.error('[AC Plots] ISCWSA covariance failed for', well.wellName, err);
+            result = null;
+        }
+        WELL_COVARIANCE[cacheKey] = result;
+        return result;
+    }
+
+    function renderMagCards(){
+        var cardsEl = document.getElementById('acpMagCards');
+        if(!cardsEl) return;
+        cardsEl.innerHTML = '';
+        if(typeof WMMModel === 'undefined'){
+            cardsEl.innerHTML = '<div style="font-size:10px;color:#5a7080;">WMM module not loaded — magnetics unavailable.</div>';
+            return;
+        }
+        var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
+        var m = refWell ? computeWellMagnetics(refWell) : null;
+        var metrics = [
+            ['Total Field (B)', m ? m.totalIntensity_nT.toFixed(0) + ' nT' : '—'],
+            ['Dip', m ? m.inclination_deg.toFixed(1) + '\u00B0' : '—'],
+            ['Declination', m ? m.declination_deg.toFixed(1) + '\u00B0' : '—']
+        ];
+        metrics.forEach(function(pair){
+            var card = document.createElement('div');
+            card.style.cssText = 'background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:6px 10px;';
+            card.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">' + pair[0] + '</div>' +
+                '<div style="font-size:16px;font-family:monospace;color:#e8f4ff;">' + pair[1] + '</div>';
+            cardsEl.appendChild(card);
+        });
+        if(refWell && !m){
+            var warnCard = document.createElement('div');
+            warnCard.style.cssText = 'grid-column:1/-1;font-size:10px;color:#5a7080;padding:4px 2px;';
+            warnCard.textContent = 'No surface lat/long for ' + refWell.wellName + ' — magnetics unavailable for this well.';
+            cardsEl.appendChild(warnCard);
+        }
     }
 
     function init(){
@@ -5411,7 +5692,7 @@ body.light-mode #statusTextbox {
             return;
         }
         emptyEl.style.display = 'none';
-        chartWrap.style.display = 'block';
+        chartWrap.style.display = 'flex';
         refSelect.innerHTML = '';
         WELLS.forEach(function(w){
             var opt = document.createElement('option');
@@ -5420,10 +5701,19 @@ body.light-mode #statusTextbox {
         });
         refSelect.addEventListener('change', renderPlot);
         var resetBtn = document.getElementById('acpResetZoomBtn');
-        if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); });
+        if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); if(acpChartSF) acpChartSF.resetZoom(); });
         document.getElementById('acpShowLegend').addEventListener('change', renderPlot);
-        document.getElementById('acpShowSF').addEventListener('change', renderPlot);
+        ['acpC2cXMin','acpC2cXMax','acpC2cYMin','acpC2cYMax','acpSfXMin','acpSfXMax','acpSfYMin','acpSfYMax'].forEach(function(id){
+            var el = document.getElementById(id);
+            if(el) el.addEventListener('change', renderPlot);
+        });
+        if(toolcodeSelect) toolcodeSelect.addEventListener('change', function(){
+            var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
+            if(refWell) saveWellToolcode(refWell, toolcodeSelect.value);
+            renderPlot();
+        });
         renderPlot();
+        loadToolcodes().then(function(){ renderPlot(); }); // re-render once real toolcode list/data is in (async)
     }
 
     let acpInitDone = false;

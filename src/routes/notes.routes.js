@@ -56,6 +56,8 @@ const {
     renderUploadTorqueAndDrag,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
+    setWellboreTrajectoryToolcode,
+    setWellboreTrajectoryPadToolcode,
     deleteAllWellboreTrajectories,
     deleteWellboreTrajectoryPad,
     deleteWellboreTrajectoryGroup,
@@ -210,6 +212,8 @@ router.delete('/notes/wellboreTrajectory/all/:noteId', isAuthenticated, deleteAl
 router.delete('/notes/wellboreTrajectory/pad/:noteId/:pad', isAuthenticated, deleteWellboreTrajectoryPad);
 router.delete('/notes/wellboreTrajectory/group/:noteId/:pad/:source', isAuthenticated, deleteWellboreTrajectoryGroup);
 router.delete('/notes/wellboreTrajectory/:id', isAuthenticated, deleteWellboreTrajectory);
+router.post('/notes/wellboreTrajectory/:id/toolcode', isAuthenticated, setWellboreTrajectoryToolcode);
+router.post('/notes/wellboreTrajectory/pad/:noteId/:pad/toolcode', isAuthenticated, setWellboreTrajectoryPadToolcode);
 router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTrajectories);
 
 //FracPlane CRUD (sub-documents inside WellboreTrajectory)

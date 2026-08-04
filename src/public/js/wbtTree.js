@@ -94,6 +94,44 @@
                 padSummary.appendChild(padCb);
                 padSummary.appendChild(padLabel);
 
+                // Bulk-set the ISCWSA toolcode (Anti-collision Plots
+                // accordion) for every well in this pad at once — the
+                // primary way to set toolcodes in practice, since a whole
+                // pad is normally drilled with the same MWD/BHA program.
+                // Editable context only (edit-note.ejs); job.ejs's
+                // read-only viewer never passes toolcodeNames.
+                if (options.allowDelete && options.toolcodeNames && options.toolcodeNames.length) {
+                    const padTcSelect = document.createElement('select');
+                    padTcSelect.className = 'form-select form-select-sm';
+                    padTcSelect.style.cssText = 'width:auto;max-width:180px;font-size:9px;padding:1px 20px 1px 6px;';
+                    padTcSelect.title = 'Set toolcode for all ' + padWells.length + ' wells in this pad';
+                    padTcSelect.innerHTML = '<option value="">Set pad toolcode…</option>' +
+                        options.toolcodeNames.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+                    padTcSelect.addEventListener('click', e => e.stopPropagation());
+                    padTcSelect.addEventListener('change', async () => {
+                        const tc = padTcSelect.value;
+                        if (!tc) return;
+                        if (!confirm('Set toolcode "' + tc + '" for all ' + padWells.length + ' wells in pad "' + padName + '"?')) {
+                            padTcSelect.value = '';
+                            return;
+                        }
+                        try {
+                            const res = await fetch('/notes/wellboreTrajectory/pad/' + options.noteId + '/' + encodeURIComponent(padName) + '/toolcode', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ toolcode: tc })
+                            });
+                            if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+                            padWells.forEach(w => { w.toolcode = tc; });
+                            if (options.onChanged) options.onChanged();
+                        } catch (err) {
+                            alert('Error setting pad toolcode: ' + err.message);
+                        } finally {
+                            padTcSelect.value = '';
+                        }
+                    });
+                    padSummary.appendChild(padTcSelect);
+                }
+
                 if (options.allowDelete) {
                     const delPadBtn = document.createElement('button');
                     delPadBtn.type = 'button';
@@ -188,6 +226,35 @@
                         row.appendChild(cb);
                         row.appendChild(sw);
                         row.appendChild(nameSpan);
+
+                        // Per-well toolcode override — the exception path;
+                        // the pad-level control above is the normal way to
+                        // set this. Defaults to MWD+HRGM if never set.
+                        if (options.allowDelete && options.toolcodeNames && options.toolcodeNames.length) {
+                            const wellTcSelect = document.createElement('select');
+                            wellTcSelect.className = 'form-select form-select-sm';
+                            wellTcSelect.style.cssText = 'width:auto;max-width:150px;font-size:9px;padding:1px 20px 1px 6px;';
+                            wellTcSelect.title = 'ISCWSA toolcode for this well (Anti-collision Plots)';
+                            wellTcSelect.innerHTML = options.toolcodeNames.map(n =>
+                                '<option value="' + n + '"' + ((w.toolcode || 'MWD+HRGM') === n ? ' selected' : '') + '>' + n + '</option>'
+                            ).join('');
+                            wellTcSelect.addEventListener('click', e => e.stopPropagation());
+                            wellTcSelect.addEventListener('change', async (e) => {
+                                e.stopPropagation();
+                                const tc = wellTcSelect.value;
+                                try {
+                                    const res = await fetch('/notes/wellboreTrajectory/' + w._id + '/toolcode', {
+                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ toolcode: tc })
+                                    });
+                                    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+                                    w.toolcode = tc;
+                                } catch (err) {
+                                    alert('Error setting toolcode for "' + w.wellName + '": ' + err.message);
+                                }
+                            });
+                            row.appendChild(wellTcSelect);
+                        }
 
                         if (options.allowDelete) {
                             const delBtn = document.createElement('button');

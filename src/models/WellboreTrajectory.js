@@ -77,6 +77,11 @@ const WellboreTrajectorySchema = new Schema(
     wellCategory: { type: String, enum: ['subject', 'offset', ''], default: '' },
     pad:          { type: String, default: "" },
     colorHex:     { type: String, default: "" },
+    // Selected ISCWSA MWD Rev5 toolcode for this well's Separation Factor
+    // calculation in the Anti-collision Plots accordion (public/js/
+    // iscwsaModel.js + public/data/iscwsaToolcodes.json). Empty string
+    // means "use the default" (MWD+SRGM) rather than an explicit choice.
+    toolcode:     { type: String, default: "" },
     surveyCount:  { type: Number, default: 0 },
     survey:       [SurveyPointSchema],
     fracPlanes:   [FracPlaneSchema],

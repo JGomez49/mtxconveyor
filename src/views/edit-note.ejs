@@ -663,6 +663,12 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                 <label>Version Label (optional)</label>
                                 <input type="text" id="wbtVersionLabel" placeholder="e.g. v1, Rev A">
                             </div>
+                            <div class="wbt-field" style="flex:0 0 auto; min-width:170px;">
+                                <label>Default Toolcode (optional)</label>
+                                <select id="wbtDefaultToolcode" class="form-select form-select-sm">
+                                    <option value="">MWD+HRGM (default)</option>
+                                </select>
+                            </div>
                             <div class="wbt-field" style="flex:0 0 auto; min-width:140px;">
                                 <label>&nbsp;</label>
                                 <button type="button" class="wbt-btn wbt-btn-save" id="wbtSaveBtn" disabled>Save to Database</button>
@@ -2135,10 +2141,11 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
             try{
                 const selectedCategory = (document.querySelector('input[name="wbtWellCategory"]:checked') || {}).value || 'subject';
+                const defaultToolcode = document.getElementById('wbtDefaultToolcode').value;
                 const res = await fetch('/notes/wellboreTrajectory/upload/' + NOTE_ID, {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: docs, wellCategory: selectedCategory })
+                    body: JSON.stringify({ data: docs, wellCategory: selectedCategory, toolcode: defaultToolcode })
                 });
                 const result = await res.json();
                 if(res.ok){
@@ -2159,16 +2166,47 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
         // Renders the DB-saved trajectories as a Category > Pad > Version
         // tree (wbtTree.js) instead of a flat per-well list, so an entire
         // pad or a single upload version can be deleted in one action.
+
+        // ISCWSA MWD Rev5 toolcode names (Anti-collision Plots accordion),
+        // loaded once and cached — used by wbtTree.js's pad-level and
+        // per-well toolcode dropdowns, and by the upload panel's default
+        // toolcode selector below. MWD-only (GYRO-* excluded, same as the
+        // AC Plots accordion — the gyro propagation model isn't implemented).
+        let wbtToolcodeNames = null;
+        async function loadWbtToolcodeNames(){
+            if(wbtToolcodeNames) return wbtToolcodeNames;
+            try{
+                const res = await fetch('/data/iscwsaToolcodes.json');
+                const data = await res.json();
+                wbtToolcodeNames = Object.keys(data).filter(n =>
+                    (n.indexOf('MWD') === 0 || n.indexOf('EMS') === 0 || n.indexOf('DIPMETER') === 0) && n.indexOf('GYRO') === -1
+                ).sort();
+            } catch(err){
+                console.error('Failed to load ISCWSA toolcodes:', err);
+                wbtToolcodeNames = [];
+            }
+            const defaultTcSelect = document.getElementById('wbtDefaultToolcode');
+            if(defaultTcSelect && wbtToolcodeNames.length){
+                defaultTcSelect.innerHTML = '<option value="">MWD+HRGM (default)</option>' +
+                    wbtToolcodeNames.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+            }
+            return wbtToolcodeNames;
+        }
+
         async function refreshSavedList(){
             const container = document.getElementById('wbtSavedList');
             try{
-                const res = await fetch('/notes/wellboreTrajectory/list/' + NOTE_ID);
-                const result = await res.json();
-                if(!res.ok) return;
+                const [listRes, toolcodeNames] = await Promise.all([
+                    fetch('/notes/wellboreTrajectory/list/' + NOTE_ID),
+                    loadWbtToolcodeNames()
+                ]);
+                const result = await listRes.json();
+                if(!listRes.ok) return;
 
                 window.wbtBuildTree(container, result.trajectories || [], {
                     noteId: NOTE_ID,
                     allowDelete: true,
+                    toolcodeNames: toolcodeNames,
                     onChanged: () => { refreshSavedList(); wbtFPLoadSaved(); }
                 });
             } catch(err){

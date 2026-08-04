@@ -1570,7 +1570,7 @@ module.exports = notesCrtl;
 notesCrtl.uploadWellboreTrajectory = async (req, res) => {
   try{
     const noteId = req.params.id;
-    const { data, wellCategory } = req.body;
+    const { data, wellCategory, toolcode } = req.body;
 
     if(!noteId){
       return res.status(400).json({ error: "Missing note id" });
@@ -1588,6 +1588,12 @@ notesCrtl.uploadWellboreTrajectory = async (req, res) => {
     // to the folder picker — applies to the whole batch being uploaded,
     // unless an individual well object explicitly overrides it.
     const batchCategory = (wellCategory === 'subject' || wellCategory === 'offset') ? wellCategory : '';
+    // Default ISCWSA toolcode for this upload batch (Anti-collision Plots
+    // accordion). Applied via $setOnInsert below — only takes effect for
+    // brand-new wells, never overwrites a toolcode someone already set
+    // individually via the tree UI or the AC Plots dropdown when
+    // re-uploading updated survey data for an existing well.
+    const batchToolcode = (typeof toolcode === 'string') ? toolcode : '';
 
     const docs = data.map(well => ({
       noteId: noteId,
@@ -1606,7 +1612,7 @@ notesCrtl.uploadWellboreTrajectory = async (req, res) => {
     const ops = docs.map(doc => ({
       updateOne: {
         filter: { noteId: doc.noteId, wellName: doc.wellName, source: doc.source },
-        update: { $set: doc },
+        update: { $set: doc, $setOnInsert: { toolcode: batchToolcode } },
         upsert: true,
       }
     }));
@@ -1631,6 +1637,47 @@ notesCrtl.deleteWellboreTrajectory = async (req, res) => {
       return res.status(404).json({ error: "Trajectory not found" });
     }
     res.json({ success: true });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST /notes/wellboreTrajectory/:id/toolcode — persist the ISCWSA MWD
+// Rev5 toolcode selected for this well in the Anti-collision Plots
+// accordion, so it's remembered next time this job's trajectories load.
+notesCrtl.setWellboreTrajectoryToolcode = async (req, res) => {
+  try{
+    const trajectoryId = req.params.id;
+    const { toolcode } = req.body;
+    const updated = await WellboreTrajectory.findByIdAndUpdate(
+      trajectoryId, { toolcode: toolcode || '' }, { new: true }
+    ).select('wellName toolcode');
+    if(!updated){
+      return res.status(404).json({ error: "Trajectory not found" });
+    }
+    res.json({ success: true, wellName: updated.wellName, toolcode: updated.toolcode });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST /notes/wellboreTrajectory/pad/:noteId/:pad/toolcode — bulk-apply an
+// ISCWSA toolcode to every well in one pad at once (mirrors the pad-scoped
+// delete route). This is the primary way to set toolcodes in practice,
+// since a whole pad is normally drilled with the same MWD/BHA program;
+// setWellboreTrajectoryToolcode above remains available for one-off
+// per-well overrides.
+notesCrtl.setWellboreTrajectoryPadToolcode = async (req, res) => {
+  try{
+    const { noteId, pad } = req.params;
+    const { toolcode } = req.body;
+    const result = await WellboreTrajectory.updateMany(
+      { noteId, pad },
+      { $set: { toolcode: toolcode || '' } }
+    );
+    res.json({ success: true, matched: result.matchedCount, modified: result.modifiedCount });
   } catch(error){
     console.error(error);
     res.status(500).json({ error: error.message });
