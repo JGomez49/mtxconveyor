@@ -474,11 +474,36 @@
       return { rating: rating, load: load, requiredDF: requiredDF, achievedDF: achieved, pass: achieved >= requiredDF };
     }
 
+    // ---- Tension rating: min(pipe body yield, connection rating) --------
+    // A connection is frequently weaker than the pipe body, and the source
+    // doc's own worked design (Ref [2] Sec. 7.4.3 / Example) compares BOTH
+    // joint strength and pipe-body strength against the tension load,
+    // taking whichever governs. Resolution order:
+    //   1. str.connectionRating_kN — explicit supplier datasheet value
+    //      (the only trustworthy source for premium/MTM connections)
+    //   2. Ref [2] Eq. 7.23 calculated round-thread joint strength, but
+    //      ONLY when str.connectionThreadType === 'roundThread' (the
+    //      correlation's stated scope) — see casingModel.js for its limits
+    //   3. Otherwise pipe body yield alone (previous behavior — no silent
+    //      change for strings that don't specify a connection)
+    var connectionRating_N = null, connectionBasis = 'pipe body yield (no connection rating supplied)';
+    if (str.connectionRating_kN != null && !isNaN(str.connectionRating_kN)) {
+      connectionRating_N = str.connectionRating_kN * 1000;
+      connectionBasis = 'supplier datasheet';
+    } else if (str.connectionThreadType === 'roundThread') {
+      var jt = CasingModel.roundThreadJointStrength_N(od_m, id_m, str.grade, str.jointDLS_deg30m || 0, str.ultimateStrength_Pa);
+      if (jt) { connectionRating_N = jt.strength_N; connectionBasis = 'Bourgoyne Eq. ' + jt.branch + ' (API round thread, calculated)'; }
+      else { connectionBasis = 'pipe body yield (no published ultimate strength for grade "' + str.grade + '")'; }
+    }
+    var tensionRating_N = (connectionRating_N != null) ? Math.min(bodyYield_N, connectionRating_N) : bodyYield_N;
+
     return {
       burst: factorResult(burstRating_Pa, burstLoad_Pa, loads.burst.designFactor),
       collapse: Object.assign(factorResult(collapse.pressure_Pa, collapseLoad_Pa, loads.collapse.designFactor),
         { regime: collapse.regime, effectiveYp_Pa: collapse.effectiveYp_Pa }),
-      tension: factorResult(bodyYield_N, loads.tension.load_N, loads.tension.designFactor)
+      tension: Object.assign(factorResult(tensionRating_N, loads.tension.load_N, loads.tension.designFactor),
+        { bodyYield_N: bodyYield_N, connectionRating_N: connectionRating_N, connectionBasis: connectionBasis,
+          governedBy: (connectionRating_N != null && connectionRating_N < bodyYield_N) ? 'connection' : 'pipe body' })
     };
   }
 
@@ -510,14 +535,44 @@
     return { wornId_mm: wornId_m * 1000, wallWearFraction: wallWearFraction, check: check };
   }
 
-  // Determines, per load type (burst/collapse/tension), which method
-  // governs — per the source doc: "Where the simple method does not meet
-  // the design factor, the alternate load must be evaluated," extended with
-  // Engineered as the next fallback (Engineered is intermediate/production
-  // only — see engineeredLoads()). Each tier is only consulted if the prior
-  // tier failed or wasn't evaluated (missing inputs); the first passing tier
-  // governs. If all evaluated tiers fail, that's a genuine design problem
-  // the doc says needs escalation beyond what any of these methods offer.
+  // ---- Overpull check (Section 2, "Other Loads for Consideration") -------
+  // Source doc, verbatim intent: "Casing design should include an overpull
+  // load using the design factor and expected buoyed tension of the tensile
+  // loads listed in the table, plus an overpull of 50 kdaN."
+  //
+  // So the required capacity is:  DF * buoyedTension + overpull
+  // (the DF applies to the tension load only, NOT to the overpull term —
+  // the overpull is an additive allowance on top of the factored load).
+  // Compared against the same governing tension rating designCheck uses
+  // (min of pipe body yield and connection rating).
+  //
+  // The doc also notes: "Designs with less than 50 kdaN or where drag may
+  // prevent pulling casing out of hole, should have this indicated in the
+  // drilling program" — so a FAIL here is a flag to document, not
+  // necessarily a redesign trigger. overpull_kdaN is caller-overridable
+  // for that reason; 1 kdaN = 10 kN.
+  function overpullCheck(str, loads, tensionCheck, overpull_kdaN) {
+    var overpull_N = (overpull_kdaN != null ? overpull_kdaN : 50) * 10000; // kdaN -> N
+    var buoyedTension_N = loads.tension.load_N;
+    var required_N = loads.tension.designFactor * buoyedTension_N + overpull_N;
+    var rating_N = tensionCheck.rating;
+    return {
+      rating: rating_N,
+      required_N: required_N,
+      buoyedTension_N: buoyedTension_N,
+      overpull_N: overpull_N,
+      designFactor: loads.tension.designFactor,
+      margin_N: rating_N - required_N,
+      // Available overpull at the rated capacity, i.e. how much pull is
+      // actually left after the factored tension load — the number to put
+      // in the drilling program when it falls short of 50 kdaN.
+      availableOverpull_kdaN: (rating_N - loads.tension.designFactor * buoyedTension_N) / 10000,
+      pass: rating_N >= required_N,
+      governedBy: tensionCheck.governedBy,
+      connectionBasis: tensionCheck.connectionBasis
+    };
+  }
+
   function governingStatus(checks) {
     // checks: [{ name, check, error }] in priority order (simple, alternative, engineered)
     function one(key) {
@@ -555,6 +610,14 @@
     var byString = {};
     (casingStrings || []).forEach(function (str) {
       var p = (loadParamsByName && loadParamsByName[str.name]) || {};
+
+      // The connection-rating inputs are collected in the same per-string
+      // load-params panel as everything else, but designCheck() reads them
+      // off the string record (they're pipe properties, not load
+      // conditions). Copy them across here rather than splitting the UI.
+      if(p.connectionRating_kN != null && p.connectionThreadType === 'datasheet') str.connectionRating_kN = p.connectionRating_kN;
+      if(p.connectionThreadType === 'roundThread') str.connectionThreadType = 'roundThread';
+      if(p.jointDLS_deg30m != null) str.jointDLS_deg30m = p.jointDLS_deg30m;
 
       var simple = simpleLoads(str.stringType, str, p);
       var simpleCheck = designCheck(str, simple);
@@ -632,6 +695,16 @@
         }
       }
 
+      // Overpull check, evaluated against whichever tension method
+      // actually governs (so it uses the buoyed tension where Alternative/
+      // Engineered won, not the unbuoyed Simple value).
+      var govTensionBy = governing.tension.governedBy;
+      var govTensionSrc = govTensionBy === 'engineered' ? eng : (govTensionBy === 'alternative' ? alt : simple);
+      var govTensionCheck = govTensionBy === 'engineered' ? engCheck : (govTensionBy === 'alternative' ? altCheck : simpleCheck);
+      var overpull = (govTensionSrc && govTensionCheck)
+        ? overpullCheck(str, govTensionSrc, govTensionCheck.tension, p.overpull_kdaN)
+        : null;
+
       byString[str.name] = {
         string: str,
         simple: { loads: simple, check: simpleCheck },
@@ -641,6 +714,7 @@
         engineeredError: engError,
         governing: governing,
         parentCheck: parentCheck,
+        overpull: overpull,
         triaxial: { envelope: envelope, points: points }
       };
     });
@@ -653,6 +727,7 @@
     engineeredLoads: engineeredLoads,
     designCheck: designCheck,
     linerParentCheck: linerParentCheck,
+    overpullCheck: overpullCheck,
     computeCasingDesign: computeCasingDesign
   };
 }));

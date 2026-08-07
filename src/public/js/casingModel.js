@@ -116,6 +116,54 @@
     return MYS_psi * crossSectionArea_in2(od_in, id_in);
   }
 
+  // ---- Ref [2] Eq. 7.23a/7.23b — API ROUND-THREAD joint strength ----------
+  // Tensional joint strength of an API round-thread coupling under combined
+  // tension and bending. Two branches, selected per the source: if the
+  // resulting stress (Fcr/Ajp) is >= minimum yield, Eq. 7.23a governs;
+  // otherwise Eq. 7.23b applies (pull-out controlled).
+  //
+  //   Ajp = pi/4 [ (dn - 0.1425)^2 - (dn - 2t)^2 ]      (area under last perfect thread)
+  //   7.23a: Fcr = 0.95 Ajp { s_ult - [ 140.5 a dn / (s_ult - s_yield)^0.8 ]^5 }
+  //   7.23b: Fcr = 0.95 Ajp ( (s_ult - s_yield)/0.644 + s_yield - 218.15 a dn )
+  //
+  // where a = dogleg severity in deg/100ft, dn = nominal OD (in),
+  // t = wall thickness (in), stresses in psi. Validated against the source's
+  // own Example 7.6 (7.625 in, 39 lb/ft, N-80, 4 deg/100ft): reproduces
+  // Ajp = 9.501 sq in, Fcr/Ajp = 94,991 psi, Fcr = 902,500 lbf exactly.
+  //
+  // IMPORTANT SCOPE LIMITS (stated in the source itself):
+  //  - API ROUND THREAD ONLY. Does not apply to buttress, premium, or
+  //    metal-to-metal-seal connections — use the supplier's published
+  //    joint rating for those instead.
+  //  - The correlations were developed from tests on 5.5-in, 17-lbf/ft,
+  //    K-55 casing with short round-thread couplings; extrapolation beyond
+  //    that carries real uncertainty.
+  //  - Returns the CALCULATED joint strength only. The source's own
+  //    Example 7.6 notes the published table value can be LOWER (pull-out
+  //    controlled), in which case the table value governs — so treat this
+  //    as an upper estimate unless cross-checked against a datasheet.
+  //
+  // ultimateStrength_psi: minimum ultimate tensile strength for the grade
+  // (NOT the yield strength — e.g. 100,000 psi for N-80 per the source's
+  // Table 7.1). dls_deg100ft: dogleg severity at the joint (0 for straight).
+  function roundThreadJointStrength_lbf(od_in, id_in, MYS_psi, ultimateStrength_psi, dls_deg100ft) {
+    var a = dls_deg100ft || 0;
+    var t = wallThickness_in(od_in, id_in);
+    var Ajp = Math.PI / 4 * (Math.pow(od_in - 0.1425, 2) - Math.pow(od_in - 2 * t, 2));
+    var stressA;
+    if (ultimateStrength_psi > MYS_psi) {
+      var inner = 140.5 * a * od_in / Math.pow(ultimateStrength_psi - MYS_psi, 0.8);
+      stressA = 0.95 * (ultimateStrength_psi - Math.pow(inner, 5));
+    } else {
+      stressA = 0.95 * ultimateStrength_psi; // degenerate (ult == yield); 7.23a's bending term undefined
+    }
+    if (stressA >= MYS_psi) {
+      return { strength_lbf: Ajp * stressA, Ajp_in2: Ajp, stress_psi: stressA, branch: '7.23a' };
+    }
+    var stressB = 0.95 * ((ultimateStrength_psi - MYS_psi) / 0.644 + MYS_psi - 218.15 * a * od_in);
+    return { strength_lbf: Ajp * stressB, Ajp_in2: Ajp, stress_psi: stressB, branch: '7.23b' };
+  }
+
   // ---- Ref [2] Eq. 7.2 — API internal yield (burst) pressure --------------
   // Barlow equation with API's 0.875 minimum-wall-thickness manufacturing
   // tolerance factor: Pb = 0.875 * 2*MYS*t/OD
@@ -342,6 +390,35 @@
     return lbf * LBF2N;
   }
 
+  // Minimum ULTIMATE tensile strength by grade (psi) — needed by Eq. 7.23,
+  // which uses ultimate (not yield) strength. Published API 5CT values,
+  // consistent with Ref [2]'s Table 7.1 (e.g. N-80 -> 100,000 psi).
+  var GRADE_ULTIMATE_PSI = {
+    'H40': 60000, 'J55': 75000, 'K55': 95000, 'M65': 85000,
+    'N80': 100000, 'L80': 95000, 'C90': 100000, 'C95': 105000, 'T95': 105000,
+    'C110': 120000, 'P110': 125000, 'Q125': 135000
+  };
+  function resolveUltimate_psi(gradeOrPsi) {
+    if (typeof gradeOrPsi === 'number') return gradeOrPsi;
+    var key = String(gradeOrPsi).toUpperCase().replace(/[\s-]/g, '');
+    return GRADE_ULTIMATE_PSI[key] != null ? GRADE_ULTIMATE_PSI[key] : null;
+  }
+
+  // SI wrapper for Eq. 7.23 round-thread joint strength. Returns null if
+  // the grade has no published ultimate strength in the table above and
+  // none was supplied — rather than guessing one (see the field-unit
+  // function's header for the correlation's scope limits).
+  // dls_deg30m: dogleg severity in deg/30m (Conveyor's usual convention),
+  // converted internally to the deg/100ft the correlation expects.
+  function roundThreadJointStrength_N(od_m, id_m, gradeOrMYS_Pa, dls_deg30m, ultimate_Pa) {
+    var MYS_psi = typeof gradeOrMYS_Pa === 'number' ? gradeOrMYS_Pa * PA2PSI : resolveMYS_psi(gradeOrMYS_Pa);
+    var ult_psi = ultimate_Pa != null ? ultimate_Pa * PA2PSI : resolveUltimate_psi(gradeOrMYS_Pa);
+    if (ult_psi == null) return null;
+    var dls_deg100ft = (dls_deg30m || 0) * ((100 * 0.3048) / 30);
+    var out = roundThreadJointStrength_lbf(od_m * M2IN, id_m * M2IN, MYS_psi, ult_psi, dls_deg100ft);
+    return { strength_N: out.strength_lbf * LBF2N, branch: out.branch, stress_Pa: out.stress_psi * PSI2PA };
+  }
+
   function burstPressure_Pa(od_m, id_m, gradeOrMYS_Pa) {
     var MYS_psi = typeof gradeOrMYS_Pa === 'number' ? gradeOrMYS_Pa * PA2PSI : resolveMYS_psi(gradeOrMYS_Pa);
     var psi = burstPressure_psi(od_m * M2IN, id_m * M2IN, MYS_psi);
@@ -416,6 +493,10 @@
     crossSectionArea_in2: crossSectionArea_in2,
     momentOfInertia_in4: momentOfInertia_in4,
     bodyYieldTension_lbf: bodyYieldTension_lbf,
+    roundThreadJointStrength_lbf: roundThreadJointStrength_lbf,
+    roundThreadJointStrength_N: roundThreadJointStrength_N,
+    GRADE_ULTIMATE_PSI: GRADE_ULTIMATE_PSI,
+    resolveUltimate_psi: resolveUltimate_psi,
     burstPressure_psi: burstPressure_psi,
     collapseFactors: collapseFactors,
     ellipseOfPlasticity: ellipseOfPlasticity,

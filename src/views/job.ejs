@@ -336,502 +336,20 @@ body.light-mode #statusTextbox {
                     <% } %>
                 </div>
 
-                <!-- ================= PAD AC ================= -->
-                <div class="accordion mb-2" id="accordionPadAC">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapsePadAC">
-                                🛡 PAD AC
-                            </button>
-                        </h2>
-                        <div id="collapsePadAC" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-
-                                <!-- ── Controls (edit roles only) ── -->
-                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                <div class="card bg-secondary border-0 mb-2 p-2">
-
-                                    <!-- Row 1: file + thresholds + parse + save -->
-                                    <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
-                                        <div>
-                                            <label class="form-label mb-1" style="font-size:11px;">Report files (folder or multiple files)</label>
-                                            <input id="padACFileInput" type="file"
-                                                   class="form-control form-control-sm"
-                                                   accept=".xls,.xlsx,.csv"
-                                                   webkitdirectory directory multiple>
-                                        </div>
-                                        <div>
-                                            <label class="form-label mb-1" style="font-size:11px;">C2C threshold (m)</label>
-                                            <input id="padACThC2C" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="15">
-                                        </div>
-                                        <div>
-                                            <label class="form-label mb-1" style="font-size:11px;">SF threshold</label>
-                                            <input id="padACThSF" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="1.25">
-                                        </div>
-                                        <button id="padACParseBtn" class="btn btn-sm btn-success align-self-end">
-                                            ⚙ Parse
-                                        </button>
-                                        <button id="padACSaveBtn" class="btn btn-sm btn-primary align-self-end" disabled>
-                                            💾 Save to Job
-                                        </button>
-                                    </div>
-                                    <div style="font-size:10px;color:#aaa;">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
-
-                                    <!-- Row 2: all filters + column toggles (one row, all roles see the col toggles below) -->
-                                    <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:11px;">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="padACfRefMD" checked>
-                                            <label class="form-check-label" for="padACfRefMD">Hide: Ref.MD &lt; 100</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="padACfE2E" checked>
-                                            <label class="form-check-label" for="padACfE2E">E2E empty</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="padACfProb">
-                                            <label class="form-check-label" for="padACfProb">Prob &lt; 1 in 1E+9</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="padACfDup" checked>
-                                            <label class="form-check-label" for="padACfDup">Hide duplicates</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="padACfAND">
-                                            <label class="form-check-label" for="padACfAND">Show only: C2C&lt;15 AND SF&lt;1</label>
-                                        </div>
-                                    </div>
-
-                                    <!-- Row 3: exports + delete + reset + status -->
-                                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                                        <button id="padACCsvBtn" class="btn btn-outline-light btn-sm" disabled>⬇ CSV</button>
-                                        <button id="padACXlsxBtn" class="btn btn-outline-light btn-sm" disabled>⬇ Excel</button>
-                                        <button id="padACSelectSiteBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows sharing the same site as currently checked rows">🎯 Select Same Site</button>
-                                        <button id="padACLateralBtn" class="btn btn-outline-info btn-sm" disabled title="Select rows where Ref. Well inclination at Ref. MD is > 88°">📐 All in Lateral</button>
-                                        <button id="padACDupMDBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows with a duplicated Ref. MD value">🔁 Same Ref.MD</button>
-                                        <button id="padACDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>🗑 Delete Selected</button>
-                                        <button id="padACResetBtn" class="btn btn-outline-warning btn-sm">↺ Reset</button>
-                                        <span id="padACStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;margin-left:8px;"></span>
-                                    </div>
-                                </div>
-                                <% } %>
-
-                                <!-- ── Column visibility + download (all roles) ── -->
-                                <div class="d-flex flex-wrap gap-3 mb-2 align-items-center" style="font-size:11px;">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfSemi" checked>
-                                        <label class="form-check-label" for="padACfSemi">Semi Majors</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfW2W" checked>
-                                        <label class="form-check-label" for="padACfW2W">W2W</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfE2Ecol" checked>
-                                        <label class="form-check-label" for="padACfE2Ecol">E2E</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfMinSep" checked>
-                                        <label class="form-check-label" for="padACfMinSep">Min.Sep.</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfProbPct" checked>
-                                        <label class="form-check-label" for="padACfProbPct">Prob.%</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="padACfWarn" checked>
-                                        <label class="form-check-label" for="padACfWarn">Warning</label>
-                                    </div>
-                                    <button id="padACDownloadBtn" class="btn btn-sm btn-outline-info ms-2" disabled
-                                            title="Download the table as shown (with colours)">
-                                        ⬇ Download Table
-                                    </button>
-                                </div>
-
-                                <!-- Subject badges hidden -->
-                                <div id="padACBadges" style="display:none;"></div>
-
-                                <!-- Table -->
-                                <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
-                                    <table id="padACTable"
-                                           class="table table-dark table-hover table-bordered table-sm mb-0"
-                                           style="font-size:11px;">
-                                        <thead id="padACThead"></thead>
-                                        <tbody id="padACTbody"></tbody>
-                                    </table>
-                                </div>
-                                <div id="padACCount" style="font-size:10px;color:#aaa;margin-top:4px;"></div>
-                                <div id="padACEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;">No PAD AC data saved for this job yet.</div>
-
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================= ANTI-COLLISION PLOTS ================= -->
-                <div class="accordion mb-2" id="accordionAcPlots">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseAcPlots"
-                                    aria-expanded="true">
-                                📉 Anti-collision Plots
-                            </button>
-                        </h2>
-                        <div id="collapseAcPlots" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Reference Well:</label>
-                                    <select id="acpRefSelect" class="form-select form-select-sm" style="max-width:280px;"></select>
-                                    <button id="acpResetZoomBtn" class="btn btn-sm btn-outline-info">⤢ Reset Zoom</button>
-                                    <div class="form-check form-check-inline ms-2">
-                                        <input class="form-check-input" type="checkbox" id="acpShowLegend">
-                                        <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:#c8d8e8;">Show Legend</label>
-                                    </div>
-                                    <label style="font-size:11px;color:#c8d8e8;">Toolcode:</label>
-                                    <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
-                                        <option value="">— Simplified (approximate) —</option>
-                                    </select>
-                                    <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
-                                </div>
-                                <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
-                                    Need at least 2 wellbores with survey data loaded in the 3D viewer above.
-                                </div>
-                                <div id="acpMagCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;margin-bottom:8px;"></div>
-                                <div id="acpDataWarnings" style="margin-bottom:6px;"></div>
-                                <div id="acpChartWrap" style="display:none;gap:8px;">
-                                    <div id="acpChartC2CWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
-                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
-                                            <span>X:</span>
-                                            <input type="number" id="acpC2cXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span>to</span>
-                                            <input type="number" id="acpC2cXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span style="margin-left:10px;">Y:</span>
-                                            <input type="number" id="acpC2cYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span>to</span>
-                                            <input type="number" id="acpC2cYMax" placeholder="20" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                        </div>
-                                        <div style="flex:1;min-height:0;position:relative;">
-                                            <canvas id="acpChart"></canvas>
-                                        </div>
-                                    </div>
-                                    <div id="acpChartSFWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
-                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
-                                            <span>X:</span>
-                                            <input type="number" id="acpSfXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span>to</span>
-                                            <input type="number" id="acpSfXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span style="margin-left:10px;">Y:</span>
-                                            <input type="number" id="acpSfYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                            <span>to</span>
-                                            <input type="number" id="acpSfYMax" placeholder="2" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
-                                        </div>
-                                        <div style="flex:1;min-height:0;position:relative;">
-                                            <canvas id="acpChartSF"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div id="acpDetailPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #00c8ff;border-radius:4px;padding:8px 10px;margin-top:8px;"></div>
-                                <div style="font-size:10px;color:#5a7080;margin-top:8px;">
-                                    <b>Left — C2C:</b> center-to-center distance from the reference well to the closest point
-                                    on each other wellbore's 3D trajectory, at every survey station along the reference well —
-                                    same closest-approach method as the Frac Planes / AC Scan tool. Uses Northing/Easting
-                                    and <b>TVDss (Sub-Sea)</b>, not raw TVD — TVD is referenced to each well's own RKB/KB
-                                    elevation, which can differ between wells, so it isn't safe to compare directly across
-                                    wells; Sub-Sea is a common datum and is correct for this. Default view is 0–20 m;
-                                    scroll/pinch to zoom, drag to pan, or use Reset Zoom. Click any point on either chart to
-                                    inspect the raw N/E/TVDss of both matched stations.<br>
-                                    <b>Right — SF:</b> the <b>reference well</b> uses its own saved <b>Toolcode</b> (editable
-                                    via the dropdown above, persisted per wellbore). <b>Offset wells</b> are temporarily all
-                                    assumed to use <code>MWD+HRGM</code> — there's no per-offset-well toolcode picker yet
-                                    (planned as a pad-level control); until then this is a simplification, not each well's
-                                    real tool. Both use the real ISCWSA MWD Rev5 error model (validated against ISCWSA's own
-                                    test-well data — see <code>iscwsaModel.js</code>) and each well's Total Field/Dip/
-                                    Declination from the magnetics cards above. Falls back to a simplified approximate model
-                                    automatically for any well missing survey inc/azim or magnetics data. Gyro toolcodes
-                                    aren't implemented yet (MWD only). Default view is 0–2 (SF is a dimensionless ratio; the
-                                    decision-relevant range is near 1) — zoom/pan to see further; values are capped at 20 for
-                                    display (very shallow depths, near-zero uncertainty, would otherwise compute as
-                                    infinite). Global-term correlation between wells uses the base ISCWSA propagation-mode
-                                    rule (fully correlated, not the fractional refinement from ISCWSA's separate
-                                    geomagnetic-correlation supplement).
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================= LEGS SUMMARY ================= -->
-                <div class="accordion mb-2" id="accordionLegs">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseLegs">
-                                🦵 Legs Summary
-                            </button>
-                        </h2>
-                        <div id="collapseLegs" class="accordion-collapse collapse">
-                            <div class="accordion-body p-2">
-                                <div class="mb-2">
-                                    <button id="legsDownloadBtn" class="btn btn-sm btn-outline-info" style="font-family:monospace;font-size:11px;" disabled>
-                                        ⬇ Download Excel
-                                    </button>
-                                </div>
-                                <div id="legsContainer"></div>
-                                <div id="legsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
-                                    No STK or ICP comments found in uploaded wellbores.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- ================= END LEGS SUMMARY ================= -->
-
-                <!-- ================= TORQUE & DRAG MODEL ================= -->
-                <div class="accordion mb-2" id="accordionTD">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseTD"
-                                    aria-expanded="true">
-                                🔧 Torque &amp; Drag Model
-                            </button>
-                        </h2>
-                        <div id="collapseTD" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
-                                    <select id="tdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
-                                    <select id="tdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
-                                    <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
-                                       class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
-                                </div>
-                                <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
-                                    No Torque &amp; Drag model saved yet for this job.
-                                </div>
-                                <div id="tdSchematicWrap" style="display:none;overflow-x:auto;margin-bottom:1rem;">
-                                    <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Wellbore Geometry &amp; BHA</div>
-                                    <div id="tdSchematicInner" style="display:flex;gap:16px;flex-wrap:wrap;"></div>
-                                </div>
-                                <div id="tdChartsWrap" class="td-2col" style="border-radius:.5rem;padding:1rem;display:none;">
-                                    <div class="td-chart-panel mb-3">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Effective Tension vs Measured Depth</div>
-                                        <canvas id="td_c_et" style="max-height:45vh;"></canvas>
-                                    </div>
-                                    <div class="td-chart-panel mb-3">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Hook Load vs Bit Depth</div>
-                                        <canvas id="td_c_hl" style="max-height:45vh;"></canvas>
-                                        <div id="td_c_hl_msg" style="color:#5a7080;font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
-                                    </div>
-                                    <div class="td-chart-panel mb-3">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Side Force vs Measured Depth</div>
-                                        <canvas id="td_c_sf" style="max-height:45vh;"></canvas>
-                                    </div>
-                                    <div class="td-chart-panel mb-3">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Surface Torque vs Measured Depth</div>
-                                        <canvas id="td_c_tq" style="max-height:45vh;"></canvas>
-                                    </div>
-                                    <div class="td-chart-panel mb-3">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Inclination vs Measured Depth</div>
-                                        <canvas id="td_c_inc" style="max-height:45vh;"></canvas>
-                                    </div>
-                                    <div class="td-chart-panel">
-                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">DLS vs Measured Depth</div>
-                                        <canvas id="td_c_dls" style="max-height:45vh;"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- ================= END TORQUE & DRAG MODEL ================= -->
-
-                <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
-                <div class="accordion mb-2" id="accordionPason">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapsePason">
-                                ⚙️ Drilling Mechanics
-                            </button>
-                        </h2>
-                        <div id="collapsePason" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-
-                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <input type="file" id="pasonPlotsFileInput"
-                                           accept=".xlsx,.xls"
-                                           class="form-control form-control-sm" style="max-width:320px;">
-                                    <button id="pasonPlotsUploadBtn" class="btn btn-sm btn-success" disabled>
-                                        💾 Save to Job
-                                    </button>
-                                    <span id="pasonPlotsStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
-                                </div>
-                                <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
-                                    Upload the Excel file exported from "Export All Plots to Excel" on the Pason EDR upload page.
-                                </div>
-                                <% } %>
-
-                                <div id="pasonPlotsViewer" style="display:none;">
-                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                        <label style="font-size:12px;color:#c8d8e8;">Plot:</label>
-                                        <select id="pasonPlotSelect" class="form-select form-select-sm" style="max-width:320px;"></select>
-                                        <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
-                                        <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
-                                        <label style="font-size:11px;color:#c8d8e8;">Well:</label>
-                                        <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
-                                        <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                        <label style="font-size:11px;color:#c8d8e8;">Pause per milestone (days):</label>
-                                        <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
-                                        <label style="font-size:11px;color:#c8d8e8;">Pause at Intermediate Casing (days):</label>
-                                        <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
-                                        <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
-                                        <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
-                                        <% } %>
-                                    </div>
-                                    <div id="pasonTDPreviewNote" style="display:none;font-size:10px;color:#b264ff;margin-bottom:6px;">
-                                        ⓘ This well hasn't been saved yet — showing a live preview (default pauses: 0.15 days, 1.0 day at Intermediate Casing). Not stored.
-                                    </div>
-                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;" id="pasonTDCalcHint">
-                                        Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
-                                    </div>
-                                    <% } %>
-                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                        <input type="file" id="pasonRawXYFileInput"
-                                               accept=".xlsx,.xls"
-                                               class="form-control form-control-sm" style="max-width:280px;">
-                                        <button id="pasonRawXYImportBtn" class="btn btn-sm btn-outline-warning" disabled>
-                                            ⬤ Import X,Y (dots) for this plot
-                                        </button>
-                                        <span id="pasonRawXYStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonDotSizeRow" style="display:none;">
-                                        <label style="font-size:11px;color:#c8d8e8;">Dot size:</label>
-                                        <input type="range" id="pasonDotSizeSlider" min="1" max="10" step="1" value="3" style="max-width:180px;">
-                                        <span id="pasonDotSizeVal" style="font-size:11px;color:#5a7080;">3</span>
-                                        <button id="pasonRawXYRemoveBtn" class="btn btn-sm btn-outline-danger">✕ Remove imported dots</button>
-                                    </div>
-                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
-                                        Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
-                                    </div>
-                                    <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
-                                        <canvas id="pasonChart" style="max-height:65vh;"></canvas>
-                                    </div>
-                                    <div id="pasonPlotsMeta" style="font-size:10px;color:#5a7080;margin-top:6px;"></div>
-                                </div>
-
-                                <div id="pasonPlotsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
-                                    No Pason plots uploaded yet for this job.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- ================= END PASON EDR PLOTS ================= -->
-
-                <!-- ================= BIT HYDRAULICS PROGRAM ================= -->
-                <div class="accordion mb-2" id="accordionHyd">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseHyd"
-                                    aria-expanded="true">
-                                🌊 Hydraulics
-                            </button>
-                        </h2>
-                        <div id="collapseHyd" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
-                                    <select id="hydWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
-                                    <select id="hydScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="hydStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
-                                    <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank"
-                                       class="btn btn-sm btn-outline-info">🌊 Open in Bit Hydraulics Program</a>
-                                </div>
-                                <div id="hydEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
-                                    No Bit Hydraulics model saved yet for this job.
-                                </div>
-                                <div id="hydResultsWrap" style="display:none;">
-                                    <div id="hydWarnings"></div>
-                                    <div id="hydResultCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px;"></div>
-                                    <div style="font-size:11px;color:#5a7080;margin-bottom:4px;">Pressure Loss Distribution</div>
-                                    <div id="hydPlBar" style="height:22px;border-radius:3px;overflow:hidden;display:flex;border:1px solid var(--an-border);margin-bottom:10px;"></div>
-                                    <div class="td-2col" style="border-radius:.5rem;padding:1rem;">
-                                        <div class="td-chart-panel mb-3">
-                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Drill String</div>
-                                            <div class="wbt-table-wrap" style="max-height:220px;">
-                                                <table class="wbt-table" id="hydDsTable"><thead><tr><th>Component</th><th>Cap. (bbl)</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
-                                            </div>
-                                        </div>
-                                        <div class="td-chart-panel mb-3">
-                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Annulus</div>
-                                            <div class="wbt-table-wrap" style="max-height:220px;">
-                                                <table class="wbt-table" id="hydAnnTable"><thead><tr><th>Section</th><th>Length (m)</th><th>Regime</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
-                                        Physics: Bourgoyne, Millheim, Chenevert, Young, "Applied Drilling Engineering," SPE Textbook Series Vol. 2, 1986, Ch. 4
-                                        (Bingham Plastic &amp; Power Law pipe/annular pressure loss). Edit setup and recalculate in the
-                                        <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank">Bit Hydraulics Program</a>.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- ================= END BIT HYDRAULICS PROGRAM ================= -->
-
-                <!-- ================= CASING DESIGN ================= -->
-                <div class="accordion mb-2" id="accordionCsd">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapseCsd"
-                                    aria-expanded="true">
-                                🧱 Casing Design
-                            </button>
-                        </h2>
-                        <div id="collapseCsd" class="accordion-collapse collapse show">
-                            <div class="accordion-body p-2">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
-                                    <select id="csdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
-                                    <select id="csdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="csdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
-                                    <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank"
-                                       class="btn btn-sm btn-outline-info">🧱 Open in Casing Design</a>
-                                </div>
-                                <div id="csdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
-                                    No Casing Design model saved yet for this job.
-                                </div>
-                                <div id="csdResultsWrap" style="display:none;">
-                                    <div id="csdStringCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:8px;align-items:start;"></div>
-                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
-                                        Physics: API TR 5C3 (burst/collapse/triaxial), Bourgoyne et al. "Applied Drilling Engineering,"
-                                        SPE Textbook Series Vol. 2, Ch. 7 (ellipse of plasticity collapse derating), and this job's
-                                        "Casing Design Foundation" (CNRL, Rev 0) Simple Method load cases. Edit setup and recalculate in
-                                        <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank">Casing Design</a>.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- ================= END CASING DESIGN ================= -->
-
                 <!-- ================= WELLBORE 3D TRAJECTORY (read-only, techy theme) ================= -->
                 <% const _wbt = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : []; %>
                 <% if (_wbt && _wbt.length) { %>
+                <div class="accordion mb-2" id="accordionWbt">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseWbt"
+                                    aria-expanded="false">
+                                🧭 Wellbore 3D Trajectory
+                            </button>
+                        </h2>
+                        <div id="collapseWbt" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
                 <style>
                     .wbt-root {
                         --wbt-bg: #0a0e14;
@@ -896,6 +414,15 @@ body.light-mode #statusTextbox {
                         font-size:11px; color:#ffffff;
                     }
                     .wbt-sidebar h6, .wbt-sidebar label{ color:#ffffff !important; }
+                    /* Right-hand sidebar (wellbores tree): mirrors the left one
+                       but borders on its left edge, and lets its single section
+                       stretch to the viewer's full height so the tree scrolls
+                       within the plot height rather than being capped short. */
+                    .wbt-sidebar-right{
+                        border-right:none; border-left:1px solid var(--wbt-border);
+                        width:250px; min-width:250px; overflow:hidden;
+                    }
+                    .wbt-sidebar-right .wbt-section{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
                     body.light-mode .wbt-sidebar{ background:#ffffff !important; color:#000000 !important; }
                     body.light-mode .wbt-sidebar h6, body.light-mode .wbt-sidebar label{ color:#000000 !important; }
                     body.light-mode .wbt-sidebar select, body.light-mode .wbt-sidebar input[type=range]{
@@ -1132,7 +659,6 @@ body.light-mode #statusTextbox {
                 </style>
 
                 <div class="wbt-root" id="wbtRoot">
-                    <div class="wbt-title"><span class="wbt-dot"></span> 🧭 Wellbore 3D Trajectory</div>
 
                     <!-- ── 3D Viewer: sidebar + canvas ── -->
                     <div class="wbt-viewer-outer">
@@ -1149,6 +675,9 @@ body.light-mode #statusTextbox {
                             <div class="wbt-section">
                                 <h6>Formations</h6>
                                 <div id="wbtFormationList" style="max-height:140px;overflow-y:auto;"></div>
+                                <h6 style="margin-top:8px;">Mesh Density</h6>
+                                <input type="range" id="wbtFormationDensity" min="2" max="60" step="1" value="15">
+                                <div style="font-size:9px;color:var(--wbt-text-dim);text-align:right;" id="wbtFormationDensityVal">15 &times; 15</div>
                             </div>
                             <div class="wbt-section">
                                 <h6>Rotation Axis</h6>
@@ -1168,10 +697,6 @@ body.light-mode #statusTextbox {
                                 <input type="range" id="wbtMarkerSize" min="0.1" max="3" step="0.05" value="0.4">
                             </div>
                             <div class="wbt-section">
-                                <h6>Wellbores</h6>
-                                <div id="wbtWellList" style="max-height:160px;overflow-y:auto;"></div>
-                            </div>
-                            <div class="wbt-section">
                                 <button type="button" class="wbt-btn" id="wbtResetView" style="width:100%;">Reset View</button>
                             </div>
                         </div>
@@ -1182,6 +707,14 @@ body.light-mode #statusTextbox {
                             <div class="wbt-panel wbt-legend" id="wbtLegendPanel">
                                 <h6>Legend</h6>
                                 <div id="wbtLegendList"></div>
+                            </div>
+                        </div>
+
+                        <!-- Right sidebar: wellbores tree (full viewer height) -->
+                        <div class="wbt-sidebar wbt-sidebar-right">
+                            <div class="wbt-section" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                                <h6>Wellbores</h6>
+                                <div id="wbtWellList" style="flex:1;min-height:0;overflow-y:auto;"></div>
                             </div>
                         </div>
 
@@ -1287,34 +820,543 @@ body.light-mode #statusTextbox {
 
 
 
-                    <!-- Actions: Excel export -->
-                    <div class="wbt-actions-row">
-                        <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportExcel">
-                            Download Pad Trajectories (Excel)
-                        </button>
-                    </div>
-
-                    <!-- Trajectories accordion -->
+                    <!-- Trajectories accordion (subject wells only) -->
                     <div class="wbt-accordion-item">
                         <div class="wbt-accordion-header collapsed" id="wbtAccordionHeader">
-                            <span>Trajectories</span>
+                            <span><span class="wbt-dot" style="background:#00c8ff;box-shadow:0 0 7px #00c8ff;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Trajectories</span>
                             <span class="wbt-acc-icon">&#9660;</span>
                         </div>
-                        <div class="wbt-accordion-body collapsed" id="wbtTables"></div>
+                        <div class="wbt-accordion-body collapsed" id="wbtTablesOuter">
+                            <div class="wbt-actions-row" style="padding:8px 0;">
+                                <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportExcel">
+                                    Download Pad Trajectories (Excel)
+                                </button>
+                            </div>
+                            <div id="wbtTables"></div>
+                        </div>
                     </div>
 
-                    <!-- Pad technical dashboard -->
-                    <div class="wbt-dash-title" style="justify-content:space-between;">
-                        <span><span class="wbt-dot"></span> Pad Trajectory Summary</span>
-                        <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportDashboard" style="font-size:10px;padding:5px 10px;">
-                            Download Dashboard (Excel)
-                        </button>
+                    <!-- Score Cards accordion (Pad Trajectory Summary) -->
+                    <div class="wbt-accordion-item">
+                        <div class="wbt-accordion-header collapsed" id="wbtScoreCardsHeader">
+                            <span><span class="wbt-dot" style="background:#39ff14;box-shadow:0 0 7px #39ff14;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Score Cards</span>
+                            <span class="wbt-acc-icon">&#9660;</span>
+                        </div>
+                        <div class="wbt-accordion-body collapsed" id="wbtScoreCardsBody">
+                            <div class="wbt-dash-title" style="justify-content:space-between;">
+                                <span><span class="wbt-dot"></span> Pad Trajectory Summary</span>
+                                <button type="button" class="wbt-btn wbt-btn-excel" id="wbtExportDashboard" style="font-size:10px;padding:5px 10px;">
+                                    Download Dashboard (Excel)
+                                </button>
+                            </div>
+                            <div class="wbt-pad-summary" id="wbtPadSummary"></div>
+                            <div class="wbt-dash-grid" id="wbtDashboard"></div>
+                        </div>
                     </div>
-                    <div class="wbt-pad-summary" id="wbtPadSummary"></div>
-                    <div class="wbt-dash-grid" id="wbtDashboard"></div>
+                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <% } %>
                 <!-- ================= END WELLBORE 3D TRAJECTORY ================= -->
+
+                <!-- ================= PAD AC ================= -->
+                <div class="accordion mb-2" id="accordionPadAC">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapsePadAC"
+                                    aria-expanded="false">
+                                🛡 PAD AC
+                            </button>
+                        </h2>
+                        <div id="collapsePadAC" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+
+                                <!-- ── Controls (edit roles only) ── -->
+                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                <div class="card bg-secondary border-0 mb-2 p-2">
+
+                                    <!-- Row 1: file + thresholds + parse + save -->
+                                    <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">Report files (folder or multiple files)</label>
+                                            <input id="padACFileInput" type="file"
+                                                   class="form-control form-control-sm"
+                                                   accept=".xls,.xlsx,.csv"
+                                                   webkitdirectory directory multiple>
+                                        </div>
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">C2C threshold (m)</label>
+                                            <input id="padACThC2C" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="15">
+                                        </div>
+                                        <div>
+                                            <label class="form-label mb-1" style="font-size:11px;">SF threshold</label>
+                                            <input id="padACThSF" type="number" class="form-control form-control-sm" style="width:90px;" step="0.01" value="1.25">
+                                        </div>
+                                        <button id="padACParseBtn" class="btn btn-sm btn-success align-self-end">
+                                            ⚙ Parse
+                                        </button>
+                                        <button id="padACSaveBtn" class="btn btn-sm btn-primary align-self-end" disabled>
+                                            💾 Save to Job
+                                        </button>
+                                    </div>
+                                    <div style="font-size:10px;color:#aaa;">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
+
+                                    <!-- Row 2: all filters + column toggles (one row, all roles see the col toggles below) -->
+                                    <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:11px;">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfRefMD" checked>
+                                            <label class="form-check-label" for="padACfRefMD">Hide: Ref.MD &lt; 100</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfE2E" checked>
+                                            <label class="form-check-label" for="padACfE2E">E2E empty</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfProb">
+                                            <label class="form-check-label" for="padACfProb">Prob &lt; 1 in 1E+9</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfDup" checked>
+                                            <label class="form-check-label" for="padACfDup">Hide duplicates</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="padACfAND">
+                                            <label class="form-check-label" for="padACfAND">Show only: C2C&lt;15 AND SF&lt;1</label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Row 3: exports + delete + reset + status -->
+                                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                                        <button id="padACCsvBtn" class="btn btn-outline-light btn-sm" disabled>⬇ CSV</button>
+                                        <button id="padACXlsxBtn" class="btn btn-outline-light btn-sm" disabled>⬇ Excel</button>
+                                        <button id="padACSelectSiteBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows sharing the same site as currently checked rows">🎯 Select Same Site</button>
+                                        <button id="padACLateralBtn" class="btn btn-outline-info btn-sm" disabled title="Select rows where Ref. Well inclination at Ref. MD is > 88°">📐 All in Lateral</button>
+                                        <button id="padACDupMDBtn" class="btn btn-outline-info btn-sm" disabled title="Select all rows with a duplicated Ref. MD value">🔁 Same Ref.MD</button>
+                                        <button id="padACDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>🗑 Delete Selected</button>
+                                        <button id="padACResetBtn" class="btn btn-outline-warning btn-sm">↺ Reset</button>
+                                        <span id="padACStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;margin-left:8px;"></span>
+                                    </div>
+                                </div>
+                                <% } %>
+
+                                <!-- ── Column visibility + download (all roles) ── -->
+                                <div class="d-flex flex-wrap gap-3 mb-2 align-items-center" style="font-size:11px;">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfSemi" checked>
+                                        <label class="form-check-label" for="padACfSemi">Semi Majors</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfW2W" checked>
+                                        <label class="form-check-label" for="padACfW2W">W2W</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfE2Ecol" checked>
+                                        <label class="form-check-label" for="padACfE2Ecol">E2E</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfMinSep" checked>
+                                        <label class="form-check-label" for="padACfMinSep">Min.Sep.</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfProbPct" checked>
+                                        <label class="form-check-label" for="padACfProbPct">Prob.%</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="padACfWarn" checked>
+                                        <label class="form-check-label" for="padACfWarn">Warning</label>
+                                    </div>
+                                    <button id="padACDownloadBtn" class="btn btn-sm btn-outline-info ms-2" disabled
+                                            title="Download the table as shown (with colours)">
+                                        ⬇ Download Table
+                                    </button>
+                                </div>
+
+                                <!-- Subject badges hidden -->
+                                <div id="padACBadges" style="display:none;"></div>
+
+                                <!-- Table -->
+                                <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
+                                    <table id="padACTable"
+                                           class="table table-dark table-hover table-bordered table-sm mb-0"
+                                           style="font-size:11px;">
+                                        <thead id="padACThead"></thead>
+                                        <tbody id="padACTbody"></tbody>
+                                    </table>
+                                </div>
+                                <div id="padACCount" style="font-size:10px;color:#aaa;margin-top:4px;"></div>
+                                <div id="padACEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;">No PAD AC data saved for this job yet.</div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= ANTI-COLLISION PLOTS ================= -->
+                <div class="accordion mb-2" id="accordionAcPlots">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseAcPlots"
+                                    aria-expanded="false">
+                                📉 Anti-collision Plots
+                            </button>
+                        </h2>
+                        <div id="collapseAcPlots" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Reference Well:</label>
+                                    <select id="acpRefSelect" class="form-select form-select-sm" style="max-width:280px;"></select>
+                                    <button id="acpResetZoomBtn" class="btn btn-sm btn-outline-info">⤢ Reset Zoom</button>
+                                    <div class="form-check form-check-inline ms-2">
+                                        <input class="form-check-input" type="checkbox" id="acpShowLegend">
+                                        <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:#c8d8e8;">Show Legend</label>
+                                    </div>
+                                    <label style="font-size:11px;color:#c8d8e8;">Toolcode:</label>
+                                    <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
+                                        <option value="">— Simplified (approximate) —</option>
+                                    </select>
+                                    <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                </div>
+                                <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    Need at least 2 wellbores with survey data loaded in the 3D viewer above.
+                                </div>
+                                <div id="acpMagCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;margin-bottom:8px;"></div>
+                                <div id="acpDataWarnings" style="margin-bottom:6px;"></div>
+                                <div id="acpChartWrap" style="display:none;gap:8px;">
+                                    <div id="acpChartC2CWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                            <span>X:</span>
+                                            <input type="number" id="acpC2cXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpC2cXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span style="margin-left:10px;">Y:</span>
+                                            <input type="number" id="acpC2cYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpC2cYMax" placeholder="20" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                        </div>
+                                        <div style="flex:1;min-height:0;position:relative;">
+                                            <canvas id="acpChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div id="acpChartSFWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                            <span>X:</span>
+                                            <input type="number" id="acpSfXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpSfXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span style="margin-left:10px;">Y:</span>
+                                            <input type="number" id="acpSfYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <span>to</span>
+                                            <input type="number" id="acpSfYMax" placeholder="2" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                        </div>
+                                        <div style="flex:1;min-height:0;position:relative;">
+                                            <canvas id="acpChartSF"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="acpDetailPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #00c8ff;border-radius:4px;padding:8px 10px;margin-top:8px;"></div>
+                                <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                    <b>Left — C2C:</b> center-to-center distance from the reference well to the closest point
+                                    on each other wellbore's 3D trajectory, at every survey station along the reference well —
+                                    same closest-approach method as the Frac Planes / AC Scan tool. Uses Northing/Easting
+                                    and <b>TVDss (Sub-Sea)</b>, not raw TVD — TVD is referenced to each well's own RKB/KB
+                                    elevation, which can differ between wells, so it isn't safe to compare directly across
+                                    wells; Sub-Sea is a common datum and is correct for this. Default view is 0–20 m;
+                                    scroll/pinch to zoom, drag to pan, or use Reset Zoom. Click any point on either chart to
+                                    inspect the raw N/E/TVDss of both matched stations.<br>
+                                    <b>Right — SF:</b> the <b>reference well</b> uses its own saved <b>Toolcode</b> (editable
+                                    via the dropdown above, persisted per wellbore). <b>Offset wells</b> are temporarily all
+                                    assumed to use <code>MWD+HRGM</code> — there's no per-offset-well toolcode picker yet
+                                    (planned as a pad-level control); until then this is a simplification, not each well's
+                                    real tool. Both use the real ISCWSA MWD Rev5 error model (validated against ISCWSA's own
+                                    test-well data — see <code>iscwsaModel.js</code>) and each well's Total Field/Dip/
+                                    Declination from the magnetics cards above. Falls back to a simplified approximate model
+                                    automatically for any well missing survey inc/azim or magnetics data. Gyro toolcodes
+                                    aren't implemented yet (MWD only). Default view is 0–2 (SF is a dimensionless ratio; the
+                                    decision-relevant range is near 1) — zoom/pan to see further; values are capped at 20 for
+                                    display (very shallow depths, near-zero uncertainty, would otherwise compute as
+                                    infinite). Global-term correlation between wells uses the base ISCWSA propagation-mode
+                                    rule (fully correlated, not the fractional refinement from ISCWSA's separate
+                                    geomagnetic-correlation supplement).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= LEGS SUMMARY ================= -->
+                <div class="accordion mb-2" id="accordionLegs">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseLegs"
+                                    aria-expanded="false">
+                                🦵 Legs Summary
+                            </button>
+                        </h2>
+                        <div id="collapseLegs" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="mb-2">
+                                    <button id="legsDownloadBtn" class="btn btn-sm btn-outline-info" style="font-family:monospace;font-size:11px;" disabled>
+                                        ⬇ Download Excel
+                                    </button>
+                                </div>
+                                <div id="legsContainer"></div>
+                                <div id="legsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                    No STK or ICP comments found in uploaded wellbores.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END LEGS SUMMARY ================= -->
+
+                <!-- ================= DRILLING MECHANICS (Pason EDR Plots) ================= -->
+                <div class="accordion mb-2" id="accordionPason">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapsePason"
+                                    aria-expanded="false">
+                                ⚙️ Drilling Mechanics
+                            </button>
+                        </h2>
+                        <div id="collapsePason" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+
+                                <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <input type="file" id="pasonPlotsFileInput"
+                                           accept=".xlsx,.xls"
+                                           class="form-control form-control-sm" style="max-width:320px;">
+                                    <button id="pasonPlotsUploadBtn" class="btn btn-sm btn-success" disabled>
+                                        💾 Save to Job
+                                    </button>
+                                    <span id="pasonPlotsStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                </div>
+                                <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                    Upload the Excel file exported from "Export All Plots to Excel" on the Pason EDR upload page.
+                                </div>
+                                <% } %>
+
+                                <div id="pasonPlotsViewer" style="display:none;">
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <label style="font-size:12px;color:#c8d8e8;">Plot:</label>
+                                        <select id="pasonPlotSelect" class="form-select form-select-sm" style="max-width:320px;"></select>
+                                        <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
+                                        <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
+                                        <label style="font-size:11px;color:#c8d8e8;">Well:</label>
+                                        <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
+                                        <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                        <label style="font-size:11px;color:#c8d8e8;">Pause per milestone (days):</label>
+                                        <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
+                                        <label style="font-size:11px;color:#c8d8e8;">Pause at Intermediate Casing (days):</label>
+                                        <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
+                                        <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
+                                        <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                        <% } %>
+                                    </div>
+                                    <div id="pasonTDPreviewNote" style="display:none;font-size:10px;color:#b264ff;margin-bottom:6px;">
+                                        ⓘ This well hasn't been saved yet — showing a live preview (default pauses: 0.15 days, 1.0 day at Intermediate Casing). Not stored.
+                                    </div>
+                                    <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
+                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;" id="pasonTDCalcHint">
+                                        Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
+                                    </div>
+                                    <% } %>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <input type="file" id="pasonRawXYFileInput"
+                                               accept=".xlsx,.xls"
+                                               class="form-control form-control-sm" style="max-width:280px;">
+                                        <button id="pasonRawXYImportBtn" class="btn btn-sm btn-outline-warning" disabled>
+                                            ⬤ Import X,Y (dots) for this plot
+                                        </button>
+                                        <span id="pasonRawXYStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonDotSizeRow" style="display:none;">
+                                        <label style="font-size:11px;color:#c8d8e8;">Dot size:</label>
+                                        <input type="range" id="pasonDotSizeSlider" min="1" max="10" step="1" value="3" style="max-width:180px;">
+                                        <span id="pasonDotSizeVal" style="font-size:11px;color:#5a7080;">3</span>
+                                        <button id="pasonRawXYRemoveBtn" class="btn btn-sm btn-outline-danger">✕ Remove imported dots</button>
+                                    </div>
+                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                        Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
+                                    </div>
+                                    <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
+                                        <canvas id="pasonChart" style="max-height:65vh;"></canvas>
+                                    </div>
+                                    <div id="pasonPlotsMeta" style="font-size:10px;color:#5a7080;margin-top:6px;"></div>
+                                </div>
+
+                                <div id="pasonPlotsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                    No Pason plots uploaded yet for this job.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END PASON EDR PLOTS ================= -->
+
+                <!-- ================= CASING DESIGN ================= -->
+                <div class="accordion mb-2" id="accordionCsd">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseCsd"
+                                    aria-expanded="false">
+                                🧱 Casing Design
+                            </button>
+                        </h2>
+                        <div id="collapseCsd" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <select id="csdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <select id="csdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <span id="csdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank"
+                                       class="btn btn-sm btn-outline-info">🧱 Open in Casing Design</a>
+                                </div>
+                                <div id="csdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    No Casing Design model saved yet for this job.
+                                </div>
+                                <div id="csdResultsWrap" style="display:none;">
+                                    <div id="csdStringCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:8px;align-items:start;"></div>
+                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                        Physics: API TR 5C3 (burst/collapse/triaxial), Bourgoyne et al. "Applied Drilling Engineering,"
+                                        SPE Textbook Series Vol. 2, Ch. 7 (ellipse of plasticity collapse derating), and this job's
+                                        "Casing Design Foundation" (CNRL, Rev 0) Simple Method load cases. Edit setup and recalculate in
+                                        <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank">Casing Design</a>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END CASING DESIGN ================= -->
+
+                <!-- ================= TORQUE & DRAG MODEL ================= -->
+                <div class="accordion mb-2" id="accordionTD">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseTD"
+                                    aria-expanded="false">
+                                🔧 Torque &amp; Drag
+                            </button>
+                        </h2>
+                        <div id="collapseTD" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <select id="tdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <select id="tdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
+                                       class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
+                                </div>
+                                <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    No Torque &amp; Drag model saved yet for this job.
+                                </div>
+                                <div id="tdSchematicWrap" style="display:none;overflow-x:auto;margin-bottom:1rem;">
+                                    <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Wellbore Geometry &amp; BHA</div>
+                                    <div id="tdSchematicInner" style="display:flex;gap:16px;flex-wrap:wrap;"></div>
+                                </div>
+                                <div id="tdChartsWrap" class="td-2col" style="border-radius:.5rem;padding:1rem;display:none;">
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Effective Tension vs Measured Depth</div>
+                                        <canvas id="td_c_et" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Hook Load vs Bit Depth</div>
+                                        <canvas id="td_c_hl" style="max-height:45vh;"></canvas>
+                                        <div id="td_c_hl_msg" style="color:#5a7080;font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Side Force vs Measured Depth</div>
+                                        <canvas id="td_c_sf" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Surface Torque vs Measured Depth</div>
+                                        <canvas id="td_c_tq" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel mb-3">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Inclination vs Measured Depth</div>
+                                        <canvas id="td_c_inc" style="max-height:45vh;"></canvas>
+                                    </div>
+                                    <div class="td-chart-panel">
+                                        <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">DLS vs Measured Depth</div>
+                                        <canvas id="td_c_dls" style="max-height:45vh;"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END TORQUE & DRAG MODEL ================= -->
+
+                <!-- ================= BIT HYDRAULICS PROGRAM ================= -->
+                <div class="accordion mb-2" id="accordionHyd">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseHyd"
+                                    aria-expanded="false">
+                                🌊 Hydraulics
+                            </button>
+                        </h2>
+                        <div id="collapseHyd" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <select id="hydWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <select id="hydScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
+                                    <span id="hydStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank"
+                                       class="btn btn-sm btn-outline-info">🌊 Open in Bit Hydraulics Program</a>
+                                </div>
+                                <div id="hydEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                    No Bit Hydraulics model saved yet for this job.
+                                </div>
+                                <div id="hydResultsWrap" style="display:none;">
+                                    <div id="hydWarnings"></div>
+                                    <div id="hydResultCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px;"></div>
+                                    <div style="font-size:11px;color:#5a7080;margin-bottom:4px;">Pressure Loss Distribution</div>
+                                    <div id="hydPlBar" style="height:22px;border-radius:3px;overflow:hidden;display:flex;border:1px solid var(--an-border);margin-bottom:10px;"></div>
+                                    <div class="td-2col" style="border-radius:.5rem;padding:1rem;">
+                                        <div class="td-chart-panel mb-3">
+                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Drill String</div>
+                                            <div class="wbt-table-wrap" style="max-height:220px;">
+                                                <table class="wbt-table" id="hydDsTable"><thead><tr><th>Component</th><th>Cap. (bbl)</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            </div>
+                                        </div>
+                                        <div class="td-chart-panel mb-3">
+                                            <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Annulus</div>
+                                            <div class="wbt-table-wrap" style="max-height:220px;">
+                                                <table class="wbt-table" id="hydAnnTable"><thead><tr><th>Section</th><th>Length (m)</th><th>Regime</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                        Physics: Bourgoyne, Millheim, Chenevert, Young, "Applied Drilling Engineering," SPE Textbook Series Vol. 2, 1986, Ch. 4
+                                        (Bingham Plastic &amp; Power Law pipe/annular pressure loss). Edit setup and recalculate in the
+                                        <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank">Bit Hydraulics Program</a>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ================= END BIT HYDRAULICS PROGRAM ================= -->
+
 
 
 
@@ -2501,6 +2543,13 @@ body.light-mode #statusTextbox {
 
             animate();
             window.addEventListener('resize', onResize);
+            // The viewer now lives inside a collapsed-by-default accordion,
+            // so its canvas has zero size until first opened — Three.js
+            // would otherwise keep the 0x0 viewport it initialised with.
+            const wbtCollapseEl = document.getElementById('collapseWbt');
+            if(wbtCollapseEl){
+                wbtCollapseEl.addEventListener('shown.bs.collapse', function(){ onResize(); });
+            }
             setupWbtUI();
             loadWellbores();
             wbtFPInit();
@@ -2722,7 +2771,10 @@ body.light-mode #statusTextbox {
                 item.appendChild(document.createTextNode(well.wellName));
                 legendList.appendChild(item);
 
-                renderTable(well.wellName, survey, color);
+                // Trajectories accordion tables: subject wells only (offset
+                // wells still render in the 3D view and legend above, they
+                // just aren't tabulated/reported).
+                if(wbtIsSubjectWell(well)) renderTable(well.wellName, survey, color);
             });
 
             const curtains = buildCurtains(allPoints);
@@ -2827,6 +2879,32 @@ body.light-mode #statusTextbox {
                 wbtMarkerScale = parseFloat(e.target.value);
                 wbtRebuildAllMarkers();
             });
+
+            // Formation mesh density: regenerate each formation's line grid
+            // at the new resolution, preserving whatever visibility the user
+            // had toggled (so adjusting density doesn't reset the checkboxes).
+            const densityEl = document.getElementById('wbtFormationDensity');
+            if(densityEl){
+                densityEl.addEventListener('input', (e) => {
+                    wbtFormationDensity = parseInt(e.target.value, 10);
+                    const lbl = document.getElementById('wbtFormationDensityVal');
+                    if(lbl) lbl.innerHTML = wbtFormationDensity + ' &times; ' + wbtFormationDensity;
+                    if(!wbtPadBBox) return;
+                    wbtFormations.forEach(f => {
+                        if(!f.mesh) return;
+                        const wasVisible = f.mesh.visible;
+                        wbtFormationGroup.remove(f.mesh);
+                        if(f.mesh.geometry) f.mesh.geometry.dispose();
+                        const newMesh = wbtBuildFormationMesh(f.tvd, wbtPadBBox);
+                        newMesh.visible = wasVisible;
+                        wbtFormationGroup.add(newMesh);
+                        f.mesh = newMesh;
+                        // Keep the raycast-tooltip entry pointing at the new mesh
+                        const pd = wbtFormPlaneData.find(p => p.name === f.name);
+                        if(pd) Object.defineProperty(pd, 'visible', { get(){ return newMesh.visible; }, configurable: true });
+                    });
+                });
+            }
 
             document.getElementById('wbtRotationAxis').addEventListener('change', (e) => {
                 const axis = e.target.value;
@@ -3401,12 +3479,15 @@ body.light-mode #statusTextbox {
         }
 
         function wbtSetupAccordion(){
-            const header = document.getElementById('wbtAccordionHeader');
-            const body   = document.getElementById('wbtTables');
-            if(!header || !body) return;
-            header.addEventListener('click', () => {
-                header.classList.toggle('collapsed');
-                body.classList.toggle('collapsed');
+            [['wbtAccordionHeader','wbtTablesOuter'], ['wbtScoreCardsHeader','wbtScoreCardsBody']].forEach(function(pair){
+                const header = document.getElementById(pair[0]);
+                const body   = document.getElementById(pair[1]);
+                if(!header || !body || header.dataset.wired) return;
+                header.dataset.wired = '1';
+                header.addEventListener('click', () => {
+                    header.classList.toggle('collapsed');
+                    body.classList.toggle('collapsed');
+                });
             });
         }
 
@@ -4139,6 +4220,11 @@ body.light-mode #statusTextbox {
         // Build a flat horizontal grid mesh at world Y = -tvd,
         // spanning xMin→xMax (Easting) and zMin→zMax (-Northing).
         // Returns a THREE.LineSegments object.
+        // Formation grid-mesh density (lines per axis), driven by the
+        // "Mesh Density" slider. Rebuilding the meshes is cheap (they're
+        // just line segments), so the slider regenerates them live.
+        var wbtFormationDensity = 15;
+
         function wbtBuildFormationMesh(tvd, bbox){
             const xMin = bbox.min.x, xMax = bbox.max.x;
             const zMin = bbox.min.z, zMax = bbox.max.z;
@@ -4147,8 +4233,7 @@ body.light-mode #statusTextbox {
             const xRange = xMax - xMin || 100;
             const zRange = zMax - zMin || 100;
 
-            // Grid resolution: aim for ~15 lines in each direction
-            const LINES = 15;
+            const LINES = wbtFormationDensity;
             const xStep = xRange / LINES;
             const zStep = zRange / LINES;
 
@@ -5741,9 +5826,20 @@ function _extractWellAndLeg(wellName) {
     return { well: wellKey, legNum: legNum };
 }
 var _wbtAll2 = (typeof wellboreTrajectories !== 'undefined' && wellboreTrajectories) ? wellboreTrajectories : [];
+// Legs Summary reports SUBJECT wells only (offset wells still render in the
+// 3D view). Same rule used elsewhere in this file: explicit wellCategory
+// tag wins; legacy data with no tag falls back to the [NN]..._LNN naming
+// convention.
+function _legsIsSubject(traj){
+    var wn = (traj.wellName || '').trim();
+    if(traj.wellCategory === 'subject') return true;
+    if(traj.wellCategory === 'offset') return false;
+    return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+}
 var _wellMap2 = {};
 _wbtAll2.forEach(function(traj) {
     if(!traj.survey || !traj.survey.length) return;
+    if(!_legsIsSubject(traj)) return;
     var _p  = _extractWellAndLeg(traj.wellName || '');
     var _wk = _p.well;
     var _ln = _p.legNum;
@@ -7492,6 +7588,12 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 var pcOk = pc.check.burst.pass && pc.check.collapse.pass && pc.check.tension.pass;
                 parentLine = '<div style="font-size:10px;color:' + (pcOk?'#39ff14':'#ff4060') + ';margin-top:3px;">Parent (' + pc.parentStringName + ') check: ' + (pcOk?'pass':'FAIL') + '</div>';
             }
+            var overpullLine = '';
+            if(e.overpull){
+                var op = e.overpull;
+                overpullLine = '<div style="font-size:10px;color:' + (op.pass?'#39ff14':'#ffd060') + ';margin-top:3px;">Overpull: ' +
+                    (op.pass?'OK':'SHORT') + ' — ' + fmt(op.availableOverpull_kdaN,1) + ' kdaN available (tension governed by ' + op.governedBy + ')</div>';
+            }
             var canvasId = 'csdTriChart_' + name.replace(/[^a-z0-9]/gi, '_');
             var chartHtml = '';
             if(e.triaxial && e.triaxial.envelope && e.triaxial.envelope.length){
@@ -7499,7 +7601,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                     '<canvas id="' + canvasId + '"></canvas></div>';
             }
             row.innerHTML = '<div style="font-family:var(--cond, inherit);font-weight:700;color:#e8f4ff;margin-bottom:4px;">' + name + '</div>' +
-                '<div style="font-size:11px;font-family:monospace;">' + pieces + '</div>' + parentLine + chartHtml;
+                '<div style="font-size:11px;font-family:monospace;">' + pieces + '</div>' + parentLine + overpullLine + chartHtml;
             cardsEl.appendChild(row);
             if(e.triaxial && e.triaxial.envelope && e.triaxial.envelope.length){
                 pendingCharts.push({ name: name, triaxial: e.triaxial });

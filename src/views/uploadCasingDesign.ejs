@@ -337,6 +337,24 @@ function rebuildLoadParamRows(){
         '<option value="Premium"' + (v.connectionType==='Premium'?' selected':'') + '>Premium w/ MTM seals (DF 1.6)</option>' +
       '</select></div>';
 
+    fields += '<div style="font-size:11px;color:#c084fc;margin:8px 0 4px;">Connection Tensile Rating &amp; Overpull</div><div class="grid4">';
+    fields += '<div class="field"><label>Connection Rating Source</label><select data-key="connectionThreadType">' +
+        '<option value=""' + (!v.connectionThreadType?' selected':'') + '>Pipe body only (no connection limit)</option>' +
+        '<option value="datasheet"' + (v.connectionThreadType==='datasheet'?' selected':'') + '>Supplier datasheet (enter kN below)</option>' +
+        '<option value="roundThread"' + (v.connectionThreadType==='roundThread'?' selected':'') + '>API round thread (calculate, Eq. 7.23)</option>' +
+      '</select></div>';
+    fields += field('Connection Rating (kN) — datasheet', 'connectionRating_kN', v.connectionRating_kN, '');
+    fields += field('Dogleg at Joint (°/30m) — round thread', 'jointDLS_deg30m', v.jointDLS_deg30m, 0);
+    fields += field('Overpull Allowance (kdaN)', 'overpull_kdaN', v.overpull_kdaN, 50);
+    fields += '</div>';
+    fields += '<div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;">' +
+      'Tension is checked against the LOWER of pipe body yield and the connection rating. ' +
+      '"Supplier datasheet" is the only reliable option for premium/MTM connections. ' +
+      '"API round thread" calculates joint strength from Bourgoyne Eq. 7.23 — valid for API round thread only, ' +
+      'and it returns the calculated value, which can exceed the published (pull-out-controlled) table value, so cross-check a datasheet where it matters. ' +
+      'Overpull per the Foundation doc: DF × buoyed tension + 50 kdaN; if less than 50 kdaN is available, note it in the drilling program.' +
+      '</div>';
+
     if(str.stringType === 'liner'){
       fields += '<div style="font-size:11px;color:#00c8ff;margin:8px 0 4px;">Liner (uses Production loads/DFs — Foundation doc "Liners")</div><div class="grid4">';
       fields += field('Liner Top / Hanger TVD (m)', 'topTVD_m', v.topTVD_m, '');
@@ -448,6 +466,18 @@ function renderResults(results){
         'GMR limit (casing): ' + fmt(kt.gmrLimitCasing,2) + ' · KV limit (casing): ' + fmt(kt.kvLimitCasing_m3,1) + ' m³ · ' +
         'KV @ design GMR (' + fmt(entry.engineered.loads.burst.gasOverMudRatio,2) + '): ' + fmt(kt.kvAtDesignGMR_m3,1) + ' m³';
       block.appendChild(ktDiv);
+    }
+
+    if(entry.overpull){
+      var op = entry.overpull;
+      var opDiv = document.createElement('div');
+      opDiv.style.cssText = 'font-size:11px;font-family:monospace;color:var(--text-dim);background:var(--panel2);border:1px solid ' + (op.pass ? '#39ff14' : '#ffd060') + ';border-radius:4px;padding:6px 8px;margin-bottom:8px;';
+      opDiv.innerHTML = '<b style="color:var(--text-bright);">Overpull</b> — required ' + fmt(op.required_N/1000,0) + ' kN (DF ' + fmt(op.designFactor,2) +
+        ' × buoyed ' + fmt(op.buoyedTension_N/1000,0) + ' kN + ' + fmt(op.overpull_N/10000,0) + ' kdaN), rating ' + fmt(op.rating/1000,0) + ' kN' +
+        ' → <b style="color:' + (op.pass ? '#39ff14' : '#ffd060') + ';">' + (op.pass ? 'OK' : 'SHORT') + '</b>, available overpull <b>' + fmt(op.availableOverpull_kdaN,1) + ' kdaN</b>' +
+        (op.pass ? '' : ' ⚠ less than 50 kdaN — indicate in the drilling program per the Foundation doc.') +
+        '<br><span style="color:#5a7080;">Tension governed by ' + op.governedBy + ' (' + op.connectionBasis + ').</span>';
+      block.appendChild(opDiv);
     }
 
     if(entry.parentCheck){
