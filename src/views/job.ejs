@@ -406,11 +406,16 @@ body.light-mode #statusTextbox {
                     .wbt-viewer-outer{
                         display:flex; gap:0; border:1px solid var(--wbt-border);
                         border-radius:4px; overflow:hidden; margin-bottom:10px;
+                        height:78vh; /* bounds all three columns to the same height;
+                                        without this, the tallest child (often the
+                                        well list) stretches the whole row and every
+                                        other column just to match it, leaving blank
+                                        space instead of each column scrolling on its own */
                     }
                     .wbt-sidebar{
                         width:220px; min-width:220px; flex-shrink:0;
                         background: rgba(17,24,32,0.97); border-right:1px solid var(--wbt-border);
-                        padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:0; min-height:50vh;
+                        padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:0;
                         font-size:11px; color:#ffffff;
                     }
                     .wbt-sidebar h6, .wbt-sidebar label{ color:#ffffff !important; }
@@ -674,10 +679,10 @@ body.light-mode #statusTextbox {
                             </div>
                             <div class="wbt-section">
                                 <h6>Formations</h6>
-                                <div id="wbtFormationList" style="max-height:140px;overflow-y:auto;"></div>
+                                <div id="wbtFormationList" style="max-height:560px;overflow-y:auto;"></div>
                                 <h6 style="margin-top:8px;">Mesh Density</h6>
-                                <input type="range" id="wbtFormationDensity" min="2" max="60" step="1" value="15">
-                                <div style="font-size:9px;color:var(--wbt-text-dim);text-align:right;" id="wbtFormationDensityVal">15 &times; 15</div>
+                                <input type="range" id="wbtFormationDensity" min="2" max="60" step="1" value="60">
+                                <div style="font-size:9px;color:var(--wbt-text-dim);text-align:right;" id="wbtFormationDensityVal">60 &times; 60</div>
                             </div>
                             <div class="wbt-section">
                                 <h6>Rotation Axis</h6>
@@ -690,7 +695,7 @@ body.light-mode #statusTextbox {
                             </div>
                             <div class="wbt-section">
                                 <h6>Line Thickness</h6>
-                                <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.3">
+                                <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.5">
                             </div>
                             <div class="wbt-section">
                                 <h6>Marker Size</h6>
@@ -2548,7 +2553,18 @@ body.light-mode #statusTextbox {
             // would otherwise keep the 0x0 viewport it initialised with.
             const wbtCollapseEl = document.getElementById('collapseWbt');
             if(wbtCollapseEl){
-                wbtCollapseEl.addEventListener('shown.bs.collapse', function(){ onResize(); });
+                wbtCollapseEl.addEventListener('shown.bs.collapse', function(){
+                    onResize();
+                    // Also re-fit the camera to the full box: loadWellbores()
+                    // ran once already at page load, while the accordion
+                    // (and canvas) was still collapsed/zero-sized.
+                    let pts = [];
+                    wellsData.forEach(w => {
+                        const curve = w.mesh.userData.curve;
+                        if(curve && curve.points) pts = pts.concat(curve.points);
+                    });
+                    if(pts.length) fitCameraToObject(pts);
+                });
             }
             setupWbtUI();
             loadWellbores();
@@ -2644,10 +2660,18 @@ body.light-mode #statusTextbox {
             // "fit sphere to frustum" relationship).
             const sphereRadius = size.length() / 2;
             const fovRad = camera.fov * (Math.PI / 180);
-            const margin = 0.7; // extra headroom so nothing touches the frustum edges
+            // NOTE: margin must be > 1 for headroom — a value < 1 (as this
+            // was previously set: 0.7) moves the camera CLOSER than the
+            // exact-fit distance, which crops the box rather than framing
+            // it with room to spare. That was the bug behind "the full box
+            // isn't visible by default".
+            const margin = 0.8 //1.08; // 1.2 headroom x 0.9 = 10% closer/bigger than the previous default, still with some breathing room
             const distance = (sphereRadius / Math.sin(fovRad / 2)) * margin;
 
-            const dir = new THREE.Vector3(1, 0.5, 1).normalize();
+            // True isometric direction (equal foreshortening on all three
+            // axes) rather than the previous (1, 0.5, 1), which skewed the
+            // default/reset view toward a flatter top-down angle.
+            const dir = new THREE.Vector3(1, 1, 1).normalize();
             controls.target.copy(center);
             camera.position.copy(center).addScaledVector(dir, distance);
             camera.near = Math.max(distance / 1000, 0.01);
@@ -4223,7 +4247,7 @@ body.light-mode #statusTextbox {
         // Formation grid-mesh density (lines per axis), driven by the
         // "Mesh Density" slider. Rebuilding the meshes is cheap (they're
         // just line segments), so the slider regenerates them live.
-        var wbtFormationDensity = 15;
+        var wbtFormationDensity = 60; // matches the slider's default (max density)
 
         function wbtBuildFormationMesh(tvd, bbox){
             const xMin = bbox.min.x, xMax = bbox.max.x;
@@ -4297,10 +4321,16 @@ body.light-mode #statusTextbox {
             wbtFormations = [];
             wbtFormPlaneData = [];
 
-            allComments.forEach(entry => {
+            // allComments is walked in MD order (shallow -> deep), so the
+            // LAST isFormation:true entry is the deepest formation — shown
+            // by default since it's usually the one people want to check
+            // first (e.g. the target/landing formation).
+            let lastFormationIdx = -1;
+            allComments.forEach((entry, i) => { if(entry.isFormation) lastFormationIdx = i; });
+
+            allComments.forEach((entry, i) => {
                 let mesh = null, planeMesh = null;
-                // Formations hidden by default (visible: false)
-                const defaultVisible = false;
+                const defaultVisible = (i === lastFormationIdx);
 
                 // Compute TVDss: find closest survey station by TVD
                 let subSea = 0;
@@ -4349,7 +4379,7 @@ body.light-mode #statusTextbox {
                 const label = document.createElement('label');
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
-                cb.checked = f.visible; // false by default for formations
+                cb.checked = f.visible; // last (deepest) formation on by default, rest off
                 cb.addEventListener('change', () => {
                     wbtFormations[idx].visible = cb.checked;
                     if(f.mesh) f.mesh.visible = cb.checked;

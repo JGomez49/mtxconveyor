@@ -58,7 +58,10 @@
 
         cats.forEach(cat => {
             const catWrap = document.createElement('details');
-            catWrap.open = true;
+            // Subject wells open by default (the ones actually being
+            // designed/analyzed); Offset wells collapsed — usually a much
+            // longer list of nearby wells only needed for reference.
+            catWrap.open = (cat !== 'Offset Wells');
             catWrap.style.marginBottom = '4px';
 
             const catSummary = document.createElement('summary');
