@@ -5914,11 +5914,28 @@ _wbtAll2.forEach(function(traj) {
     var _tdMD  = _td ? _td.md  : null;
     var _tdTVD = _td ? _td.tvd : null;
     if(!_wellMap2[_wk]) _wellMap2[_wk] = { legs: [] };
-    var _icpPt = _sv.reduce(function(acc, pt) {
+    // Same ICP/Landing priority as the Score Cards (wbtComputeMetrics
+    // above): prefer whichever of IntermediateCasing/Landing is DEEPER
+    // (not just whichever comes first in the survey), falling back to the
+    // first incl >= 88 point, so a leg with only a "Landing" comment (no
+    // IntermediateCasing) still gets a tie-on/lateral calculated instead
+    // of showing "–".
+    var _icPt = _sv.reduce(function(acc, pt) {
         if(acc) return acc;
-        var _cm = (pt.comments || '').trim();
-        return /^(ICP|IntermediateCasing)/i.test(_cm) ? pt : null;
+        return /^(ICP|IntermediateCasing)/i.test((pt.comments || '').trim()) ? pt : null;
     }, null);
+    var _lpPt = _sv.reduce(function(acc, pt) {
+        if(acc) return acc;
+        return /^Landing/i.test((pt.comments || '').trim()) ? pt : null;
+    }, null);
+    var _icpPt;
+    if(_lpPt && (!_icPt || Number(_lpPt.md) > Number(_icPt.md))){
+        _icpPt = _lpPt;
+    } else if(_icPt && (!_lpPt || Number(_icPt.md) >= Number(_lpPt.md))){
+        _icpPt = _icPt;
+    } else {
+        _icpPt = _sv.find(function(pt){ return Number(pt.incl) >= 88; }) || null;
+    }
     var _stkPt = null, _stkComment = null;
     _sv.forEach(function(pt) {
         var _cm = (pt.comments || '').trim();
