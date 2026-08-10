@@ -27,11 +27,17 @@ const CasingDesignSchema = new Schema({
     noteId: { type: Schema.Types.ObjectId, ref: "NoteConveyor", required: true, unique: true },
 
     // resultsByWell[wellKey] = {
-    //   casingStrings,   // [{ name, stringType, od_mm, id_mm, grade, weight_kgpm,
+    //   casingStrings,   // [{ name, stringType, od_mm, id_mm, grade, weight_kgpm, thread,
     //                     //    shoeMD_m, shoeTVD_m, condition }], mirrors getCasingStrings()
+    //                     //    thread is descriptive connection type (STC/LTC/BTC/8RD/VAM/
+    //                     //    ER/Blue/S60/Vetco LS, default LTC) — display-only, does not
+    //                     //    feed the Simple Method load cases or triaxial check.
     //   loadParams,      // { nextStringShoeTVD_m, formationPressureGradient_kPa_m,
     //                     //   mudGradient_kPa_m, h2sPartialPressure_kPa } per string, keyed by string name
-    //   results,         // { byString: { <name>: { loads, check, triaxial } } }, output of computeCasingDesign()
+    //   dfOverride,      // optional { burst, collapse, tension } — what-if design-factor
+    //                     //   override used ONLY for the VME "Design Factor" curve on the
+    //                     //   triaxial chart; never affects the pass/fail compliance check
+    //   results,         // { byString: { <name>: { loads, check, triaxial, buckling } } }, output of computeCasingDesign()
     //   calculatedAt,
     //   calculatedByName,
     //   calculatedByUserId,

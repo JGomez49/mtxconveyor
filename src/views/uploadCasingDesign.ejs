@@ -135,7 +135,7 @@
       <table id="csTable">
         <thead><tr>
           <th>Name</th><th>Type</th><th>OD (mm)</th><th>ID (mm)</th><th>Grade</th>
-          <th>Weight (kg/m)</th><th>Shoe MD (m)</th><th>Shoe TVD (m)</th><th></th>
+          <th>Weight (kg/m)</th><th>Thread</th><th>Shoe MD (m)</th><th>Shoe TVD (m)</th><th></th>
         </tr></thead>
         <tbody id="csBody"></tbody>
       </table>
@@ -144,7 +144,9 @@
     <div class="cite">
       Type sets which Simple Method burst formula applies (Surface: 5× next string TVD; Intermediate/Production:
       formation-pressure gradient × shoe TVD). Grade must be a standard API 5CT grade (H40/J55/K55/N80/L80/C90/C95/T95/
-      C110/P110/Q125/S135) — non-standard grades aren't supported by this editor yet.
+      C110/P110/Q125/S135) — non-standard grades aren't supported by this editor yet. Thread is descriptive only
+      (STC/LTC/BTC/8RD/VAM/ER/Blue/S60/Vetco LS) and doesn't feed the load-case or triaxial checks — for connection
+      strength, use "Connection Rating Source" below.
     </div>
   </div>
 
@@ -161,11 +163,32 @@
     </div>
   </div>
 
+  <!-- ============ VME CHART DESIGN FACTORS (what-if, chart only) ============ -->
+  <div class="panel">
+    <h2><span class="dot"></span>VME Chart Design Factors</h2>
+    <div class="row">
+      <label>Burst DF:</label>
+      <input type="number" step="0.01" id="cdDfBurst" placeholder="doc default" style="max-width:100px;">
+      <label>Collapse DF:</label>
+      <input type="number" step="0.01" id="cdDfCollapse" placeholder="doc default" style="max-width:100px;">
+      <label>Tension DF:</label>
+      <input type="number" step="0.01" id="cdDfTension" placeholder="doc default" style="max-width:100px;">
+      <button class="btn" type="button" onclick="clearDfOverride()">✕ Reset to doc defaults</button>
+    </div>
+    <div class="cite">
+      Leave blank to use the Foundation doc's own required DFs (shown on each result card). Filling these in only
+      changes the red "VME — Design Factor" curve and its tension cap on the chart below, for exploring "what if the
+      DF were different" — it does <b>not</b> change the Burst/Collapse/Tension pass/fail checks above, which always
+      stay governed by the doc's mandated values.
+    </div>
+  </div>
+
   <!-- ============ RESULTS ============ -->
   <div class="panel" id="resultsPanel" style="display:none;">
     <h2><span class="dot"></span>Results</h2>
     <div id="resultsBody" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:10px;align-items:start;"></div>
   </div>
+
 
 </main>
 
@@ -267,6 +290,7 @@ function addCsRow(vals){
     '<td><input type="number" step="0.01" value="'+(vals.id_mm!=null?vals.id_mm:'')+'"></td>' +
     '<td><select>' + gradeOptions(vals.grade) + '</select></td>' +
     '<td><input type="number" step="0.1" value="'+(vals.weight_kgpm!=null?vals.weight_kgpm:'')+'"></td>' +
+    '<td><select>' + threadOptions(vals.thread) + '</select></td>' +
     '<td><input type="number" step="0.1" value="'+(vals.shoeMD_m!=null?vals.shoeMD_m:'')+'"></td>' +
     '<td><input type="number" step="0.1" value="'+(vals.shoeTVD_m!=null?vals.shoeTVD_m:'')+'"></td>' +
     '<td style="white-space:nowrap;"><button class="btn" type="button" onclick="pickFromLibrary(\'' + id + '\')" title="Pick OD/ID/weight from shared catalog">📚</button> ' +
@@ -280,14 +304,22 @@ function gradeOptions(sel){
   var grades = ['H40','J55','K55','N80','L80','C90','C95','T95','C110','P110','Q125','S135'];
   return grades.map(function(g){ return '<option value="'+g+'"'+(g===sel?' selected':(!sel&&g==='L80'?' selected':''))+'>'+g+'</option>'; }).join('');
 }
+// Thread/connection type — descriptive metadata only (does not feed the
+// Simple Method load-case or triaxial calculations); "Connection Rating
+// Source" below (API round thread / supplier datasheet / pipe body only)
+// is the separate field that drives the tension strength check.
+function threadOptions(sel){
+  var threads = ['STC','LTC','BTC','8RD','VAM','ER','Blue','S60','Vetco LS'];
+  return threads.map(function(t){ return '<option value="'+t+'"'+(t===sel?' selected':(!sel&&t==='LTC'?' selected':''))+'>'+t+'</option>'; }).join('');
+}
 function getCasingStrings(){
   return Array.from(document.querySelectorAll('#csBody tr')).map(function(tr){
     var c = tr.querySelectorAll('input, select');
     return {
       name: c[0].value.trim(), stringType: c[1].value,
       od_mm: parseFloat(c[2].value), id_mm: parseFloat(c[3].value),
-      grade: c[4].value, weight_kgpm: parseFloat(c[5].value),
-      shoeMD_m: parseFloat(c[6].value), shoeTVD_m: parseFloat(c[7].value)
+      grade: c[4].value, weight_kgpm: parseFloat(c[5].value), thread: c[6].value,
+      shoeMD_m: parseFloat(c[7].value), shoeTVD_m: parseFloat(c[8].value)
     };
   }).filter(function(s){ return s.name && !isNaN(s.od_mm) && !isNaN(s.id_mm) && !isNaN(s.shoeTVD_m); });
 }
@@ -499,6 +531,28 @@ function renderResults(results){
       block.appendChild(pcDiv);
     }
 
+    if(entry.buckling){
+      var bk = entry.buckling;
+      var al = bk.asLanded;
+      var bkDiv = document.createElement('div');
+      var bkOk = !al.willBuckle;
+      bkDiv.style.cssText = 'font-size:11px;font-family:monospace;color:var(--text-dim);background:var(--panel2);border:1px solid ' + (bkOk ? '#39ff14' : '#ffd060') + ';border-radius:4px;padding:6px 8px;margin-bottom:8px;';
+      bkDiv.innerHTML = '<b style="color:var(--text-bright);">Buckling (As Landed)</b> — Fa ' + fmt(al.Fa_N/1000,0) + ' kN, Fs ' + fmt(al.Fs_N/1000,0) +
+        ' kN → Fbu ' + fmt(al.Fbu_N/1000,0) + ' kN → <b style="color:' + (bkOk ? '#39ff14' : '#ffd060') + ';">' + (bkOk ? 'OK (no buckling)' : 'BUCKLES') + '</b>';
+      if(bk.parentStringName){
+        bkDiv.innerHTML += '<br><span style="color:#5a7080;">Δr ' + fmt(bk.radialClearance_mm,1) + ' mm (inside ' + bk.parentStringName + ')';
+        if(bk.lengthChange_m != null){
+          bkDiv.innerHTML += ' — length change ' + fmt(bk.lengthChange_m*1000,1) + ' mm (Ref. Bourgoyne Eq. 7.33, Lubinski)';
+        } else if(!bkOk){
+          bkDiv.innerHTML += ' — length change requires a positive clearance (none available)';
+        }
+        bkDiv.innerHTML += '</span>';
+      } else {
+        bkDiv.innerHTML += '<br><span style="color:#5a7080;">No previous casing string to derive radial clearance from — length change not computed for the shallowest string.</span>';
+      }
+      block.appendChild(bkDiv);
+    }
+
 
     var chartWrap = document.createElement('div');
     chartWrap.className = 'chart-wrap';
@@ -522,18 +576,42 @@ function renderResults(results){
     var envelope = entry.triaxial.envelope;
     var high = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
     var low = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
+    var designEnv = entry.triaxial.designEnvelope || [];
+    var designHigh = designEnv.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
+    var designLow = designEnv.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
+    var bucklingLine = (entry.triaxial.bucklingLine || []).map(function(p){ return { x: p.dp_Pa/1e6, y: p.Fa_N/1000 }; });
     var loadPts = entry.triaxial.points.map(function(p){ return { x: p.dp_Pa/1e6, y: p.Fa_N/1000, label: p.label }; });
     var simplePts = loadPts.filter(function(p){ return p.label.indexOf('simple') !== -1; });
     var altPts = loadPts.filter(function(p){ return p.label.indexOf('alternative') !== -1; });
     var engPts = loadPts.filter(function(p){ return p.label.indexOf('engineered') !== -1; });
+
+    // "As landed" reference — a vertical line at that condition's dp
+    // (0, per the pre-cementing "same mud both sides" assumption — see
+    // casingLoadCases.js) spanning the chart's y-range, plus a marker at
+    // the actual as-landed Fa so it's visible where the point sits on it.
+    var asLandedLine = [], asLandedPt = [];
+    if(entry.buckling && entry.buckling.asLanded){
+      var al = entry.buckling.asLanded;
+      var allY = high.map(function(p){ return p.y; }).concat(low.map(function(p){ return p.y; }));
+      var yMin = allY.length ? Math.min.apply(null, allY) : -1000;
+      var yMax = allY.length ? Math.max.apply(null, allY) : 1000;
+      var x0 = al.dp_Pa / 1e6;
+      asLandedLine = [{ x: x0, y: yMin }, { x: x0, y: yMax }];
+      asLandedPt = [{ x: x0, y: al.Fa_N / 1000, label: 'As Landed' }];
+    }
 
     if(cdCharts[name]) cdCharts[name].destroy();
     cdCharts[name] = new Chart(canvas.getContext('2d'), {
       type: 'scatter',
       data: {
         datasets: [
-          { label: 'VME envelope (upper)', data: high, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
-          { label: 'VME envelope (lower)', data: low, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'VME — MYS (upper)', data: high, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'VME — MYS (lower)', data: low, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'VME — Design Factor (upper)', data: designHigh, showLine: true, borderColor: '#ff4060', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'VME — Design Factor (lower)', data: designLow, showLine: true, borderColor: '#ff4060', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'Buckling threshold (Goins)', data: bucklingLine, showLine: true, borderColor: '#7d9e34', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5, borderDash: [5,3] },
+          { label: 'As Landed (ref.)', data: asLandedLine, showLine: true, borderColor: '#c8d8e8', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1, borderDash: [2,2] },
+          { label: 'As Landed', data: asLandedPt, showLine: false, backgroundColor: '#ffffff', borderColor: '#111820', borderWidth: 1.5, pointStyle: 'crossRot', pointRadius: 7, pointHoverRadius: 9 },
           { label: 'Load cases (Simple)', data: simplePts, showLine: false, backgroundColor: '#ff6b35', pointRadius: 6,
             pointStyle: 'circle' },
           { label: 'Load cases (Alternative)', data: altPts, showLine: false, backgroundColor: '#ffd060', pointRadius: 6,
@@ -670,17 +748,45 @@ function applySavedWellParams(){
   if(!cdSavedDoc || !cdSavedDoc.resultsByWell || !cdSavedDoc.resultsByWell[cdCurrentWellKey]){
     document.getElementById('cdRunStatus').textContent = 'No saved setup for this well/scenario yet — add strings and Run & Save.';
     document.getElementById('cdRunStatus').className = 'status';
+    clearDfOverride();
     return;
   }
   var entry = cdSavedDoc.resultsByWell[cdCurrentWellKey];
   setLoadParams(entry.loadParams);
   (entry.casingStrings || []).forEach(function(s){ addCsRow(s); });
+  setDfOverride(entry.dfOverride);
   if(entry.results) renderResults(entry.results);
   document.getElementById('cdRunStatus').textContent = entry.calculatedAt
     ? ('Loaded saved run from ' + new Date(entry.calculatedAt).toLocaleString() + (entry.calculatedByName ? ' by ' + entry.calculatedByName : ''))
     : 'Loaded saved setup (not yet calculated).';
   document.getElementById('cdRunStatus').className = 'status';
 }
+
+// =============================================================
+// VME chart design-factor override (what-if only — see the panel's own
+// note; never touches the pass/fail checks, only the red curve/tension
+// cap). Persisted alongside the rest of the saved setup so it round-trips
+// with the well/scenario, same as casing strings and load params.
+// =============================================================
+function getDfOverride(){
+  var b = parseFloat(document.getElementById('cdDfBurst').value);
+  var c = parseFloat(document.getElementById('cdDfCollapse').value);
+  var t = parseFloat(document.getElementById('cdDfTension').value);
+  var out = {};
+  if(!isNaN(b)) out.burst = b;
+  if(!isNaN(c)) out.collapse = c;
+  if(!isNaN(t)) out.tension = t;
+  return Object.keys(out).length ? out : null;
+}
+function setDfOverride(dfOverride){
+  document.getElementById('cdDfBurst').value = (dfOverride && dfOverride.burst != null) ? dfOverride.burst : '';
+  document.getElementById('cdDfCollapse').value = (dfOverride && dfOverride.collapse != null) ? dfOverride.collapse : '';
+  document.getElementById('cdDfTension').value = (dfOverride && dfOverride.tension != null) ? dfOverride.tension : '';
+}
+function clearDfOverride(){
+  setDfOverride(null);
+}
+
 
 async function runAndSave(){
   if(!cdCurrentNoteId || !cdCurrentWellKey){ alert('Load a job and select a well first.'); return; }
@@ -693,7 +799,7 @@ async function runAndSave(){
   try {
     var res = await fetch('/notes/casingDesign/recalculate/' + cdCurrentNoteId, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ wellKey: cdCurrentWellKey, casingStrings: casingStrings, loadParams: loadParams, scenario: cdCurrentScenario })
+      body: JSON.stringify({ wellKey: cdCurrentWellKey, casingStrings: casingStrings, loadParams: loadParams, scenario: cdCurrentScenario, dfOverride: getDfOverride() })
     });
     var data = await res.json();
     if(!res.ok){ statusEl.textContent = '❌ ' + (data.error || res.statusText); statusEl.className='status err'; return; }

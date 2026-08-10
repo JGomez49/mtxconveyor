@@ -606,7 +606,17 @@
   // loadParamsByName: { <string name>: { ...simpleLoads params, ...
   //                    alternativeLoads params, ...engineeredLoads params
   //                    (see each function's header) } }
-  function computeCasingDesign(casingStrings, loadParamsByName) {
+  // opts.dfOverride: optional { burst, collapse, tension } — a WHAT-IF
+  // override for the VME "Design Factor" curve only (see the design-limit
+  // envelope block below). Does NOT change burstDF/collapseDF/tensionDF
+  // used by designCheck()/governingStatus() above — the actual pass/fail
+  // compliance check always stays governed by the Foundation doc's
+  // mandated DFs, never by this override, so a person exploring "what if
+  // DF were higher/lower" on the chart can't accidentally make a failing
+  // string look like it passes.
+  function computeCasingDesign(casingStrings, loadParamsByName, opts) {
+    opts = opts || {};
+    var dfOverride = opts.dfOverride || {};
     var byString = {};
     (casingStrings || []).forEach(function (str) {
       var p = (loadParamsByName && loadParamsByName[str.name]) || {};
@@ -654,6 +664,110 @@
       var envRange = CasingModel.triaxialEnvelopeAutoRange(od_m, id_m, str.grade);
       var envelope = CasingModel.triaxialEnvelope(od_m, id_m, str.grade,
         { min: envRange.min, max: envRange.max, steps: 100 });
+
+      // Design-limit envelope (the "how close is the DESIGN to failing"
+      // curve most triaxial casing design tools show alongside the raw MYS
+      // envelope) — burst-side and collapse-side derated by whichever
+      // method's required DF actually governs each (Simple/Alternative/
+      // Engineered can differ per string, same resolution the results
+      // cards use), UNLESS the caller supplied a what-if opts.dfOverride
+      // (see the function header) — that only touches this display curve,
+      // never the governing pass/fail DFs above. Swept over the same dp
+      // range as the MYS envelope above; points beyond where the derated
+      // curve closes are dropped automatically (envelopePoint_psi returns
+      // null there), so this always nests correctly inside the rated
+      // envelope without a second boundary search.
+      function govCheck(key) {
+        var by = governing[key].governedBy;
+        var src = by === 'engineered' ? engCheck : (by === 'alternative' ? altCheck : simpleCheck);
+        return (src && src[key]) ? src[key] : simpleCheck[key];
+      }
+      var burstReqDF = dfOverride.burst != null ? dfOverride.burst : govCheck('burst').requiredDF;
+      var collapseReqDF = dfOverride.collapse != null ? dfOverride.collapse : govCheck('collapse').requiredDF;
+      var designEnvelope = CasingModel.triaxialDesignEnvelope(od_m, id_m, str.grade, burstReqDF, collapseReqDF,
+        { min: envRange.min, max: envRange.max, steps: 100 });
+
+      // The dp-side derating above leaves the curve's tension (Fa>0) tip
+      // wherever burst/collapse DF happens to put it at dp=0 — but at
+      // dp=0 the load is PURE axial, which is exactly what the Tension
+      // check's own DF governs (often the tightest of the three, e.g.
+      // 1.6/1.75 vs. 1.0 for burst/collapse). So the design curve's
+      // tension side is additionally capped at the tension DF's derated
+      // capacity (rating/DF, DF from dfOverride.tension if supplied) —
+      // the smaller of the two independently-valid boundaries wins, same
+      // idea as how the API rectangle in a StressCheck-style plot clips
+      // the VME ellipse's tips. Compression side is left alone here —
+      // that's the buckling threshold below, a different kind of limit.
+      var tensionGov = govCheck('tension');
+      var tensionCapDF = dfOverride.tension != null ? dfOverride.tension : tensionGov.requiredDF;
+      var tensionCapN = (tensionGov && tensionGov.rating != null && tensionCapDF)
+        ? tensionGov.rating / tensionCapDF : null;
+      if (tensionCapN != null) {
+        designEnvelope = designEnvelope.map(function (pt) {
+          return { dp_Pa: pt.dp_Pa, FaHigh_N: Math.min(pt.FaHigh_N, tensionCapN), FaLow_N: pt.FaLow_N };
+        });
+      }
+
+      // Buckling threshold (Ref [2] Eq. 7.34/7.35, Goins via Lubinski) —
+      // Fs = Ai*pi - Ao*po; buckling occurs where the actual axial force
+      // Fa drops below Fs. This is a STABILITY criterion, not a strength
+      // rating like burst/collapse/tension, so it has no single "capacity"
+      // — it plots as a boundary LINE, not a fixed edge. Uses the same
+      // po=0 ("internal pressure only") convention as the envelope curves
+      // above, so pi=dp and this reduces to a straight line through the
+      // origin (Fs = Ai*dp). Swept over the same dp domain so it lines up
+      // with the other curves on the same chart.
+      var bucklingLine = envelope.map(function (pt) {
+        return { dp_Pa: pt.dp_Pa, Fa_N: CasingModel.stabilityForce_N(od_m, id_m, pt.dp_Pa, 0) };
+      });
+
+      // "As landed" reference point (Ref [2] Sec. 7.5.6) — casing just run,
+      // filled with the same mud it was run in on both sides (before
+      // cementing displacement), so dp=0 and Fa is the string's own static
+      // BUOYED hanging weight (pressure x body area method, same buoyancy
+      // principle already used for Alternative-method tension elsewhere in
+      // this file — Simple Method's own tension.load_N is UNBUOYED and
+      // isn't right for this). NOTE: Fbu/length-change are properly
+      // evaluated AT TOP OF CEMENT (Sec. 7.5.6) — this module doesn't
+      // currently track a top-of-cement depth per string, so the string's
+      // own shoe TVD/mud state is used as a stand-in reference point
+      // (same depth already used for the Tension check) rather than
+      // inventing an unstated TOC. Flagged here rather than silently
+      // assumed — revisit if a TOC input is ever added.
+      var mudGradForBuckling = p.mudGradient_kPa_m != null ? p.mudGradient_kPa_m : 0;
+      var asLandedP_Pa = mudGradForBuckling * 1000 * str.shoeTVD_m;
+      var asLandedFs_N = CasingModel.stabilityForce_N(od_m, id_m, asLandedP_Pa, asLandedP_Pa);
+      var Ac_m2 = Math.PI / 4 * (od_m * od_m - id_m * id_m); // steel cross-section, As
+      var weightAir_Npm = (str.weight_kgpm || 0) * G;
+      var asLandedFb_N = mudGradForBuckling * 1000 * Ac_m2 * str.shoeTVD_m; // pressure x body area (Ao-Ai=As)
+      var asLandedFa_N = weightAir_Npm * str.shoeTVD_m - asLandedFb_N; // buoyed hanging weight
+      var asLandedFbu_N = asLandedFs_N - asLandedFa_N;
+
+      // Radial clearance (Δr, Eq. 7.33) — derived from the PREVIOUS
+      // (parent) casing string's ID: the free length above cement top runs
+      // through whichever string this one is landed inside, before
+      // entering open hole. The shallowest string in the program (e.g.
+      // Surface) has no previous casing to derive clearance from — open-
+      // hole size isn't tracked in Casing Design, so length change isn't
+      // computed for it (left null) rather than guessed.
+      var sortedForParent = (casingStrings || []).slice().sort(function (a, b) { return a.shoeMD_m - b.shoeMD_m; });
+      var myIdx = sortedForParent.findIndex(function (s) { return s.name === str.name; });
+      var parentStr = myIdx > 0 ? sortedForParent[myIdx - 1] : null;
+      var radialClearance_mm = null, bucklingLengthChange_m = null;
+      if (parentStr) {
+        radialClearance_mm = (parentStr.id_mm - str.od_mm) / 2;
+        if (radialClearance_mm > 0 && asLandedFbu_N > 0) {
+          var wBuoy_Npm = weightAir_Npm - mudGradForBuckling * 1000 * Ac_m2;
+          bucklingLengthChange_m = CasingModel.bucklingLengthChange_m(
+            od_m, id_m, radialClearance_mm / 1000, asLandedFbu_N, wBuoy_Npm);
+        }
+      }
+      var buckling = {
+        asLanded: { dp_Pa: 0, Fa_N: asLandedFa_N, Fs_N: asLandedFs_N, Fbu_N: asLandedFbu_N, willBuckle: asLandedFbu_N > 0 },
+        parentStringName: parentStr ? parentStr.name : null,
+        radialClearance_mm: radialClearance_mm,
+        lengthChange_m: bucklingLengthChange_m
+      };
 
       function loadPoint(label, pi_kPa, po_kPa, Fa_N, fiber) {
         var pt = CasingModel.triaxialPoint({ od_m: od_m, id_m: id_m, pi_Pa: pi_kPa * 1000, po_Pa: po_kPa * 1000, Fa_N: Fa_N, fiber: fiber || 'ID' });
@@ -715,7 +829,8 @@
         governing: governing,
         parentCheck: parentCheck,
         overpull: overpull,
-        triaxial: { envelope: envelope, points: points }
+        triaxial: { envelope: envelope, designEnvelope: designEnvelope, bucklingLine: bucklingLine, points: points },
+        buckling: buckling
       };
     });
     return { byString: byString };

@@ -1380,12 +1380,12 @@ notesCrtl.saveCasingDesign = async (req, res) => {
 notesCrtl.recalculateCasingDesign = async (req, res) => {
   try {
     const noteId = req.params.noteId;
-    const { wellKey, casingStrings, loadParams, scenario } = req.body;
+    const { wellKey, casingStrings, loadParams, scenario, dfOverride } = req.body;
     if(!noteId) return res.status(400).json({ error: 'Missing noteId' });
     if(!wellKey) return res.status(400).json({ error: 'Missing wellKey' });
     if(!casingStrings || !casingStrings.length) return res.status(400).json({ error: 'Missing casingStrings' });
 
-    const results = CasingLoadCasesCore.computeCasingDesign(casingStrings, loadParams || {});
+    const results = CasingLoadCasesCore.computeCasingDesign(casingStrings, loadParams || {}, { dfOverride });
 
     let doc = await CasingDesign.findOne({ noteId });
     if(!doc) doc = new CasingDesign({ noteId, resultsByWell: {}, scenarios: {}, activeScenario: '' });
@@ -1394,7 +1394,7 @@ notesCrtl.recalculateCasingDesign = async (req, res) => {
     const scenarioResultsByWell = Object.assign({}, (scenarios[scenarioName] && scenarios[scenarioName].resultsByWell) || {});
     const calculatedAt = new Date();
     scenarioResultsByWell[wellKey] = {
-      casingStrings, loadParams: loadParams || {}, results,
+      casingStrings, loadParams: loadParams || {}, dfOverride: dfOverride || null, results,
       calculatedAt,
       calculatedByName: req.user ? (req.user.name || req.user.username || '') : '',
       calculatedByUserId: req.user ? req.user._id : null,

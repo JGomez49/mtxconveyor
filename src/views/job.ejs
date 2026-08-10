@@ -473,6 +473,24 @@ body.light-mode #statusTextbox {
                     .wbt-table td:first-child, .wbt-table th:first-child{ text-align:left; }
                     .wbt-table tr:hover td{ background: rgba(0,200,255,.05); }
 
+                    /* Bit Hydraulics Program tables: sit two-per-row in a
+                       half-width panel, so the shared .wbt-table's
+                       white-space:nowrap forced a horizontal scrollbar on
+                       long component names (e.g. "Underreamer 130mm").
+                       Let cells wrap instead so the whole table is visible
+                       with no side scroll bar. Scoped to just these two
+                       tables via .hyd-wrap-table, not the shared class, so
+                       other .wbt-table uses elsewhere (e.g. Wellbore
+                       Trajectory) keep their single-line numeric columns. */
+                    .hyd-wrap-table th, .hyd-wrap-table td{ white-space:normal; word-break:break-word; }
+                    /* .wbt-table-wrap also caps at max-height:240px with
+                       overflow:auto (needed elsewhere for long tables with
+                       a sticky header) — that's what was causing the
+                       vertical scrollbar here even after the horizontal
+                       one was fixed. .hyd-wrap-full removes the cap so the
+                       full row count renders with no scroll bar at all. */
+                    .hyd-wrap-full{ max-height:none; overflow:visible; }
+
                     /* Accordion */
                     .wbt-accordion-item{ border:1px solid var(--wbt-border); border-radius:4px; margin-bottom:8px; overflow:hidden; }
                     .wbt-accordion-header{
@@ -1339,14 +1357,14 @@ body.light-mode #statusTextbox {
                                     <div class="td-2col" style="border-radius:.5rem;padding:1rem;">
                                         <div class="td-chart-panel mb-3">
                                             <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Drill String</div>
-                                            <div class="wbt-table-wrap" style="max-height:220px;">
-                                                <table class="wbt-table" id="hydDsTable"><thead><tr><th>Component</th><th>Cap. (bbl)</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            <div class="wbt-table-wrap hyd-wrap-full">
+                                                <table class="wbt-table hyd-wrap-table" id="hydDsTable"><thead><tr><th>Component</th><th>Cap. (bbl)</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
                                             </div>
                                         </div>
                                         <div class="td-chart-panel mb-3">
                                             <div class="td-chart-title" style="font-size:14px;margin-bottom:6px;">Annulus</div>
-                                            <div class="wbt-table-wrap" style="max-height:220px;">
-                                                <table class="wbt-table" id="hydAnnTable"><thead><tr><th>Section</th><th>Length (m)</th><th>Regime</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
+                                            <div class="wbt-table-wrap hyd-wrap-full">
+                                                <table class="wbt-table hyd-wrap-table" id="hydAnnTable"><thead><tr><th>Section</th><th>Length (m)</th><th>Regime</th><th>Press. Loss (kPa)</th></tr></thead><tbody></tbody></table>
                                             </div>
                                         </div>
                                     </div>
@@ -3250,6 +3268,24 @@ body.light-mode #statusTextbox {
         }
 
         function wbtFmt(v, d){ return (v === null || v === undefined || isNaN(v)) ? '-' : v.toFixed(d !== undefined ? d : 1); }
+
+        // Exposed for the Torque & Drag "Wellbore Geometry & BHA" schematic
+        // (see renderTDSchematic below): gives the same SC / ICP(LP) / TD
+        // measured depths shown on this well's score card, computed from
+        // the trajectory survey's own comment markers, so the T&D widget's
+        // casing schema can auto-sync to the well actually selected instead
+        // of reusing whatever depths were last in play for a different well.
+        window.mtxGetWellKeyDepths = function(wellName){
+            var w = WELLBORES.find(function(x){ return x.wellName === wellName; });
+            if(!w || !w.survey || !w.survey.length) return null;
+            var m = wbtComputeMetrics(w.wellName, w.survey);
+            if(!m) return null;
+            return {
+                scMD:  m.sc ? m.sc.md : null,
+                icpMD: (m.icpMD !== null && m.icpMD !== undefined && !isNaN(m.icpMD)) ? m.icpMD : null,
+                tdMD:  (m.totalMD !== null && m.totalMD !== undefined && !isNaN(m.totalMD)) ? m.totalMD : null
+            };
+        };
 
         // Stored after each wbtRenderDashboard call for Excel export
         let wbtLastDashboardMetrics = [];
@@ -6787,12 +6823,81 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         var wrap = document.getElementById('tdSchematicWrap');
         if(!inner || !wrap) return;
         var casings = currentCasings || [];
-        var bha = currentBha || [];
         var p = currentParams || {};
         var td_m = p.td;
-        if(!casings.length && !bha.length || !td_m){ wrap.style.display = 'none'; return; }
+        if(!casings.length && !(currentBha || []).length || !td_m){ wrap.style.display = 'none'; return; }
         var ohDiam_mm = (p.ohDiam_m || 0) * 1000;
         var ohTop_m = p.ohTop || 0;
+        var currentWellKey = wellSelect ? wellSelect.value : null;
+
+        // Display-only BHA: the modeled BHA's cumulative length rarely lands
+        // exactly on this well's own TD (which can differ well-to-well).
+        // Overshoot (BHA longer than TD, e.g. a full-string model run
+        // against a shallower well) is handled by trimming meters off the
+        // shallow end (never the bit, which is bha[0] — see the modeler's
+        // bit-first ordering): the exceeding length is cut from the
+        // shallowest element first; if that element isn't long enough to
+        // absorb it, it's dropped entirely and the remainder carries over
+        // to the next element in, stopping as soon as the excess reaches
+        // zero. No real component's length is ever stretched to cover an
+        // overshoot — only trimmed or dropped. A shortfall (BHA doesn't
+        // reach surface) is filled by extending the shallowest surviving
+        // element, since that's filler pipe rather than a real measured
+        // joint. This never touches the saved BHA, only what's drawn.
+        function getDisplayBha(bhaArr, tdVal){
+            if(!bhaArr || !bhaArr.length) return [];
+            var disp = bhaArr.map(function(c){ return Object.assign({}, c); });
+            var MIN_LEN = 0.1;
+            var total = disp.reduce(function(s, c){ return s + c.len; }, 0);
+            if(total > tdVal){
+                var excess = total - tdVal;
+                while(excess > 0 && disp.length > 1){
+                    var lastIdx = disp.length - 1;
+                    var lastLen = disp[lastIdx].len;
+                    if(excess >= lastLen){
+                        disp.pop();
+                        excess -= lastLen;
+                    } else {
+                        disp[lastIdx].len = lastLen - excess;
+                        excess = 0;
+                    }
+                }
+                if(excess > 0){
+                    // Only the bit is left and it's still longer than TD on
+                    // its own — a data problem elsewhere, not something to
+                    // paper over further; just floor it so nothing breaks.
+                    disp[0].len = Math.max(MIN_LEN, disp[0].len - excess);
+                }
+            } else if(total < tdVal){
+                var delta = tdVal - total;
+                disp[disp.length - 1].len += delta;
+            }
+            return disp;
+        }
+        var bha = getDisplayBha(currentBha || [], td_m);
+
+        // Inclination-at-MD, interpolated from this well's own computed T&D
+        // survey (currentResults.mds / .incArr) — already on hand from the
+        // last calculation, so no extra lookup is needed.
+        function inclAtMD(md){
+            var r = currentResults;
+            if(!r || !r.mds || !r.mds.length || !r.incArr || !r.incArr.length) return null;
+            var mds = r.mds, incs = r.incArr;
+            if(md <= mds[0]) return incs[0];
+            if(md >= mds[mds.length - 1]) return incs[incs.length - 1];
+            for(var i = 1; i < mds.length; i++){
+                if(md <= mds[i]){
+                    var m0 = mds[i - 1], m1 = mds[i], i0 = incs[i - 1], i1 = incs[i];
+                    if(m1 === m0) return i0;
+                    return i0 + (i1 - i0) * (md - m0) / (m1 - m0);
+                }
+            }
+            return incs[incs.length - 1];
+        }
+        function fmtDI(md){
+            var inc = inclAtMD(md);
+            return md.toFixed(0) + ' m' + (inc != null ? ', ' + inc.toFixed(1) + '\u00b0' : '');
+        }
 
         var isLight = document.body.classList.contains('light-mode');
         var COL = {
@@ -6855,11 +6960,28 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         var ohTopY = yA(Math.max(ohTop_m, 0)), ohBotY = yA(td_m), ohHw = hwA(ohDiam_mm);
         svgA += '<rect x="' + (pA_cx - ohHw) + '" y="' + ohTopY + '" width="' + (ohHw * 2) + '" height="' + (ohBotY - ohTopY) + '" fill="' + COL.formation + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="2,3"/>';
         svgA += '<text x="' + (pA_cx + ohHw + 10) + '" y="' + ((ohTopY + ohBotY) / 2) + '" font-size="11" fill="' + COL.textDim + '" font-family="monospace">Open Hole, ' + ohDiam_mm.toFixed(2) + ' mm</text>';
+        var cdMissLogged = false;
         casings.forEach(function (c) {
             var top = yA(c.top), bot = yA(c.shoe), hw = hwA(c.od_m * 1000);
             svgA += '<rect x="' + (pA_cx - hw) + '" y="' + top + '" width="' + (hw * 2) + '" height="' + (bot - top) + '" fill="' + COL.casing + '" stroke="' + COL.casingStroke + '" stroke-width="1.5"/>';
-            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 20) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
-            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 7) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ID ' + (c.id_m * 1000).toFixed(2) + ' mm</text>';
+            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 33) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
+            svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 20) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ID ' + (c.id_m * 1000).toFixed(2) + ' mm</text>';
+            // Grade / weight / thread — from the Casing Design module (the
+            // source of truth for this info; the T&D casing table itself
+            // only stores OD/ID/top/shoe). Only shown once loaded/matched.
+            var cdInfo = casingDesignInfoFor(currentWellKey, c.name);
+            if(cdInfo){
+                var gwt = [
+                    cdInfo.grade || null,
+                    (cdInfo.weight_kgpm != null && !isNaN(cdInfo.weight_kgpm) ? Number(cdInfo.weight_kgpm).toFixed(1) + ' kg/m' : null),
+                    cdInfo.thread || null
+                ].filter(function (v) { return v; }).join(', ');
+                if(gwt) svgA += '<text x="' + (pA_cx + hw + 10) + '" y="' + (bot - 7) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">' + esc(gwt) + '</text>';
+            } else if(!cdMissLogged){
+                cdMissLogged = true;
+                console.log('[T&D] No Casing Design match for well "' + currentWellKey + '" casing "' + c.name +
+                    '" — check the Casing Design module has a string with that exact name saved for this well.');
+            }
             [c.top, c.shoe].forEach(function (md) {
                 var y = yA(md);
                 svgA += '<line x1="8" y1="' + y + '" x2="' + (pA_cx - hw) + '" y2="' + y + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
@@ -6882,7 +7004,11 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         // ---------------- Panel B: BHA detail, equal-height rows ----------------
         var svgB = '';
         if (bha.length) {
-            var pB_top = 20, pB_cx = 50, pB_maxHalfW = 15;
+            // pB_cx pushed right (was 50) to leave room for the tick labels,
+            // which now carry "MD, inclination°" (longer than plain MD) —
+            // at the old position that text ran directly into the component
+            // boxes and was unreadable.
+            var pB_top = 20, pB_cx = 120, pB_maxHalfW = 15;
             var OTHER_ROW_H = 50;
             var maxOD_B = bha.reduce(function (m, c) { return Math.max(m, c.od_m * 1000); }, 1);
             function hwB(od_mm){ return Math.max(4, (od_mm / maxOD_B) * pB_maxHalfW); }
@@ -6903,7 +7029,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 
             svgB = '<svg viewBox="0 0 640 ' + pB_h + '" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background:' + COL.bg + ';display:block;">';
             svgB += '<line x1="8" y1="' + pB_top + '" x2="' + pB_cx + '" y2="' + pB_top + '" stroke="' + COL.tick + '" stroke-width="1"/>';
-            svgB += '<text x="4" y="' + (pB_top + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtD(bhaTopMD) + '</text>';
+            svgB += '<text x="4" y="' + (pB_top + 3) + '" font-size="9" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + fmtDI(bhaTopMD) + '</text>';
 
             var y = pB_top;
             stack.forEach(function (r) {
@@ -6915,9 +7041,9 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 svgB += '<rect x="' + (pB_cx - hw) + '" y="' + yTop + '" width="' + (hw * 2) + '" height="' + rowH + '" fill="' + fill + '"' + (bit ? '' : ' stroke="' + COL.collarStroke + '" stroke-width="1"') + '/>';
                 if (bit) svgB += bitIconRect(pB_cx - hw, yTop, hw * 2, rowH);
                 svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 - 4) + '" font-size="11" fill="' + COL.text + '" font-family="monospace" font-weight="bold">' + esc(c.name) + '</text>';
-                svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 + 9) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ' + c.wt.toFixed(2) + ' kg/m</text>';
+                svgB += '<text x="' + (pB_cx + hw + 10) + '" y="' + ((yTop + yBot) / 2 + 9) + '" font-size="10" fill="' + COL.textDim + '" font-family="monospace">OD ' + (c.od_m * 1000).toFixed(2) + ' mm, ID ' + (c.id_m * 1000).toFixed(2) + ' mm, ' + c.wt.toFixed(2) + ' kg/m</text>';
                 svgB += '<line x1="8" y1="' + yBot + '" x2="' + (pB_cx - hw) + '" y2="' + yBot + '" stroke="' + COL.tick + '" stroke-width="1" stroke-dasharray="1,2"/>';
-                svgB += '<text x="4" y="' + (yBot + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace">' + fmtD(r.bot) + '</text>';
+                svgB += '<text x="4" y="' + (yBot + 3) + '" font-size="9" fill="' + COL.textDim + '" font-family="monospace">' + fmtDI(r.bot) + '</text>';
                 y = yBot;
             });
             svgB += '</svg>';
@@ -7137,7 +7263,47 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     // "Current settings" — whichever well's casings/bha/params were most
     // recently in play. Reused as-is when switching wells, so a well switch
     // is a true apples-to-apples comparison ("same settings, different well").
-    let currentCasings = null, currentBha = null, currentParams = null;
+    let currentCasings = null, currentBha = null, currentParams = null, currentResults = null;
+
+    // Grade / weight / thread for the schematic's casing labels come from
+    // the Casing Design module — it's the source of truth for that info,
+    // the T&D casing table only stores OD/ID/top/shoe. Already embedded
+    // server-side (#casingDesignData, same pattern as #tdModelData) — no
+    // extra fetch needed. Matched to the T&D casings by name.
+    //
+    // Looks in the active scenario first (top-level resultsByWell, same
+    // mirror convention as TDModel/CasingDesign use everywhere else), then
+    // falls back to ANY scenario that has a saved string for this well —
+    // the T&D casing table isn't scenario-aware, so this is friendlier
+    // than requiring an exact scenario match the person may not know about.
+    let casingDesignDoc = null;
+    (function loadCasingDesignData(){
+        const dataEl = document.getElementById('casingDesignData');
+        if(!dataEl) return;
+        try {
+            casingDesignDoc = JSON.parse(dataEl.textContent);
+        } catch(err) {
+            console.warn('[T&D] Failed to parse casingDesignData JSON:', err);
+        }
+        if(!casingDesignDoc) console.log('[T&D] No Casing Design saved for this job yet — Grade/Weight/Thread won\'t show on the schematic.');
+    })();
+    function casingDesignInfoFor(wellKey, casingName){
+        if(!casingDesignDoc || !wellKey) return null;
+        const norm = s => (s || '').trim().toLowerCase();
+        function findIn(resultsByWell){
+            if(!resultsByWell || !resultsByWell[wellKey]) return null;
+            const strings = resultsByWell[wellKey].casingStrings || [];
+            return strings.find(s => norm(s.name) === norm(casingName)) || null;
+        }
+        let match = findIn(casingDesignDoc.resultsByWell);
+        if(match) return match;
+        const scenarios = casingDesignDoc.scenarios || {};
+        for(const name of Object.keys(scenarios)){
+            match = findIn(scenarios[name] && scenarios[name].resultsByWell);
+            if(match) return match;
+        }
+        return null;
+    }
 
     function fmtWhen(iso){
         if(!iso) return '';
@@ -7157,6 +7323,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             return;
         }
         currentCasings = entry.casings; currentBha = entry.bha; currentParams = entry.params;
+        currentResults = entry.results;
         if(emptyMsg) emptyMsg.style.display = 'none';
         if(chartsWrap) chartsWrap.style.display = '';
         statusText.textContent = 'Last calculated: ' + fmtWhen(entry.calculatedAt) +
@@ -7166,6 +7333,51 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         buildTDCharts(entry.results);
     }
 
+    // Reused settings ("apples-to-apples" casings/bha/params) get carried
+    // over when the well changes, but casing tops/shoes and TD are specific
+    // to each well's own trajectory — reusing them verbatim would show the
+    // wrong schema for the newly-selected well (e.g. a shallower well
+    // showing a negative-depth BHA top). This re-anchors the casing shoes
+    // (surface = trajectory SC, deepest casing = trajectory ICP/Landing,
+    // any strings in between scaled proportionally to their original
+    // spacing) and TD to the SELECTED well's own score-card depths —
+    // exactly the SC / ICP(LP) / TD values already computed for the
+    // Wellbore Trajectory dashboard (window.mtxGetWellKeyDepths). OD/ID and
+    // any other per-string settings are left untouched.
+    function syncCasingsToWell(wellKey, casings, params){
+        const depths = (typeof window.mtxGetWellKeyDepths === 'function') ? window.mtxGetWellKeyDepths(wellKey) : null;
+        if(!depths || !casings || !casings.length) return { casings, params };
+        const sorted = casings.slice().sort((a, b) => a.shoe - b.shoe);
+        const out = sorted.map(c => Object.assign({}, c));
+        const n = out.length;
+        const origFirstShoe = sorted[0].shoe;
+        const origLastShoe  = sorted[n - 1].shoe;
+        const newFirstShoe  = depths.scMD  != null ? depths.scMD  : origFirstShoe;
+        const newLastShoe   = depths.icpMD != null ? depths.icpMD : origLastShoe;
+        out[0].top = 0;
+        out[0].shoe = newFirstShoe;
+        if(n > 1){
+            const origSpan = origLastShoe - origFirstShoe;
+            const newSpan  = newLastShoe - newFirstShoe;
+            for(let i = 1; i < n; i++){
+                if(i === n - 1){
+                    out[i].shoe = newLastShoe;
+                } else if(origSpan > 0){
+                    const frac = (sorted[i].shoe - origFirstShoe) / origSpan;
+                    out[i].shoe = newFirstShoe + frac * newSpan;
+                } else {
+                    out[i].shoe = newFirstShoe + (newSpan * i / (n - 1));
+                }
+                out[i].top = out[i - 1].shoe;
+            }
+        }
+        const newParams = Object.assign({}, params);
+        if(depths.tdMD != null) newParams.td = depths.tdMD;
+        // Open hole conventionally starts where the deepest casing shoe is.
+        newParams.ohTop = out[n - 1].shoe;
+        return { casings: out, params: newParams };
+    }
+
     async function recalcAndShow(wellKey){
         if(!currentCasings || !currentBha || !currentParams){
             statusText.textContent = 'No saved parameters to reuse yet — run the model for at least one well in the modeler first.';
@@ -7173,6 +7385,9 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             if(chartsWrap) chartsWrap.style.display = 'none';
             return;
         }
+        const synced = syncCasingsToWell(wellKey, currentCasings, currentParams);
+        currentCasings = synced.casings;
+        currentParams = synced.params;
         statusText.textContent = 'Recalculating for ' + wellKey + '…';
         try {
             const res = await fetch('/notes/tdModel/recalculate/' + PASON_NOTE_ID, {
@@ -7536,25 +7751,48 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     function fmtN_kN(n){ return fmt(n/1000, 0); }
 
     var csdCharts = {};
-    function renderTriaxialChart(name, triaxial){
+    function renderTriaxialChart(name, triaxial, buckling){
         var canvasId = 'csdTriChart_' + name.replace(/[^a-z0-9]/gi, '_');
         var canvas = document.getElementById(canvasId);
         if(!canvas) return;
         var envelope = triaxial.envelope;
         var high = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
         var low = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
+        var designEnv = triaxial.designEnvelope || [];
+        var designHigh = designEnv.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
+        var designLow = designEnv.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
+        var bucklingLine = (triaxial.bucklingLine || []).map(function(p){ return { x: p.dp_Pa/1e6, y: p.Fa_N/1000 }; });
         var loadPts = triaxial.points.map(function(p){ return { x: p.dp_Pa/1e6, y: p.Fa_N/1000, label: p.label }; });
         var simplePts = loadPts.filter(function(p){ return p.label.indexOf('simple') !== -1; });
         var altPts = loadPts.filter(function(p){ return p.label.indexOf('alternative') !== -1; });
         var engPts = loadPts.filter(function(p){ return p.label.indexOf('engineered') !== -1; });
+
+        // "As landed" reference — vertical line at that condition's dp
+        // (see casingLoadCases.js), spanning the chart's y-range, plus a
+        // marker at the actual as-landed Fa.
+        var asLandedLine = [], asLandedPt = [];
+        if(buckling && buckling.asLanded){
+            var al = buckling.asLanded;
+            var allY = high.map(function(p){ return p.y; }).concat(low.map(function(p){ return p.y; }));
+            var yMin = allY.length ? Math.min.apply(null, allY) : -1000;
+            var yMax = allY.length ? Math.max.apply(null, allY) : 1000;
+            var x0 = al.dp_Pa / 1e6;
+            asLandedLine = [{ x: x0, y: yMin }, { x: x0, y: yMax }];
+            asLandedPt = [{ x: x0, y: al.Fa_N / 1000, label: 'As Landed' }];
+        }
 
         if(csdCharts[name]) csdCharts[name].destroy();
         csdCharts[name] = new Chart(canvas.getContext('2d'), {
             type: 'scatter',
             data: {
                 datasets: [
-                    { label: 'VME envelope', data: high, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
-                    { label: 'VME envelope', data: low, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'VME — MYS', data: high, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'VME — MYS', data: low, showLine: true, borderColor: '#00c8ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'VME — Design Factor', data: designHigh, showLine: true, borderColor: '#ff4060', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'VME — Design Factor', data: designLow, showLine: true, borderColor: '#ff4060', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'Buckling threshold (Goins)', data: bucklingLine, showLine: true, borderColor: '#7d9e34', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1.5, borderDash: [5,3] },
+                    { label: 'As Landed (ref.)', data: asLandedLine, showLine: true, borderColor: '#c8d8e8', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 1, borderDash: [2,2] },
+                    { label: 'As Landed', data: asLandedPt, showLine: false, backgroundColor: '#ffffff', borderColor: '#111820', borderWidth: 1.5, pointStyle: 'crossRot', pointRadius: 7, pointHoverRadius: 9 },
                     { label: 'Simple', data: simplePts, showLine: false, backgroundColor: '#ff6b35', pointRadius: 5 },
                     { label: 'Alternative', data: altPts, showLine: false, backgroundColor: '#ffd060', pointStyle: 'triangle', pointRadius: 6 },
                     { label: 'Engineered', data: engPts, showLine: false, backgroundColor: '#39ff14', pointStyle: 'rect', pointRadius: 5 }
@@ -7624,6 +7862,17 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 overpullLine = '<div style="font-size:10px;color:' + (op.pass?'#39ff14':'#ffd060') + ';margin-top:3px;">Overpull: ' +
                     (op.pass?'OK':'SHORT') + ' — ' + fmt(op.availableOverpull_kdaN,1) + ' kdaN available (tension governed by ' + op.governedBy + ')</div>';
             }
+            var bucklingLine2 = '';
+            if(e.buckling){
+                var bk = e.buckling, al = bk.asLanded, bkOk = !al.willBuckle;
+                bucklingLine2 = '<div style="font-size:10px;color:' + (bkOk?'#39ff14':'#ffd060') + ';margin-top:3px;">Buckling (As Landed): ' +
+                    (bkOk?'OK':'BUCKLES') + ' — Fbu ' + fmt(al.Fbu_N/1000,0) + ' kN';
+                if(bk.parentStringName){
+                    bucklingLine2 += ', Δr ' + fmt(bk.radialClearance_mm,1) + ' mm (inside ' + bk.parentStringName + ')';
+                    if(bk.lengthChange_m != null) bucklingLine2 += ', length change ' + fmt(bk.lengthChange_m*1000,1) + ' mm';
+                }
+                bucklingLine2 += '</div>';
+            }
             var canvasId = 'csdTriChart_' + name.replace(/[^a-z0-9]/gi, '_');
             var chartHtml = '';
             if(e.triaxial && e.triaxial.envelope && e.triaxial.envelope.length){
@@ -7631,13 +7880,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                     '<canvas id="' + canvasId + '"></canvas></div>';
             }
             row.innerHTML = '<div style="font-family:var(--cond, inherit);font-weight:700;color:#e8f4ff;margin-bottom:4px;">' + name + '</div>' +
-                '<div style="font-size:11px;font-family:monospace;">' + pieces + '</div>' + parentLine + overpullLine + chartHtml;
+                '<div style="font-size:11px;font-family:monospace;">' + pieces + '</div>' + parentLine + overpullLine + bucklingLine2 + chartHtml;
             cardsEl.appendChild(row);
             if(e.triaxial && e.triaxial.envelope && e.triaxial.envelope.length){
-                pendingCharts.push({ name: name, triaxial: e.triaxial });
+                pendingCharts.push({ name: name, triaxial: e.triaxial, buckling: e.buckling });
             }
         });
-        pendingCharts.forEach(function(c){ renderTriaxialChart(c.name, c.triaxial); });
+        pendingCharts.forEach(function(c){ renderTriaxialChart(c.name, c.triaxial, c.buckling); });
 
         statusText.textContent = entry.calculatedAt
             ? ('Calculated ' + new Date(entry.calculatedAt).toLocaleString() + (entry.calculatedByName ? ' by ' + entry.calculatedByName : ''))

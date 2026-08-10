@@ -116,6 +116,47 @@
     return MYS_psi * crossSectionArea_in2(od_in, id_in);
   }
 
+  // ---- Ref [2] Eq. 7.34/7.35 (Goins, via Lubinski) — buckling "stability
+  // force" -------------------------------------------------------------
+  // Fs = Ai*pi - Ao*po (Eq. 7.35). Buckling occurs when the actual axial
+  // force Fa drops below Fs — i.e. Fbu = Fs - Fa > 0 (Eq. 7.34; text: "If
+  // Fbu is negative, buckling will not occur"). Sign convention is tension-
+  // positive, confirmed by the book's own Eq. 7.30 discussion ("the
+  // positive sign denotes an increase in tension") — same convention this
+  // module uses everywhere else, so no sign flip needed at the call site.
+  //
+  // This is a STABILITY criterion, not a strength rating like burst/
+  // collapse/tension — there is no single "buckling capacity" number to
+  // report; the threshold itself depends on pi/po at the point of
+  // interest. Callers building a chart boundary from this should sweep it
+  // over the same dp domain as the envelope, using the same po convention
+  // (see envelopePoint_psi's po_psi note) so it lines up on the same axes.
+  function stabilityForce_lbf(od_in, id_in, pi_psi, po_psi) {
+    var Ai = Math.PI / 4 * id_in * id_in;
+    var Ao = Math.PI / 4 * od_in * od_in;
+    return Ai * pi_psi - Ao * po_psi;
+  }
+
+  // ---- Ref [2] Eq. 7.33 (Lubinski) — buckled length change ----------------
+  // dL_bu = -Δr^2 * Fbu^2 / (8*E*I*w).
+  //   Δr    = radial clearance between the tube and the confining borehole
+  //           (in) — per the source text, verbatim.
+  //   Fbu   = buckling force at top of cement (lbf, Eq. 7.34 above). If
+  //           Fbu <= 0, the source text says the equation "no longer has
+  //           meaning" (no buckling) — this returns 0 in that case.
+  //   w     = weight per unit length (lbf/in). NOT re-defined on this page
+  //           of the source (only Δr and Fbu are restated after Eq. 7.33);
+  //           this uses the standard Lubinski (1950) convention of BUOYANT
+  //           weight per unit length, consistent with how weight enters
+  //           every other axial-stress relation in this chapter. Flagged
+  //           here per this file's convention of calling out anything not
+  //           verbatim-explicit in the source, rather than silently
+  //           assuming it.
+  function bucklingLengthChange_in(radialClearance_in, Fbu_lbf, E_psi, I_in4, w_lbfPerIn) {
+    if (Fbu_lbf <= 0 || !w_lbfPerIn) return 0; // "no longer has meaning" per the source text
+    return -(radialClearance_in * radialClearance_in * Fbu_lbf * Fbu_lbf) / (8 * E_psi * I_in4 * w_lbfPerIn);
+  }
+
   // ---- Ref [2] Eq. 7.23a/7.23b — API ROUND-THREAD joint strength ----------
   // Tensional joint strength of an API round-thread coupling under combined
   // tension and bending. Two branches, selected per the source: if the
@@ -379,6 +420,34 @@
     return pts;
   }
 
+  // "Design limit" envelope — same Ref [3]/[4] von Mises math as
+  // triaxialEnvelope_psi above, no new physics, just a smaller target
+  // stress: MYS/DF instead of MYS. This is the standard second curve shown
+  // alongside the raw yield envelope in triaxial casing design plots
+  // (StressCheck, WellCat, etc.) — the "how close is the DESIGN, not just
+  // the pipe, to failing" boundary.
+  //
+  // Burst-side (dp>=0) and collapse-side (dp<0) loads carry DIFFERENT
+  // required design factors per the Foundation doc (e.g. Simple Method:
+  // burst 1.0/1.15/1.25 depending on H2S, collapse always 1.0) — so this
+  // takes both and switches target at dp=0. The curve is still one
+  // continuous closed loop; it can show a slope change (not a physics
+  // error) exactly at dp=0 if burstDF != collapseDF, since that's where
+  // the doc's own requirement genuinely changes.
+  function triaxialDesignEnvelope_psi(od_in, id_in, MYS_psi, burstDF, collapseDF, dpRange_psi, opts) {
+    opts = opts || {};
+    var n = dpRange_psi.steps || 60;
+    var pts = [];
+    for (var i = 0; i <= n; i++) {
+      var dp = dpRange_psi.min + (dpRange_psi.max - dpRange_psi.min) * i / n;
+      var df = (dp >= 0 ? burstDF : collapseDF) || 1;
+      var target = MYS_psi / df;
+      var pt = envelopePoint_psi(od_in, id_in, dp, target, opts);
+      if (pt) pts.push({ dp_psi: dp, szHigh_psi: pt.szHigh_psi, szLow_psi: pt.szLow_psi });
+    }
+    return pts;
+  }
+
   // ==========================================================================
   // SI wrappers — the interface the rest of Conveyor (SI-based casings[]) uses
   // ==========================================================================
@@ -388,6 +457,27 @@
     var MYS_psi = typeof gradeOrMYS_Pa === 'number' ? gradeOrMYS_Pa * PA2PSI : resolveMYS_psi(gradeOrMYS_Pa);
     var lbf = bodyYieldTension_lbf(od_m * M2IN, id_m * M2IN, MYS_psi);
     return lbf * LBF2N;
+  }
+
+  // Goins/Lubinski buckling stability force (Ref [2] Eq. 7.35), SI. pi_Pa/
+  // po_Pa: internal/external pressure at the point of interest (Pa).
+  function stabilityForce_N(od_m, id_m, pi_Pa, po_Pa) {
+    var lbf = stabilityForce_lbf(od_m * M2IN, id_m * M2IN, pi_Pa * PA2PSI, po_Pa * PA2PSI);
+    return lbf * LBF2N;
+  }
+
+  // Buckled length change (Ref [2] Eq. 7.33), SI. radialClearance_m: Δr;
+  // Fbu_N: buckling force from stabilityForce_N(...) - Fa; w_Npm: buoyant
+  // weight per unit length (N/m); E_Pa defaults to 206.8 GPa (steel, same
+  // default used elsewhere in this module).
+  function bucklingLengthChange_m(od_m, id_m, radialClearance_m, Fbu_N, w_Npm, E_Pa) {
+    var E_psi = (E_Pa || 206.8e9) * PA2PSI;
+    var I_in4 = momentOfInertia_in4(od_m * M2IN, id_m * M2IN);
+    var dr_in = radialClearance_m * M2IN;
+    var Fbu_lbf = Fbu_N * N2LBF;
+    var w_lbfPerIn = (w_Npm * N2LBF) / M2IN; // N/m -> lbf/in
+    var in_ = bucklingLengthChange_in(dr_in, Fbu_lbf, E_psi, I_in4, w_lbfPerIn);
+    return in_ * IN2M;
   }
 
   // Minimum ULTIMATE tensile strength by grade (psi) — needed by Eq. 7.23,
@@ -475,6 +565,22 @@
     });
   }
 
+  // Design-limit envelope (MYS/DF, burst/collapse sides derated
+  // separately) — SI wrapper for triaxialDesignEnvelope_psi above.
+  function triaxialDesignEnvelope(od_m, id_m, gradeOrMYS_Pa, burstDF, collapseDF, dpRange_Pa, opts) {
+    var MYS_psi = typeof gradeOrMYS_Pa === 'number' ? gradeOrMYS_Pa * PA2PSI : resolveMYS_psi(gradeOrMYS_Pa);
+    var range_psi = { min: dpRange_Pa.min * PA2PSI, max: dpRange_Pa.max * PA2PSI, steps: dpRange_Pa.steps };
+    var pts_psi = triaxialDesignEnvelope_psi(od_m * M2IN, id_m * M2IN, MYS_psi, burstDF, collapseDF, range_psi, opts);
+    var As_m2 = crossSectionArea_in2(od_m * M2IN, id_m * M2IN) * IN2M * IN2M;
+    return pts_psi.map(function (pt) {
+      return {
+        dp_Pa: pt.dp_psi * PSI2PA,
+        FaHigh_N: pt.szHigh_psi * PSI2PA * As_m2,
+        FaLow_N: pt.szLow_psi * PSI2PA * As_m2
+      };
+    });
+  }
+
   // Returns { min, max } in Pa spanning the full closed ellipse for this
   // pipe/grade — use this (rather than guessing a padding factor from load
   // magnitudes) to render the complete envelope by default.
@@ -493,6 +599,8 @@
     crossSectionArea_in2: crossSectionArea_in2,
     momentOfInertia_in4: momentOfInertia_in4,
     bodyYieldTension_lbf: bodyYieldTension_lbf,
+    stabilityForce_lbf: stabilityForce_lbf,
+    bucklingLengthChange_in: bucklingLengthChange_in,
     roundThreadJointStrength_lbf: roundThreadJointStrength_lbf,
     roundThreadJointStrength_N: roundThreadJointStrength_N,
     GRADE_ULTIMATE_PSI: GRADE_ULTIMATE_PSI,
@@ -509,13 +617,17 @@
     envelopePoint_psi: envelopePoint_psi,
     triaxialEnvelope_psi: triaxialEnvelope_psi,
     triaxialEnvelopeAutoRange_psi: triaxialEnvelopeAutoRange_psi,
+    triaxialDesignEnvelope_psi: triaxialDesignEnvelope_psi,
 
     // SI wrappers (use these from job.ejs / controllers)
     bodyYieldTension_N: bodyYieldTension_N,
+    stabilityForce_N: stabilityForce_N,
+    bucklingLengthChange_m: bucklingLengthChange_m,
     triaxialEnvelopeAutoRange: triaxialEnvelopeAutoRange,
     burstPressure_Pa: burstPressure_Pa,
     collapsePressure_Pa: collapsePressure_Pa,
     triaxialPoint: triaxialPoint,
-    triaxialEnvelope: triaxialEnvelope
+    triaxialEnvelope: triaxialEnvelope,
+    triaxialDesignEnvelope: triaxialDesignEnvelope
   };
 }));
