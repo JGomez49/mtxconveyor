@@ -576,6 +576,7 @@ body.light-mode #statusTextbox {
                     }
                     .wbt-hl-sc   { border-color: #58a6ff !important; background: rgba(88,166,255,.06) !important; }
                     .wbt-hl-icp  { border-color: var(--wbt-accent2) !important; background: rgba(255,107,53,.06) !important; }
+                    .wbt-hl-lp   { border-color: #c084fc !important; background: rgba(192,132,252,.06) !important; }
                     .wbt-hl-td   { border-color: var(--wbt-accent3) !important; background: rgba(57,255,20,.06) !important; }
 
                     .wbt-highlight-label{
@@ -1081,6 +1082,61 @@ body.light-mode #statusTextbox {
                                     </div>
                                 </div>
                                 <div id="acpDetailPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #00c8ff;border-radius:4px;padding:8px 10px;margin-top:8px;"></div>
+
+                                <!-- ================= TRAVELING CYLINDER PLOT ================= -->
+                                <div style="margin-top:14px;border-top:1px solid var(--an-border);padding-top:10px;">
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <span style="font-size:12px;font-weight:700;color:var(--an-text-bright,#e8f4ff);">Traveling Cylinder Plot</span>
+                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Reference MD (m):</label>
+                                        <input type="number" id="acpTcvRefMd" step="1" style="width:100px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Window (± m):</label>
+                                        <input type="number" id="acpTcvWindow" step="10" min="1" value="500" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">MD Interval (m):</label>
+                                        <input type="number" id="acpTcvInterval" step="1" min="1" value="60" style="width:70px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Max Scan Radius (m):</label>
+                                        <input type="number" id="acpTcvMaxRadius" step="10" min="1" value="100" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <div class="form-check form-check-inline ms-2">
+                                            <input class="form-check-input" type="checkbox" id="acpTcvShowLabels">
+                                            <label class="form-check-label" for="acpTcvShowLabels" style="font-size:11px;color:#c8d8e8;">Show Depths</label>
+                                        </div>
+                                        <button id="acpTcvResetMdBtn" class="btn btn-sm btn-outline-info">⤢ Reset to Deepest Station</button>
+                                    </div>
+                                    <div style="font-size:9px;color:#5a7080;margin-bottom:6px;">Scroll to zoom on the plot (stays centered on the reference well) — Max Scan Radius controls which crossings are computed at all, independent of the current zoom level. Drag the depth slider (or scroll over it) to travel down the reference well.</div>
+                                    <div style="display:flex;gap:14px;max-width:620px;margin:0 auto;height:520px;">
+                                        <div id="acpTcvSliderWrap" style="width:44px;flex-shrink:0;position:relative;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;">
+                                            <div id="acpTcvSliderTrack" style="position:absolute;left:50%;top:14px;bottom:14px;width:4px;background:var(--an-border);transform:translateX(-50%);border-radius:2px;cursor:pointer;"></div>
+                                            <div id="acpTcvSliderThumb" style="position:absolute;left:50%;width:16px;height:16px;background:#00c8ff;border:2px solid #e8f4ff;border-radius:50%;transform:translate(-50%,-50%);cursor:grab;top:14px;box-shadow:0 0 4px rgba(0,0,0,.6);"></div>
+                                            <div id="acpTcvSliderTopLbl" style="position:absolute;top:1px;left:50%;transform:translateX(-50%);font-size:8px;color:#5a7080;white-space:nowrap;">0 m</div>
+                                            <div id="acpTcvSliderBotLbl" style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);font-size:8px;color:#5a7080;white-space:nowrap;">TD</div>
+                                            <div id="acpTcvSliderVal" style="position:absolute;left:48px;font-size:10px;color:#e8f4ff;font-family:monospace;white-space:nowrap;background:var(--an-panel,#111820);padding:1px 4px;border-radius:3px;border:1px solid var(--an-border);top:14px;pointer-events:none;">0 m</div>
+                                        </div>
+                                        <div style="flex:1;min-width:0;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;position:relative;">
+                                            <canvas id="acpChartTCV"></canvas>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                        Standard Traveling Cylinder Plot construction (Thorogood &amp; Sawaryn, SPE 19989,
+                                        1991): swept along the <b>reference well's own MD</b> (Reference MD ± Window above,
+                                        step = MD Interval), building a fresh High Side/Right frame (High Side = "up",
+                                        away from gravity; Right = hole azimuth + 90° — the view looking ahead, toward the
+                                        bit) at <b>each</b> reference station. At each swept reference MD, every offset
+                                        well's crossing of that station's normal plane (perpendicular to the reference
+                                        well's tangent there) is found and plotted — the closest such crossing if a well
+                                        crosses more than once. The reference well itself always sits exactly at the
+                                        origin by construction and isn't plotted. Numbers along each trace are the
+                                        <b>reference well's own MD</b> (m) at that crossing, not the offset well's MD. Uses
+                                        <b>TVDss (Sub-Sea)</b> for the vertical component, same as the C2C/SF charts above.
+                                        A well with no crossing in the swept window (e.g. it stays entirely ahead or
+                                        behind every plane in range, or every crossing falls outside Max Scan Radius)
+                                        simply has no trace. Radius rings auto-scale to the data, capped at Max Scan
+                                        Radius. Depth labels default off (Show Depths to enable — with many offset wells
+                                        the numbers overlap heavily). Scroll to zoom in/out; the reference well stays
+                                        fixed at the plot's center at every zoom level (this plot is inherently about
+                                        distance FROM that center, so panning off it isn't offered). Use the reset
+                                        button above to return to the auto-fit view.
+                                    </div>
+                                </div>
+
                                 <div style="font-size:10px;color:#5a7080;margin-top:8px;">
                                     <b>Left — C2C:</b> center-to-center distance from the reference well to the closest point
                                     on each other wellbore's 3D trajectory, at every survey station along the reference well —
@@ -3248,6 +3304,8 @@ body.light-mode #statusTextbox {
                 icpMD   : num(icp.md),
                 icpTVD  : num(icp.tvd),
                 icpSource,
+                icRaw   : ic ? {md: num(ic.md), tvd: num(ic.tvd)} : null,
+                lpRaw   : lp ? {md: num(lp.md), tvd: num(lp.tvd)} : null,
                 totalMD, totalTVD,
                 lateralLength,
                 buildTimeDays,
@@ -3349,20 +3407,30 @@ body.light-mode #statusTextbox {
                 title.appendChild(document.createTextNode(metrics.wellName));
                 card.appendChild(title);
 
-                // Highlighted key points: SC / ICP / TD
+                // Highlighted key points: SC / ICP / LP / TD. ICP
+                // (IntermediateCasing comment) and LP (Landing comment) are
+                // shown as separate, independent boxes — they are NOT
+                // necessarily the same survey point, and conflating them
+                // into one "ICP/LP" box (showing only whichever is deeper)
+                // was confusing when a well has both comments at different
+                // depths. Lateral length still uses whichever is deeper
+                // (unchanged), marked "used for lateral" on that one box.
                 const highlights = document.createElement('div');
                 highlights.className = 'wbt-highlight-row';
-                function addHL(lbl, mdVal, tvdVal, found){
+                function addHL(lbl, mdVal, tvdVal, found, active){
                     highlights.innerHTML += `
                         <div class="wbt-highlight-box wbt-hl-${lbl.toLowerCase().split(' ')[0]}">
-                            <div class="wbt-highlight-label">${lbl}</div>
+                            <div class="wbt-highlight-label">${lbl}${active ? ' ★' : ''}</div>
                             <div class="wbt-highlight-value">${mdVal !== null && mdVal !== undefined ? wbtFmt(mdVal) + ' m' : '—'}</div>
                             <div class="wbt-highlight-extra">${found !== false ? 'TVD ' + (tvdVal !== null ? wbtFmt(tvdVal) + ' m' : '—') : 'Not found'}</div>
                         </div>`;
                 }
-                addHL('SC',      metrics.sc   ? metrics.sc.md  : null, metrics.sc  ? metrics.sc.tvd  : null, !!metrics.sc);
-                addHL('ICP/LP',  metrics.icpMD, metrics.icpTVD, true);
-                addHL('TD',      metrics.totalMD, metrics.totalTVD, true);
+                const icpIsIC = metrics.icpSource === 'IntermediateCasing (comment)';
+                const icpIsLP = metrics.icpSource === 'Landing (comment)';
+                addHL('SC',  metrics.sc ? metrics.sc.md : null, metrics.sc ? metrics.sc.tvd : null, !!metrics.sc);
+                addHL('ICP', metrics.icRaw ? metrics.icRaw.md : null, metrics.icRaw ? metrics.icRaw.tvd : null, !!metrics.icRaw, icpIsIC);
+                addHL('LP',  metrics.lpRaw ? metrics.lpRaw.md : null, metrics.lpRaw ? metrics.lpRaw.tvd : null, !!metrics.lpRaw, icpIsLP);
+                addHL('TD',  metrics.totalMD, metrics.totalTVD, true);
                 card.appendChild(highlights);
 
                 // Metric grid
@@ -3451,8 +3519,12 @@ body.light-mode #statusTextbox {
                     ['SC (MD)',              m.sc ? m.sc.md : 'Not found'],
                     ['SC (TVD)',             m.sc ? m.sc.tvd : 'Not found'],
                     ['KOP (MD)',             m.kopMD],
-                    ['ICP / Landing (MD)',   m.icpMD],
-                    ['ICP / Landing (TVD)',  m.icpTVD],
+                    ['ICP — IntermediateCasing (MD)',  m.icRaw ? m.icRaw.md : 'Not found'],
+                    ['ICP — IntermediateCasing (TVD)', m.icRaw ? m.icRaw.tvd : 'Not found'],
+                    ['LP — Landing (MD)',              m.lpRaw ? m.lpRaw.md : 'Not found'],
+                    ['LP — Landing (TVD)',             m.lpRaw ? m.lpRaw.tvd : 'Not found'],
+                    ['ICP / Landing used for lateral (MD)',   m.icpMD],
+                    ['ICP / Landing used for lateral (TVD)',  m.icpTVD],
                     ['ICP Source',           m.icpSource],
                     ['Landing basis', m.icpSource || ''],
                     ['TD (Total MD)', m.totalMD],
@@ -3511,8 +3583,12 @@ body.light-mode #statusTextbox {
                 ['SC MD', ...metrics.map(m => m.sc ? m.sc.md : '')],
                 ['SC TVD', ...metrics.map(m => m.sc ? m.sc.tvd : '')],
                 ['KOP MD', ...metrics.map(m => m.kopMD)],
-                ['ICP MD', ...metrics.map(m => m.icpMD)],
-                ['ICP TVD', ...metrics.map(m => m.icpTVD)],
+                ['ICP (IntermediateCasing) MD', ...metrics.map(m => m.icRaw ? m.icRaw.md : '')],
+                ['ICP (IntermediateCasing) TVD', ...metrics.map(m => m.icRaw ? m.icRaw.tvd : '')],
+                ['LP (Landing) MD', ...metrics.map(m => m.lpRaw ? m.lpRaw.md : '')],
+                ['LP (Landing) TVD', ...metrics.map(m => m.lpRaw ? m.lpRaw.tvd : '')],
+                ['ICP/Landing used for lateral MD', ...metrics.map(m => m.icpMD)],
+                ['ICP/Landing used for lateral TVD', ...metrics.map(m => m.icpTVD)],
                 ['Landing basis', ...metrics.map(m => m.icpSource || '')],
                 ['Total MD', ...metrics.map(m => m.totalMD)],
                 ['Total TVD', ...metrics.map(m => m.totalTVD)],
@@ -5501,6 +5577,462 @@ body.light-mode #statusTextbox {
     var palette = ['#ff6b35', '#39ff14', '#ffd060', '#c084fc', '#2dd4bf', '#ff4060', '#79c0ff', '#e879f9'];
     var acpChart = null;
     var acpChartSF = null;
+    var acpChartTCV = null;
+
+    // ==========================================================================
+    // Traveling Cylinder Plot
+    // ==========================================================================
+    // Construction per Thorogood & Sawaryn, "The Traveling Cylinder: A
+    // Practical Tool for Collision Avoidance," SPE/IADC 19989 (1991) — the
+    // paper that introduced the TCP — cross-checked against a detailed
+    // practitioner writeup (Hawkeye3D). Key point, quoting the source
+    // directly: "The center of the plot represents all the points along
+    // the reference well... the natural plane on which to measure
+    // distances is the normal plane, the plane which is perpendicular to
+    // the direction of the reference point AT ANY GIVEN DEPTH." That means
+    // the frame is rebuilt at EVERY reference-well station swept (not one
+    // frame frozen at a single depth), and what's plotted at each swept
+    // reference MD is where each offset well CROSSES that station's normal
+    // plane — not the offset well's own stations. The reference well
+    // always sits exactly at the origin by construction and is never
+    // itself plotted (matches the source: "the reference well in the
+    // center stays unmarked").
+    //
+    // Standard directional-drilling "High Side / Right" toolface reference
+    // frame at a station of inclination I, azimuth A. Derived here (not
+    // already in iscwsaModel.js, which works in inclination/azimuth error
+    // space directly rather than needing an explicit Cartesian frame) from
+    // first principles in NED (North/East/Down) and verified against known
+    // special cases before converting to this file's (Easting, Northing,
+    // z=-TVDss, z-up) convention used by wellPoints() below:
+    //   Ahead (tangent)   = (sinI sinA,  sinI cosA, -cosI)
+    //   High Side         = (cosI sinA,  cosI cosA,  sinI)   — projection of
+    //                        "up" perpendicular to Ahead; undefined at I=0
+    //                        (no defined toolface at exactly vertical, a
+    //                        real, well-known directional-drilling fact —
+    //                        the frame falls back to true North/East there).
+    //   Right             = Ahead × High Side = (cosA, -sinA, 0) — always
+    //                        horizontal, at azimuth A+90°, matching the
+    //                        standard "right" toolface reference used
+    //                        throughout directional drilling/MWD practice.
+    // Checked at I=90°,A=0° (horizontal, heading North): High Side lands on
+    // pure "up" and Right lands on pure East, as expected for a driller
+    // facing North with high side up.
+    function tcvFrame(inclDeg, azimDeg){
+        var I = inclDeg * Math.PI / 180, A = azimDeg * Math.PI / 180;
+        var sI = Math.sin(I), cI = Math.cos(I), sA = Math.sin(A), cA = Math.cos(A);
+        var ahead = { x: sI*sA, y: sI*cA, z: -cI };
+        if(sI < 1e-6){
+            // At/near vertical, High Side/Right are undefined by inclination
+            // alone — fall back to true North/East so the frame degrades
+            // gracefully instead of dividing by ~0.
+            return { ahead: ahead, high: { x: 0, y: 1, z: 0 }, right: { x: 1, y: 0, z: 0 } };
+        }
+        return {
+            ahead: ahead,
+            high:  { x: cI * sA, y: cI * cA, z: sI },
+            right: { x: cA,      y: -sA,     z: 0 }
+        };
+    }
+    function dot3(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
+
+    // Linear interpolation of a wellbore's x/y/z/incl/azim at an arbitrary
+    // MD between two adjacent survey stations — same simple polyline
+    // treatment already used by closestOnSegment()/closestApproachDistance()
+    // above for C2C, so this introduces no new interpolation methodology.
+    function interpAtMD(pts, md){
+        if(!pts.length) return null;
+        if(md <= pts[0].md) return pts[0];
+        if(md >= pts[pts.length-1].md) return pts[pts.length-1];
+        for(var i=1;i<pts.length;i++){
+            if(md <= pts[i].md){
+                var A = pts[i-1], B = pts[i];
+                var t = (B.md===A.md) ? 0 : (md - A.md)/(B.md - A.md);
+                return {
+                    md: md,
+                    x: A.x + t*(B.x-A.x), y: A.y + t*(B.y-A.y), z: A.z + t*(B.z-A.z),
+                    incl: A.incl + t*(B.incl-A.incl), azim: A.azim + t*(B.azim-A.azim)
+                };
+            }
+        }
+        return pts[pts.length-1];
+    }
+
+    // "Nice" ring step (1/2/5 x 10^n) so radius rings land on round numbers
+    // rather than whatever the max radius happens to be — standard chart-
+    // axis rounding approach.
+    function niceRingStep(maxR, targetRings){
+        if(!(maxR > 0)) return 1;
+        var raw = maxR / (targetRings || 4);
+        var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+        var norm = raw / mag;
+        var step = (norm < 1.5) ? 1 : (norm < 3.5) ? 2 : (norm < 7.5) ? 5 : 10;
+        return step * mag;
+    }
+
+    // Custom polar grid: concentric rings, a High Side/Right/Low Side/Left
+    // cross, ring distance labels, and title — drawn under the data
+    // (Chart.js scatter datasets on ordinary linear x/y scales, where
+    // x=Right and y=High Side, so the projected points ARE already the
+    // polar coordinates in Cartesian disguise; this plugin just supplies
+    // the polar-looking grid on top of that Cartesian chart area).
+    var tcvGridPlugin = {
+        id: 'tcvGrid',
+        beforeDraw: function(chart){
+            var opts = (chart.options.plugins && chart.options.plugins.tcvGrid) || {};
+            var ringStep = opts.ringStep;
+            if(!ringStep) return;
+            var ctx = chart.ctx;
+            var xScale = chart.scales.x, yScale = chart.scales.y;
+            var cx = xScale.getPixelForValue(0), cy = yScale.getPixelForValue(0);
+            var maxVal = Math.max(xScale.max, yScale.max, -xScale.min, -yScale.min);
+            var nRings = Math.ceil(maxVal / ringStep);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(200,216,232,0.25)';
+            ctx.fillStyle = 'rgba(200,216,232,0.55)';
+            ctx.font = '10px monospace';
+            ctx.lineWidth = 1;
+            for(var i=1;i<=nRings;i++){
+                var r = i * ringStep;
+                var rPx = Math.abs(xScale.getPixelForValue(r) - cx);
+                ctx.beginPath();
+                ctx.arc(cx, cy, rPx, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(r.toFixed(0)+' m', cx+4, cy-rPx+2);
+            }
+            // Cross spokes (High Side / Right / Low Side / Left)
+            var edge = nRings*ringStep;
+            var topPx = yScale.getPixelForValue(edge), botPx = yScale.getPixelForValue(-edge);
+            var rightPx = xScale.getPixelForValue(edge), leftPx = xScale.getPixelForValue(-edge);
+            ctx.beginPath();
+            ctx.moveTo(cx, topPx); ctx.lineTo(cx, botPx);
+            ctx.moveTo(leftPx, cy); ctx.lineTo(rightPx, cy);
+            ctx.stroke();
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(200,216,232,0.85)';
+            ctx.font = 'bold 11px monospace';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('HIGH SIDE', cx, topPx-6);
+            ctx.textBaseline = 'top';
+            ctx.fillText('LOW SIDE', cx, botPx+6);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText('RIGHT', rightPx+4, cy);
+            ctx.textAlign = 'right';
+            ctx.fillText('LEFT', leftPx-4, cy);
+            // Origin marker (the reference station itself)
+            ctx.fillStyle = '#e8f4ff';
+            ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+    };
+
+    // MD labels along each trace, drawn after the datasets so they sit on
+    // top of the lines/points. Default OFF (toggled via #acpTcvShowLabels)
+    // — with several offset wells in view the numbers overlap heavily.
+    var tcvLabelPlugin = {
+        id: 'tcvLabels',
+        afterDatasetsDraw: function(chart){
+            var opts = (chart.options.plugins && chart.options.plugins.tcvLabels) || {};
+            if(!opts.show) return;
+            var ctx = chart.ctx;
+            ctx.save();
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            chart.data.datasets.forEach(function(ds, dsIdx){
+                if(!ds.data || !ds.showLine) return;
+                var meta = chart.getDatasetMeta(dsIdx);
+                ds.data.forEach(function(pt, i){
+                    if(!pt || pt.md == null) return;
+                    var el = meta.data[i];
+                    if(!el) return;
+                    ctx.fillStyle = ds.borderColor || '#c8d8e8';
+                    ctx.fillText(pt.md.toFixed(0), el.x+4, el.y-4);
+                });
+            });
+            ctx.restore();
+        }
+    };
+
+    // Finds where an offset well's polyline crosses the plane through
+    // refPos perpendicular to `ahead` (the reference well's tangent at
+    // that station) — i.e. a sign change in the offset points' signed
+    // distance along `ahead` from refPos. If the offset well crosses more
+    // than once, returns the crossing closest to refPos (closest approach
+    // among the crossings), matching the source paper's own definition of
+    // what a TCP point represents. Returns null if it never crosses.
+    function findPlaneCrossing(offPts, refPos, ahead){
+        var best = null, bestDist = Infinity;
+        for(var i=0;i<offPts.length-1;i++){
+            var A = offPts[i], B = offPts[i+1];
+            var sA = (A.x-refPos.x)*ahead.x + (A.y-refPos.y)*ahead.y + (A.z-refPos.z)*ahead.z;
+            var sB = (B.x-refPos.x)*ahead.x + (B.y-refPos.y)*ahead.y + (B.z-refPos.z)*ahead.z;
+            if(sA === 0 || sB === 0 || (sA < 0) !== (sB < 0)){
+                var t = (sA === sB) ? 0 : sA/(sA-sB);
+                t = Math.max(0, Math.min(1, t));
+                var P = { x: A.x+t*(B.x-A.x), y: A.y+t*(B.y-A.y), z: A.z+t*(B.z-A.z), md: A.md+t*(B.md-A.md) };
+                var dx=P.x-refPos.x, dy=P.y-refPos.y, dz=P.z-refPos.z;
+                var d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+                if(d < bestDist){ bestDist = d; best = P; }
+            }
+        }
+        return best;
+    }
+
+    var tcvViewRadius = null; // current zoom half-width (symmetric about origin); null until first render
+
+    // Rescales the TCV chart to a new symmetric ±radius view WITHOUT
+    // rebuilding the underlying crossing data — used by wheel-zoom and the
+    // reset button, so zooming stays cheap and (critically) always keeps
+    // the reference well's origin exactly centered, since both axes are
+    // always set to the same [-radius, +radius] range. Also recomputes the
+    // ring step so the scale lines make sense at the new zoom level
+    // ("scale lines change to see the scale").
+    function tcvRescale(radius){
+        if(!acpChartTCV) return;
+        tcvViewRadius = radius;
+        var ringStep = niceRingStep(radius, 4);
+        acpChartTCV.options.scales.x.min = -radius;
+        acpChartTCV.options.scales.x.max = radius;
+        acpChartTCV.options.scales.y.min = -radius;
+        acpChartTCV.options.scales.y.max = radius;
+        acpChartTCV.options.plugins.tcvGrid.ringStep = ringStep;
+        acpChartTCV.update('none');
+    }
+    function tcvResetView(){
+        if(!acpChartTCV || acpChartTCV.$tcvFitRadius == null) return;
+        tcvRescale(acpChartTCV.$tcvFitRadius);
+    }
+
+    function renderTravelingCylinder(){
+        var canvas = document.getElementById('acpChartTCV');
+        if(!canvas) return;
+        var refName = refSelect.value;
+        var refWell = WELLS.find(function(w){ return w.wellName === refName; });
+        if(!refWell) return;
+        var refPts = wellPoints(refWell);
+        if(!refPts.length) return;
+
+        var mdInput = document.getElementById('acpTcvRefMd');
+        var windowInput = document.getElementById('acpTcvWindow');
+        var intervalInput = document.getElementById('acpTcvInterval');
+        var maxRadiusInput = document.getElementById('acpTcvMaxRadius');
+        var refMDCenter = parseFloat(mdInput.value);
+        if(isNaN(refMDCenter)) refMDCenter = refPts[refPts.length-1].md;
+        var windowM = parseFloat(windowInput.value);
+        if(isNaN(windowM) || windowM <= 0) windowM = 500;
+        var interval = parseFloat(intervalInput.value);
+        if(isNaN(interval) || interval <= 0) interval = 60;
+        var maxRadius = parseFloat(maxRadiusInput.value);
+        if(isNaN(maxRadius) || maxRadius <= 0) maxRadius = 100;
+
+        var mdMin = Math.max(refPts[0].md, refMDCenter - windowM);
+        var mdMax = Math.min(refPts[refPts.length-1].md, refMDCenter + windowM);
+
+        var offsetWells = WELLS.filter(function(w){ return w.wellName !== refName; })
+            .map(function(w){ return { well: w, pts: wellPoints(w) }; })
+            .filter(function(e){ return e.pts.length >= 2; });
+
+        var datasets = [];
+        var maxR = 0;
+        offsetWells.forEach(function(entry, i){
+            var data = [];
+            for(var rmd = mdMin; rmd <= mdMax; rmd += interval){
+                var refStation = interpAtMD(refPts, rmd);
+                var frame = tcvFrame(refStation.incl, refStation.azim);
+                var refPos = { x: refStation.x, y: refStation.y, z: refStation.z };
+                var crossing = findPlaneCrossing(entry.pts, refPos, frame.ahead);
+                if(crossing){
+                    var v = { x: crossing.x-refPos.x, y: crossing.y-refPos.y, z: crossing.z-refPos.z };
+                    var px = dot3(v, frame.right), py = dot3(v, frame.high);
+                    var r = Math.sqrt(px*px+py*py);
+                    if(r <= maxRadius){
+                        data.push({ x: px, y: py, md: rmd, offMd: crossing.md });
+                        maxR = Math.max(maxR, r);
+                    } else {
+                        data.push(null); // outside Max Scan Radius -> not computed/shown
+                    }
+                } else {
+                    data.push(null); // break the line where there's no crossing at this reference station
+                }
+            }
+            while(data.length && data[0] === null) data.shift();
+            while(data.length && data[data.length-1] === null) data.pop();
+            if(!data.length) return; // never crosses any swept plane within radius -> no trace for this well
+
+            datasets.push({
+                label: entry.well.wellName,
+                data: data,
+                showLine: true,
+                spanGaps: false,
+                borderColor: palette[i % palette.length],
+                backgroundColor: palette[i % palette.length],
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            });
+        });
+
+        // Auto-fit view radius: fits the actual data, but never exceeds
+        // Max Scan Radius (no point showing empty space beyond what was
+        // even computed). If nothing is currently in range, show the full
+        // configured scan radius as empty rings rather than a degenerate
+        // near-zero axis.
+        var fitR = maxR > 0 ? Math.min(maxR, maxRadius) : maxRadius;
+        var ringStep = niceRingStep(fitR || 1, 4);
+        var nRings = Math.ceil((fitR || ringStep) / ringStep);
+        var axisMax = Math.min(nRings * ringStep * 1.08, maxRadius * 1.08); // small margin, capped at the scan radius
+
+        if(acpChartTCV) acpChartTCV.destroy();
+        acpChartTCV = new Chart(canvas.getContext('2d'), {
+            type: 'scatter',
+            data: { datasets: datasets },
+            plugins: [tcvGridPlugin, tcvLabelPlugin],
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                aspectRatio: 1,
+                animation: false, // chart rebuilds on every slider drag frame — animating each rebuild is what made it feel laggy/distracting
+                plugins: {
+                    legend: { display: document.getElementById('acpShowLegend').checked, labels: { color: '#c8d8e8', boxWidth: 12, font: { size: 10 } } },
+                    tcvGrid: { ringStep: ringStep },
+                    tcvLabels: { show: document.getElementById('acpTcvShowLabels').checked },
+                    tooltip: { callbacks: { label: function(ctx){
+                        var d = ctx.raw;
+                        return ctx.dataset.label + ': ref MD ' + d.md.toFixed(1) + ' m (offset MD ' + d.offMd.toFixed(1) +
+                            ' m), Right ' + d.x.toFixed(1) + ' m, High Side ' + d.y.toFixed(1) + ' m';
+                    } } }
+                },
+                scales: {
+                    x: { min: -axisMax, max: axisMax, grid: { display: false }, ticks: { display: false }, title: { display: false } },
+                    y: { min: -axisMax, max: axisMax, grid: { display: false }, ticks: { display: false }, title: { display: false } }
+                }
+            }
+        });
+        acpChartTCV.$tcvFitRadius = axisMax;
+        tcvViewRadius = axisMax;
+        tcvSyncSlider(refMDCenter, refPts[0].md, refPts[refPts.length-1].md);
+    }
+
+    // ---- Depth slider (vertical: top = 0/shallow, bottom = TD/deep) -------
+    // Drag the thumb, click the track, or scroll the wheel over it to move
+    // the Reference MD — "traveling down the hole" reads top-to-bottom, so
+    // scrolling/dragging DOWN increases MD, matching that intuition.
+    var tcvSliderBounds = { minMD: 0, maxMD: 1 };
+    var tcvSliderRaf = null;
+    function tcvSliderTrackMetrics(){
+        var wrap = document.getElementById('acpTcvSliderWrap');
+        if(!wrap) return null;
+        var h = wrap.clientHeight;
+        return { top: 14, height: Math.max(1, h - 28) }; // matches track's top:14px/bottom:14px CSS
+    }
+    function tcvSyncSlider(md, minMD, maxMD){
+        tcvSliderBounds = { minMD: minMD, maxMD: maxMD };
+        var thumb = document.getElementById('acpTcvSliderThumb');
+        var valLbl = document.getElementById('acpTcvSliderVal');
+        var topLbl = document.getElementById('acpTcvSliderTopLbl');
+        var botLbl = document.getElementById('acpTcvSliderBotLbl');
+        var tm = tcvSliderTrackMetrics();
+        if(!thumb || !tm) return;
+        var frac = (maxMD > minMD) ? (md - minMD) / (maxMD - minMD) : 0;
+        frac = Math.max(0, Math.min(1, frac));
+        var y = tm.top + frac * tm.height;
+        thumb.style.top = y + 'px';
+        if(valLbl){ valLbl.style.top = (y - 8) + 'px'; valLbl.textContent = md.toFixed(0) + ' m'; }
+        if(topLbl) topLbl.textContent = minMD.toFixed(0) + ' m';
+        if(botLbl) botLbl.textContent = maxMD.toFixed(0) + ' m';
+    }
+    function tcvSliderYToMD(y){
+        var tm = tcvSliderTrackMetrics();
+        if(!tm) return tcvSliderBounds.minMD;
+        var frac = (y - tm.top) / tm.height;
+        frac = Math.max(0, Math.min(1, frac));
+        return tcvSliderBounds.minMD + frac * (tcvSliderBounds.maxMD - tcvSliderBounds.minMD);
+    }
+    function tcvSliderSetMD(md, commit){
+        var mdInput = document.getElementById('acpTcvRefMd');
+        if(mdInput) mdInput.value = md.toFixed(1);
+        // Live thumb feedback without waiting for the (throttled) full
+        // recompute, so dragging feels responsive.
+        tcvSyncSlider(md, tcvSliderBounds.minMD, tcvSliderBounds.maxMD);
+        if(commit){
+            renderTravelingCylinder();
+        } else if(!tcvSliderRaf){
+            tcvSliderRaf = requestAnimationFrame(function(){
+                tcvSliderRaf = null;
+                renderTravelingCylinder();
+            });
+        }
+    }
+    (function initTcvSlider(){
+        var wrap = document.getElementById('acpTcvSliderWrap');
+        var track = document.getElementById('acpTcvSliderTrack');
+        var thumb = document.getElementById('acpTcvSliderThumb');
+        if(!wrap || !track || !thumb) return;
+        var dragging = false;
+        function relY(e){
+            var rect = wrap.getBoundingClientRect();
+            var clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+            return clientY - rect.top;
+        }
+        function onDown(e){
+            dragging = true;
+            thumb.style.cursor = 'grabbing';
+            tcvSliderSetMD(tcvSliderYToMD(relY(e)), false);
+            e.preventDefault();
+        }
+        function onMove(e){
+            if(!dragging) return;
+            tcvSliderSetMD(tcvSliderYToMD(relY(e)), false);
+        }
+        function onUp(e){
+            if(!dragging) return;
+            dragging = false;
+            thumb.style.cursor = 'grab';
+            tcvSliderSetMD(tcvSliderYToMD(relY(e)), true);
+        }
+        thumb.addEventListener('mousedown', onDown);
+        track.addEventListener('mousedown', onDown);
+        thumb.addEventListener('touchstart', onDown, { passive: false });
+        track.addEventListener('touchstart', onDown, { passive: false });
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchend', onUp);
+        // Scroll-wheel over the slider nudges depth by one MD Interval step
+        // per tick — down/away scrolls deeper, matching drag direction.
+        wrap.addEventListener('wheel', function(e){
+            e.preventDefault();
+            var intervalInput = document.getElementById('acpTcvInterval');
+            var step = parseFloat(intervalInput && intervalInput.value) || 60;
+            var mdInput = document.getElementById('acpTcvRefMd');
+            var cur = parseFloat(mdInput && mdInput.value);
+            if(isNaN(cur)) cur = tcvSliderBounds.minMD;
+            var next = cur + (e.deltaY > 0 ? step : -step);
+            next = Math.max(tcvSliderBounds.minMD, Math.min(tcvSliderBounds.maxMD, next));
+            tcvSliderSetMD(next, true);
+        }, { passive: false });
+    })();
+
+    // Custom origin-centered zoom: standard chartjs-plugin-zoom wheel-zoom
+    // anchors on the cursor position, which drifts the reference well away
+    // from the plot's center — wrong for this plot, where the center IS
+    // the reference well by construction. This instead only ever changes
+    // a single symmetric radius, applied equally to both axes, so the
+    // origin never moves. Attached once (not per-render) since the canvas
+    // element persists across chart rebuilds.
+    (function initTcvWheelZoom(){
+        var tcvCanvas = document.getElementById('acpChartTCV');
+        if(!tcvCanvas) return;
+        tcvCanvas.addEventListener('wheel', function(e){
+            if(!acpChartTCV) return;
+            e.preventDefault();
+            var factor = e.deltaY > 0 ? 1.12 : (1/1.12);
+            var base = tcvViewRadius || acpChartTCV.$tcvFitRadius || 100;
+            tcvRescale(Math.max(1, base * factor));
+        }, { passive: false });
+    })();
 
     function fmtN(v){ return (v==null||isNaN(v)) ? '—' : v.toFixed(2); }
 
@@ -5696,6 +6228,7 @@ body.light-mode #statusTextbox {
         var sfModelStr = ' SF: ' + usedRealModelCount + ' well(s) via real ISCWSA model' +
             (missingMagCount ? ', ' + missingMagCount + ' via simplified fallback (no magnetics/survey inc-azim).' : '.');
         statusEl.textContent = others.length + ' offset well' + (others.length===1?'':'s') + ' plotted against ' + refName + '.' + minStr + sfModelStr;
+        renderTravelingCylinder();
     }
 
     // Per-well surface magnetics (Total Field, Declination, Dip), computed
@@ -5850,19 +6383,38 @@ body.light-mode #statusTextbox {
             opt.value = w.wellName; opt.textContent = w.wellName;
             refSelect.appendChild(opt);
         });
-        refSelect.addEventListener('change', renderPlot);
+        function resetTcvRefMd(){
+            var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
+            var pts = refWell ? wellPoints(refWell) : [];
+            var mdInput = document.getElementById('acpTcvRefMd');
+            if(mdInput && pts.length) mdInput.value = pts[pts.length-1].md.toFixed(1);
+        }
+        refSelect.addEventListener('change', function(){ resetTcvRefMd(); renderPlot(); });
         var resetBtn = document.getElementById('acpResetZoomBtn');
-        if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); if(acpChartSF) acpChartSF.resetZoom(); });
+        if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); if(acpChartSF) acpChartSF.resetZoom(); tcvResetView(); });
+        var tcvResetMdBtn = document.getElementById('acpTcvResetMdBtn');
+        if(tcvResetMdBtn) tcvResetMdBtn.addEventListener('click', function(){ resetTcvRefMd(); renderTravelingCylinder(); });
         document.getElementById('acpShowLegend').addEventListener('change', renderPlot);
         ['acpC2cXMin','acpC2cXMax','acpC2cYMin','acpC2cYMax','acpSfXMin','acpSfXMax','acpSfYMin','acpSfYMax'].forEach(function(id){
             var el = document.getElementById(id);
             if(el) el.addEventListener('change', renderPlot);
+        });
+        ['acpTcvRefMd','acpTcvWindow','acpTcvInterval','acpTcvMaxRadius'].forEach(function(id){
+            var el = document.getElementById(id);
+            if(el) el.addEventListener('change', renderTravelingCylinder);
+        });
+        var tcvShowLabels = document.getElementById('acpTcvShowLabels');
+        if(tcvShowLabels) tcvShowLabels.addEventListener('change', function(){
+            if(!acpChartTCV) return;
+            acpChartTCV.options.plugins.tcvLabels = { show: tcvShowLabels.checked };
+            acpChartTCV.update('none');
         });
         if(toolcodeSelect) toolcodeSelect.addEventListener('change', function(){
             var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
             if(refWell) saveWellToolcode(refWell, toolcodeSelect.value);
             renderPlot();
         });
+        resetTcvRefMd();
         renderPlot();
         loadToolcodes().then(function(){ renderPlot(); }); // re-render once real toolcode list/data is in (async)
     }
@@ -6023,7 +6575,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(well.totalMD !== null)
             header.appendChild(makeChip('Total MD', fmt(well.totalMD,1)+' m', 'var(--an-accent2,#ff6b35)', '#fff'));
         if(well.icpMD !== null)
-            header.appendChild(makeChip('ICP MD', fmt(well.icpMD,1)+' m', 'var(--an-panel2,#161e28)', 'var(--an-text,#c8d8e8)'));
+            header.appendChild(makeChip('Tie-on MD', fmt(well.icpMD,1)+' m', 'var(--an-panel2,#161e28)', 'var(--an-text,#c8d8e8)'));
 
         wrap.appendChild(header);
 
@@ -6083,7 +6635,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 // Highlight rows
                 aoa.push(['Total Lateral (m)', well.totalLateral]);
                 if(well.totalMD !== null) aoa.push(['Total MD (m)', well.totalMD]);
-                if(well.icpMD  !== null) aoa.push(['ICP MD (m)', well.icpMD]);
+                if(well.icpMD  !== null) aoa.push(['Tie-on MD (m)', well.icpMD]);
                 aoa.push([]);
                 // Table header
                 aoa.push(['Wellbore','Parent / Tie-on','Tie-on MD (m)','TD MD (m)','Lateral (m)']);
