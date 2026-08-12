@@ -300,4 +300,127 @@ usersCtrl.changePassword = async (req, res) => {
 };
 //==========================================================================
 
+// -------------------------- Usage / Activity Dashboard (admin) -----------
+// Turns the raw UserActivity pings (written by helpers/auth.js's
+// isAuthenticated middleware) into: (1) a per-user, per-day estimated-
+// minutes map for a GitHub-style contribution heatmap, (2) a per-user
+// module/path usage breakdown, (3) an org-wide daily-active-users series,
+// and (4) a per-user summary table. All computed here server-side and
+// embedded as JSON for the view to render, same pattern job.ejs already
+// uses for its own dashboards.
+const UserActivity = require('../models/UserActivity');
+
+const SESSION_IDLE_GAP_MS = 60 * 60 * 1000; // 60 min — see chat: matches the
+    // requested idle-timeout for splitting continuous activity into
+    // separate "sessions" when estimating time spent.
+const MIN_SESSION_MS = 60 * 1000; // floor so even a single lone ping still
+    // counts as ~1 minute of activity that day, rather than 0.
+const HEATMAP_DAYS = 371; // ~53 weeks, matches a GitHub-style year heatmap
+
+function dayKey(date){ return date.toISOString().slice(0, 10); } // UTC YYYY-MM-DD, approximate by design (see below)
+
+// Groups a user's ascending-sorted ping timestamps into sessions (gap >
+// SESSION_IDLE_GAP_MS starts a new one), then attributes each session's
+// estimated duration to the UTC day of its FIRST ping. Sessions that cross
+// midnight are rare here (bounded by the idle gap, and by normal working
+// hours) and are not split across days — a documented approximation, not
+// an attempt at to-the-second accuracy.
+function computeUserDayMinutes(timestampsAsc){
+    const dayMinutes = {};   // 'YYYY-MM-DD' -> minutes
+    const daySet = new Set(); // days with any activity at all
+    let lastLoginAt = null;
+    if(!timestampsAsc.length) return { dayMinutes, daySet, lastLoginAt };
+
+    let sessionStart = timestampsAsc[0];
+    let prev = timestampsAsc[0];
+    function flush(sessionEnd){
+        const ms = Math.max(MIN_SESSION_MS, sessionEnd - sessionStart);
+        const key = dayKey(sessionStart);
+        dayMinutes[key] = (dayMinutes[key] || 0) + ms / 60000;
+        daySet.add(key);
+    }
+    for(let i = 1; i < timestampsAsc.length; i++){
+        const t = timestampsAsc[i];
+        if(t - prev > SESSION_IDLE_GAP_MS){
+            flush(prev);
+            sessionStart = t;
+        }
+        prev = t;
+    }
+    flush(prev);
+    lastLoginAt = timestampsAsc[timestampsAsc.length - 1];
+    return { dayMinutes, daySet, lastLoginAt };
+}
+
+usersCtrl.renderActivityDashboard = async (req, res) => {
+    try {
+        const since = new Date(Date.now() - HEATMAP_DAYS * 24 * 60 * 60 * 1000);
+        const [users, pings] = await Promise.all([
+            User.find({}).select('name email role').lean(),
+            UserActivity.find({ timestamp: { $gte: since } })
+                .select('userId userName path timestamp').sort({ timestamp: 1 }).lean(),
+        ]);
+
+        const byUser = {}; // userId (string) -> { timestamps: [], modules: {path: count} }
+        pings.forEach(p => {
+            const uid = String(p.userId);
+            if(!byUser[uid]) byUser[uid] = { timestamps: [], modules: {} };
+            byUser[uid].timestamps.push(new Date(p.timestamp));
+            byUser[uid].modules[p.path] = (byUser[uid].modules[p.path] || 0) + 1;
+        });
+
+        const orgDayActiveUsers = {}; // 'YYYY-MM-DD' -> Set of userIds (converted to count below)
+        const userSummaries = [];
+        const userHeatmaps = {}; // uid -> { day: minutes }
+        const userModules = {};  // uid -> [{path, count}] sorted desc
+
+        users.forEach(u => {
+            const uid = String(u._id);
+            const entry = byUser[uid];
+            const timestamps = entry ? entry.timestamps : [];
+            const { dayMinutes, daySet, lastLoginAt } = computeUserDayMinutes(timestamps);
+
+            daySet.forEach(d => {
+                if(!orgDayActiveUsers[d]) orgDayActiveUsers[d] = new Set();
+                orgDayActiveUsers[d].add(uid);
+            });
+
+            userHeatmaps[uid] = dayMinutes;
+            const modules = entry ? Object.entries(entry.modules)
+                .map(([path, count]) => ({ path, count }))
+                .sort((a, b) => b.count - a.count) : [];
+            userModules[uid] = modules;
+
+            const totalMinutes = Object.values(dayMinutes).reduce((s, m) => s + m, 0);
+            userSummaries.push({
+                userId: uid,
+                name: u.name || u.email || '(unknown)',
+                role: u.role || 'viewer',
+                daysActive: daySet.size,
+                estHours: Math.round((totalMinutes / 60) * 10) / 10,
+                lastActive: lastLoginAt ? lastLoginAt.toISOString() : null,
+                topModule: modules.length ? modules[0].path : null,
+            });
+        });
+
+        userSummaries.sort((a, b) => (b.lastActive || '').localeCompare(a.lastActive || ''));
+
+        const orgDauSeries = Object.keys(orgDayActiveUsers).sort().map(d => ({ day: d, count: orgDayActiveUsers[d].size }));
+
+        res.render('activity.ejs', {
+            user: req.user,
+            summaries: userSummaries,
+            heatmaps: userHeatmaps,
+            modules: userModules,
+            orgDauSeries,
+            heatmapDays: HEATMAP_DAYS,
+        });
+    } catch (err) {
+        console.error('[activity dashboard] error:', err);
+        req.flash('error_msg', 'Failed to load the activity dashboard.');
+        res.redirect('/notes');
+    }
+};
+//==========================================================================
+
 module.exports = usersCtrl;

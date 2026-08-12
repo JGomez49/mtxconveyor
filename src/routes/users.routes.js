@@ -2,7 +2,7 @@
 
 const {Router} = require('express');
 const router = Router();
-const { isAuthenticated } = require('../helpers/auth');
+const { isAuthenticated, isAdmin } = require('../helpers/auth');
 
 const { 
     renderSignUpForm, 
@@ -19,6 +19,7 @@ const {
     forgotPasswordReset,
     renderChangePassword,
     changePassword,
+    renderActivityDashboard,
 } = require('../controllers/users.controller');
 
 router.get('/users/signup', renderSignUpForm);
@@ -44,6 +45,9 @@ router.post('/users/forgot-password/reset', forgotPasswordReset);
 // Change password (logged in)
 router.get('/users/change-password', isAuthenticated, renderChangePassword);
 router.post('/users/change-password', isAuthenticated, changePassword);
+
+// Usage / activity dashboard (admin only)
+router.get('/users/activity', isAuthenticated, isAdmin, renderActivityDashboard);
 
 
 module.exports = router;

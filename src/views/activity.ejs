@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e14; --panel: #111820; --panel2: #161e28; --border: #1e2d3d;
+      --accent: #00c8ff; --accent2: #ff6b35; --accent3: #39ff14;
+      --text: #c8d8e8; --text-dim: #5a7080; --text-bright: #e8f4ff;
+      --red: #ff4060; --yellow: #ffd060; --green: #39ff14;
+      --mono: 'Share Tech Mono', monospace; --sans: 'Barlow', sans-serif; --cond: 'Barlow Condensed', sans-serif;
+    }
+    *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+    html{ font-size:13px; }
+    body{ background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+    header{ background:linear-gradient(180deg,#0d1520,transparent); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; gap:14px; }
+    .logo-hex{ width:34px; height:34px; background:var(--accent); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--bg); font-weight:700; flex-shrink:0; }
+    header h1{ font-family:var(--cond); font-size:19px; font-weight:700; color:var(--text-bright); letter-spacing:2px; text-transform:uppercase; }
+    header p{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+    header a.back{ margin-left:auto; font-size:11px; color:var(--text-dim); text-decoration:none; border:1px solid var(--border); border-radius:3px; padding:6px 12px; }
+    header a.back:hover{ color:var(--accent); border-color:var(--accent); }
+    main{ max-width:1400px; margin:0 auto; padding:16px 20px 60px; }
+    .panel{ background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:14px; }
+    .panel h2{ font-family:var(--cond); font-size:15px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .panel h2 .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+    .cite{ font-size:10px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
+    .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px; }
+    @media (max-width:900px){ .grid4{grid-template-columns:repeat(2,1fr);} }
+    .stat-card{ background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:10px 12px; }
+    .stat-card .k{ font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+    .stat-card .v{ font-family:var(--mono); font-size:20px; color:var(--accent); }
+    table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11.5px; }
+    th,td{ padding:6px 8px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+    th{ color:var(--text-dim); font-weight:600; text-align:right; }
+    th:first-child, td:first-child{ text-align:left; }
+    tr.user-row{ cursor:pointer; }
+    tr.user-row:hover td{ background:rgba(0,200,255,.06); }
+    tr.user-row.selected td{ background:rgba(0,200,255,.12); }
+    .role-badge{ font-size:9px; padding:1px 6px; border-radius:8px; border:1px solid var(--border); color:var(--text-dim); text-transform:uppercase; }
+    .role-badge.admin{ border-color:var(--accent2); color:var(--accent2); }
+    .role-badge.leader{ border-color:var(--yellow); color:var(--yellow); }
+    .chart-wrap{ height:220px; background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:8px; }
+    #heatmapWrap{ overflow-x:auto; padding-bottom:6px; }
+    .heat-legend{ display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-dim); margin-top:6px; }
+    .heat-legend .sq{ width:11px; height:11px; border-radius:2px; }
+    #moduleList{ display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+    .mod-row{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; }
+    .mod-row .path{ flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mod-row .bar-wrap{ flex:2; background:var(--panel2); border-radius:3px; height:10px; overflow:hidden; }
+    .mod-row .bar{ height:100%; background:var(--accent); }
+    .mod-row .count{ width:44px; text-align:right; color:var(--text-dim); }
+    select{ background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:3px; padding:5px 7px; font-family:var(--mono); font-size:12px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="logo-hex">📊</div>
+  <div style="flex:1;">
+    <h1>Usage Dashboard</h1>
+    <p>Login/activity tracking, admin only</p>
+  </div>
+  <a class="back" href="/notes">&larr; Back to Jobs</a>
+</header>
+
+<main>
+
+  <div class="panel">
+    <h2><span class="dot"></span>Overview</h2>
+    <div class="grid4">
+      <div class="stat-card"><div class="k">Users</div><div class="v"><%- summaries.length %></div></div>
+      <div class="stat-card"><div class="k">Active (last 7 days)</div><div class="v" id="statActive7"></div></div>
+      <div class="stat-card"><div class="k">Est. Hours (last 7 days, all users)</div><div class="v" id="statHours7"></div></div>
+      <div class="stat-card"><div class="k">Tracking window</div><div class="v"><%- heatmapDays %> days</div></div>
+    </div>
+    <div class="chart-wrap"><canvas id="dauChart"></canvas></div>
+    <div class="cite">
+      Daily active users, org-wide. Built from throttled activity pings recorded on every authenticated page/action
+      (see helpers/auth.js) — not a separate tracking script, so it reflects real usage of the app itself.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="dot"></span>Users</h2>
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Role</th><th>Days Active</th><th>Est. Hours</th><th>Last Active</th><th>Top Module</th>
+      </tr></thead>
+      <tbody id="userTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2><span class="dot"></span>Activity Heatmap — <span id="heatmapUserName" style="color:var(--accent);">—</span></h2>
+    <select id="userSelect" style="margin-bottom:10px;"></select>
+    <div id="heatmapWrap"><svg id="heatmapSvg"></svg></div>
+    <div class="heat-legend">
+      Less
+      <span class="sq" style="background:#161e28;border:1px solid #1e2d3d;"></span>
+      <span class="sq" style="background:rgba(0,200,255,.25);"></span>
+      <span class="sq" style="background:rgba(0,200,255,.5);"></span>
+      <span class="sq" style="background:rgba(0,200,255,.75);"></span>
+      <span class="sq" style="background:#00c8ff;"></span>
+      More
+    </div>
+    <h2 style="margin-top:16px;"><span class="dot"></span>Modules Used</h2>
+    <div id="moduleList"></div>
+    <div class="cite">
+      Each square is one UTC day; shade = estimated minutes active that day. A "session" ends after 60 minutes of no
+      activity, and its whole estimated duration is attributed to the day it started — sessions crossing midnight
+      aren't split, a documented approximation, not to-the-second accounting. Module names are page paths with
+      IDs collapsed (e.g. every job's Casing Design page groups under the same row), so this shows which parts of
+      MTX Conveyor get used, not just how long someone was logged in.
+    </div>
+  </div>
+
+</main>
+
+<script type="application/json" id="activityData">
+<%- JSON.stringify({ summaries, heatmaps, modules, orgDauSeries, heatmapDays }) %>
+</script>
+
+<script>
+(function(){
+    var DATA = JSON.parse(document.getElementById('activityData').textContent);
+    var summaries = DATA.summaries || [];
+    var heatmaps = DATA.heatmaps || {};
+    var modules = DATA.modules || {};
+    var orgDauSeries = DATA.orgDauSeries || [];
+
+    function fmt1(v){ return (v===null||v===undefined||isNaN(v)) ? '—' : Number(v).toFixed(1); }
+    function fmtDate(iso){
+        if(!iso) return 'Never';
+        var d = new Date(iso);
+        var days = Math.floor((Date.now()-d.getTime())/86400000);
+        if(days === 0) return 'Today';
+        if(days === 1) return 'Yesterday';
+        if(days < 7) return days + ' days ago';
+        return d.toISOString().slice(0,10);
+    }
+
+    // ---------------- Overview stat cards + DAU chart ----------------
+    var today = new Date();
+    var last7 = [];
+    for(var i=6;i>=0;i--){
+        var d = new Date(today.getTime() - i*86400000);
+        last7.push(d.toISOString().slice(0,10));
+    }
+    var dauByDay = {};
+    orgDauSeries.forEach(function(r){ dauByDay[r.day] = r.count; });
+    var activeUsersLast7 = new Set();
+    var hoursLast7 = 0;
+    summaries.forEach(function(s){
+        var hm = heatmaps[s.userId] || {};
+        last7.forEach(function(day){
+            if(hm[day]){ activeUsersLast7.add(s.userId); hoursLast7 += hm[day]/60; }
+        });
+    });
+    document.getElementById('statActive7').textContent = activeUsersLast7.size;
+    document.getElementById('statHours7').textContent = fmt1(hoursLast7);
+
+    new Chart(document.getElementById('dauChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: orgDauSeries.map(function(r){ return r.day; }),
+            datasets: [{ label: 'Active users', data: orgDauSeries.map(function(r){ return r.count; }), backgroundColor: '#00c8ff' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#5a7080', maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
+                y: { ticks: { color: '#5a7080', precision: 0 }, grid: { color: '#1e2d3d' } }
+            }
+        }
+    });
+
+    // ---------------- User table ----------------
+    var tbody = document.getElementById('userTableBody');
+    var userSelect = document.getElementById('userSelect');
+    summaries.forEach(function(s){
+        var tr = document.createElement('tr');
+        tr.className = 'user-row';
+        tr.dataset.userId = s.userId;
+        tr.innerHTML =
+            '<td>' + s.name + '</td>' +
+            '<td><span class="role-badge ' + s.role + '">' + s.role + '</span></td>' +
+            '<td>' + s.daysActive + '</td>' +
+            '<td>' + fmt1(s.estHours) + '</td>' +
+            '<td>' + fmtDate(s.lastActive) + '</td>' +
+            '<td>' + (s.topModule || '—') + '</td>';
+        tr.addEventListener('click', function(){ selectUser(s.userId); });
+        tbody.appendChild(tr);
+
+        var opt = document.createElement('option');
+        opt.value = s.userId; opt.textContent = s.name;
+        userSelect.appendChild(opt);
+    });
+    userSelect.addEventListener('change', function(){ selectUser(userSelect.value); });
+
+    // ---------------- GitHub-style heatmap (custom SVG) ----------------
+    var CELL = 11, GAP = 3, LEFT_PAD = 24, TOP_PAD = 16;
+    function colorFor(minutes){
+        if(!minutes) return '#161e28';
+        if(minutes < 15) return 'rgba(0,200,255,.25)';
+        if(minutes < 60) return 'rgba(0,200,255,.5)';
+        if(minutes < 180) return 'rgba(0,200,255,.75)';
+        return '#00c8ff';
+    }
+    function renderHeatmap(userId){
+        var hm = heatmaps[userId] || {};
+        var days = DATA.heatmapDays || 371;
+        var end = new Date(); end.setUTCHours(0,0,0,0);
+        var start = new Date(end.getTime() - (days-1)*86400000);
+        // Align start back to the previous Sunday so weeks line up in columns, GitHub-style.
+        start = new Date(start.getTime() - start.getUTCDay()*86400000);
+        var totalDays = Math.round((end - start)/86400000) + 1;
+        var weeks = Math.ceil(totalDays / 7);
+
+        var svg = document.getElementById('heatmapSvg');
+        var width = LEFT_PAD + weeks*(CELL+GAP);
+        var height = TOP_PAD + 7*(CELL+GAP);
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        svg.innerHTML = '';
+
+        var dowLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+        dowLabels.forEach(function(lbl, row){
+            if(!lbl) return;
+            var t = document.createElementNS('http://www.w3.org/2000/svg','text');
+            t.setAttribute('x', 0); t.setAttribute('y', TOP_PAD + row*(CELL+GAP) + CELL - 1);
+            t.setAttribute('font-size', '8'); t.setAttribute('fill', '#5a7080'); t.setAttribute('font-family', 'monospace');
+            t.textContent = lbl;
+            svg.appendChild(t);
+        });
+
+        var lastMonth = -1;
+        for(var w = 0; w < weeks; w++){
+            for(var dow = 0; dow < 7; dow++){
+                var dayIdx = w*7 + dow;
+                var date = new Date(start.getTime() + dayIdx*86400000);
+                if(date > end) continue;
+                var key = date.toISOString().slice(0,10);
+                var minutes = hm[key] || 0;
+                var x = LEFT_PAD + w*(CELL+GAP);
+                var y = TOP_PAD + dow*(CELL+GAP);
+
+                if(dow === 0 && date.getUTCMonth() !== lastMonth){
+                    lastMonth = date.getUTCMonth();
+                    var mt = document.createElementNS('http://www.w3.org/2000/svg','text');
+                    mt.setAttribute('x', x); mt.setAttribute('y', TOP_PAD - 5);
+                    mt.setAttribute('font-size', '8'); mt.setAttribute('fill', '#5a7080'); mt.setAttribute('font-family', 'monospace');
+                    mt.textContent = date.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+                    svg.appendChild(mt);
+                }
+
+                var rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                rect.setAttribute('x', x); rect.setAttribute('y', y);
+                rect.setAttribute('width', CELL); rect.setAttribute('height', CELL);
+                rect.setAttribute('rx', 2);
+                rect.setAttribute('fill', colorFor(minutes));
+                var title = document.createElementNS('http://www.w3.org/2000/svg','title');
+                title.textContent = key + ': ' + (minutes ? Math.round(minutes) + ' min' : 'no activity');
+                rect.appendChild(title);
+                svg.appendChild(rect);
+            }
+        }
+    }
+
+    function renderModules(userId){
+        var list = modules[userId] || [];
+        var wrap = document.getElementById('moduleList');
+        wrap.innerHTML = '';
+        if(!list.length){
+            wrap.innerHTML = '<div style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">No recorded activity.</div>';
+            return;
+        }
+        var max = list[0].count;
+        list.slice(0, 15).forEach(function(m){
+            var row = document.createElement('div');
+            row.className = 'mod-row';
+            row.innerHTML =
+                '<div class="path">' + m.path + '</div>' +
+                '<div class="bar-wrap"><div class="bar" style="width:' + (m.count/max*100) + '%;"></div></div>' +
+                '<div class="count">' + m.count + '</div>';
+            wrap.appendChild(row);
+        });
+    }
+
+    function selectUser(userId){
+        document.querySelectorAll('#userTableBody tr').forEach(function(tr){
+            tr.classList.toggle('selected', tr.dataset.userId === userId);
+        });
+        userSelect.value = userId;
+        var s = summaries.find(function(x){ return x.userId === userId; });
+        document.getElementById('heatmapUserName').textContent = s ? s.name : '—';
+        renderHeatmap(userId);
+        renderModules(userId);
+    }
+
+    if(summaries.length) selectUser(summaries[0].userId);
+})();
+</script>
+
+</body>
+</html>
