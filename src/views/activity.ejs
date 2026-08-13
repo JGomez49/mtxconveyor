@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Usage Dashboard</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/js/activityHeatmap.js"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
     rel="stylesheet" />
@@ -112,19 +113,25 @@
     </div>
     <h2 style="margin-top:16px;"><span class="dot"></span>Modules Used</h2>
     <div id="moduleList"></div>
+    <h2 style="margin-top:16px;"><span class="dot"></span>Recent Activity (login history)</h2>
+    <table>
+      <thead><tr><th>When</th><th>Page</th></tr></thead>
+      <tbody id="recentPingsBody"></tbody>
+    </table>
     <div class="cite">
       Each square is one UTC day; shade = estimated minutes active that day. A "session" ends after 60 minutes of no
       activity, and its whole estimated duration is attributed to the day it started — sessions crossing midnight
       aren't split, a documented approximation, not to-the-second accounting. Module names are page paths with
       IDs collapsed (e.g. every job's Casing Design page groups under the same row), so this shows which parts of
-      MTX Conveyor get used, not just how long someone was logged in.
+      MTX Conveyor get used, not just how long someone was logged in. "Recent Activity" is the raw, un-aggregated
+      pings (throttled to at most one every 2 minutes per user) — the closest thing to a literal login/access log.
     </div>
   </div>
 
 </main>
 
 <script type="application/json" id="activityData">
-<%- JSON.stringify({ summaries, heatmaps, modules, orgDauSeries, heatmapDays }) %>
+<%- JSON.stringify({ summaries, heatmaps, modules, recentPings, orgDauSeries, heatmapDays, selectedUserId }) %>
 </script>
 
 <script>
@@ -205,73 +212,9 @@
     });
     userSelect.addEventListener('change', function(){ selectUser(userSelect.value); });
 
-    // ---------------- GitHub-style heatmap (custom SVG) ----------------
-    var CELL = 11, GAP = 3, LEFT_PAD = 24, TOP_PAD = 16;
-    function colorFor(minutes){
-        if(!minutes) return '#161e28';
-        if(minutes < 15) return 'rgba(0,200,255,.25)';
-        if(minutes < 60) return 'rgba(0,200,255,.5)';
-        if(minutes < 180) return 'rgba(0,200,255,.75)';
-        return '#00c8ff';
-    }
+    // ---------------- GitHub-style heatmap (shared renderer) ----------------
     function renderHeatmap(userId){
-        var hm = heatmaps[userId] || {};
-        var days = DATA.heatmapDays || 371;
-        var end = new Date(); end.setUTCHours(0,0,0,0);
-        var start = new Date(end.getTime() - (days-1)*86400000);
-        // Align start back to the previous Sunday so weeks line up in columns, GitHub-style.
-        start = new Date(start.getTime() - start.getUTCDay()*86400000);
-        var totalDays = Math.round((end - start)/86400000) + 1;
-        var weeks = Math.ceil(totalDays / 7);
-
-        var svg = document.getElementById('heatmapSvg');
-        var width = LEFT_PAD + weeks*(CELL+GAP);
-        var height = TOP_PAD + 7*(CELL+GAP);
-        svg.setAttribute('width', width);
-        svg.setAttribute('height', height);
-        svg.innerHTML = '';
-
-        var dowLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
-        dowLabels.forEach(function(lbl, row){
-            if(!lbl) return;
-            var t = document.createElementNS('http://www.w3.org/2000/svg','text');
-            t.setAttribute('x', 0); t.setAttribute('y', TOP_PAD + row*(CELL+GAP) + CELL - 1);
-            t.setAttribute('font-size', '8'); t.setAttribute('fill', '#5a7080'); t.setAttribute('font-family', 'monospace');
-            t.textContent = lbl;
-            svg.appendChild(t);
-        });
-
-        var lastMonth = -1;
-        for(var w = 0; w < weeks; w++){
-            for(var dow = 0; dow < 7; dow++){
-                var dayIdx = w*7 + dow;
-                var date = new Date(start.getTime() + dayIdx*86400000);
-                if(date > end) continue;
-                var key = date.toISOString().slice(0,10);
-                var minutes = hm[key] || 0;
-                var x = LEFT_PAD + w*(CELL+GAP);
-                var y = TOP_PAD + dow*(CELL+GAP);
-
-                if(dow === 0 && date.getUTCMonth() !== lastMonth){
-                    lastMonth = date.getUTCMonth();
-                    var mt = document.createElementNS('http://www.w3.org/2000/svg','text');
-                    mt.setAttribute('x', x); mt.setAttribute('y', TOP_PAD - 5);
-                    mt.setAttribute('font-size', '8'); mt.setAttribute('fill', '#5a7080'); mt.setAttribute('font-family', 'monospace');
-                    mt.textContent = date.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-                    svg.appendChild(mt);
-                }
-
-                var rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-                rect.setAttribute('x', x); rect.setAttribute('y', y);
-                rect.setAttribute('width', CELL); rect.setAttribute('height', CELL);
-                rect.setAttribute('rx', 2);
-                rect.setAttribute('fill', colorFor(minutes));
-                var title = document.createElementNS('http://www.w3.org/2000/svg','title');
-                title.textContent = key + ': ' + (minutes ? Math.round(minutes) + ' min' : 'no activity');
-                rect.appendChild(title);
-                svg.appendChild(rect);
-            }
-        }
+        ActivityHeatmap.render(document.getElementById('heatmapSvg'), heatmaps[userId] || {}, DATA.heatmapDays);
     }
 
     function renderModules(userId){
@@ -294,6 +237,21 @@
         });
     }
 
+    function renderRecentPings(userId){
+        var list = (DATA.recentPings && DATA.recentPings[userId]) || [];
+        var tbody = document.getElementById('recentPingsBody');
+        tbody.innerHTML = '';
+        if(!list.length){
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:left;color:var(--text-dim);">No recorded activity.</td></tr>';
+            return;
+        }
+        list.forEach(function(p){
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td style="text-align:left;">' + new Date(p.timestamp).toLocaleString() + '</td><td style="text-align:left;">' + p.path + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
     function selectUser(userId){
         document.querySelectorAll('#userTableBody tr').forEach(function(tr){
             tr.classList.toggle('selected', tr.dataset.userId === userId);
@@ -303,9 +261,13 @@
         document.getElementById('heatmapUserName').textContent = s ? s.name : '—';
         renderHeatmap(userId);
         renderModules(userId);
+        renderRecentPings(userId);
     }
 
-    if(summaries.length) selectUser(summaries[0].userId);
+    var initialUserId = (DATA.selectedUserId && summaries.some(function(s){ return s.userId === DATA.selectedUserId; }))
+        ? DATA.selectedUserId
+        : (summaries.length ? summaries[0].userId : null);
+    if(initialUserId) selectUser(initialUserId);
 })();
 </script>
 

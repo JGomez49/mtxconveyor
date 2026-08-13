@@ -3,94 +3,207 @@ const usersCtrl = {};
 const passport   = require('passport');
 const User       = require('../models/User');
 const bcrypt     = require('bcryptjs');
+const crypto     = require('crypto');
+const mongoose   = require('../database');
 const SiteConfig = require('../models/SiteConfig');
+const UserActivityModel = require('../models/UserActivity');
 
 const DEFAULT_BANNER = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1769889664/Planit_poster_02_neaxo6.png';
+const VALID_ROLES = ['viewer', 'user', 'leader', 'admin'];
 
+function genRandomPassword(len){
+    len = len || 12;
+    // Dependency-free, alphanumeric only (avoids awkward-to-relay symbols) —
+    // this is shown once to the admin to relay to the user, not stored
+    // anywhere in plaintext.
+    return crypto.randomBytes(len * 2).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, len);
+}
 
+// ==========================================================================
+// User management (admin only) — /users/manage. Replaces the old public
+// self-registration (/users/signup, retired — see routes/users.routes.js)
+// and the old broken /users/edit/:id (it stored passwords in PLAINTEXT: it
+// called User.encryptPassword() as a static method — a no-op on the class
+// itself rather than an instance — discarded the result, and wrote the raw
+// req.body.password straight into the update). All of this is AJAX (JSON
+// in, JSON out): the page never redirects, per the requirement that
+// creating/editing a user keeps the admin right where they were.
+// ==========================================================================
 
-// -------------------------Sing Up-----------------------------------------
-usersCtrl.renderSignUpForm = (req, res) => {res.render('signup.ejs')};
+usersCtrl.renderManageUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).select('name email role list rank createdAt').sort({ name: 1 }).lean();
+        // Last-active per user, cheap version of what the activity dashboard
+        // computes in full (no need for the whole session/heatmap pass just
+        // for a list page) — most recent ping per user.
+        const lastActiveRows = await UserActivityModel.aggregate([
+            { $sort: { timestamp: -1 } },
+            { $group: { _id: '$userId', lastActive: { $first: '$timestamp' } } },
+        ]);
+        const lastActiveByUser = {};
+        lastActiveRows.forEach(r => { lastActiveByUser[String(r._id)] = r.lastActive; });
 
+        const rows = users.map(u => ({
+            _id: String(u._id),
+            name: u.name, email: u.email, role: u.role || 'viewer',
+            list: u.list || '', rank: u.rank || '',
+            createdAt: u.createdAt ? u.createdAt.toISOString() : null,
+            lastActive: lastActiveByUser[String(u._id)] ? lastActiveByUser[String(u._id)].toISOString() : null,
+        }));
 
-usersCtrl.signup = async (req, res) => {
-    const errors = [];
-    const { name, email, role, list, password, confirm_password, rank } = req.body
-
-    if (password != confirm_password) {
-        errors.push({ text: '   Passwords do not match' });
+        res.render('manage-users.ejs', {
+            user: req.user,
+            users: rows,
+            validRoles: VALID_ROLES,
+            currentUserId: String(req.user._id),
+        });
+    } catch (err) {
+        console.error('[manage users] render error:', err);
+        req.flash('error_msg', 'Failed to load user management.');
+        res.redirect('/notes');
     }
+};
 
-    if (password.length < 4) {
-        errors.push({ text: '   Passwords must be minimum 4 characters length' });
-    }
-
-    if (errors.length > 0) {
-        res.render('signup.ejs', {errors, name, email})
-    } else {
-        const emailUser = await User.findOne({ email });
-        if (emailUser) {
-            req.flash('error_msg', '    The email is already in use.');
-            res.redirect('/users/signup');
-        } else {
-            const newUser = new User({name, email, role, list, password, rank});
-            newUser.password = await newUser.encryptPassword(password);
-            req.flash('success_msg', '  Congratulations, You are now registred!');
-            await newUser.save();
-            res.redirect('/users/signin');
+usersCtrl.createUser = async (req, res) => {
+    try {
+        const { name, role, list, rank, password, confirm_password } = req.body;
+        // Emails are case-insensitive everywhere in this app (the User
+        // model also lowercases on save) — normalize here so the
+        // uniqueness check below actually catches "Name@X.com" vs
+        // "name@x.com" as the same account.
+        const email = (req.body.email || '').trim().toLowerCase();
+        if(!name || !email || !password){
+            return res.status(400).json({ error: 'Name, email, and password are required.' });
         }
+        if(password !== confirm_password){
+            return res.status(400).json({ error: 'Passwords do not match.' });
+        }
+        if(password.length < 4){
+            return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+        }
+        if(role && !VALID_ROLES.includes(role)){
+            return res.status(400).json({ error: 'Invalid role.' });
+        }
+        const existing = await User.findOne({ email });
+        if(existing){
+            return res.status(409).json({ error: 'That email is already in use.' });
+        }
+        const newUser = new User({ name, email, role: role || 'viewer', list, rank });
+        newUser.password = await newUser.encryptPassword(password);
+        await newUser.save();
+        res.json({
+            ok: true,
+            user: {
+                _id: String(newUser._id), name: newUser.name, email: newUser.email,
+                role: newUser.role, list: newUser.list || '', rank: newUser.rank || '',
+                createdAt: newUser.createdAt ? newUser.createdAt.toISOString() : null,
+                lastActive: null,
+            },
+        });
+    } catch (err) {
+        console.error('[create user] error:', err);
+        res.status(500).json({ error: 'Failed to create user.' });
+    }
+};
+
+usersCtrl.updateUser = async (req, res) => {
+    try {
+        const targetId = req.params.id;
+        if(String(req.user._id) === String(targetId)){
+            return res.status(400).json({ error: "Use Change Password to edit your own account from here." });
+        }
+        const { name, role, list, rank } = req.body;
+        const email = (req.body.email || '').trim().toLowerCase();
+        if(!name || !email){
+            return res.status(400).json({ error: 'Name and email are required.' });
+        }
+        if(role && !VALID_ROLES.includes(role)){
+            return res.status(400).json({ error: 'Invalid role.' });
+        }
+        const emailOwner = await User.findOne({ email, _id: { $ne: targetId } });
+        if(emailOwner){
+            return res.status(409).json({ error: 'That email is already in use by another user.' });
+        }
+        const updated = await User.findByIdAndUpdate(
+            targetId,
+            { name, email, role: role || 'viewer', list, rank },
+            { new: true }
+        ).lean();
+        if(!updated) return res.status(404).json({ error: 'User not found.' });
+        res.json({
+            ok: true,
+            user: {
+                _id: String(updated._id), name: updated.name, email: updated.email,
+                role: updated.role, list: updated.list || '', rank: updated.rank || '',
+            },
+        });
+    } catch (err) {
+        console.error('[update user] error:', err);
+        res.status(500).json({ error: 'Failed to update user.' });
+    }
+};
+
+usersCtrl.resetUserPassword = async (req, res) => {
+    try {
+        const targetId = req.params.id;
+        if(String(req.user._id) === String(targetId)){
+            return res.status(400).json({ error: "Use Change Password to reset your own password." });
+        }
+        const target = await User.findById(targetId);
+        if(!target) return res.status(404).json({ error: 'User not found.' });
+        const newPassword = genRandomPassword(12);
+        target.password = await target.encryptPassword(newPassword);
+        await target.save();
+        // Returned once, in this response only — never stored or logged in
+        // plaintext anywhere. Relay it to the user through your own
+        // channel; they should change it after logging in.
+        res.json({ ok: true, password: newPassword });
+    } catch (err) {
+        console.error('[reset password] error:', err);
+        res.status(500).json({ error: 'Failed to reset password.' });
+    }
+};
+
+usersCtrl.deleteUser = async (req, res) => {
+    try {
+        const targetId = req.params.id;
+        if(String(req.user._id) === String(targetId)){
+            return res.status(400).json({ error: 'You cannot delete your own account from here.' });
+        }
+        const deleted = await User.findByIdAndDelete(targetId);
+        if(!deleted) return res.status(404).json({ error: 'User not found.' });
+        // Historical records elsewhere (T&D/Casing "calculated by", activity
+        // pings, etc.) already store the person's name as a separate string
+        // at the time of the action, so deleting the User doc doesn't erase
+        // or corrupt that history — those fields just keep the name with a
+        // now-dangling userId reference, same as any audit trail would.
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('[delete user] error:', err);
+        res.status(500).json({ error: 'Failed to delete user.' });
+    }
+};
+
+// "Panic button" — force everyone logged out at once, including the admin
+// who clicks it. Sessions are stored server-side in Mongo (see server.js's
+// MongoDBStore, collection 'mySessions'), so wiping that collection
+// invalidates every active session in one shot: the next request from any
+// browser with an old session cookie fails req.isAuthenticated() and gets
+// redirected to sign in, same as a normal logout. This response still
+// completes normally for the admin's own current request (the deletion
+// doesn't retroactively kill the in-flight response) — only their NEXT
+// request will find no session and bounce to /users/signin, which the
+// client-side JS handles with an explicit redirect after a short delay.
+usersCtrl.forceLogoutAll = async (req, res) => {
+    try {
+        const result = await mongoose.connection.db.collection('mySessions').deleteMany({});
+        res.json({ ok: true, sessionsCleared: result.deletedCount || 0 });
+    } catch (err) {
+        console.error('[force logout all] error:', err);
+        res.status(500).json({ error: 'Failed to log out all users.' });
     }
 };
 //==========================================================================
-
-
-
-
-
-// ---------------------------------Edit User------------------------------- No esta funcionando el cambio de clave de usuario
-usersCtrl.renderEditUserForm = (req, res) => {res.render('edit-user.ejs')};
-
-usersCtrl.editUser = async (req, res) => {
-    const errors = [];
-    // console.log(req.body);
-    const { name, email, role, password, confirm_password } = req.body;
-    // console.log(req.params);
-    // let userID = req.params.id;
-    // console.log('>>>>>>>>>>>>>>>>>');
-    // console.log(userID);
-    // let user = await User.findById(req.params.id);
-    // console.log(user);
-    // let clave = await user.encryptPassword(password);
-    // console.log(clave);
-
-    if (password != confirm_password) {
-        errors.push({ text: '   Passwords do not match' });
-    }
-
-    if (password.length < 4) {
-        errors.push({ text: '   Passwords must be minimum 4 characters length' });
-    }
-
-    if (errors.length > 0) {
-        res.render('signin.ejs', {errors, name, email})
-    } else {
-        const emailUser = await User.findOne({ email });
-        if (emailUser) {
-            req.flash('error_msg', '    The email is already in use.');
-            res.redirect('/users/signin');
-        } else {
-            let user = await User.findById(req.params.id);
-            console.log(user);
-            await User.encryptPassword(password);
-            // let clave = await user.encryptPassword(password);
-            // console.log(clave);
-            // password = await user.encryptPassword(password);
-            await User.findByIdAndUpdate(req.params.id, {name, email, role, list, password});
-            req.flash('success_msg', '  User has been updated!');
-            res.redirect('/users/signin');
-        }
-    }
-};
 //==========================================================================
 
 
@@ -186,7 +299,7 @@ usersCtrl.renderForgotPassword = (req, res) => {
 };
 
 usersCtrl.forgotPasswordLookup = async (req, res) => {
-    const { email } = req.body;
+    const email = (req.body.email || '').trim().toLowerCase();
     const user = await User.findOne({ email });
     if (!user || !user.securityQuestion) {
         // Don't reveal whether the email exists — generic message either way.
@@ -202,7 +315,8 @@ usersCtrl.forgotPasswordLookup = async (req, res) => {
 
 // Step 2: verify answer + set new password
 usersCtrl.forgotPasswordReset = async (req, res) => {
-    const { email, answer, password, confirm_password } = req.body;
+    const { answer, password, confirm_password } = req.body;
+    const email = (req.body.email || '').trim().toLowerCase();
     const user = await User.findOne({ email });
 
     if (!user || !user.securityQuestion) {
@@ -305,115 +419,25 @@ usersCtrl.changePassword = async (req, res) => {
 // isAuthenticated middleware) into: (1) a per-user, per-day estimated-
 // minutes map for a GitHub-style contribution heatmap, (2) a per-user
 // module/path usage breakdown, (3) an org-wide daily-active-users series,
-// and (4) a per-user summary table. All computed here server-side and
-// embedded as JSON for the view to render, same pattern job.ejs already
-// uses for its own dashboards.
-const UserActivity = require('../models/UserActivity');
-
-const SESSION_IDLE_GAP_MS = 60 * 60 * 1000; // 60 min — see chat: matches the
-    // requested idle-timeout for splitting continuous activity into
-    // separate "sessions" when estimating time spent.
-const MIN_SESSION_MS = 60 * 1000; // floor so even a single lone ping still
-    // counts as ~1 minute of activity that day, rather than 0.
-const HEATMAP_DAYS = 371; // ~53 weeks, matches a GitHub-style year heatmap
-
-function dayKey(date){ return date.toISOString().slice(0, 10); } // UTC YYYY-MM-DD, approximate by design (see below)
-
-// Groups a user's ascending-sorted ping timestamps into sessions (gap >
-// SESSION_IDLE_GAP_MS starts a new one), then attributes each session's
-// estimated duration to the UTC day of its FIRST ping. Sessions that cross
-// midnight are rare here (bounded by the idle gap, and by normal working
-// hours) and are not split across days — a documented approximation, not
-// an attempt at to-the-second accuracy.
-function computeUserDayMinutes(timestampsAsc){
-    const dayMinutes = {};   // 'YYYY-MM-DD' -> minutes
-    const daySet = new Set(); // days with any activity at all
-    let lastLoginAt = null;
-    if(!timestampsAsc.length) return { dayMinutes, daySet, lastLoginAt };
-
-    let sessionStart = timestampsAsc[0];
-    let prev = timestampsAsc[0];
-    function flush(sessionEnd){
-        const ms = Math.max(MIN_SESSION_MS, sessionEnd - sessionStart);
-        const key = dayKey(sessionStart);
-        dayMinutes[key] = (dayMinutes[key] || 0) + ms / 60000;
-        daySet.add(key);
-    }
-    for(let i = 1; i < timestampsAsc.length; i++){
-        const t = timestampsAsc[i];
-        if(t - prev > SESSION_IDLE_GAP_MS){
-            flush(prev);
-            sessionStart = t;
-        }
-        prev = t;
-    }
-    flush(prev);
-    lastLoginAt = timestampsAsc[timestampsAsc.length - 1];
-    return { dayMinutes, daySet, lastLoginAt };
-}
+// and (4) a per-user summary table. Computation itself lives in
+// helpers/activityStats.js, shared with the embedded "Users"/"Activity
+// Heatmap" section on the main dashboard (all-notes.ejs) — this is the
+// admin view over ALL users; that one is a filtered subset.
+const { buildActivityReport, HEATMAP_DAYS } = require('../helpers/activityStats');
 
 usersCtrl.renderActivityDashboard = async (req, res) => {
     try {
-        const since = new Date(Date.now() - HEATMAP_DAYS * 24 * 60 * 60 * 1000);
-        const [users, pings] = await Promise.all([
-            User.find({}).select('name email role').lean(),
-            UserActivity.find({ timestamp: { $gte: since } })
-                .select('userId userName path timestamp').sort({ timestamp: 1 }).lean(),
-        ]);
-
-        const byUser = {}; // userId (string) -> { timestamps: [], modules: {path: count} }
-        pings.forEach(p => {
-            const uid = String(p.userId);
-            if(!byUser[uid]) byUser[uid] = { timestamps: [], modules: {} };
-            byUser[uid].timestamps.push(new Date(p.timestamp));
-            byUser[uid].modules[p.path] = (byUser[uid].modules[p.path] || 0) + 1;
-        });
-
-        const orgDayActiveUsers = {}; // 'YYYY-MM-DD' -> Set of userIds (converted to count below)
-        const userSummaries = [];
-        const userHeatmaps = {}; // uid -> { day: minutes }
-        const userModules = {};  // uid -> [{path, count}] sorted desc
-
-        users.forEach(u => {
-            const uid = String(u._id);
-            const entry = byUser[uid];
-            const timestamps = entry ? entry.timestamps : [];
-            const { dayMinutes, daySet, lastLoginAt } = computeUserDayMinutes(timestamps);
-
-            daySet.forEach(d => {
-                if(!orgDayActiveUsers[d]) orgDayActiveUsers[d] = new Set();
-                orgDayActiveUsers[d].add(uid);
-            });
-
-            userHeatmaps[uid] = dayMinutes;
-            const modules = entry ? Object.entries(entry.modules)
-                .map(([path, count]) => ({ path, count }))
-                .sort((a, b) => b.count - a.count) : [];
-            userModules[uid] = modules;
-
-            const totalMinutes = Object.values(dayMinutes).reduce((s, m) => s + m, 0);
-            userSummaries.push({
-                userId: uid,
-                name: u.name || u.email || '(unknown)',
-                role: u.role || 'viewer',
-                daysActive: daySet.size,
-                estHours: Math.round((totalMinutes / 60) * 10) / 10,
-                lastActive: lastLoginAt ? lastLoginAt.toISOString() : null,
-                topModule: modules.length ? modules[0].path : null,
-            });
-        });
-
-        userSummaries.sort((a, b) => (b.lastActive || '').localeCompare(a.lastActive || ''));
-
-        const orgDauSeries = Object.keys(orgDayActiveUsers).sort().map(d => ({ day: d, count: orgDayActiveUsers[d].size }));
-
+        const users = await User.find({}).select('name email role').lean();
+        const report = await buildActivityReport(users);
         res.render('activity.ejs', {
             user: req.user,
-            summaries: userSummaries,
-            heatmaps: userHeatmaps,
-            modules: userModules,
-            orgDauSeries,
-            heatmapDays: HEATMAP_DAYS,
+            summaries: report.summaries,
+            heatmaps: report.heatmaps,
+            modules: report.modules,
+            recentPings: report.recentPings,
+            orgDauSeries: report.orgDauSeries,
+            heatmapDays: report.heatmapDays,
+            selectedUserId: req.query.userId || null,
         });
     } catch (err) {
         console.error('[activity dashboard] error:', err);

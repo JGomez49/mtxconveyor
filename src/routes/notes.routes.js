@@ -68,7 +68,7 @@ const {
     savePadStats,
 } = require('../controllers/notes.controller');
 
-const {isAuthenticated} = require('../helpers/auth');
+const {isAuthenticated, canUseModelers} = require('../helpers/auth');
 
 //Get note
 router.get('/notes/add', isAuthenticated, renderNoteForm);
@@ -228,9 +228,9 @@ router.get('/notes/uploadFracPlanes', isAuthenticated, renderUploadFracPlanes);
 
 
 //Get Upload Torque and Drag form
-router.get('/notes/uploadTorqueAndDrag', isAuthenticated, renderUploadTorqueAndDrag);
-router.get('/notes/uploadHydraulics', isAuthenticated, renderUploadHydraulics);
-router.get('/notes/uploadCasingDesign', isAuthenticated, renderUploadCasingDesign);
+router.get('/notes/uploadTorqueAndDrag', isAuthenticated, canUseModelers, renderUploadTorqueAndDrag);
+router.get('/notes/uploadHydraulics', isAuthenticated, canUseModelers, renderUploadHydraulics);
+router.get('/notes/uploadCasingDesign', isAuthenticated, canUseModelers, renderUploadCasingDesign);
 
 
 

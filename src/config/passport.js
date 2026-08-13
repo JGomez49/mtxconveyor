@@ -10,8 +10,12 @@ passport.use(new LocalStrategy({
     usernameField: 'email',
     passwordField: 'password'
 }, async (email, password, done)=>{
-    //match email
-    const user = await User.findOne({email});
+    //match email — normalized to lowercase/trimmed so case doesn't matter
+    //(the User model itself now lowercases stored emails too, but the
+    //incoming login attempt still needs the same normalization applied
+    //before the lookup, since schema setters don't touch query filters).
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const user = await User.findOne({email: normalizedEmail});
     if(!user){
         return done(null, false, {message: 'Not user found'});
     }else{

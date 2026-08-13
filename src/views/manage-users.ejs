@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Users</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e14; --panel: #111820; --panel2: #161e28; --border: #1e2d3d;
+      --accent: #00c8ff; --accent2: #ff6b35; --accent3: #39ff14;
+      --text: #c8d8e8; --text-dim: #5a7080; --text-bright: #e8f4ff;
+      --red: #ff4060; --yellow: #ffd060; --green: #39ff14;
+      --mono: 'Share Tech Mono', monospace; --sans: 'Barlow', sans-serif; --cond: 'Barlow Condensed', sans-serif;
+    }
+    *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+    html{ font-size:13px; }
+    body{ background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+    header{ background:linear-gradient(180deg,#0d1520,transparent); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; gap:14px; }
+    .logo-hex{ width:34px; height:34px; background:var(--accent); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--bg); font-weight:700; flex-shrink:0; }
+    header h1{ font-family:var(--cond); font-size:19px; font-weight:700; color:var(--text-bright); letter-spacing:2px; text-transform:uppercase; }
+    header p{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+    header a.back{ margin-left:auto; font-size:11px; color:var(--text-dim); text-decoration:none; border:1px solid var(--border); border-radius:3px; padding:6px 12px; }
+    header a.back:hover{ color:var(--accent); border-color:var(--accent); }
+    main{ max-width:1200px; margin:0 auto; padding:16px 20px 60px; }
+    .panel{ background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:14px; }
+    .panel h2{ font-family:var(--cond); font-size:15px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .panel h2 .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+    label{ font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px; }
+    input[type=text], input[type=email], input[type=password], select{
+      background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:3px; padding:6px 8px; font-family:var(--mono); font-size:12px; width:100%;
+    }
+    .btn{ font-family:var(--cond); font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:7px 14px; border-radius:3px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--text-dim); transition:all .15s; }
+    .btn:hover{ border-color:var(--accent); color:var(--accent); }
+    .btn-p{ border-color:var(--accent); color:var(--accent); }
+    .btn-p:hover{ background:var(--accent); color:var(--bg); }
+    .btn-danger{ border-color:var(--red); color:var(--red); }
+    .btn-danger:hover{ background:var(--red); color:#fff; }
+    .btn-sm{ padding:4px 9px; font-size:10px; }
+    .btn:disabled{ opacity:.35; cursor:not-allowed; }
+    .grid-form{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px; }
+    @media (max-width:900px){ .grid-form{ grid-template-columns:repeat(2,1fr); } }
+    .status-msg{ font-family:var(--mono); font-size:11px; margin-top:6px; min-height:14px; }
+    .status-msg.err{ color:var(--red); }
+    .status-msg.ok{ color:var(--green); }
+    table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11.5px; }
+    th,td{ padding:7px 8px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle; }
+    th{ color:var(--text-dim); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.5px; }
+    .role-badge{ font-size:9px; padding:1px 6px; border-radius:8px; border:1px solid var(--border); color:var(--text-dim); text-transform:uppercase; }
+    .role-badge.admin{ border-color:var(--accent2); color:var(--accent2); }
+    .role-badge.leader{ border-color:var(--yellow); color:var(--yellow); }
+    .actions{ display:flex; gap:6px; white-space:nowrap; }
+    .self-note{ color:var(--text-dim); font-size:10px; font-style:italic; }
+    .edit-row td{ background:var(--panel2); }
+    .edit-row .grid-form{ margin-bottom:6px; }
+
+    /* One-time password reveal modal */
+    .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-overlay.show{ display:flex; }
+    .modal-box{ background:var(--panel); border:1px solid var(--accent); border-radius:6px; width:min(420px,92vw); padding:18px; }
+    .modal-box h3{ font-family:var(--cond); font-size:14px; letter-spacing:1px; text-transform:uppercase; color:var(--text-bright); margin-bottom:10px; }
+    .pw-reveal{ display:flex; gap:8px; align-items:center; margin:10px 0; }
+    .pw-reveal input{ font-size:15px; letter-spacing:1px; }
+    .modal-warn{ font-size:11px; color:var(--yellow); margin-bottom:10px; }
+    .modal-ftr{ text-align:right; margin-top:14px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="logo-hex">👤</div>
+  <div style="flex:1;">
+    <h1>Manage Users</h1>
+    <p>Create, edit, reset passwords, and remove MTX Conveyor accounts</p>
+  </div>
+  <a class="back" href="/users/activity">Usage Dashboard →</a>
+  <a class="back" href="/notes">&larr; Back to Jobs</a>
+</header>
+
+<main>
+
+  <div class="panel">
+    <h2><span class="dot"></span>New User <button class="btn btn-sm" id="toggleCreateBtn" style="margin-left:auto;">+ Add User</button></h2>
+    <form id="createForm" style="display:none;">
+      <div class="grid-form">
+        <div><label>Name</label><input type="text" id="cName" required></div>
+        <div><label>Email</label><input type="email" id="cEmail" required></div>
+        <div>
+          <label>Role</label>
+          <select id="cRole">
+            <% validRoles.forEach(function(r){ %><option value="<%= r %>"><%= r %></option><% }) %>
+          </select>
+        </div>
+        <div>
+          <label>Rank</label>
+          <select id="cRank">
+            <option value="">—</option>
+            <% ['Tech0','Tech1','Tech2','Tech3','WP1','WP2','WP3','DS1','DS2','DS3','DE','DM','Geo','GeoM'].forEach(function(r){ %><option value="<%= r %>"><%= r %></option><% }) %>
+          </select>
+        </div>
+        <div><label>List</label><input type="text" id="cList"></div>
+        <div>
+          <label>Password</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="cPassword" required style="flex:1;">
+            <button type="button" class="btn btn-sm" id="cGenPwBtn" title="Generate a random password">🎲</button>
+          </div>
+        </div>
+        <div><label>Confirm Password</label><input type="text" id="cConfirmPassword" required></div>
+      </div>
+      <button type="submit" class="btn btn-p">Create User</button>
+      <div class="status-msg" id="createStatus"></div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>
+      <span class="dot"></span>All Users (<%= users.length %>)
+      <button class="btn btn-sm btn-danger" id="panicBtn" style="margin-left:auto;">🚨 Log Out All Users</button>
+    </h2>
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Email</th><th>Role</th><th>Rank</th><th>List</th><th>Last Active</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="usersBody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<div class="modal-overlay" id="pwModal">
+  <div class="modal-box">
+    <h3>New Password Generated</h3>
+    <div class="modal-warn">⚠ This is shown once and not stored anywhere in plaintext — copy it now and relay it to the user through your own channel.</div>
+    <div class="pw-reveal">
+      <input type="text" id="pwRevealField" readonly>
+      <button class="btn btn-p btn-sm" id="pwCopyBtn">Copy</button>
+    </div>
+    <div class="modal-ftr"><button class="btn" id="pwCloseBtn">Close</button></div>
+  </div>
+</div>
+
+<script type="application/json" id="usersData">
+<%- JSON.stringify({ users, validRoles, currentUserId }) %>
+</script>
+
+<script>
+(function(){
+    var DATA = JSON.parse(document.getElementById('usersData').textContent);
+    var users = DATA.users;
+    var validRoles = DATA.validRoles;
+    var currentUserId = DATA.currentUserId;
+
+    function fmtDate(iso){
+        if(!iso) return 'Never';
+        var d = new Date(iso);
+        var days = Math.floor((Date.now()-d.getTime())/86400000);
+        if(days === 0) return 'Today';
+        if(days === 1) return 'Yesterday';
+        if(days < 7) return days + ' days ago';
+        return d.toISOString().slice(0,10);
+    }
+    function roleOptions(sel){
+        return validRoles.map(function(r){ return '<option value="'+r+'"'+(r===sel?' selected':'')+'>'+r+'</option>'; }).join('');
+    }
+    function rankOptions(sel){
+        var ranks = ['','Tech0','Tech1','Tech2','Tech3','WP1','WP2','WP3','DS1','DS2','DS3','DE','DM','Geo','GeoM'];
+        return ranks.map(function(r){ return '<option value="'+r+'"'+(r===sel?' selected':'')+'>'+(r||'—')+'</option>'; }).join('');
+    }
+    function esc(s){ return (s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+    var tbody = document.getElementById('usersBody');
+
+    function userRow(u){
+        var tr = document.createElement('tr');
+        tr.dataset.userId = u._id;
+        var isSelf = (u._id === currentUserId);
+        tr.innerHTML =
+            '<td class="v-name">' + esc(u.name) + '</td>' +
+            '<td class="v-email">' + esc(u.email) + '</td>' +
+            '<td class="v-role"><span class="role-badge ' + u.role + '">' + u.role + '</span></td>' +
+            '<td class="v-rank">' + (u.rank || '—') + '</td>' +
+            '<td class="v-list">' + esc(u.list || '—') + '</td>' +
+            '<td>' + fmtDate(u.lastActive) + '</td>' +
+            '<td class="actions">' + (isSelf
+                ? '<span class="self-note">This is you — use Change Password</span>'
+                : '<button class="btn btn-sm edit-btn">Edit</button>' +
+                  '<button class="btn btn-sm reset-btn">Reset Password</button>' +
+                  '<a class="btn btn-sm" href="/users/activity?userId=' + u._id + '">Activity</a>' +
+                  '<button class="btn btn-sm btn-danger delete-btn">Delete</button>'
+              ) + '</td>';
+        if(!isSelf){
+            tr.querySelector('.edit-btn').addEventListener('click', function(){ openEdit(tr, u); });
+            tr.querySelector('.reset-btn').addEventListener('click', function(){ resetPassword(u); });
+            tr.querySelector('.delete-btn').addEventListener('click', function(){ deleteUser(tr, u); });
+        }
+        return tr;
+    }
+
+    users.forEach(function(u){ tbody.appendChild(userRow(u)); });
+
+    function openEdit(tr, u){
+        var existing = document.querySelector('.edit-row');
+        if(existing) existing.remove();
+        var editTr = document.createElement('tr');
+        editTr.className = 'edit-row';
+        var td = document.createElement('td');
+        td.colSpan = 7;
+        td.innerHTML =
+            '<div class="grid-form">' +
+                '<div><label>Name</label><input type="text" class="e-name" value="'+esc(u.name)+'"></div>' +
+                '<div><label>Email</label><input type="email" class="e-email" value="'+esc(u.email)+'"></div>' +
+                '<div><label>Role</label><select class="e-role">'+roleOptions(u.role)+'</select></div>' +
+                '<div><label>Rank</label><select class="e-rank">'+rankOptions(u.rank)+'</select></div>' +
+                '<div><label>List</label><input type="text" class="e-list" value="'+esc(u.list||'')+'"></div>' +
+            '</div>' +
+            '<button class="btn btn-p btn-sm e-save">Save</button> ' +
+            '<button class="btn btn-sm e-cancel">Cancel</button>' +
+            '<div class="status-msg e-status"></div>';
+        editTr.appendChild(td);
+        tr.after(editTr);
+
+        td.querySelector('.e-cancel').addEventListener('click', function(){ editTr.remove(); });
+        td.querySelector('.e-save').addEventListener('click', async function(){
+            var body = {
+                name: td.querySelector('.e-name').value.trim(),
+                email: td.querySelector('.e-email').value.trim(),
+                role: td.querySelector('.e-role').value,
+                rank: td.querySelector('.e-rank').value,
+                list: td.querySelector('.e-list').value.trim(),
+            };
+            var statusEl = td.querySelector('.e-status');
+            statusEl.textContent = 'Saving…'; statusEl.className = 'status-msg e-status';
+            try {
+                var res = await fetch('/users/manage/' + u._id, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                var data = await res.json();
+                if(!res.ok){ statusEl.textContent = data.error || 'Update failed.'; statusEl.className = 'status-msg e-status err'; return; }
+                Object.assign(u, data.user);
+                tr.replaceWith(userRow(u));
+                editTr.remove();
+            } catch(err){
+                statusEl.textContent = 'Error: ' + err.message; statusEl.className = 'status-msg e-status err';
+            }
+        });
+    }
+
+    async function resetPassword(u){
+        if(!confirm('Generate a new random password for ' + u.name + '? Their current password will stop working immediately.')) return;
+        try {
+            var res = await fetch('/users/manage/' + u._id + '/reset-password', { method: 'POST' });
+            var data = await res.json();
+            if(!res.ok){ alert(data.error || 'Reset failed.'); return; }
+            document.getElementById('pwRevealField').value = data.password;
+            document.getElementById('pwModal').classList.add('show');
+        } catch(err){
+            alert('Error: ' + err.message);
+        }
+    }
+
+    async function deleteUser(tr, u){
+        if(!confirm('Delete ' + u.name + ' (' + u.email + ')? This cannot be undone.')) return;
+        try {
+            var res = await fetch('/users/manage/' + u._id, { method: 'DELETE' });
+            var data = await res.json();
+            if(!res.ok){ alert(data.error || 'Delete failed.'); return; }
+            tr.remove();
+            var editTr = document.querySelector('.edit-row');
+            if(editTr) editTr.remove();
+        } catch(err){
+            alert('Error: ' + err.message);
+        }
+    }
+
+    // ---------------- Create form ----------------
+    var toggleBtn = document.getElementById('toggleCreateBtn');
+    var createForm = document.getElementById('createForm');
+    toggleBtn.addEventListener('click', function(){
+        var show = createForm.style.display === 'none';
+        createForm.style.display = show ? 'block' : 'none';
+        toggleBtn.textContent = show ? '✕ Cancel' : '+ Add User';
+    });
+
+    // Same random-password approach as the server-side Reset Password
+    // generator (alphanumeric, quality randomness) — generated client-side
+    // here since, unlike a reset, the create form already has a password
+    // field the admin needs to see/relay before submitting.
+    function genRandomPassword(len){
+        len = len || 12;
+        var bytes = new Uint8Array(len * 2);
+        (window.crypto || window.msCrypto).getRandomValues(bytes);
+        var s = btoa(String.fromCharCode.apply(null, bytes)).replace(/[^a-zA-Z0-9]/g, '');
+        return s.slice(0, len);
+    }
+    document.getElementById('cGenPwBtn').addEventListener('click', function(){
+        var pw = genRandomPassword(12);
+        document.getElementById('cPassword').value = pw;
+        document.getElementById('cConfirmPassword').value = pw;
+    });
+
+    createForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        var statusEl = document.getElementById('createStatus');
+        var body = {
+            name: document.getElementById('cName').value.trim(),
+            email: document.getElementById('cEmail').value.trim(),
+            role: document.getElementById('cRole').value,
+            rank: document.getElementById('cRank').value,
+            list: document.getElementById('cList').value.trim(),
+            password: document.getElementById('cPassword').value,
+            confirm_password: document.getElementById('cConfirmPassword').value,
+        };
+        statusEl.textContent = 'Creating…'; statusEl.className = 'status-msg';
+        try {
+            var res = await fetch('/users/manage', {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            var data = await res.json();
+            if(!res.ok){ statusEl.textContent = data.error || 'Create failed.'; statusEl.className = 'status-msg err'; return; }
+            users.push(data.user);
+            tbody.appendChild(userRow(data.user));
+            statusEl.textContent = '✓ ' + data.user.name + ' created.'; statusEl.className = 'status-msg ok';
+            createForm.reset();
+            // Deliberately NOT redirecting or hiding the form — stay right here per the requirement.
+        } catch(err){
+            statusEl.textContent = 'Error: ' + err.message; statusEl.className = 'status-msg err';
+        }
+    });
+
+    // ---------------- Panic button: log everyone out at once ----------------
+    document.getElementById('panicBtn').addEventListener('click', async function(){
+        var ok = confirm(
+            'This immediately ends EVERY active session, for every user — including YOU. ' +
+            'Everyone (yourself included) will need to sign in again right after this. Continue?'
+        );
+        if(!ok) return;
+        this.disabled = true;
+        this.textContent = 'Logging everyone out…';
+        try {
+            var res = await fetch('/users/manage-force-logout-all', { method: 'POST' });
+            var data = await res.json();
+            if(!res.ok){ alert(data.error || 'Failed to log out all users.'); this.disabled = false; this.textContent = '🚨 Log Out All Users'; return; }
+            this.textContent = '✓ Done — redirecting…';
+            setTimeout(function(){ window.location.href = '/users/signin'; }, 1500);
+        } catch(err){
+            alert('Error: ' + err.message);
+            this.disabled = false;
+            this.textContent = '🚨 Log Out All Users';
+        }
+    });
+
+    // ---------------- Password reveal modal ----------------
+    document.getElementById('pwCloseBtn').addEventListener('click', function(){
+        document.getElementById('pwModal').classList.remove('show');
+        document.getElementById('pwRevealField').value = '';
+    });
+    document.getElementById('pwCopyBtn').addEventListener('click', function(){
+        var field = document.getElementById('pwRevealField');
+        field.select();
+        navigator.clipboard && navigator.clipboard.writeText(field.value);
+    });
+})();
+</script>
+
+</body>
+</html>

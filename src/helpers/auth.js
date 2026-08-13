@@ -65,4 +65,21 @@ helpers.isAdmin = (req,res,next)=>{
     res.redirect('/notes');
 }
 
+// Blocks the Geo/GeoM ranks from the three engineering modelers (Casing
+// Design, Torque & Drag, Bit Hydraulics Program) at the ROUTE level, not
+// just hiding the "Open in ..." buttons in job.ejs — a hidden button alone
+// isn't real access control, since the page would still be reachable by
+// typing/bookmarking the URL directly. They can still see the read-only
+// RESULTS embedded in job.ejs (those aren't behind this guard, only the
+// standalone modeler pages themselves are). Requires isAuthenticated to
+// have already run (req.user present).
+const MODELER_BLOCKED_RANKS = ['Geo', 'GeoM'];
+helpers.canUseModelers = (req,res,next)=>{
+    if(req.user && MODELER_BLOCKED_RANKS.includes(req.user.rank)){
+        req.flash('error_msg', 'Your rank does not have access to this modeler. You can still view results on the job page.');
+        return res.redirect('/notes');
+    }
+    return next();
+}
+
 module.exports = helpers

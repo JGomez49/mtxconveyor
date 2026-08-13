@@ -1,5 +1,6 @@
 
 <%- include ('partials/header.ejs') %>
+<% var canUseModelers = !(user && (user.rank === 'Geo' || user.rank === 'GeoM')); %>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -1299,8 +1300,10 @@ body.light-mode #statusTextbox {
                                     <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
                                     <select id="csdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
                                     <span id="csdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <% if (canUseModelers) { %>
                                     <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🧱 Open in Casing Design</a>
+                                    <% } %>
                                 </div>
                                 <div id="csdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Casing Design model saved yet for this job.
@@ -1310,8 +1313,9 @@ body.light-mode #statusTextbox {
                                     <div style="font-size:10px;color:#5a7080;margin-top:8px;">
                                         Physics: API TR 5C3 (burst/collapse/triaxial), Bourgoyne et al. "Applied Drilling Engineering,"
                                         SPE Textbook Series Vol. 2, Ch. 7 (ellipse of plasticity collapse derating), and this job's
-                                        "Casing Design Foundation" (CNRL, Rev 0) Simple Method load cases. Edit setup and recalculate in
-                                        <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank">Casing Design</a>.
+                                        "Casing Design Foundation" (CNRL, Rev 0) Simple Method load cases.
+                                        <% if (canUseModelers) { %>Edit setup and recalculate in
+                                        <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank">Casing Design</a>.<% } %>
                                     </div>
                                 </div>
                             </div>
@@ -1338,8 +1342,10 @@ body.light-mode #statusTextbox {
                                     <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
                                     <select id="tdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
                                     <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <% if (canUseModelers) { %>
                                     <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
+                                    <% } %>
                                 </div>
                                 <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Torque &amp; Drag model saved yet for this job.
@@ -1399,8 +1405,10 @@ body.light-mode #statusTextbox {
                                     <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
                                     <select id="hydScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
                                     <span id="hydStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <% if (canUseModelers) { %>
                                     <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🌊 Open in Bit Hydraulics Program</a>
+                                    <% } %>
                                 </div>
                                 <div id="hydEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Bit Hydraulics model saved yet for this job.
@@ -1426,8 +1434,9 @@ body.light-mode #statusTextbox {
                                     </div>
                                     <div style="font-size:10px;color:#5a7080;margin-top:8px;">
                                         Physics: Bourgoyne, Millheim, Chenevert, Young, "Applied Drilling Engineering," SPE Textbook Series Vol. 2, 1986, Ch. 4
-                                        (Bingham Plastic &amp; Power Law pipe/annular pressure loss). Edit setup and recalculate in the
-                                        <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank">Bit Hydraulics Program</a>.
+                                        (Bingham Plastic &amp; Power Law pipe/annular pressure loss).
+                                        <% if (canUseModelers) { %>Edit setup and recalculate in the
+                                        <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank">Bit Hydraulics Program</a>.<% } %>
                                     </div>
                                 </div>
                             </div>
@@ -8098,7 +8107,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(!entry || !entry.results){
             resultsWrap.style.display = 'none';
             emptyMsg.style.display = 'block';
-            emptyMsg.textContent = 'No saved run for this well/scenario yet — use "Open in Bit Hydraulics Program" to set one up.';
+            emptyMsg.textContent = 'No saved run for this well/scenario yet<% if (canUseModelers) { %> — use "Open in Bit Hydraulics Program" to set one up.<% } else { %>.<% } %>';
             statusText.textContent = '';
             return;
         }
@@ -8393,7 +8402,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(!entry || !entry.results || !entry.results.byString){
             resultsWrap.style.display = 'none';
             emptyMsg.style.display = 'block';
-            emptyMsg.textContent = 'No saved run for this well/scenario yet — use "Open in Casing Design" to set one up.';
+            emptyMsg.textContent = 'No saved run for this well/scenario yet<% if (canUseModelers) { %> — use "Open in Casing Design" to set one up.<% } else { %>.<% } %>';
             statusText.textContent = '';
             return;
         }

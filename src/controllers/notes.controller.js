@@ -18,6 +18,7 @@ const CasingDesign = require("../models/CasingDesign");
 const CasingLoadCasesCore = require("../public/js/casingLoadCases.js");
 const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
+const { buildActivityReport } = require("../helpers/activityStats");
 const SiteConfig    = require("../models/SiteConfig");
 
 
@@ -155,7 +156,29 @@ notesCrtl.renderNotes = async (req,res)=>{
         DPStats.find().lean(),
         NewSchedule.findOne().populate('user','name').lean(),
     ]);
-    res.render('all-notes.ejs', {notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup});
+
+    // Embedded "Users" + "Activity Heatmap" section, shown under the DP
+    // Wellbore Backlog plot to admins and a specific set of ranks. Unlike
+    // /users/activity (all users, admin-only), this is scoped to users
+    // with list === 'CNRL' — the full org-wide view stays behind the
+    // Manage Users / Usage Dashboard admin pages, reachable from the navbar.
+    const ACTIVITY_VISIBLE_RANKS = ['WP1', 'WP2', 'WP3', 'DM', 'GeoM'];
+    const canSeeActivity = (user.role === 'admin') || ACTIVITY_VISIBLE_RANKS.includes(user.rank);
+    let activityReport = null;
+    if(canSeeActivity){
+        try {
+            const cnrlUsers = await User.find({ list: 'CNRL' }).select('name email role').lean();
+            activityReport = await buildActivityReport(cnrlUsers);
+        } catch (err) {
+            console.error('[all-notes activity embed] error:', err);
+            activityReport = null;
+        }
+    }
+
+    res.render('all-notes.ejs', {
+        notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup,
+        canSeeActivity, activityReport,
+    });
 };
 
 

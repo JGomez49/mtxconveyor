@@ -3619,6 +3619,106 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             </div>
 </div>
 
+<% if (canSeeActivity && activityReport) { %>
+<!-- ── Users + Activity Heatmap (admin, and ranks WP1/WP2/WP3/DM/GeoM) ──
+     Scoped to list === 'CNRL' users only — the full org-wide view (all
+     users, any list) lives behind the admin-only Manage Users / Usage
+     Dashboard pages, reachable from the navbar. -->
+<div class="mx-3">
+    <style>
+        .actv-panel{ background:var(--an-panel,#111820); border:1px solid var(--an-border,#1e2d3d); border-radius:6px; padding:14px; margin-bottom:14px; }
+        .actv-panel h2{ font-family:var(--an-cond,sans-serif); font-size:15px; font-weight:700; letter-spacing:1.5px; color:var(--an-text-bright,#e8f4ff); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+        .actv-panel h2 .dot{ width:8px; height:8px; border-radius:50%; background:var(--an-accent,#00c8ff); box-shadow:0 0 8px var(--an-accent,#00c8ff); }
+        .actv-table{ width:100%; border-collapse:collapse; font-family:var(--an-mono,monospace); font-size:11.5px; }
+        .actv-table th, .actv-table td{ padding:6px 8px; text-align:right; border-bottom:1px solid var(--an-border,#1e2d3d); white-space:nowrap; }
+        .actv-table th{ color:var(--an-text-dim,#5a7080); font-weight:600; }
+        .actv-table th:first-child, .actv-table td:first-child{ text-align:left; }
+        .actv-table tr.actv-user-row{ cursor:pointer; }
+        .actv-table tr.actv-user-row:hover td{ background:rgba(0,200,255,.06); }
+        .actv-table tr.actv-user-row.selected td{ background:rgba(0,200,255,.12); }
+        .actv-role-badge{ font-size:9px; padding:1px 6px; border-radius:8px; border:1px solid var(--an-border,#1e2d3d); color:var(--an-text-dim,#5a7080); text-transform:uppercase; }
+        .actv-role-badge.admin{ border-color:var(--an-accent2,#ff6b35); color:var(--an-accent2,#ff6b35); }
+        .actv-role-badge.leader{ border-color:var(--an-yellow,#ffd060); color:var(--an-yellow,#ffd060); }
+        #actvHeatmapWrap{ overflow-x:auto; padding-bottom:6px; }
+        .actv-heat-legend{ display:flex; align-items:center; gap:4px; font-size:10px; color:var(--an-text-dim,#5a7080); margin-top:6px; }
+        .actv-heat-legend .sq{ width:11px; height:11px; border-radius:2px; }
+    </style>
+
+    <div class="actv-panel">
+        <h2><span class="dot"></span>Users</h2>
+        <table class="actv-table">
+            <thead><tr>
+                <th>Name</th><th>Role</th><th>Days Active</th><th>Est. Hours</th><th>Last Active</th><th>Top Module</th>
+            </tr></thead>
+            <tbody id="actvUserTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="actv-panel">
+        <h2><span class="dot"></span>Activity Heatmap — <span id="actvHeatmapUserName" style="color:var(--an-accent,#00c8ff);">—</span></h2>
+        <div id="actvHeatmapWrap"><svg id="actvHeatmapSvg"></svg></div>
+        <div class="actv-heat-legend">
+            Less
+            <span class="sq" style="background:#161e28;border:1px solid #1e2d3d;"></span>
+            <span class="sq" style="background:rgba(0,200,255,.25);"></span>
+            <span class="sq" style="background:rgba(0,200,255,.5);"></span>
+            <span class="sq" style="background:rgba(0,200,255,.75);"></span>
+            <span class="sq" style="background:#00c8ff;"></span>
+            More
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="actvData">
+<%- JSON.stringify({ summaries: activityReport.summaries, heatmaps: activityReport.heatmaps, heatmapDays: activityReport.heatmapDays }) %>
+</script>
+<script src="/js/activityHeatmap.js"></script>
+<script>
+(function(){
+    var DATA = JSON.parse(document.getElementById('actvData').textContent);
+    var summaries = DATA.summaries || [];
+    var heatmaps = DATA.heatmaps || {};
+
+    function fmtDate(iso){
+        if(!iso) return 'Never';
+        var d = new Date(iso);
+        var days = Math.floor((Date.now()-d.getTime())/86400000);
+        if(days === 0) return 'Today';
+        if(days === 1) return 'Yesterday';
+        if(days < 7) return days + ' days ago';
+        return d.toISOString().slice(0,10);
+    }
+
+    var tbody = document.getElementById('actvUserTableBody');
+    summaries.forEach(function(s){
+        var tr = document.createElement('tr');
+        tr.className = 'actv-user-row';
+        tr.dataset.userId = s.userId;
+        tr.innerHTML =
+            '<td>' + s.name + '</td>' +
+            '<td><span class="actv-role-badge ' + s.role + '">' + s.role + '</span></td>' +
+            '<td>' + s.daysActive + '</td>' +
+            '<td>' + s.estHours.toFixed(1) + '</td>' +
+            '<td>' + fmtDate(s.lastActive) + '</td>' +
+            '<td>' + (s.topModule || '—') + '</td>';
+        tr.addEventListener('click', function(){ selectUser(s.userId); });
+        tbody.appendChild(tr);
+    });
+
+    function selectUser(userId){
+        document.querySelectorAll('#actvUserTableBody tr').forEach(function(tr){
+            tr.classList.toggle('selected', tr.dataset.userId === userId);
+        });
+        var s = summaries.find(function(x){ return x.userId === userId; });
+        document.getElementById('actvHeatmapUserName').textContent = s ? s.name : '—';
+        ActivityHeatmap.render(document.getElementById('actvHeatmapSvg'), heatmaps[userId] || {}, DATA.heatmapDays);
+    }
+
+    if(summaries.length) selectUser(summaries[0].userId);
+})();
+</script>
+<% } %>
+
 
 <script>
 (function(){
