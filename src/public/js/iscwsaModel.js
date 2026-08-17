@@ -238,7 +238,19 @@
       md: st.md, inc: st.inc, azT: st.azT, azM: st.azM, az: st.azT, tvd: st.tvd,
       mdPrev: stPrev ? stPrev.md : st.md, incPrev: stPrev ? stPrev.inc : st.inc, azPrev: stPrev ? stPrev.azT : st.azT,
       dip: wellParams.dip, bField: wellParams.bField, gField: wellParams.gField != null ? wellParams.gField : 9.80665,
-      xclTortuosity: wellParams.xclTortuosity != null ? wellParams.xclTortuosity : (1 * DEG2RAD) / (100 * 0.3048),
+      // xclTortuosity default: was (1 deg)/(100 ft) = 0.0005726 rad/m, an
+      // assumed generic value. Compass's own exported MWD+IGRF and
+      // MWD+HRGM tool files (.ipm) both define this constant explicitly
+      // as part of the tool spec — "tort" = 0.00018 (same value in both
+      // files) — which is ~3.18x SMALLER than the assumed default. Since
+      // this is tool-specific data, not a universal constant, using
+      // Compass's real configured value here rather than a guessed one.
+      // (If a future toolcode genuinely needs a different tortuosity, it
+      // should come from that toolcode's own data rather than this
+      // shared fallback — flagging this as a reasonable target for
+      // adding a per-toolcode xclTortuosity field to
+      // iscwsaToolcodes.json if/when more real tool files are available.)
+      xclTortuosity: wellParams.xclTortuosity != null ? wellParams.xclTortuosity : 0.00018,
       latitude: (wellParams.latitude || 0) * DEG2RAD, earthRate: 7.292115e-5,
       RAD: DEG2RAD
     };

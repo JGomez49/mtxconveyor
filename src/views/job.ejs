@@ -1043,8 +1043,14 @@ body.light-mode #statusTextbox {
                                     <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
                                         <option value="">— Simplified (approximate) —</option>
                                     </select>
+                                    <label style="font-size:11px;color:#c8d8e8;" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2.7955 = sqrt(chi-square 95%, 3 DOF), the dimensionally-correct value for this 3D projection. Adjust to match another tool's reported SF if it uses a different confidence level/policy.">Confidence K:</label>
+                                    <input type="number" id="acpKSF" step="0.001" min="0.01" value="2.7955" class="form-control form-control-sm" style="max-width:90px;">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="Evaluate C2C/SF at a specific reference-well MD against every offset well, e.g. to cross-check a specific row from another program's report — interpolated between the reference well's own survey stations, not snapped to the nearest one.">Evaluate at Ref MD:</label>
+                                    <input type="number" id="acpEvalMd" step="0.01" placeholder="e.g. 775" class="form-control form-control-sm" style="max-width:100px;">
+                                    <button id="acpEvalMdBtn" class="btn btn-sm btn-outline-info">Evaluate</button>
                                     <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
                                 </div>
+                                <div id="acpEvalMdPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #39ff14;border-radius:4px;padding:8px 10px;margin-bottom:8px;"></div>
                                 <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     Need at least 2 wellbores with survey data loaded in the 3D viewer above.
                                 </div>
@@ -5489,25 +5495,63 @@ body.light-mode #statusTextbox {
     // ─────────────────────────────────────────────────────────────────
     // SEPARATION FACTOR (SF)
     //
-    // Two paths, both projecting a combined 3x3 covariance onto the
-    // separation vector the same way (K95=2.447, ISCWSA's 95% confidence
-    // factor):
-    //   1. REAL — ISCWSAModel.js + a selected toolcode + this well's WMM
-    //      magnetics (see WELL_MAGNETICS below). Used whenever a toolcode
-    //      is selected and both wells have usable magnetics.
-    //   2. SIMPLIFIED — the fixed lumped-term approximation this accordion
-    //      shipped with originally (same model as the Frac Planes / AC
-    //      Scan tool). Used as a fallback when no toolcode is selected, or
-    //      when a well is missing magnetics (no lat/long, or WMM failed).
+    // SF = S / (UR_ref + UR_off) — each well's OWN position-uncertainty
+    // ellipsoid, independently projected onto the line joining the two
+    // points of interest (pedal-curve radius) and scaled by K, then the
+    // two radii ADDED (no cross-well correlation). This is the default
+    // per §1.2/§1.3 of the ISCWSA "Collision Avoidance Calculations —
+    // Current Common Practice" (2010) doc, AND confirmed as Compass's
+    // own actual default behavior via its own help text (from the
+    // person, verbatim): correlation-based cancellation of shared
+    // Global/declination error between two wells is an ADVANCED,
+    // opt-in-per-report checkbox ("Reduce Global Lateral Errors" —
+    // "You must check this box each time you want to use it"), NOT the
+    // default. So the default report both they and we need to match
+    // does NOT apply Eq 35 cross-well correlation.
+    //
+    // (This function briefly used ISCWSAModel.relativeCovariance — Eq 35
+    // — as the DEFAULT combination instead, on the theory that Compass
+    // must be doing something correlation-aware given the size of an
+    // observed gap at a high-inclination, shared-toolcode station. That
+    // was wrong: per Compass's own documentation above, correlation
+    // cancellation is opt-in and off by default, so it should NOT be
+    // the default here either. It's kept available below as a clearly
+    // labeled secondary DIAGNOSTIC number only — useful if reconciling
+    // against a specific report where that checkbox WAS used, but not
+    // what drives the primary SF.)
     // ─────────────────────────────────────────────────────────────────
-    var K95 = 2.447; // ISCWSA 95% confidence factor
-    function sfFromCovariance(refPt, offPt, dist, Cxx, Cyy, Czz){
-        if(dist < 1e-9) return 0;
-        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
-        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
-        var varSep = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz;
-        var sigmaSep = Math.sqrt(Math.max(varSep,0));
-        return sigmaSep > 1e-9 ? dist / (K95*sigmaSep) : Infinity;
+    // K_SF: sqrt of the chi-square critical value scaling a confidence
+    // ellipse/ellipsoid to a given confidence level. This used to be
+    // hardcoded to 2.447 labeled "ISCWSA 95% confidence factor" — that's
+    // actually the 2-DOF (2D ellipse) 95% value (sqrt(chi2(0.95,2)) =
+    // 2.4477); since this code projects onto a genuine 3D unit vector
+    // (ux,uy,uz), the dimensionally-correct value is the 3-DOF one,
+    // sqrt(chi2(0.95,3)) = 2.7955, now the default below. That said, "the"
+    // correct K also depends on which confidence level / convention the
+    // tool you're comparing against uses — some companies configure a
+    // custom K as policy rather than a strict statistical confidence
+    // level — so this is exposed as a live control (Confidence K, next to
+    // Toolcode) rather than re-hardcoded, so it can be dialed in directly
+    // against another tool's reported SF instead of guessing blind.
+    var K_SF = 2.7955;
+    // Projects a full 3x3 covariance matrix onto an arbitrary separation
+    // direction: sigma_sep^2 = u^T C u (standard result for the variance
+    // of a linear combination of correlated random variables), returning
+    // the K-scaled pedal-curve radius along that direction. Cxy/Cxz/Cyz
+    // (off-diagonal / cross terms) are required whenever the underlying
+    // covariance is correlated (which ISCWSA covariance always is: a
+    // single systematic error source projects correlated amounts onto
+    // N/E/V simultaneously).
+    function projectedRadius(ux, uy, uz, Cxx, Cyy, Czz, Cxy, Cxz, Cyz){
+        Cxy = Cxy || 0; Cxz = Cxz || 0; Cyz = Cyz || 0;
+        var varAlong = ux*ux*Cxx + uy*uy*Cyy + uz*uz*Czz
+                      + 2*ux*uy*Cxy + 2*ux*uz*Cxz + 2*uy*uz*Cyz;
+        return K_SF * Math.sqrt(Math.max(varAlong, 0));
+    }
+    // SF = S / (UR_ref + UR_off) — see header comment above.
+    function sfFromTwoRadii(dist, urRef, urOff){
+        var denom = urRef + urOff;
+        return { sf: denom > 1e-9 ? dist / denom : Infinity, urRef: urRef, urOff: urOff };
     }
 
     function rad(d){ return d * Math.PI / 180; }
@@ -5527,28 +5571,56 @@ body.light-mode #statusTextbox {
         return { xx: varH/2, yy: varH/2, zz: varZ };
     }
     function separationFactorSimplified(refPt, offPt, dist){
+        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0 };
+        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
         var cRef = simplifiedCovariance(refPt.md, refPt.incl);
         var cOff = simplifiedCovariance(offPt.md, offPt.incl);
-        return sfFromCovariance(refPt, offPt, dist, cRef.xx+cOff.xx, cRef.yy+cOff.yy, cRef.zz+cOff.zz);
+        // No cross-terms here — this lumped fallback model was never a
+        // rotated/directional error model (unlike the real ISCWSA path
+        // below), it's an isotropic-in-H approximation with no basis for
+        // computing genuine Cxy/Cxz/Cyz, so it stays diagonal-only. This
+        // is the FALLBACK path (no toolcode / missing magnetics) — it's
+        // not what's driving the Compass mismatch when a toolcode IS
+        // selected and both wells have magnetics, which uses the real
+        // path below instead.
+        var urRef = projectedRadius(ux, uy, uz, cRef.xx, cRef.yy, cRef.zz);
+        var urOff = projectedRadius(ux, uy, uz, cOff.xx, cOff.yy, cOff.zz);
+        return sfFromTwoRadii(dist, urRef, urOff);
     }
 
     // REAL model: NEV covariance (N,E,V) needs rotating into our plot's
     // local x/y/z frame (x=Easting=E, y=Northing=N, z=-SubSea=-V, i.e.
-    // V=-z) before projecting — done inline in nevCovToLocal below since
+    // V=-z) before projecting — done inline in nevToLocalCov below since
     // it's a simple axis relabel, not a true rotation (both frames share
     // the same vertical axis orientation convention already used
-    // throughout this accordion).
+    // throughout this accordion). Cross terms ARE carried through now
+    // (previously dropped — see projectedRadius's comment above for why
+    // that mattered): Cov(x,y)=Cov(E,N)=NE unchanged by the relabel;
+    // Cov(x,z)=Cov(E,-V)=-EV and Cov(y,z)=Cov(N,-V)=-NV pick up a sign
+    // flip from the z=-V axis flip.
     function nevToLocalCov(cov){
-        // cov: {NN,EE,VV,NE,NV,EV} (off-diagonals unused by the diagonal-
-        // only projection sfFromCovariance performs) -> {xx,yy,zz}
-        return { xx: cov.EE, yy: cov.NN, zz: cov.VV };
+        return { xx: cov.EE, yy: cov.NN, zz: cov.VV, xy: cov.NE, xz: -cov.EV, yz: -cov.NV };
     }
     function separationFactorReal(refPt, offPt, dist, refCovStation, offCovStation){
         if(!refCovStation || !offCovStation) return null;
+        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0 };
+        var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
+        var ux=dx/dist, uy=dy/dist, uz=dz/dist;
+        var localRef = nevToLocalCov(refCovStation.cov);
+        var localOff = nevToLocalCov(offCovStation.cov);
+        var urRef = projectedRadius(ux, uy, uz, localRef.xx, localRef.yy, localRef.zz, localRef.xy, localRef.xz, localRef.yz);
+        var urOff = projectedRadius(ux, uy, uz, localOff.xx, localOff.yy, localOff.zz, localOff.xy, localOff.xz, localOff.yz);
+        var r = sfFromTwoRadii(dist, urRef, urOff);
+        // SECONDARY diagnostic only (not used for the SF above): the
+        // Eq-35 correlation-aware combined radius, for reconciling
+        // against a specific Compass report that had "Reduce Global
+        // Lateral Errors" checked for that run.
         var toolTermsRef = refCovStation._terms, toolTermsOff = offCovStation._terms;
-        var C = ISCWSAModel.relativeCovariance(refCovStation, offCovStation, toolTermsRef, toolTermsOff);
-        var local = nevToLocalCov(C);
-        return sfFromCovariance(refPt, offPt, dist, local.xx, local.yy, local.zz);
+        var Crel = ISCWSAModel.relativeCovariance(refCovStation, offCovStation, toolTermsRef, toolTermsOff);
+        var localRel = nevToLocalCov(Crel);
+        r.urCombinedCorrelated = projectedRadius(ux, uy, uz, localRel.xx, localRel.yy, localRel.zz, localRel.xy, localRel.xz, localRel.yz);
+        return r;
     }
 
     // Full C2C-vs-MD profile: for every survey station on the reference
@@ -5579,8 +5651,148 @@ body.light-mode #statusTextbox {
             } else {
                 sf = separationFactorSimplified(P, offPt, r.dist);
             }
-            return { md: P.md, c2c: r.dist, offMd: r.offMd, sf: sf };
+            return { md: P.md, c2c: r.dist, offMd: r.offMd, sf: sf.sf, urRef: sf.urRef, urOff: sf.urOff, urCombinedCorrelated: sf.urCombinedCorrelated };
         });
+    }
+
+    // Linear interpolation of a wellPoints()-style point (x,y,z,incl,azim)
+    // at an arbitrary MD along `pts` — used by the manual "Evaluate at Ref
+    // MD" box so a user can cross-check a specific report row from another
+    // program (e.g. Compass) even when that MD doesn't land exactly on one
+    // of this well's own survey stations. Returns null if md is outside
+    // the well's surveyed range (extrapolation isn't meaningful here).
+    function interpAtMd(pts, md){
+        if(!pts || pts.length < 2) return null;
+        if(md < pts[0].md || md > pts[pts.length-1].md) return null;
+        for(var i=0; i<pts.length-1; i++){
+            var A = pts[i], B = pts[i+1];
+            if(md >= A.md && md <= B.md){
+                var span = B.md - A.md;
+                var t = span > 1e-9 ? (md - A.md) / span : 0;
+                return {
+                    md: md,
+                    x: A.x + t*(B.x-A.x), y: A.y + t*(B.y-A.y), z: A.z + t*(B.z-A.z),
+                    incl: A.incl + t*(B.incl-A.incl), azim: A.azim + t*(B.azim-A.azim)
+                };
+            }
+        }
+        return null;
+    }
+
+    // Evaluates C2C/SF at a user-specified reference-well MD against every
+    // offset well currently plotted — mirrors a multi-offset "closest
+    // approach at station X" report row (e.g. Compass's own panel) so
+    // results can be checked point-for-point instead of relying on
+    // MTX's own (independently-chosen) scan MD landing on the same depth.
+    function evaluateAtMd(){
+        var panel = document.getElementById('acpEvalMdPanel');
+        var mdInput = document.getElementById('acpEvalMd');
+        var md = parseFloat(mdInput && mdInput.value);
+        if(isNaN(md)){ panel.style.display='none'; return; }
+
+        var refName = refSelect.value;
+        var refWell = WELLS.find(function(w){ return w.wellName === refName; });
+        if(!refWell){ panel.style.display='none'; return; }
+        var refPts = wellPoints(refWell);
+        var P = interpAtMd(refPts, md);
+        if(!P){
+            panel.innerHTML = '<b style="color:#39ff14;">MD ' + md.toFixed(2) + '</b> is outside ' + refName +
+                '\'s surveyed range (' + refPts[0].md.toFixed(0) + ' – ' + refPts[refPts.length-1].md.toFixed(0) + ' m).';
+            panel.style.display = 'block';
+            return;
+        }
+
+        // Read K fresh (same pattern as renderPlot) so this reflects the
+        // Confidence K box even if it was changed without re-rendering.
+        var kInput = document.getElementById('acpKSF');
+        var kVal = kInput ? parseFloat(kInput.value) : NaN;
+        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2.7955;
+
+        var refCov = computeWellCov(refWell, wellToolcode(refWell));
+        var others = WELLS.filter(function(w){ return w.wellName !== refName; });
+        var rows = others.map(function(w){
+            var offPts = wellPoints(w);
+            var offCov = computeWellCov(w, wellToolcode(w));
+            var profile = computeC2CProfile([P], offPts, refCov, offCov); // reuse the same per-point logic as the swept chart, for exactly one ref point
+            var r = profile[0];
+            return { name: w.wellName, c2c: r.c2c, offMd: r.offMd, sf: r.sf, urRef: r.urRef, urOff: r.urOff, urCombinedCorrelated: r.urCombinedCorrelated, offCov: offCov };
+        }).sort(function(a,b){ return a.c2c - b.c2c; });
+
+        var html = '<b style="color:#39ff14;">Evaluate at Ref MD ' + md.toFixed(2) + '</b> — ' + refName +
+            ' at N=' + P.y.toFixed(2) + ' E=' + P.x.toFixed(2) + ' TVDss=' + (-P.z).toFixed(2) +
+            ' Inc=' + P.incl.toFixed(2) + '° (K=' + K_SF.toFixed(4) + ', each well uses its own saved toolcode, default = no cross-well correlation per Compass default behavior)<br>' +
+            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<th style="padding:2px 8px 2px 0;">Offset Well</th><th style="padding:2px 8px;">Offset MD (m)</th>' +
+            '<th style="padding:2px 8px;">C2C / "Between Centres" (m)</th>' +
+            '<th style="padding:2px 8px;">UR_ref (m)</th><th style="padding:2px 8px;">UR_off (m)</th>' +
+            '<th style="padding:2px 8px;">SF (default, no correlation)</th>' +
+            '<th style="padding:2px 8px;color:#5a7080;">for comparison: correlation-aware combined radius (Eq35, "Reduce Global Lateral Errors" equivalent) (m)</th></tr>' +
+            rows.map(function(r){
+                return '<tr><td style="padding:2px 8px 2px 0;">' + r.name + '</td>' +
+                    '<td style="padding:2px 8px;">' + (r.offMd!=null ? r.offMd.toFixed(2) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;">' + r.c2c.toFixed(2) + '</td>' +
+                    '<td style="padding:2px 8px;">' + (r.urRef!=null ? r.urRef.toFixed(2) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;">' + (r.urOff!=null ? r.urOff.toFixed(2) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;">' + (isFinite(r.sf) ? r.sf.toFixed(3) : '∞') + '</td>' +
+                    '<td style="padding:2px 8px;color:#5a7080;">' + (r.urCombinedCorrelated!=null ? r.urCombinedCorrelated.toFixed(2) : '—') + '</td></tr>';
+            }).join('') + '</table>';
+
+        // Term-by-term breakdown for the CLOSEST offset well only (rows[0]
+        // after the sort above) — shows which individual ISCWSA error
+        // term(s) dominate each well's own contribution at this exact
+        // point, so an unexpectedly large UR_ref/UR_off can be traced to
+        // a specific term rather than treated as an opaque total.
+        var closest = rows[0];
+        if(closest && closest.urRef != null){
+            var offPts2 = wellPoints(WELLS.find(function(w){ return w.wellName === closest.name; }));
+            var offP = interpAtMd(offPts2, closest.offMd) || offPts2[0];
+            var dx2=P.x-offP.x, dy2=P.y-offP.y, dz2=P.z-offP.z;
+            var dist2 = Math.sqrt(dx2*dx2+dy2*dy2+dz2*dz2) || 1;
+            var ux2=dx2/dist2, uy2=dy2/dist2, uz2=dz2/dist2;
+            var refStForBreak = findNearestCovStation(refCov, P.md);
+            var offStForBreak = findNearestCovStation(closest.offCov, closest.offMd);
+            var refTerms = termBreakdown(refStForBreak, ux2, uy2, uz2, 6);
+            var offTerms = termBreakdown(offStForBreak, ux2, uy2, uz2, 6);
+            function termTable(label, terms){
+                return '<div style="margin-top:4px;"><u>' + label + '</u> — top contributing ISCWSA terms (raw 1σ along line-of-centers, before K scaling):<br>' +
+                    terms.map(function(t){
+                        return '&nbsp;&nbsp;' + t.code + ': ' + t.sigma1.toFixed(3) + ' m (' + t.pct.toFixed(1) + '% of variance)';
+                    }).join('<br>') + '</div>';
+            }
+            html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a;font-size:10px;color:#c8d8e8;">' +
+                '<b style="color:#39ff14;">Term breakdown for closest offset (' + closest.name + '):</b>' +
+                termTable(refName + ' (ref)', refTerms) + termTable(closest.name + ' (offset)', offTerms) +
+                '</div>';
+        }
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+    }
+
+    // Per-term diagnostic: decomposes ONE station's covariance (as stored
+    // in byTerm by computeWellCovariance — one 3x3 per ISCWSA error term)
+    // into each term's own 1-sigma contribution along a given direction.
+    // Variance is additive across terms (each is an independent random
+    // source, so their covariances just sum) — this projects each term's
+    // covariance individually the same way projectedRadius does for the
+    // combined one, WITHOUT the K_SF scaling (raw 1-sigma, in metres),
+    // so terms can be ranked and compared directly against a known-
+    // reasonable magnitude rather than an already-scaled radius. Note:
+    // combined 1-sigma = sqrt(sum of these values squared), NOT their
+    // sum — quoted alongside each term as "% of variance" instead, which
+    // *is* directly additive (sum of squares of orthogonal contributions
+    // = total variance).
+    function termBreakdown(stCov, ux, uy, uz, topN){
+        if(!stCov || !stCov.byTerm) return [];
+        var rows = Object.keys(stCov.byTerm).map(function(code){
+            var local = nevToLocalCov(stCov.byTerm[code]);
+            var varAlong = ux*ux*local.xx + uy*uy*local.yy + uz*uz*local.zz
+                          + 2*ux*uy*local.xy + 2*ux*uz*local.xz + 2*uy*uz*local.yz;
+            return { code: code, sigma1: Math.sqrt(Math.max(varAlong,0)), varAlong: Math.max(varAlong,0) };
+        });
+        var totalVar = rows.reduce(function(s,r){ return s+r.varAlong; }, 0);
+        rows.forEach(function(r){ r.pct = totalVar > 1e-12 ? 100*r.varAlong/totalVar : 0; });
+        rows.sort(function(a,b){ return b.varAlong - a.varAlong; });
+        return rows.slice(0, topN || 6);
     }
 
     var palette = ['#ff6b35', '#39ff14', '#ffd060', '#c084fc', '#2dd4bf', '#ff4060', '#79c0ff', '#e879f9'];
@@ -6045,9 +6257,10 @@ body.light-mode #statusTextbox {
 
     function fmtN(v){ return (v==null||isNaN(v)) ? '—' : v.toFixed(2); }
 
-    function showDetailPanel(refWell, refPt, offWell, offPt, c2c){
+    function showDetailPanel(refWell, refPt, offWell, offPt, c2c, sf){
         var panel = document.getElementById('acpDetailPanel');
         panel.style.display = 'block';
+        var sfStr = (sf == null) ? '—' : (isFinite(sf) ? sf.toFixed(2) : '∞ (essentially zero uncertainty here, e.g. right at a known-exact point)');
         panel.innerHTML =
             '<b style="color:#00c8ff;">Closest-point detail</b> (click another point to update)<br>' +
             '<table style="margin-top:6px;border-collapse:collapse;">' +
@@ -6057,6 +6270,7 @@ body.light-mode #statusTextbox {
             '</table>' +
             '<div style="margin-top:6px;color:#5a7080;">3D distance (using TVDss): <b style="color:#e8f4ff;">' + fmtN(c2c) + ' m</b> ' +
             '(ΔN=' + fmtN(refPt.y-offPt.y) + ', ΔE=' + fmtN(refPt.x-offPt.x) + ', ΔTVDss=' + fmtN(-refPt.z-(-offPt.z)) + '). ' +
+            'Separation Factor at this point: <b style="color:#e8f4ff;">' + sfStr + '</b>. ' +
             'The dimmed TVD (RKB) column is shown for reference only and is NOT used in the distance — TVD is per-well-referenced and not safe to compare across wells; if it disagrees sharply with TVDss here, that well\'s RKB/KB elevation differs from the others.</div>';
     }
 
@@ -6084,6 +6298,13 @@ body.light-mode #statusTextbox {
         document.getElementById('acpDetailPanel').style.display = 'none';
         renderDataWarnings(refWell, others);
 
+        // Live-adjustable confidence multiplier (see K_SF's own comment) —
+        // read fresh each render so the "Confidence K" box takes effect
+        // immediately without a page reload.
+        var kInput = document.getElementById('acpKSF');
+        var kVal = kInput ? parseFloat(kInput.value) : NaN;
+        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2.7955;
+
         var showLegend = document.getElementById('acpShowLegend').checked;
 
         // Each well uses its OWN saved toolcode (persisted per wellbore —
@@ -6101,7 +6322,7 @@ body.light-mode #statusTextbox {
         var c2cDatasets = others.map(function(w, i){
             var offPts = wellPoints(w);
             offPtsByIdx.push({ name: w.wellName, pts: offPts });
-            var offCov = computeWellCov(w, OFFSET_TOOLCODE_DEFAULT);
+            var offCov = computeWellCov(w, wellToolcode(w));
             if(refCov && offCov) usedRealModelCount++; else missingMagCount++;
             var profile = computeC2CProfile(refPts, offPts, refCov, offCov);
             return {
@@ -6120,11 +6341,15 @@ body.light-mode #statusTextbox {
         // capped (see SF_CAP) rather than left as raw Infinity — a single
         // infinite point (typical right at MD=0, where position is known
         // exactly) breaks Chart.js's connected-line rendering for the
-        // WHOLE dataset, not just that one point.
+        // WHOLE dataset, not just that one point. c2c is carried through
+        // too (not just sfRaw) so the click-to-inspect panel shows the
+        // correct distance regardless of which chart was clicked — points
+        // on THIS chart previously had no c2c value at all, so clicking
+        // here showed the SF number mislabeled as the 3D distance.
         var sfDatasets = c2cDatasets.map(function(ds, i){
             return {
                 label: ds.label,
-                data: ds.data.map(function(p){ return { x: p.x, y: Math.min(p.sf, SF_CAP), offMd: p.offMd, sfRaw: p.sf }; }),
+                data: ds.data.map(function(p){ return { x: p.x, y: Math.min(p.sf, SF_CAP), offMd: p.offMd, sfRaw: p.sf, c2c: p.y }; }),
                 borderColor: palette[i % palette.length],
                 backgroundColor: 'transparent',
                 borderWidth: 1.5,
@@ -6144,7 +6369,9 @@ body.light-mode #statusTextbox {
                 var refPt = refPts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.x) < Math.abs(best.md-raw.x)) ? p : best; }, null);
                 var offInfo = offPtsByIdx[el.datasetIndex];
                 var offPt = offInfo.pts.reduce(function(best, p){ return (!best || Math.abs(p.md-raw.offMd) < Math.abs(best.md-raw.offMd)) ? p : best; }, null);
-                showDetailPanel(refName, refPt, offInfo.name, offPt, raw.y);
+                var c2cVal = raw.c2c != null ? raw.c2c : raw.y;       // C2C chart points: y IS c2c. SF chart points: c2c carried separately.
+                var sfVal  = raw.sfRaw != null ? raw.sfRaw : raw.sf;  // SF chart points: sfRaw is the uncapped true value. C2C chart points: sf.
+                showDetailPanel(refName, refPt, offInfo.name, offPt, c2cVal, sfVal);
             };
         }
 
@@ -6262,15 +6489,12 @@ body.light-mode #statusTextbox {
     // doesn't implement the gyro stationary/continuous-mode propagation).
     var TOOLCODES = null;
     var toolcodeSelect = document.getElementById('acpToolcode');
-    var DEFAULT_TOOLCODE = 'MWD+SRGM';
+    // Fallback for any well (reference OR offset) that's never had a
+    // toolcode explicitly saved for it — confirmed against Compass's own
+    // survey tool designation for this pad ("MWD+IGRF" maps to LRGM in the
+    // ISCWSA Rev5 library MTX uses; there's no literal "IGRF" entry).
+    var DEFAULT_TOOLCODE = 'MWD+LRGM';
     var SF_CAP = 20; // display ceiling for SF — see renderPlot's note on why raw Infinity breaks Chart.js
-    // TEMPORARY: offset wells don't yet have their own toolcode-selection
-    // UI (only the reference well does, via the dropdown), so every offset
-    // well is assumed to use this toolcode for now. Once a pad-level
-    // per-well toolcode picker exists, replace this with each offset
-    // well's own wellToolcode(w) the same way the reference well already
-    // works.
-    var OFFSET_TOOLCODE_DEFAULT = 'MWD+HRGM';
 
     // Each well remembers its OWN toolcode (WellboreTrajectory.toolcode,
     // persisted server-side — see saveWellToolcode below). Falls back to
@@ -6398,12 +6622,14 @@ body.light-mode #statusTextbox {
             var mdInput = document.getElementById('acpTcvRefMd');
             if(mdInput && pts.length) mdInput.value = pts[pts.length-1].md.toFixed(1);
         }
-        refSelect.addEventListener('change', function(){ resetTcvRefMd(); renderPlot(); });
+        refSelect.addEventListener('change', function(){ resetTcvRefMd(); renderPlot(); document.getElementById('acpEvalMdPanel').style.display='none'; });
         var resetBtn = document.getElementById('acpResetZoomBtn');
         if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); if(acpChartSF) acpChartSF.resetZoom(); tcvResetView(); });
         var tcvResetMdBtn = document.getElementById('acpTcvResetMdBtn');
         if(tcvResetMdBtn) tcvResetMdBtn.addEventListener('click', function(){ resetTcvRefMd(); renderTravelingCylinder(); });
         document.getElementById('acpShowLegend').addEventListener('change', renderPlot);
+        var kInputEl = document.getElementById('acpKSF');
+        if(kInputEl) kInputEl.addEventListener('change', function(){ renderPlot(); evaluateAtMd(); });
         ['acpC2cXMin','acpC2cXMax','acpC2cYMin','acpC2cYMax','acpSfXMin','acpSfXMax','acpSfYMin','acpSfYMax'].forEach(function(id){
             var el = document.getElementById(id);
             if(el) el.addEventListener('change', renderPlot);
@@ -6422,7 +6648,12 @@ body.light-mode #statusTextbox {
             var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
             if(refWell) saveWellToolcode(refWell, toolcodeSelect.value);
             renderPlot();
+            evaluateAtMd(); // keep the manual MD panel (if open) in sync with the new toolcode
         });
+        var evalMdBtn = document.getElementById('acpEvalMdBtn');
+        var evalMdInput = document.getElementById('acpEvalMd');
+        if(evalMdBtn) evalMdBtn.addEventListener('click', evaluateAtMd);
+        if(evalMdInput) evalMdInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') evaluateAtMd(); });
         resetTcvRefMd();
         renderPlot();
         loadToolcodes().then(function(){ renderPlot(); }); // re-render once real toolcode list/data is in (async)
