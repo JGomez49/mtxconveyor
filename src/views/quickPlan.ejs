@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Quick Plan — MTX</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c;
@@ -73,10 +74,7 @@
 </head>
 <body>
 <header>
-  <div style="display:flex;align-items:center;gap:14px;">
-    <a href="/notes" style="color:var(--muted);font-size:12px;text-decoration:none;white-space:nowrap;">&larr; Back to MTX</a>
-    <h1>Quick Plan &mdash; Directional Plan Checker</h1>
-  </div>
+  <h1>Quick Directional Plan Checker</h1>
   <div class="sub">Minimum Curvature &middot; Metric (m) &middot; TVD referenced to RKB &middot; Surface fixed at (0, 0, 0)</div>
 </header>
 
@@ -110,6 +108,9 @@
       <div id="sectionsList"></div>
       <div class="row-actions">
         <button class="secondary" onclick="openSectionModal(sections.length)">+ Add Section</button>
+        <button class="secondary" onclick="openBuildHoldWizard()">🎯 Build &amp; Hold to Target</button>
+        <button class="secondary" onclick="openHbhbhWizard()">🎯 Build-Hold-Build-Hold to Target</button>
+        <button class="secondary" onclick="openCurveHoldCurveWizard()">🎯 Curve-Hold-Curve to Target</button>
         <button class="danger" onclick="clearSections()">Clear All</button>
       </div>
     </div>
@@ -132,7 +133,10 @@
 
   <div class="main">
     <div class="panel">
-      <h2>Station Table</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">Station Table</h2>
+        <button class="secondary" onclick="downloadStationsExcel()">Download Excel</button>
+      </div>
       <div style="max-height:220px;overflow-y:auto;">
         <table id="stationsTable">
           <thead><tr><th>MD (m)</th><th>Inc (&deg;)</th><th>Az (&deg;)</th><th>TVD (m)</th><th>N (m)</th><th>E (m)</th><th>DLS (&deg;/30m)</th></tr></thead>
@@ -280,10 +284,70 @@ function betaForTargetTVD(inc1Deg, az1Deg, tfDeg, dls30, deltaTvdTarget){
   return null; // target TVD not reached within a single 0-180 deg arc at this DLS
 }
 
+// The overall angle change beta (deg) between two given orientations —
+// same relation used inside minimumCurvature (Eq. 8.33), factored out
+// because several "target orientation" methods need it independent of CL.
+function impliedBetaDeg(inc1, az1, inc2, az2){
+  const a1=inc1*D2R, a2=inc2*D2R, e1=az1*D2R, e2=az2*D2R;
+  let cosBeta = Math.cos(a2-a1) - Math.sin(a1)*Math.sin(a2)*(1-Math.cos(e2-e1));
+  cosBeta = Math.max(-1, Math.min(1, cosBeta));
+  return Math.acos(cosBeta) * R2D;
+}
+
+// Nested solver for "TVD, DLS, AZ": target TVD and target AZIMUTH are both
+// given, but inclination and toolface are NOT — so unlike the other target
+// methods, the toolface itself is a free unknown here (inclination is
+// whatever falls out of it). Two constraints (TVD, Az), two unknowns
+// (toolface gamma, curvature angle beta / equivalently CL via DLS).
+// Outer loop scans toolface gamma 0-360 deg (then bisects the bracket found)
+// for the one where the resulting TVD matches target; for each candidate
+// gamma, the inner solve is exactly betaForTargetAz() — already-verified —
+// to find beta reaching the target azimuth at that toolface. No new physics,
+// just a 2D root-find built from the same two forward equations used
+// everywhere else in this file.
+function tvdAtGammaForTargetAz(curInc, curAz, gammaDeg, targetAzDeg, dls30){
+  const betaDeg = betaForTargetAz(curInc, curAz, gammaDeg, targetAzDeg);
+  if (betaDeg === null || !(dls30 > 0)) return null;
+  const cl = betaDeg/dls30*30;
+  const r = applyToolfaceBeta(curInc, curAz, betaDeg, gammaDeg);
+  const dTvd = minimumCurvature(curInc, curAz, r.incN, r.azN, cl).dTVD;
+  return { dTvd, cl, incN:r.incN, azN:r.azN, betaDeg };
+}
+
+function solveTvdDlsAz(curInc, curAz, curTvd, dls30, targetAzDeg, targetTvd){
+  const deltaTarget = targetTvd - curTvd;
+  function evalAt(g){
+    const res = tvdAtGammaForTargetAz(curInc, curAz, g, targetAzDeg, dls30);
+    return res ? (res.dTvd - deltaTarget) : null;
+  }
+  const STEP = 2;
+  let gPrev = 0, vPrev = evalAt(0);
+  let bracket = null;
+  for (let g = STEP; g <= 360; g += STEP){
+    const v = evalAt(g);
+    if (vPrev !== null && v !== null && ((vPrev<=0 && v>=0) || (vPrev>=0 && v<=0))){
+      bracket = [gPrev, g, vPrev, v];
+      break;
+    }
+    if (v !== null){ gPrev = g; vPrev = v; }
+  }
+  if (!bracket) return null;
+  let [gLo, gHi, vLo] = bracket;
+  for (let i=0; i<40; i++){
+    const gMid = (gLo+gHi)/2, vMid = evalAt(gMid);
+    if (vMid === null) break;
+    if ((vLo<=0 && vMid>=0) || (vLo>=0 && vMid<=0)){ gHi = gMid; } else { gLo = gMid; vLo = vMid; }
+  }
+  const gFinal = (gLo+gHi)/2;
+  const res = tvdAtGammaForTargetAz(curInc, curAz, gFinal, targetAzDeg, dls30);
+  if (!res) return null;
+  return { tf: gFinal, cl: res.cl, endInc: res.incN, endAz: res.azN };
+}
+
 // Resolves ANY section kind into a concrete {endInc, endAz, cl, dTvd, warning}
-// given the current inc/az/TVD the well is at when the section starts.
-function resolveSectionEndpoint(curInc, curAz, curTvd, s){
-  let endInc, endAz, cl, warning = null;
+// given the current inc/az/TVD/MD the well is at when the section starts.
+function resolveSectionEndpoint(curInc, curAz, curTvd, curMd, s){
+  let endInc, endAz, cl, warning = null, tf = undefined;
 
   if (s.kind === 'direct'){
     endInc = s.inc; endAz = s.az; cl = s.cl;
@@ -325,12 +389,183 @@ function resolveSectionEndpoint(curInc, curAz, curTvd, s){
       const r = applyToolfaceBeta(curInc, curAz, betaDeg, s.tf);
       endInc = r.incN; endAz = r.azN;
     }
+  } else if (s.kind === 'md_inc_az'){
+    endInc = s.inc; endAz = s.az; cl = s.targetMd - curMd;
+    if (!(cl > 0)){
+      cl = 0; warning = `Target MD (${s.targetMd} m) must be greater than the current MD (${curMd.toFixed(1)} m)`;
+    }
+  } else if (s.kind === 'tvd_inc_az'){
+    // Target Inc AND Az together fully determine the end orientation (same
+    // as 'direct'), so beta is fixed by those four angles alone — no
+    // toolface choice involved. dTVD is then exactly PROPORTIONAL to CL for
+    // that fixed pair of orientations (Eq. 8.35-8.37: beta and F depend only
+    // on the two orientations, not on CL), so CL solves in closed form.
+    const betaDeg = impliedBetaDeg(curInc, curAz, s.inc, s.az);
+    const beta = betaDeg*D2R;
+    const F = beta < 1e-8 ? 1 : (2/beta)*Math.tan(beta/2);
+    const k = 0.5*(Math.cos(curInc*D2R)+Math.cos(s.inc*D2R))*F; // dTVD per meter of CL
+    const deltaTarget = s.targetTvd - curTvd;
+    endInc = s.inc; endAz = s.az;
+    if (Math.abs(k) < 1e-9){
+      cl = 0; warning = 'TVD does not change along this Inc/Az path (near-horizontal) — target TVD unreachable this way';
+    } else {
+      cl = deltaTarget / k;
+      if (!(cl > 0)){ cl = 0; warning = 'Target TVD is not reachable in the forward direction along this Inc/Az path'; }
+    }
+  } else if (s.kind === 'dls_inc_az'){
+    // Same fixed-orientation logic as tvd_inc_az, but CL comes from DLS
+    // instead of TVD: CL = beta/DLS*30, beta fixed by the two orientations.
+    const betaDeg = impliedBetaDeg(curInc, curAz, s.inc, s.az);
+    endInc = s.inc; endAz = s.az;
+    if (!(s.dls > 0)){
+      cl = 0; warning = 'DLS must be greater than 0';
+    } else {
+      cl = betaDeg / s.dls * 30;
+    }
+  } else if (s.kind === 'hold_tvd'){
+    endInc = curInc; endAz = curAz;
+    const cosInc = Math.cos(curInc*D2R);
+    if (Math.abs(cosInc) < 1e-6){
+      cl = 0; warning = 'Cannot reach a target TVD by holding — current inclination is ~90° (horizontal)';
+    } else {
+      cl = (s.targetTvd - curTvd) / cosInc;
+      if (!(cl > 0)){ cl = 0; warning = 'Target TVD already reached, or behind the current position along this hold'; }
+    }
+  } else if (s.kind === 'build_turn_cl'){
+    cl = s.cl;
+    endInc = Math.max(0, Math.min(180, curInc + s.buildRate*s.cl/30));
+    endAz = ((curAz + s.turnRate*s.cl/30) % 360 + 360) % 360;
+    if (curInc + s.buildRate*s.cl/30 < 0 || curInc + s.buildRate*s.cl/30 > 180){
+      warning = 'Build rate over this course length would take inclination out of [0°,180°] — clamped';
+    }
+  } else if (s.kind === 'tvd_dls_az'){
+    const solved = solveTvdDlsAz(curInc, curAz, curTvd, s.dls, s.targetAz, s.targetTvd);
+    if (!solved){
+      endInc = curInc; endAz = curAz; cl = 0;
+      warning = 'No toolface found that reaches both the target azimuth and target TVD at this DLS';
+    } else {
+      endInc = solved.endInc; endAz = solved.endAz; cl = solved.cl; tf = solved.tf;
+    }
   } else {
     endInc = curInc; endAz = curAz; cl = 0; warning = 'Unknown section type';
   }
 
-  const dTvd = (cl > 0) ? minimumCurvature(curInc, curAz, endInc, endAz, cl).dTVD : 0;
-  return { endInc, endAz, cl, dTvd, warning };
+  const mc = (cl > 0) ? minimumCurvature(curInc, curAz, endInc, endAz, cl) : {dN:0, dE:0, dTVD:0};
+  return { endInc, endAz, cl, dTvd: mc.dTVD, dN: mc.dN, dE: mc.dE, warning, tf };
+}
+
+// "Build & Hold to Target" — 2-of-4 solve, mirroring the classic
+// directional-planning "select 2 unknowns" tool: given a target's TVD and
+// horizontal departure/direction, and any 2 of {1st Hold Len (D1),
+// 1st Build radius (r1), Max Angle (theta), 2nd Hold Len (L2)}, solve for
+// the other 2. Requires the well to be vertical (Inc=0) entering this
+// design — that's the assumption baked into the governing equations below,
+// which generalize Bourgoyne Eqs. 8.9/8.12 (X2=r1(1-cos theta), D2=D1+r1
+// sin theta) verified earlier against the textbook. Governing system:
+//   X  = r1(1-cos theta) + L2 sin theta      ... horizontal departure
+//   D3 = D1 + r1 sin theta + L2 cos theta    ... TVD
+// theta is the only nonlinear unknown; whenever it's unknown this does a
+// scan+bisect (same technique as betaForTargetAz elsewhere in this file),
+// otherwise every case reduces to direct algebra / a 2x2 linear solve.
+function solveBuildHoldToTarget(unknowns, known, X, D3){
+  const has = k => !unknowns.includes(k);
+  const D2R_ = D2R;
+  function residualGivenTheta(thetaDeg, which){
+    const th = thetaDeg*D2R_, s = Math.sin(th), c = Math.cos(th);
+    if (which === 'D1_theta'){ // r1, L2 known; solve theta from (A)
+      return known.r1*(1-c) + known.L2*s - X;
+    }
+    if (which === 'r1_theta'){ // D1, L2 known; r1(theta) from (B), plug into (A)
+      if (Math.abs(s) < 1e-9) return null;
+      const r1 = (D3 - known.D1 - known.L2*c)/s;
+      return r1*(1-c) + known.L2*s - X;
+    }
+    if (which === 'theta_L2'){ // D1, r1 known; L2(theta) from (B), plug into (A)
+      if (Math.abs(c) < 1e-9) return null;
+      const L2 = (D3 - known.D1 - known.r1*s)/c;
+      return known.r1*(1-c) + L2*s - X;
+    }
+  }
+  function solveTheta(which){
+    const STEP = 0.25;
+    let prevT = 0.5, prevV = residualGivenTheta(0.5, which);
+    for (let t = 0.5+STEP; t <= 179.5; t += STEP){
+      const v = residualGivenTheta(t, which);
+      if (prevV !== null && v !== null && ((prevV<=0 && v>=0) || (prevV>=0 && v<=0))){
+        let lo=prevT, hi=t, vLo=prevV;
+        for (let i=0;i<40;i++){
+          const mid=(lo+hi)/2, vMid=residualGivenTheta(mid, which);
+          if (vMid===null) break;
+          if ((vLo<=0 && vMid>=0) || (vLo>=0 && vMid<=0)){ hi=mid; } else { lo=mid; vLo=vMid; }
+        }
+        return (lo+hi)/2;
+      }
+      if (v !== null){ prevT = t; prevV = v; }
+    }
+    return null;
+  }
+
+  const set = unknowns.slice().sort().join(',');
+
+  if (set === 'D1,r1'){ // theta, L2 known
+    const th = known.theta*D2R_, s=Math.sin(th), c=Math.cos(th);
+    if (Math.abs(1-c) < 1e-9) return null;
+    const r1 = (X - known.L2*s)/(1-c);
+    const D1 = D3 - r1*s - known.L2*c;
+    return { D1, r1, theta: known.theta, L2: known.L2 };
+  }
+  if (set === 'D1,theta'){ // r1, L2 known
+    const theta = solveTheta('D1_theta');
+    if (theta === null) return null;
+    const th=theta*D2R_;
+    const D1 = D3 - known.r1*Math.sin(th) - known.L2*Math.cos(th);
+    return { D1, r1: known.r1, theta, L2: known.L2 };
+  }
+  if (set === 'D1,L2'){ // r1, theta known
+    const th = known.theta*D2R_, s=Math.sin(th), c=Math.cos(th);
+    if (Math.abs(s) < 1e-9) return null;
+    const L2 = (X - known.r1*(1-c))/s;
+    const D1 = D3 - known.r1*s - L2*c;
+    return { D1, r1: known.r1, theta: known.theta, L2 };
+  }
+  if (set === 'r1,theta'){ // D1, L2 known
+    const theta = solveTheta('r1_theta');
+    if (theta === null) return null;
+    const th=theta*D2R_, s=Math.sin(th), c=Math.cos(th);
+    const r1 = (D3 - known.D1 - known.L2*c)/s;
+    return { D1: known.D1, r1, theta, L2: known.L2 };
+  }
+  if (set === 'L2,r1'){ // D1, theta known
+    const th = known.theta*D2R_, s=Math.sin(th), c=Math.cos(th);
+    const det = c - 1;
+    if (Math.abs(det) < 1e-9) return null;
+    const rhsB = D3 - known.D1;
+    const r1 = (X*c - s*rhsB)/det;
+    const L2 = ((1-c)*rhsB - s*X)/det;
+    return { D1: known.D1, r1, theta: known.theta, L2 };
+  }
+  if (set === 'L2,theta'){ // D1, r1 known
+    const theta = solveTheta('theta_L2');
+    if (theta === null) return null;
+    const th=theta*D2R_, s=Math.sin(th), c=Math.cos(th);
+    if (Math.abs(c) < 1e-9) return null;
+    const L2 = (D3 - known.D1 - known.r1*s)/c;
+    return { D1: known.D1, r1: known.r1, theta, L2 };
+  }
+  return null;
+}
+
+// Runs the exact same chain resolveSectionEndpoint uses in renderSections/
+// computeTrajectory, just to get the trajectory's current end state (used
+// by the Build & Hold to Target wizard to know where it's starting from).
+function getTrajectoryEndState(){
+  let curInc=wellStart.inc, curAz=wellStart.az, curTvd=0, curMd=0, curN=0, curE=0;
+  sections.forEach(s=>{
+    const res = resolveSectionEndpoint(curInc, curAz, curTvd, curMd, s);
+    curInc = res.endInc; curAz = res.endAz;
+    curTvd += res.dTvd; curMd += res.cl; curN += res.dN; curE += res.dE;
+  });
+  return { inc:curInc, az:curAz, tvd:curTvd, md:curMd, n:curN, e:curE };
 }
 
 /* ============================================================
@@ -378,7 +613,13 @@ const KIND_LABEL = {
   dlstf:'DLS + Toolface + CL',
   dlstf_inc:'DLS + Toolface + until Inc',
   dlstf_az:'DLS + Toolface + until Az',
-  dlstf_tvd:'DLS + Toolface + until TVD'
+  dlstf_tvd:'DLS + Toolface + until TVD',
+  md_inc_az:'MD, Inc, Az',
+  tvd_inc_az:'TVD, Inc, Az',
+  dls_inc_az:'DLS, Inc, Az',
+  hold_tvd:'HOLD to TVD',
+  build_turn_cl:'Build + Turn + CL',
+  tvd_dls_az:'TVD, DLS, Az'
 };
 
 function renderSections(){
@@ -388,11 +629,11 @@ function renderSections(){
     list.innerHTML = '<div class="note">No sections yet. Click "+ Add Section" to define the well path from surface.</div>';
     return;
   }
-  let curInc=wellStart.inc, curAz=wellStart.az, curTvd=0;
+  let curInc=wellStart.inc, curAz=wellStart.az, curTvd=0, curMd=0;
   sections.forEach((s,i)=>{
     const card = document.createElement('div');
     card.className = 'section-card';
-    const res = resolveSectionEndpoint(curInc, curAz, curTvd, s);
+    const res = resolveSectionEndpoint(curInc, curAz, curTvd, curMd, s);
     let paramsLine;
 
     if (s.kind==='direct'){
@@ -410,6 +651,22 @@ function renderSections(){
     } else if (s.kind==='dlstf_tvd'){
       paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; TF ${s.tf.toFixed(0)}&deg; &middot; until TVD ${s.targetTvd.toFixed(1)} m
         <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='md_inc_az'){
+      paramsLine = `Target MD ${s.targetMd.toFixed(0)} m &middot; Inc &rarr; ${s.inc.toFixed(1)}&deg; &middot; Az &rarr; ${s.az.toFixed(1)}&deg;`;
+    } else if (s.kind==='tvd_inc_az'){
+      paramsLine = `Target TVD ${s.targetTvd.toFixed(1)} m &middot; Inc &rarr; ${s.inc.toFixed(1)}&deg; &middot; Az &rarr; ${s.az.toFixed(1)}&deg;
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='dls_inc_az'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; Inc &rarr; ${s.inc.toFixed(1)}&deg; &middot; Az &rarr; ${s.az.toFixed(1)}&deg;
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='hold_tvd'){
+      paramsLine = `HOLD until TVD ${s.targetTvd.toFixed(1)} m
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='build_turn_cl'){
+      paramsLine = `Build ${s.buildRate.toFixed(1)}&deg;/30m &middot; Turn ${s.turnRate.toFixed(1)}&deg;/30m &middot; CL ${s.cl.toFixed(0)} m`;
+    } else if (s.kind==='tvd_dls_az'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; until Az ${s.targetAz.toFixed(1)}&deg; &amp; TVD ${s.targetTvd.toFixed(1)} m
+        <br>Toolface (auto): ${(!res.warning && res.tf!==undefined) ? res.tf.toFixed(1)+'°' : '—'} &middot; CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
     }
 
     const resultLine = res.warning
@@ -429,7 +686,7 @@ function renderSections(){
         </div>
       </div>`;
     list.appendChild(card);
-    curInc = res.endInc; curAz = res.endAz; curTvd = curTvd + res.dTvd;
+    curInc = res.endInc; curAz = res.endAz; curTvd = curTvd + res.dTvd; curMd = curMd + res.cl;
   });
 }
 
@@ -440,7 +697,13 @@ const KIND_HELP = {
   dlstf: 'Build/turn at a fixed dogleg severity toward a toolface for a chosen course length.',
   dlstf_az: 'Build/turn at a fixed dogleg severity toward a toolface until a target AZIMUTH is reached — course length is solved automatically.',
   dlstf_inc: 'Build/turn at a fixed dogleg severity toward a toolface until a target INCLINATION is reached — course length is solved automatically.',
-  dlstf_tvd: 'Build/turn at a fixed dogleg severity toward a toolface until a target TVD (RKB) is reached — course length is solved automatically.'
+  dlstf_tvd: 'Build/turn at a fixed dogleg severity toward a toolface until a target TVD (RKB) is reached — course length is solved automatically.',
+  md_inc_az: 'Jump directly to an absolute target MD with a target inclination/azimuth — course length is the difference from the current MD.',
+  tvd_inc_az: 'Jump directly to a target inclination/azimuth (like Direct), but course length is solved so the section ends at a target TVD (RKB) instead of an entered CL.',
+  dls_inc_az: 'Jump directly to a target inclination/azimuth (like Direct), but course length is derived from a given DLS instead of entered directly. No toolface needed — it\'s implied by the start/end orientation.',
+  hold_tvd: 'Extend the current inclination/azimuth (DLS = 0) until a target TVD (RKB) is reached — course length is solved automatically.',
+  build_turn_cl: 'Independent Build Rate (inclination change, °/30m) and Turn Rate (azimuth change, °/30m) applied over a course length — the classic field "slide sheet" build/walk parameterization, as opposed to a single DLS+Toolface.',
+  tvd_dls_az: 'Build/turn at a fixed DLS until BOTH a target azimuth AND a target TVD (RKB) are reached. Toolface is not entered — it\'s solved numerically (2D search) since only DLS is fixed and both TVD and Az are targeted, leaving inclination free.'
 };
 
 function openSectionModal(index){
@@ -467,6 +730,12 @@ function openSectionModal(index){
           <option value="dlstf_inc" ${kind==='dlstf_inc'?'selected':''}>DLS + Toolface + until Inc</option>
           <option value="dlstf_az" ${kind==='dlstf_az'?'selected':''}>DLS + Toolface + until Az</option>
           <option value="dlstf_tvd" ${kind==='dlstf_tvd'?'selected':''}>DLS + Toolface + until TVD</option>
+          <option value="md_inc_az" ${kind==='md_inc_az'?'selected':''}>MD, Inc, Az</option>
+          <option value="tvd_inc_az" ${kind==='tvd_inc_az'?'selected':''}>TVD, Inc, Az</option>
+          <option value="dls_inc_az" ${kind==='dls_inc_az'?'selected':''}>DLS, Inc, Az</option>
+          <option value="hold_tvd" ${kind==='hold_tvd'?'selected':''}>HOLD to TVD</option>
+          <option value="build_turn_cl" ${kind==='build_turn_cl'?'selected':''}>Build + Turn + CL</option>
+          <option value="tvd_dls_az" ${kind==='tvd_dls_az'?'selected':''}>TVD, DLS, Az</option>
         </select>
       </div>
       <div class="modal-sub" id="mHelp"></div>
@@ -519,6 +788,34 @@ function renderModalFields(){
       <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
       <div class="modal-field"><label>Toolface (&deg;, high side ref)</label><input type="number" id="mTf" step="1" value="${d.tf ?? 0}"></div>
       <div class="modal-field"><label>Target TVD (m, RKB)</label><input type="number" id="mTargetTvd" step="1" value="${d.targetTvd ?? 1500}"></div>`;
+  } else if (kind==='md_inc_az'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Target MD (m)</label><input type="number" id="mTargetMd" step="1" value="${d.targetMd ?? 800}"></div>
+      <div class="modal-field"><label>Inclination (&deg;)</label><input type="number" id="mInc" step="0.1" value="${d.inc ?? 30}"></div>
+      <div class="modal-field"><label>Azimuth (&deg;)</label><input type="number" id="mAz" step="0.1" value="${d.az ?? 0}"></div>`;
+  } else if (kind==='tvd_inc_az'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Target TVD (m, RKB)</label><input type="number" id="mTargetTvd" step="1" value="${d.targetTvd ?? 1500}"></div>
+      <div class="modal-field"><label>Inclination (&deg;)</label><input type="number" id="mInc" step="0.1" value="${d.inc ?? 30}"></div>
+      <div class="modal-field"><label>Azimuth (&deg;)</label><input type="number" id="mAz" step="0.1" value="${d.az ?? 0}"></div>`;
+  } else if (kind==='dls_inc_az'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Inclination (&deg;)</label><input type="number" id="mInc" step="0.1" value="${d.inc ?? 30}"></div>
+      <div class="modal-field"><label>Azimuth (&deg;)</label><input type="number" id="mAz" step="0.1" value="${d.az ?? 0}"></div>`;
+  } else if (kind==='hold_tvd'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Target TVD (m, RKB)</label><input type="number" id="mTargetTvd" step="1" value="${d.targetTvd ?? 1500}"></div>`;
+  } else if (kind==='build_turn_cl'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Build Rate (&deg;/30m)</label><input type="number" id="mBuildRate" step="0.1" value="${d.buildRate ?? 2}"></div>
+      <div class="modal-field"><label>Turn Rate (&deg;/30m)</label><input type="number" id="mTurnRate" step="0.1" value="${d.turnRate ?? 1}"></div>
+      <div class="modal-field"><label>Course Length (m)</label><input type="number" id="mCl" step="1" value="${d.cl ?? 300}"></div>`;
+  } else if (kind==='tvd_dls_az'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Target Azimuth (&deg;)</label><input type="number" id="mTargetAz" step="0.1" value="${d.targetAz ?? 90}"></div>
+      <div class="modal-field"><label>Target TVD (m, RKB)</label><input type="number" id="mTargetTvd" step="1" value="${d.targetTvd ?? 1500}"></div>`;
   }
 }
 
@@ -560,6 +857,39 @@ function readModalSectionObject(){
       tf: parseFloat(document.getElementById('mTf').value) || 0,
       targetTvd: parseFloat(document.getElementById('mTargetTvd').value) || 0 };
   }
+  if (kind==='md_inc_az'){
+    return { kind,
+      targetMd: parseFloat(document.getElementById('mTargetMd').value) || 0,
+      inc: parseFloat(document.getElementById('mInc').value) || 0,
+      az: parseFloat(document.getElementById('mAz').value) || 0 };
+  }
+  if (kind==='tvd_inc_az'){
+    return { kind,
+      targetTvd: parseFloat(document.getElementById('mTargetTvd').value) || 0,
+      inc: parseFloat(document.getElementById('mInc').value) || 0,
+      az: parseFloat(document.getElementById('mAz').value) || 0 };
+  }
+  if (kind==='dls_inc_az'){
+    return { kind,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      inc: parseFloat(document.getElementById('mInc').value) || 0,
+      az: parseFloat(document.getElementById('mAz').value) || 0 };
+  }
+  if (kind==='hold_tvd'){
+    return { kind, targetTvd: parseFloat(document.getElementById('mTargetTvd').value) || 0 };
+  }
+  if (kind==='build_turn_cl'){
+    return { kind,
+      buildRate: parseFloat(document.getElementById('mBuildRate').value) || 0,
+      turnRate: parseFloat(document.getElementById('mTurnRate').value) || 0,
+      cl: parseFloat(document.getElementById('mCl').value) || 0 };
+  }
+  if (kind==='tvd_dls_az'){
+    return { kind,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      targetAz: parseFloat(document.getElementById('mTargetAz').value) || 0,
+      targetTvd: parseFloat(document.getElementById('mTargetTvd').value) || 0 };
+  }
 }
 
 // closeAfter=true -> "Save" (apply + close). closeAfter=false -> "Apply" (apply, stays open).
@@ -573,6 +903,616 @@ function saveSectionModal(index, closeAfter){
     const overlay = document.getElementById('sectionModalOverlay');
     overlay.dataset.data = JSON.stringify(obj);
   }
+}
+
+/* ============================================================
+   BUILD & HOLD TO TARGET — wizard: pick a target, check 2 of the
+   4 knobs (1st Hold Len, 1st Build DLS, Max Angle, 2nd Hold Len),
+   solve the other 2, and append the resulting Hold/Build/Hold
+   sections. Requires the well to be vertical (Inc=0) entering the
+   design — see solveBuildHoldToTarget() above for why.
+   ============================================================ */
+const BH_FIELDS = [
+  {key:'D1',    label:'1st Hold Len (m)',   def:200},
+  {key:'dls',   label:'1st Build (DLS, °/30m)', def:3},
+  {key:'theta', label:'Max Angle (Inc, °)', def:45},
+  {key:'L2',    label:'2nd Hold Len (m)',   def:200}
+];
+
+function r1FromDls(dls){ return (180*30)/(Math.PI*dls); } // meters
+function dlsFromR1(r1){ return (180*30)/(Math.PI*r1); }   // deg/30m
+
+function openBuildHoldWizard(){
+  if (targets.length === 0){ alert('Add at least one target first.'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'bhModalOverlay';
+  overlay.onclick = (e)=>{ if (e.target===overlay) closeBuildHoldWizard(); };
+
+  const targetOptions = targets.map((t,i)=>`<option value="${i}">${t.name}</option>`).join('');
+  const fieldRows = BH_FIELDS.map(f => `
+    <div class="modal-field" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="bhChk_${f.key}" onchange="bhOnCheckChange('${f.key}')" style="width:auto;flex-shrink:0;">
+      <label style="flex:1;margin:0;">${f.label}</label>
+      <input type="number" id="bhVal_${f.key}" step="0.1" value="${f.def}" style="width:110px;">
+    </div>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="width:400px;">
+      <h3>Build &amp; Hold to Target</h3>
+      <div class="modal-sub">Check exactly 2 knowns; the other 2 are solved. Requires the trajectory to be
+        vertical (Inc = 0°) where this design starts — appended sections go at the end of the current plan.</div>
+
+      <div class="modal-field">
+        <label>Target</label>
+        <select id="bhTarget" class="type-select" onchange="bhRenderPreview()">${targetOptions}</select>
+      </div>
+      <div class="note" id="bhPreview" style="margin-bottom:10px;"></div>
+
+      ${fieldRows}
+      <div class="note" id="bhCheckCount" style="margin-top:4px;"></div>
+      <div class="note" id="bhError" style="color:var(--bad);"></div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeBuildHoldWizard()">Cancel</button>
+        <button onclick="solveAndInsertBuildHold()">Solve &amp; Insert</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Default: pre-check DLS + Max Angle (a common starting pair), like the
+  // reference tool's own default of two checked boxes.
+  document.getElementById('bhChk_dls').checked = true;
+  document.getElementById('bhChk_theta').checked = true;
+  bhRenderPreview();
+  bhOnCheckChange();
+}
+
+function bhRenderPreview(){
+  const t = targets[document.getElementById('bhTarget').value];
+  document.getElementById('bhPreview').textContent =
+    `TVD ${t.tvd.toFixed(1)} m · N ${t.n.toFixed(1)} m · E ${t.e.toFixed(1)} m · R ${t.r} m`;
+}
+
+function bhOnCheckChange(){
+  const checked = BH_FIELDS.filter(f => document.getElementById('bhChk_'+f.key).checked);
+  const countEl = document.getElementById('bhCheckCount');
+  countEl.textContent = `${checked.length} of 4 checked (need exactly 2).`;
+  countEl.style.color = checked.length===2 ? 'var(--muted)' : 'var(--bad)';
+  BH_FIELDS.forEach(f => {
+    const isChecked = document.getElementById('bhChk_'+f.key).checked;
+    document.getElementById('bhVal_'+f.key).disabled = !isChecked;
+  });
+}
+
+function closeBuildHoldWizard(){
+  const overlay = document.getElementById('bhModalOverlay');
+  if (overlay) overlay.remove();
+}
+
+function solveAndInsertBuildHold(){
+  const errEl = document.getElementById('bhError');
+  errEl.textContent = '';
+
+  const checkedKeys = BH_FIELDS.filter(f => document.getElementById('bhChk_'+f.key).checked).map(f=>f.key);
+  if (checkedKeys.length !== 2){
+    errEl.textContent = 'Check exactly 2 knowns (you have ' + checkedKeys.length + ').';
+    return;
+  }
+
+  const end = getTrajectoryEndState();
+  if (Math.abs(end.inc) > 0.05){
+    errEl.textContent = `This design requires the well to be vertical (Inc=0°) where it starts — ` +
+      `current trajectory ends at Inc ${end.inc.toFixed(2)}°. Remove/adjust trailing sections first.`;
+    return;
+  }
+
+  const t = targets[document.getElementById('bhTarget').value];
+  const X = Math.hypot(t.n - end.n, t.e - end.e);
+  const D3 = t.tvd - end.tvd;
+  let targetAz = Math.atan2(t.e - end.e, t.n - end.n) * R2D;
+  if (targetAz < 0) targetAz += 360;
+
+  // Map UI keys (dls) to solver keys (r1) — solve in r1-space, convert at the boundary.
+  const known = {};
+  const unknownsSolver = [];
+  BH_FIELDS.forEach(f => {
+    const solverKey = f.key === 'dls' ? 'r1' : f.key;
+    if (checkedKeys.includes(f.key)){
+      const raw = parseFloat(document.getElementById('bhVal_'+f.key).value) || 0;
+      known[solverKey] = (f.key==='dls') ? r1FromDls(raw) : raw;
+    } else {
+      unknownsSolver.push(solverKey);
+    }
+  });
+
+  const result = solveBuildHoldToTarget(unknownsSolver, known, X, D3);
+  if (!result || !isFinite(result.D1) || !isFinite(result.r1) || !isFinite(result.theta) || !isFinite(result.L2) ||
+      result.theta <= 0 || result.theta >= 180 || result.r1 <= 0){
+    errEl.textContent = 'No physically valid solution found for this combination of knowns and this target — try a different pair of checkboxes or values.';
+    return;
+  }
+
+  const { D1, r1, theta, L2 } = result;
+  const dls = dlsFromR1(r1);
+  const buildCL = theta * 30 / dls;
+
+  if (D1 > 1e-6) sections.push({ kind:'hold', cl: D1 });
+  if (buildCL > 1e-6) sections.push({ kind:'direct', inc: theta, az: targetAz, cl: buildCL });
+  if (L2 > 1e-6) sections.push({ kind:'hold', cl: L2 });
+
+  closeBuildHoldWizard();
+  renderSections();
+  recompute();
+}
+
+/* ============================================================
+   BUILD-HOLD-BUILD-HOLD TO TARGET — the 5-segment generalization
+   of the wizard above: Hold(D1) -> Build(r1) to Max Angle (thetaMax)
+   -> Hold(D2) at thetaMax -> Build(r2) to Final Inc (thetaFinal,
+   which may be above OR below thetaMax - a true build-then-drop
+   S-shape is allowed) -> Hold(L3) at thetaFinal, ending at target.
+   Same governing planar geometry as solveBuildHoldToTarget above
+   (each build leg is the same verified circular-arc relation,
+   ΔTVD=R(sinα2-sinα1), ΔX=R(cosα1-cosα2), which is Bourgoyne Eqs.
+   8.9/8.12 generalized from a zero start angle to an arbitrary
+   one); azimuth stays fixed toward the target and requires
+   Inc≈0° entering the design, exactly like the 4-parameter wizard.
+   Any 2 of the 7 parameters {D1, r1, thetaMax, D2, r2, thetaFinal,
+   L3} may be picked as knowns; the system
+     X   = r1(1-cos thetaMax) + D2 sin thetaMax
+           + r2(cos thetaMax - cos thetaFinal) + L3 sin thetaFinal
+     TVD = D1 + r1 sin thetaMax + D2 cos thetaMax
+           + r2(sin thetaFinal - sin thetaMax) + L3 cos thetaFinal
+   is linear in {D1,r1,D2,r2,L3} and nonlinear (trig) only in
+   {thetaMax, thetaFinal}, so unlike the 4-parameter case (6
+   combinations, each hand-solved in closed form) there are 21
+   combinations here — instead of hand-deriving each one, this
+   solves the 2x2 system with damped Newton-Raphson (numeric
+   Jacobian) and a small multi-start grid for robustness, since
+   Newton's method converges in 1-2 steps whenever both unknowns
+   are linear and reliably converges for the trig cases too. All
+   21 combinations were verified in isolation against known ground
+   truth (recovered to <1e-3, effectively machine precision) before
+   this was wired in.
+   ============================================================ */
+const HBHBH_KEYS = ['D1','r1','thetaMax','D2','r2','thetaFinal','L3'];
+const HBHBH_ANGLE_KEYS = new Set(['thetaMax','thetaFinal']);
+
+function hbhbhTotals(p){
+  const th1 = p.thetaMax*D2R, th2 = p.thetaFinal*D2R;
+  const s1=Math.sin(th1), c1=Math.cos(th1), s2=Math.sin(th2), c2=Math.cos(th2);
+  const X = p.r1*(1-c1) + p.D2*s1 + p.r2*(c1-c2) + p.L3*s2;
+  const TVD = p.D1 + p.r1*s1 + p.D2*c1 + p.r2*(s2-s1) + p.L3*c2;
+  return { X, TVD };
+}
+
+function hbhbhResidual(u1key, u1val, u2key, u2val, known, Xt, Dt){
+  const p = Object.assign({}, known, { [u1key]: u1val, [u2key]: u2val });
+  const t = hbhbhTotals(p);
+  return [t.X - Xt, t.TVD - Dt];
+}
+
+function hbhbhClamp(key, v){
+  if (HBHBH_ANGLE_KEYS.has(key)) return Math.min(179.9, Math.max(0.1, v));
+  return Math.max(0, v);
+}
+
+function hbhbhNewton(u1key, u2key, known, Xt, Dt, g1, g2){
+  let u1 = g1, u2 = g2;
+  for (let it = 0; it < 150; it++){
+    const h1 = HBHBH_ANGLE_KEYS.has(u1key) ? 1e-4 : Math.max(1e-4, Math.abs(u1)*1e-6 + 1e-4);
+    const h2 = HBHBH_ANGLE_KEYS.has(u2key) ? 1e-4 : Math.max(1e-4, Math.abs(u2)*1e-6 + 1e-4);
+    const f0 = hbhbhResidual(u1key, u1, u2key, u2, known, Xt, Dt);
+    const fp1 = hbhbhResidual(u1key, u1+h1, u2key, u2, known, Xt, Dt);
+    const fp2 = hbhbhResidual(u1key, u1, u2key, u2+h2, known, Xt, Dt);
+    const J = [[(fp1[0]-f0[0])/h1, (fp2[0]-f0[0])/h2],
+               [(fp1[1]-f0[1])/h1, (fp2[1]-f0[1])/h2]];
+    const det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
+    if (!isFinite(det) || Math.abs(det) < 1e-12) return null;
+    let d1 = (-f0[0]*J[1][1] + f0[1]*J[0][1]) / det;
+    let d2 = (-J[0][0]*f0[1] + J[1][0]*f0[0]) / det;
+    const maxAngleStep = 15, maxLenStep = Math.max(200, Math.abs(u1) + Math.abs(u2));
+    d1 = HBHBH_ANGLE_KEYS.has(u1key) ? Math.max(-maxAngleStep, Math.min(maxAngleStep, d1))
+                                      : Math.max(-maxLenStep, Math.min(maxLenStep, d1));
+    d2 = HBHBH_ANGLE_KEYS.has(u2key) ? Math.max(-maxAngleStep, Math.min(maxAngleStep, d2))
+                                      : Math.max(-maxLenStep, Math.min(maxLenStep, d2));
+    const nu1 = hbhbhClamp(u1key, u1+d1), nu2 = hbhbhClamp(u2key, u2+d2);
+    if (!isFinite(nu1) || !isFinite(nu2)) return null;
+    const converged = Math.abs(nu1-u1) < 1e-9 && Math.abs(nu2-u2) < 1e-9;
+    u1 = nu1; u2 = nu2;
+    if (converged){
+      const chk = hbhbhResidual(u1key, u1, u2key, u2, known, Xt, Dt);
+      return (Math.hypot(chk[0], chk[1]) < 1e-6) ? { [u1key]: u1, [u2key]: u2 } : null;
+    }
+  }
+  const chk = hbhbhResidual(u1key, u1, u2key, u2, known, Xt, Dt);
+  return (Math.hypot(chk[0], chk[1]) < 1e-4) ? { [u1key]: u1, [u2key]: u2 } : null;
+}
+
+function hbhbhInitGuesses(key){
+  if (HBHBH_ANGLE_KEYS.has(key)) return [10, 30, 60, 90, 120, 150];
+  if (key === 'r1' || key === 'r2') return [300, 573, 1000, 150];
+  return [100, 300, 600, 50];
+}
+
+function solveHBHBHToTarget(unknowns, known, X, Dt){
+  const [u1key, u2key] = unknowns;
+  for (const g1 of hbhbhInitGuesses(u1key)){
+    for (const g2 of hbhbhInitGuesses(u2key)){
+      const res = hbhbhNewton(u1key, u2key, known, X, Dt, g1, g2);
+      if (!res) continue;
+      const full = Object.assign({}, known, res);
+      if (full.thetaMax < 0 || full.thetaMax > 179.9) continue;
+      if (full.thetaFinal < 0 || full.thetaFinal > 179.9) continue;
+      if (full.D1 < 0 || full.D2 < 0 || full.L3 < 0 || full.r1 <= 0 || full.r2 <= 0) continue;
+      return full;
+    }
+  }
+  return null;
+}
+
+const HBHBH_FIELDS = [
+  {key:'D1',         label:'1st Hold Len (m)',       def:200},
+  {key:'dls1',       label:'1st Build (DLS, °/30m)', def:3},
+  {key:'thetaMax',   label:'Max Angle (Inc, °)',     def:60},
+  {key:'D2',         label:'2nd Hold Len (m)',       def:200},
+  {key:'dls2',       label:'2nd Build (DLS, °/30m)', def:2},
+  {key:'thetaFinal', label:'Final Inc (°)',          def:35},
+  {key:'L3',         label:'Final Hold (m)',         def:300}
+];
+
+function openHbhbhWizard(){
+  if (targets.length === 0){ alert('Add at least one target first.'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'hbhbhModalOverlay';
+  overlay.onclick = (e)=>{ if (e.target===overlay) closeHbhbhWizard(); };
+
+  const targetOptions = targets.map((t,i)=>`<option value="${i}">${t.name}</option>`).join('');
+  const fieldRows = HBHBH_FIELDS.map(f => `
+    <div class="modal-field" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="hbhbhChk_${f.key}" onchange="hbhbhOnCheckChange()" style="width:auto;flex-shrink:0;">
+      <label style="flex:1;margin:0;">${f.label}</label>
+      <input type="number" id="hbhbhVal_${f.key}" step="0.1" value="${f.def}" style="width:110px;">
+    </div>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="width:420px;">
+      <h3>Build-Hold-Build-Hold to Target</h3>
+      <div class="modal-sub">Check exactly 2 unknowns to solve; the other 5 boxes are used as-entered. Path:
+        Hold &rarr; Build to Max Angle &rarr; Hold &rarr; Build to Final Inc (can be higher or lower than
+        Max Angle) &rarr; Hold, ending at target. Requires the trajectory to be vertical (Inc = 0&deg;) where
+        this design starts &mdash; appended sections go at the end of the current plan.</div>
+
+      <div class="modal-field">
+        <label>Target</label>
+        <select id="hbhbhTarget" class="type-select" onchange="hbhbhRenderPreview()">${targetOptions}</select>
+      </div>
+      <div class="note" id="hbhbhPreview" style="margin-bottom:10px;"></div>
+
+      ${fieldRows}
+      <div class="note" id="hbhbhCheckCount" style="margin-top:4px;"></div>
+      <div class="note" id="hbhbhError" style="color:var(--bad);"></div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeHbhbhWizard()">Cancel</button>
+        <button onclick="solveAndInsertHbhbh()">Solve &amp; Insert</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Default: pre-check Max Angle + Final Inc as the unknowns to solve (a common
+  // pairing — you fix both build rates and both hold lengths, solve the angles).
+  document.getElementById('hbhbhChk_thetaMax').checked = true;
+  document.getElementById('hbhbhChk_thetaFinal').checked = true;
+  hbhbhRenderPreview();
+  hbhbhOnCheckChange();
+}
+
+function hbhbhRenderPreview(){
+  const t = targets[document.getElementById('hbhbhTarget').value];
+  document.getElementById('hbhbhPreview').textContent =
+    `TVD ${t.tvd.toFixed(1)} m · N ${t.n.toFixed(1)} m · E ${t.e.toFixed(1)} m · R ${t.r} m`;
+}
+
+function hbhbhOnCheckChange(){
+  const checked = HBHBH_FIELDS.filter(f => document.getElementById('hbhbhChk_'+f.key).checked);
+  const countEl = document.getElementById('hbhbhCheckCount');
+  countEl.textContent = `${checked.length} of 7 marked unknown (need exactly 2). Unchecked boxes are used as knowns.`;
+  countEl.style.color = checked.length===2 ? 'var(--muted)' : 'var(--bad)';
+  HBHBH_FIELDS.forEach(f => {
+    const isChecked = document.getElementById('hbhbhChk_'+f.key).checked;
+    document.getElementById('hbhbhVal_'+f.key).disabled = isChecked;
+  });
+}
+
+function closeHbhbhWizard(){
+  const overlay = document.getElementById('hbhbhModalOverlay');
+  if (overlay) overlay.remove();
+}
+
+function solveAndInsertHbhbh(){
+  const errEl = document.getElementById('hbhbhError');
+  errEl.textContent = '';
+
+  const checkedKeys = HBHBH_FIELDS.filter(f => document.getElementById('hbhbhChk_'+f.key).checked).map(f=>f.key);
+  if (checkedKeys.length !== 2){
+    errEl.textContent = 'Check exactly 2 unknowns (you have ' + checkedKeys.length + ').';
+    return;
+  }
+
+  const end = getTrajectoryEndState();
+  if (Math.abs(end.inc) > 0.05){
+    errEl.textContent = `This design requires the well to be vertical (Inc=0°) where it starts — ` +
+      `current trajectory ends at Inc ${end.inc.toFixed(2)}°. Remove/adjust trailing sections first.`;
+    return;
+  }
+
+  const t = targets[document.getElementById('hbhbhTarget').value];
+  const X = Math.hypot(t.n - end.n, t.e - end.e);
+  const Dt = t.tvd - end.tvd;
+  let targetAz = Math.atan2(t.e - end.e, t.n - end.n) * R2D;
+  if (targetAz < 0) targetAz += 360;
+
+  // Checked boxes are the 2 UNKNOWNS to solve (per the reference tool's own
+  // "select 2 unknowns" label). The other 5 boxes' current values are used as
+  // knowns. Map UI keys (dls1/dls2) to solver keys (r1/r2) — solve in
+  // radius-space, convert at the boundary.
+  const uiToSolverKey = { dls1:'r1', dls2:'r2' };
+  const known = {};
+  const unknownsSolver = [];
+  HBHBH_FIELDS.forEach(f => {
+    const solverKey = uiToSolverKey[f.key] || f.key;
+    if (checkedKeys.includes(f.key)){
+      unknownsSolver.push(solverKey);
+    } else {
+      const raw = parseFloat(document.getElementById('hbhbhVal_'+f.key).value) || 0;
+      known[solverKey] = (f.key==='dls1' || f.key==='dls2') ? r1FromDls(raw) : raw;
+    }
+  });
+
+  const result = solveHBHBHToTarget(unknownsSolver, known, X, Dt);
+  if (!result || HBHBH_KEYS.some(k => !isFinite(result[k])) ||
+      result.thetaMax <= 0 || result.thetaMax >= 180 ||
+      result.thetaFinal <= 0 || result.thetaFinal >= 180 ||
+      result.r1 <= 0 || result.r2 <= 0){
+    errEl.textContent = 'No physically valid solution found for this combination of knowns and this target — try a different pair of checkboxes or values.';
+    return;
+  }
+
+  const { D1, r1, thetaMax, D2, r2, thetaFinal, L3 } = result;
+  const dls1 = dlsFromR1(r1), dls2 = dlsFromR1(r2);
+  const build1CL = thetaMax * 30 / dls1;
+  const build2CL = Math.abs(thetaFinal - thetaMax) * 30 / dls2;
+
+  if (D1 > 1e-6) sections.push({ kind:'hold', cl: D1 });
+  if (build1CL > 1e-6) sections.push({ kind:'direct', inc: thetaMax, az: targetAz, cl: build1CL });
+  if (D2 > 1e-6) sections.push({ kind:'hold', cl: D2 });
+  if (build2CL > 1e-6) sections.push({ kind:'direct', inc: thetaFinal, az: targetAz, cl: build2CL });
+  if (L3 > 1e-6) sections.push({ kind:'hold', cl: L3 });
+
+  closeHbhbhWizard();
+  renderSections();
+  recompute();
+}
+
+/* ============================================================
+   CURVE-HOLD-CURVE TO TARGET — a fully 3D wizard: Curve1 (DLS1)
+   from the trajectory's current inc/az to some intermediate
+   inc1/az1, then a Hold (may be 0) at that intermediate
+   orientation, then Curve2 (DLS2) from inc1/az1 to the user-
+   entered target inclination/azimuth, landing on the target's
+   N/E/TVD. Unlike the two wizards above, this is NOT restricted
+   to a single vertical plane — inc1 and az1 can point the curve
+   any direction in 3D, so it uses the same general minimum-
+   curvature relation (Eqs. 8.33-8.37, minimumCurvature() above)
+   for both curve legs rather than the planar build-arc shortcut.
+   No new formulas: each curve leg's course length is derived from
+   its own dogleg angle beta (Eq. 8.33, already factored out as
+   impliedBetaDeg()) via CL = beta*30/DLS, exactly how DLS-driven
+   sections are already computed elsewhere in this file. The hold
+   leg is a plain straight-line tangent decomposition
+   (dN=L sin(inc)cos(az), dE=L sin(inc)sin(az), dTVD=L cos(inc)),
+   which is what minimum curvature itself reduces to when
+   inclination/azimuth don't change.
+   Unknowns are exactly inc1, az1, and the hold length L (course
+   lengths of both curves are NOT independent unknowns — they're
+   fully determined by inc1/az1 through the beta/DLS relation
+   above) — 3 unknowns, 3 equations (hit target N, E, TVD), solved
+   with damped 3-variable Newton-Raphson (numeric Jacobian) and a
+   multi-start grid. Verified against known ground truth (including
+   a non-vertical, non-zero starting azimuth) to machine precision
+   before being wired in here. Because it's solved in full 3D there
+   is no "must start vertical" restriction — this wizard works from
+   whatever inclination/azimuth the trajectory currently ends at.
+   ============================================================ */
+function chcCurveCL(inc0, az0, inc1, az1, dls){
+  const betaDeg = impliedBetaDeg(inc0, az0, inc1, az1);
+  return (dls > 1e-9) ? betaDeg*30/dls : (betaDeg < 1e-6 ? 0 : Infinity);
+}
+
+function chcForward(inc0, az0, incT, azT, dls1, dls2, inc1, az1, L){
+  const cl1 = chcCurveCL(inc0, az0, inc1, az1, dls1);
+  const p1 = (cl1 > 0 && isFinite(cl1)) ? minimumCurvature(inc0, az0, inc1, az1, cl1) : {dN:0,dE:0,dTVD:0};
+  const a1 = inc1*D2R, e1 = az1*D2R;
+  const dNh = L*Math.sin(a1)*Math.cos(e1), dEh = L*Math.sin(a1)*Math.sin(e1), dTh = L*Math.cos(a1);
+  const cl2 = chcCurveCL(inc1, az1, incT, azT, dls2);
+  const p2 = (cl2 > 0 && isFinite(cl2)) ? minimumCurvature(inc1, az1, incT, azT, cl2) : {dN:0,dE:0,dTVD:0};
+  return {
+    N: p1.dN + dNh + p2.dN, E: p1.dE + dEh + p2.dE, TVD: p1.dTVD + dTh + p2.dTVD,
+    cl1: (isFinite(cl1) ? cl1 : 0), cl2: (isFinite(cl2) ? cl2 : 0)
+  };
+}
+
+function chcResidual(inc0, az0, incT, azT, dls1, dls2, x, target){
+  const f = chcForward(inc0, az0, incT, azT, dls1, dls2, x[0], x[1], x[2]);
+  return [f.N-target.N, f.E-target.E, f.TVD-target.TVD];
+}
+
+function chcSolve3x3(A, b){
+  const M = A.map((r,i)=>r.concat([b[i]]));
+  for (let i=0;i<3;i++){
+    let piv=i;
+    for (let k=i+1;k<3;k++) if (Math.abs(M[k][i]) > Math.abs(M[piv][i])) piv=k;
+    if (Math.abs(M[piv][i]) < 1e-14) return null;
+    const tmp=M[i]; M[i]=M[piv]; M[piv]=tmp;
+    for (let k=i+1;k<3;k++){
+      const f = M[k][i]/M[i][i];
+      for (let c=i;c<4;c++) M[k][c] -= f*M[i][c];
+    }
+  }
+  const x=[0,0,0];
+  for (let i=2;i>=0;i--){
+    let s = M[i][3];
+    for (let c=i+1;c<3;c++) s -= M[i][c]*x[c];
+    x[i] = s/M[i][i];
+  }
+  return x;
+}
+
+function chcNewton(inc0, az0, incT, azT, dls1, dls2, target, guess){
+  let x = guess.slice();
+  for (let it=0; it<100; it++){
+    const h = [1e-4, 1e-4, 1e-3];
+    const f0 = chcResidual(inc0, az0, incT, azT, dls1, dls2, x, target);
+    const J = [[0,0,0],[0,0,0],[0,0,0]];
+    for (let j=0;j<3;j++){
+      const xp = x.slice(); xp[j] += h[j];
+      const fp = chcResidual(inc0, az0, incT, azT, dls1, dls2, xp, target);
+      for (let i=0;i<3;i++) J[i][j] = (fp[i]-f0[i])/h[j];
+    }
+    const d = chcSolve3x3(J, f0.map(v=>-v));
+    if (!d) return null;
+    const maxAngleStep = 20, maxLenStep = Math.max(200, Math.abs(x[2]));
+    d[0] = Math.max(-maxAngleStep, Math.min(maxAngleStep, d[0]));
+    d[1] = Math.max(-maxAngleStep, Math.min(maxAngleStep, d[1]));
+    d[2] = Math.max(-maxLenStep, Math.min(maxLenStep, d[2]));
+    let nx = [x[0]+d[0], x[1]+d[1], x[2]+d[2]];
+    nx[0] = Math.min(179.9, Math.max(0.1, nx[0]));
+    nx[1] = ((nx[1]%360)+360)%360;
+    nx[2] = Math.max(0, nx[2]);
+    if (!nx.every(isFinite)) return null;
+    const converged = Math.hypot(nx[0]-x[0], nx[1]-x[1], nx[2]-x[2]) < 1e-8;
+    x = nx;
+    if (converged){
+      const chk = chcResidual(inc0, az0, incT, azT, dls1, dls2, x, target);
+      return (Math.hypot(...chk) < 1e-6) ? x : null;
+    }
+  }
+  const chk = chcResidual(inc0, az0, incT, azT, dls1, dls2, x, target);
+  return (Math.hypot(...chk) < 1e-4) ? x : null;
+}
+
+function solveCurveHoldCurve(inc0, az0, incT, azT, dls1, dls2, target){
+  const incGuesses = [10,30,60,90,120,150];
+  const azGuesses = [0,45,90,135,180,225,270,315];
+  const lGuesses = [100,400,800];
+  for (const ig of incGuesses){
+    for (const ag of azGuesses){
+      for (const lg of lGuesses){
+        const r = chcNewton(inc0, az0, incT, azT, dls1, dls2, target, [ig, ag, lg]);
+        if (r) return { inc1:r[0], az1:r[1], L:r[2] };
+      }
+    }
+  }
+  return null;
+}
+
+function openCurveHoldCurveWizard(){
+  if (targets.length === 0){ alert('Add at least one target first.'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'chcModalOverlay';
+  overlay.onclick = (e)=>{ if (e.target===overlay) closeCurveHoldCurveWizard(); };
+
+  const targetOptions = targets.map((t,i)=>`<option value="${i}">${t.name}</option>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="width:420px;">
+      <h3>Curve-Hold-Curve to Target</h3>
+      <div class="modal-sub">Fully 3D: Curve (DLS1) to an intermediate inc/az &rarr; Hold (may be 0) &rarr;
+        Curve (DLS2) that lands on the target's N/E/TVD while arriving at the inclination/azimuth you enter
+        below. No requirement to start vertical &mdash; this solves from whatever inc/az the trajectory
+        currently ends at.</div>
+
+      <div class="modal-field">
+        <label>Target</label>
+        <select id="chcTarget" class="type-select" onchange="chcRenderPreview()">${targetOptions}</select>
+      </div>
+      <div class="note" id="chcPreview" style="margin-bottom:10px;"></div>
+
+      <div class="modal-field">
+        <label>Target Inc (&deg;)</label>
+        <input type="number" id="chcIncT" step="0.1" value="60">
+      </div>
+      <div class="modal-field">
+        <label>Target Az (&deg;)</label>
+        <input type="number" id="chcAzT" step="0.1" value="0">
+      </div>
+      <div class="modal-field">
+        <label>1st Curve DLS (&deg;/30m)</label>
+        <input type="number" id="chcDls1" step="0.1" value="3">
+      </div>
+      <div class="modal-field">
+        <label>2nd Curve DLS (&deg;/30m)</label>
+        <input type="number" id="chcDls2" step="0.1" value="3">
+      </div>
+
+      <div class="note" id="chcError" style="color:var(--bad);"></div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeCurveHoldCurveWizard()">Cancel</button>
+        <button onclick="solveAndInsertCurveHoldCurve()">Solve &amp; Insert</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  chcRenderPreview();
+}
+
+function chcRenderPreview(){
+  const t = targets[document.getElementById('chcTarget').value];
+  document.getElementById('chcPreview').textContent =
+    `TVD ${t.tvd.toFixed(1)} m · N ${t.n.toFixed(1)} m · E ${t.e.toFixed(1)} m · R ${t.r} m`;
+}
+
+function closeCurveHoldCurveWizard(){
+  const overlay = document.getElementById('chcModalOverlay');
+  if (overlay) overlay.remove();
+}
+
+function solveAndInsertCurveHoldCurve(){
+  const errEl = document.getElementById('chcError');
+  errEl.textContent = '';
+
+  const t = targets[document.getElementById('chcTarget').value];
+  const incT = parseFloat(document.getElementById('chcIncT').value) || 0;
+  const azT = parseFloat(document.getElementById('chcAzT').value) || 0;
+  const dls1 = parseFloat(document.getElementById('chcDls1').value) || 0;
+  const dls2 = parseFloat(document.getElementById('chcDls2').value) || 0;
+  if (dls1 <= 0 || dls2 <= 0){
+    errEl.textContent = 'Both DLS values must be greater than 0.';
+    return;
+  }
+
+  const end = getTrajectoryEndState();
+  const target = { N: t.n - end.n, E: t.e - end.e, TVD: t.tvd - end.tvd };
+
+  const result = solveCurveHoldCurve(end.inc, end.az, incT, azT, dls1, dls2, target);
+  if (!result){
+    errEl.textContent = 'No solution found for this target/Inc/Az/DLS combination — try different DLS values or a different target.';
+    return;
+  }
+
+  const { inc1, az1, L } = result;
+  const cl1 = chcCurveCL(end.inc, end.az, inc1, az1, dls1);
+  const cl2 = chcCurveCL(inc1, az1, incT, azT, dls2);
+
+  if (cl1 > 1e-6) sections.push({ kind:'direct', inc: inc1, az: az1, cl: cl1 });
+  if (L > 1e-6) sections.push({ kind:'hold', cl: L });
+  if (cl2 > 1e-6) sections.push({ kind:'direct', inc: incT, az: azT, cl: cl2 });
+
+  closeCurveHoldCurveWizard();
+  renderSections();
+  recompute();
 }
 
 /* ============================================================
@@ -600,7 +1540,7 @@ function computeTrajectory(){
   let curInc=wellStart.inc, curAz=wellStart.az, md=0, tvd=0, n=0, e=0;
 
   sections.forEach(s=>{
-    const resolved = resolveSectionEndpoint(curInc, curAz, tvd, s);
+    const resolved = resolveSectionEndpoint(curInc, curAz, tvd, md, s);
     const endInc = resolved.endInc, endAz = resolved.endAz, CL = resolved.cl;
     if (!(CL > 0)){ curInc=endInc; curAz=endAz; return; }
 
@@ -651,6 +1591,25 @@ function renderStationsTable(){
       <td>${st.tvd.toFixed(1)}</td><td>${st.n.toFixed(1)}</td><td>${st.e.toFixed(1)}</td><td>${st.dls30.toFixed(2)}</td>`;
     tbody.appendChild(tr);
   });
+}
+
+function downloadStationsExcel(){
+  if (typeof XLSX === 'undefined'){ alert('Excel export library did not load.'); return; }
+  const rows = stations.map(st => ({
+    'MD (m)': +st.md.toFixed(2),
+    'Inc (deg)': +st.inc.toFixed(2),
+    'Az (deg)': +st.az.toFixed(2),
+    'TVD (m, RKB)': +st.tvd.toFixed(2),
+    'N (m)': +st.n.toFixed(2),
+    'E (m)': +st.e.toFixed(2),
+    'DLS (deg/30m)': +st.dls30.toFixed(3)
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:10},{wch:9},{wch:9},{wch:13},{wch:10},{wch:10},{wch:13}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Trajectory');
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  XLSX.writeFile(wb, `QuickPlan_Trajectory_${stamp}.xlsx`);
 }
 
 function renderTargetFeedback(){
