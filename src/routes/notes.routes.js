@@ -54,6 +54,7 @@ const {
     uploadNewSchedule,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
+    renderQuickPlan,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     setWellboreTrajectoryToolcode,
@@ -232,6 +233,10 @@ router.get('/notes/uploadTorqueAndDrag', isAuthenticated, canUseModelers, render
 router.get('/notes/uploadHydraulics', isAuthenticated, canUseModelers, renderUploadHydraulics);
 router.get('/notes/uploadCasingDesign', isAuthenticated, canUseModelers, renderUploadCasingDesign);
 
+
+//Quick Plan — standalone directional-plan checker, open to every role
+//(no canUseModelers gate, unlike the three modelers above).
+router.get('/notes/quickPlan', isAuthenticated, renderQuickPlan);
 
 
 module.exports = router;

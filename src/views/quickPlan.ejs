@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quick Plan — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c;
+    --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:12px;}
+  .layout{display:grid;grid-template-columns:480px 1fr;gap:0;height:calc(100vh - 52px);}
+  .sidebar{overflow-y:auto;border-right:1px solid var(--border);padding:16px;}
+  .main{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left;}
+  th{color:var(--muted);font-weight:500;}
+  input[type=number],input[type=text],select{
+    width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:4px 6px;border-radius:4px;font-size:12px;
+  }
+  input:disabled{opacity:.5;}
+  button{
+    background:var(--accent);border:none;color:#08131f;font-weight:600;padding:6px 10px;
+    border-radius:5px;font-size:12px;cursor:pointer;
+  }
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  button.danger{background:var(--bad);color:#fff;}
+  .row-actions{display:flex;gap:6px;margin-top:8px;}
+  .plot{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;height:420px;}
+  .plots-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .plots-grid .plot.full{grid-column:1/3;height:520px;}
+  .field-inline{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .field-inline label{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;}
+  .badge.good{background:rgba(46,204,113,.15);color:var(--good);}
+  .badge.bad{background:rgba(255,92,92,.15);color:var(--bad);}
+  .target-check{margin-top:6px;font-size:12px;padding:6px 8px;border-radius:6px;background:var(--panel2);}
+  .small-btn{padding:2px 6px;font-size:11px;}
+  .note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  select.type-select{width:100%;}
+
+  /* Section cards */
+  .section-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+  .section-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .section-card .title{font-size:12px;font-weight:600;}
+  .section-card .title .idx{color:var(--muted);font-weight:500;margin-right:4px;}
+  .section-card .params{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5;}
+  .section-card .result{font-size:12px;margin-top:6px;color:var(--accent);}
+  .section-card .result .note{display:inline;margin:0 0 0 6px;}
+  .section-card .card-actions{display:flex;gap:5px;flex-shrink:0;}
+  .icon-btn{padding:3px 8px;font-size:11px;line-height:1.4;}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;
+    justify-content:center;z-index:100;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;
+    width:340px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .modal h3{margin:0 0 4px;font-size:15px;}
+  .modal .modal-sub{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4;}
+  .modal-field{margin-bottom:12px;}
+  .modal-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .modal-field input, .modal-field select{font-size:14px;padding:8px 9px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <a href="/notes" style="color:var(--muted);font-size:12px;text-decoration:none;white-space:nowrap;">&larr; Back to MTX</a>
+    <h1>Quick Plan &mdash; Directional Plan Checker</h1>
+  </div>
+  <div class="sub">Minimum Curvature &middot; Metric (m) &middot; TVD referenced to RKB &middot; Surface fixed at (0, 0, 0)</div>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+
+    <div class="panel">
+      <h2>Targets (Local N, Local E, TVD-RKB, Radius)</h2>
+      <table id="targetsTable">
+        <thead><tr><th>Name</th><th>N (m)</th><th>E (m)</th><th>TVD (m)</th><th>R (m)</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="row-actions">
+        <button class="secondary" onclick="addTargetRow()">+ Add Target</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Plan Sections</h2>
+      <div class="field-inline">
+        <label>Start Inc (&deg;)</label>
+        <input type="number" id="startInc" value="0" step="0.1" oninput="wellStart.inc=parseFloat(this.value)||0;renderSections();recompute()">
+        <label>Start Az (&deg;)</label>
+        <input type="number" id="startAz" value="0" step="0.1" oninput="wellStart.az=parseFloat(this.value)||0;renderSections();recompute()">
+      </div>
+      <div class="note">
+        MD/N/E/TVD always start at (0,0,0) at surface, but the well's starting inclination/azimuth can be
+        non-zero (e.g. a sidetrack off an existing wellbore). Each section below is HOLD, a direct Inc/Az/CL
+        jump, or DLS+Toolface driven to a course length, target inclination, or target azimuth.
+      </div>
+      <div id="sectionsList"></div>
+      <div class="row-actions">
+        <button class="secondary" onclick="openSectionModal(sections.length)">+ Add Section</button>
+        <button class="danger" onclick="clearSections()">Clear All</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Target Feedback (live)</h2>
+      <div id="targetFeedback"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Vertical Section Reference</h2>
+      <div class="field-inline">
+        <label>VS Azimuth (&deg;)</label>
+        <input type="number" id="vsAzimuth" value="0" step="0.1" oninput="recompute()">
+      </div>
+      <div class="note">Defaults to azimuth toward the first target. Vertical Section = horizontal departure projected onto this azimuth (standard practice, not a specialized formula).</div>
+    </div>
+
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <h2>Station Table</h2>
+      <div style="max-height:220px;overflow-y:auto;">
+        <table id="stationsTable">
+          <thead><tr><th>MD (m)</th><th>Inc (&deg;)</th><th>Az (&deg;)</th><th>TVD (m)</th><th>N (m)</th><th>E (m)</th><th>DLS (&deg;/30m)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="plots-grid">
+      <div class="plot"><div id="planView" style="width:100%;height:100%;"></div></div>
+      <div class="plot"><div id="sectionView" style="width:100%;height:100%;"></div></div>
+      <div class="plot full"><div id="view3d" style="width:100%;height:100%;"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   MATH CORE — pure functions.
+   Source: Bourgoyne, Millheim, Chenevert, Young — "Applied
+   Drilling Engineering" (SPE Textbook Series), Ch. 8:
+     - Minimum curvature: Eqs. 8.33-8.37
+     - Toolface / new inclination & azimuth from DLS+TF: Eqs. 8.41-8.49
+   DLS convention used throughout: degrees per 30 m course length.
+   ============================================================ */
+
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+
+// Minimum curvature between two survey stations (inc/az in degrees, CL in meters)
+// Returns dN, dE, dTVD, and dogleg severity in deg/30m over this course length.
+function minimumCurvature(inc1, az1, inc2, az2, CL){
+  const a1=inc1*D2R, a2=inc2*D2R, e1=az1*D2R, e2=az2*D2R;
+  let cosBeta = Math.cos(a2-a1) - Math.sin(a1)*Math.sin(a2)*(1-Math.cos(e2-e1));
+  cosBeta = Math.max(-1, Math.min(1, cosBeta));
+  const beta = Math.acos(cosBeta); // radians
+  let F;
+  if (beta < 1e-8) { F = 1; } else { F = (2/beta)*Math.tan(beta/2); }
+  const dN = (CL/2)*(Math.sin(a1)*Math.cos(e1)+Math.sin(a2)*Math.cos(e2))*F;
+  const dE = (CL/2)*(Math.sin(a1)*Math.sin(e1)+Math.sin(a2)*Math.sin(e2))*F;
+  const dTVD = (CL/2)*(Math.cos(a1)+Math.cos(a2))*F;
+  const betaDeg = beta*R2D;
+  const dls30 = CL>0 ? (betaDeg/CL)*30 : 0;
+  return {dN, dE, dTVD, dls30};
+}
+
+// Core toolface relation (Eqs. 8.45-8.49): given current inc/az (deg), the
+// overall angle change beta (deg, i.e. the "dogleg" traversed by this
+// section) and toolface angle TF (deg, high-side reference), returns the
+// resulting inclination and azimuth (deg).
+function applyToolfaceBeta(inc1, az1, betaDeg, tf){
+  const beta = betaDeg*D2R;
+  const a1 = inc1*D2R, g = tf*D2R;
+  let cosAlphaN = Math.cos(a1)*Math.cos(beta) - Math.sin(a1)*Math.sin(beta)*Math.cos(g);
+  cosAlphaN = Math.max(-1, Math.min(1, cosAlphaN));
+  const alphaN = Math.acos(cosAlphaN);
+  // Direction change via spherical relation (Eq. 8.42, rearranged into atan2 form for quadrant safety)
+  const num = Math.sin(beta)*Math.sin(g);
+  const den = Math.sin(a1)*Math.cos(beta) + Math.cos(a1)*Math.sin(beta)*Math.cos(g);
+  const dEps = Math.atan2(num, den);
+  let azN = (az1 + dEps*R2D) % 360;
+  if (azN < 0) azN += 360;
+  return { incN: alphaN*R2D, azN };
+}
+
+// Given current inc/az (deg), a DLS (deg/30m), toolface angle TF (deg, high-side ref),
+// and course length CL (m): returns new inclination and azimuth (deg).
+function applyToolfaceSection(inc1, az1, dls30, tf, CL){
+  const betaDeg = dls30 * (CL/30);
+  const r = applyToolfaceBeta(inc1, az1, betaDeg, tf);
+  return { incN: r.incN, azN: r.azN, betaDeg };
+}
+
+// Solve for the overall angle change beta (deg) needed to reach a target
+// INCLINATION at a given toolface, by rearranging Eq. 8.46:
+//   cos(a1)cos(beta) - sin(a1)sin(beta)cos(g) = cos(aN)
+// which is of the form A*cos(beta) - B*sin(beta) = R*cos(beta+phi) = cos(aN).
+// Note beta here is purely geometric — independent of DLS. DLS only converts
+// this beta into a course length afterward (CL = beta/DLS * 30).
+function betaForTargetInc(inc1Deg, tfDeg, targetIncDeg){
+  const a1 = inc1Deg*D2R, g = tfDeg*D2R, aN = targetIncDeg*D2R;
+  const A = Math.cos(a1), B = Math.sin(a1)*Math.cos(g);
+  const R = Math.sqrt(A*A + B*B);
+  if (R < 1e-9) return null;
+  const phi = Math.atan2(B, A);
+  const rhs = Math.cos(aN)/R;
+  if (rhs < -1 || rhs > 1) return null; // target inclination unreachable at this toolface
+  const acosVal = Math.acos(Math.max(-1, Math.min(1, rhs)));
+  const candidates = [acosVal - phi, -acosVal - phi]
+    .map(c => { let x = c % (2*Math.PI); if (x <= 1e-7) x += 2*Math.PI; return x; })
+    .filter(x => x > 1e-6 && x <= Math.PI + 1e-6);
+  if (candidates.length === 0) return null;
+  return Math.min(...candidates) * R2D;
+}
+
+// Solve for the overall angle change beta (deg) needed to reach a target
+// AZIMUTH at a given toolface. The forward relation (Eq. 8.42) is not cleanly
+// invertible in closed form once wrap-around is considered, so this scans
+// beta from 0 to 180 deg tracking the (unwrapped) azimuth reached via the
+// exact same applyToolfaceBeta() used for forward calculation, and linearly
+// interpolates the first crossing of the target. Returns null if the target
+// azimuth is never reached within a single arc (0-180 deg of curvature).
+function betaForTargetAz(inc1Deg, az1Deg, tfDeg, targetAzDeg){
+  const targetDelta = (((targetAzDeg - az1Deg) % 360) + 540) % 360 - 180; // shortest signed delta, (-180,180]
+  const STEP = 0.1;
+  let prevBeta = 0, prevUnwrapped = 0, prevRaw = az1Deg;
+  for (let betaDeg = STEP; betaDeg <= 180; betaDeg += STEP){
+    const r = applyToolfaceBeta(inc1Deg, az1Deg, betaDeg, tfDeg);
+    let d = r.azN - prevRaw;
+    d = ((d % 360) + 540) % 360 - 180; // shortest signed step since last sample
+    const unwrapped = prevUnwrapped + d;
+    if ((prevUnwrapped <= targetDelta && unwrapped >= targetDelta) ||
+        (prevUnwrapped >= targetDelta && unwrapped <= targetDelta)){
+      const frac = (targetDelta - prevUnwrapped) / (unwrapped - prevUnwrapped || 1);
+      return prevBeta + frac*(betaDeg - prevBeta);
+    }
+    prevBeta = betaDeg; prevUnwrapped = unwrapped; prevRaw = r.azN;
+  }
+  return null; // not reached within a single 0-180 deg arc
+}
+
+// Solve for the overall angle change beta (deg) needed to reach a target
+// TVD at a given DLS/toolface. Unlike the Inc/Az solvers, this genuinely
+// depends on DLS (course length, not just geometry), since TVD accrues with
+// physical distance. TVD(beta) is evaluated exactly the same way as the
+// station interpolation does: minimum curvature (Eqs. 8.33-8.37) from the
+// section start to the point reached after curvature angle beta, over the
+// course length CL(beta)=beta/DLS*30. This is scanned/interpolated for the
+// first crossing of the target TVD, same approach as betaForTargetAz.
+function betaForTargetTVD(inc1Deg, az1Deg, tfDeg, dls30, deltaTvdTarget){
+  if (!(dls30 > 0)) return null;
+  const STEP = 0.1;
+  let prevBeta = 0, prevVal = 0;
+  for (let betaDeg = STEP; betaDeg <= 180; betaDeg += STEP){
+    const cl = betaDeg/dls30*30;
+    const r = applyToolfaceBeta(inc1Deg, az1Deg, betaDeg, tfDeg);
+    const mc = minimumCurvature(inc1Deg, az1Deg, r.incN, r.azN, cl);
+    const val = mc.dTVD;
+    if ((prevVal <= deltaTvdTarget && val >= deltaTvdTarget) ||
+        (prevVal >= deltaTvdTarget && val <= deltaTvdTarget)){
+      const frac = (deltaTvdTarget - prevVal) / (val - prevVal || 1);
+      return prevBeta + frac*(betaDeg - prevBeta);
+    }
+    prevBeta = betaDeg; prevVal = val;
+  }
+  return null; // target TVD not reached within a single 0-180 deg arc at this DLS
+}
+
+// Resolves ANY section kind into a concrete {endInc, endAz, cl, dTvd, warning}
+// given the current inc/az/TVD the well is at when the section starts.
+function resolveSectionEndpoint(curInc, curAz, curTvd, s){
+  let endInc, endAz, cl, warning = null;
+
+  if (s.kind === 'direct'){
+    endInc = s.inc; endAz = s.az; cl = s.cl;
+  } else if (s.kind === 'hold'){
+    endInc = curInc; endAz = curAz; cl = s.cl;
+  } else if (s.kind === 'dlstf'){
+    const r = applyToolfaceSection(curInc, curAz, s.dls, s.tf, s.cl);
+    endInc = r.incN; endAz = r.azN; cl = s.cl;
+  } else if (s.kind === 'dlstf_inc'){
+    const betaDeg = betaForTargetInc(curInc, s.tf, s.targetInc);
+    if (betaDeg === null || !(s.dls > 0)){
+      endInc = curInc; endAz = curAz; cl = 0;
+      warning = 'Target inclination not reachable at this toolface / DLS';
+    } else {
+      cl = betaDeg / s.dls * 30;
+      const r = applyToolfaceBeta(curInc, curAz, betaDeg, s.tf);
+      endInc = r.incN; endAz = r.azN;
+    }
+  } else if (s.kind === 'dlstf_az'){
+    const betaDeg = betaForTargetAz(curInc, curAz, s.tf, s.targetAz);
+    if (betaDeg === null || !(s.dls > 0)){
+      endInc = curInc; endAz = curAz; cl = 0;
+      warning = 'Target azimuth not reachable within a single arc at this toolface';
+    } else {
+      cl = betaDeg / s.dls * 30;
+      const r = applyToolfaceBeta(curInc, curAz, betaDeg, s.tf);
+      endInc = r.incN; endAz = r.azN;
+    }
+  } else if (s.kind === 'dlstf_tvd'){
+    const deltaTarget = s.targetTvd - curTvd;
+    const betaDeg = betaForTargetTVD(curInc, curAz, s.tf, s.dls, deltaTarget);
+    if (betaDeg === null){
+      endInc = curInc; endAz = curAz; cl = 0;
+      warning = deltaTarget < 0
+        ? 'Target TVD is above the current TVD — not reachable while building/turning downward'
+        : 'Target TVD not reachable within a single arc at this toolface / DLS';
+    } else {
+      cl = betaDeg / s.dls * 30;
+      const r = applyToolfaceBeta(curInc, curAz, betaDeg, s.tf);
+      endInc = r.incN; endAz = r.azN;
+    }
+  } else {
+    endInc = curInc; endAz = curAz; cl = 0; warning = 'Unknown section type';
+  }
+
+  const dTvd = (cl > 0) ? minimumCurvature(curInc, curAz, endInc, endAz, cl).dTVD : 0;
+  return { endInc, endAz, cl, dTvd, warning };
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let targets = []; // {name, n, e, tvd, r}
+let sections = []; // {kind:'direct'|'hold'|'dlstf'|'dlstf_inc'|'dlstf_az', ...}
+let stations = []; // computed: {md, inc, az, tvd, n, e, dls30}
+let wellStart = {inc:0, az:0}; // orientation at surface/MD=0 — not always vertical (e.g. sidetracks)
+
+/* ============================================================
+   TARGETS UI
+   ============================================================ */
+function addTargetRow(n=0,e=0,tvd=1000,r=15){
+  targets.push({name:'T'+(targets.length+1), n, e, tvd, r});
+  renderTargets();
+  recompute();
+}
+function removeTarget(i){ targets.splice(i,1); renderTargets(); recompute(); }
+function renderTargets(){
+  const tbody = document.querySelector('#targetsTable tbody');
+  tbody.innerHTML = '';
+  targets.forEach((t,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${t.name}" onchange="targets[${i}].name=this.value"></td>
+      <td><input type="number" step="0.1" value="${t.n}" onchange="targets[${i}].n=parseFloat(this.value)||0;recompute()"></td>
+      <td><input type="number" step="0.1" value="${t.e}" onchange="targets[${i}].e=parseFloat(this.value)||0;recompute()"></td>
+      <td><input type="number" step="0.1" value="${t.tvd}" onchange="targets[${i}].tvd=parseFloat(this.value)||0;recompute()"></td>
+      <td><input type="number" step="0.1" value="${t.r}" onchange="targets[${i}].r=parseFloat(this.value)||0;recompute()"></td>
+      <td><button class="danger small-btn" onclick="removeTarget(${i})">x</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ============================================================
+   SECTIONS UI — compact summary cards + a modal for data entry
+   ============================================================ */
+function removeSection(i){ sections.splice(i,1); renderSections(); recompute(); }
+function clearSections(){ sections=[]; renderSections(); recompute(); }
+
+const KIND_LABEL = {
+  direct:'Direct Inc/Az + CL',
+  hold:'HOLD (DLS = 0)',
+  dlstf:'DLS + Toolface + CL',
+  dlstf_inc:'DLS + Toolface + until Inc',
+  dlstf_az:'DLS + Toolface + until Az',
+  dlstf_tvd:'DLS + Toolface + until TVD'
+};
+
+function renderSections(){
+  const list = document.getElementById('sectionsList');
+  list.innerHTML = '';
+  if (sections.length===0){
+    list.innerHTML = '<div class="note">No sections yet. Click "+ Add Section" to define the well path from surface.</div>';
+    return;
+  }
+  let curInc=wellStart.inc, curAz=wellStart.az, curTvd=0;
+  sections.forEach((s,i)=>{
+    const card = document.createElement('div');
+    card.className = 'section-card';
+    const res = resolveSectionEndpoint(curInc, curAz, curTvd, s);
+    let paramsLine;
+
+    if (s.kind==='direct'){
+      paramsLine = `Inc &rarr; ${s.inc.toFixed(1)}&deg; &middot; Az &rarr; ${s.az.toFixed(1)}&deg; &middot; CL ${s.cl.toFixed(0)} m`;
+    } else if (s.kind==='hold'){
+      paramsLine = `CL ${s.cl.toFixed(0)} m &middot; DLS 0&deg;/30m`;
+    } else if (s.kind==='dlstf'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; TF ${s.tf.toFixed(0)}&deg; &middot; CL ${s.cl.toFixed(0)} m`;
+    } else if (s.kind==='dlstf_inc'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; TF ${s.tf.toFixed(0)}&deg; &middot; until Inc ${s.targetInc.toFixed(1)}&deg;
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='dlstf_az'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; TF ${s.tf.toFixed(0)}&deg; &middot; until Az ${s.targetAz.toFixed(1)}&deg;
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    } else if (s.kind==='dlstf_tvd'){
+      paramsLine = `DLS ${s.dls.toFixed(1)}&deg;/30m &middot; TF ${s.tf.toFixed(0)}&deg; &middot; until TVD ${s.targetTvd.toFixed(1)} m
+        <br>CL (auto): ${res.cl>0 ? res.cl.toFixed(1)+' m' : '—'}`;
+    }
+
+    const resultLine = res.warning
+      ? `<span class="badge bad">${res.warning}</span>`
+      : `&rarr; Inc ${res.endInc.toFixed(1)}&deg; / Az ${res.endAz.toFixed(1)}&deg; / TVD ${(curTvd+res.dTvd).toFixed(1)} m`;
+
+    card.innerHTML = `
+      <div class="top">
+        <div>
+          <div class="title"><span class="idx">#${i+1}</span>${KIND_LABEL[s.kind]}</div>
+          <div class="params">${paramsLine}</div>
+          <div class="result">${resultLine}</div>
+        </div>
+        <div class="card-actions">
+          <button class="secondary icon-btn" onclick="openSectionModal(${i})">Edit</button>
+          <button class="danger icon-btn" onclick="removeSection(${i})">x</button>
+        </div>
+      </div>`;
+    list.appendChild(card);
+    curInc = res.endInc; curAz = res.endAz; curTvd = curTvd + res.dTvd;
+  });
+}
+
+/* ---- Modal ---- */
+const KIND_HELP = {
+  direct: 'Jump directly to a target inclination/azimuth over a course length (DLS is implied, not entered). Useful for a first section off a known start orientation.',
+  hold: 'Keep the current inclination and azimuth constant (DLS = 0) for a course length.',
+  dlstf: 'Build/turn at a fixed dogleg severity toward a toolface for a chosen course length.',
+  dlstf_az: 'Build/turn at a fixed dogleg severity toward a toolface until a target AZIMUTH is reached — course length is solved automatically.',
+  dlstf_inc: 'Build/turn at a fixed dogleg severity toward a toolface until a target INCLINATION is reached — course length is solved automatically.',
+  dlstf_tvd: 'Build/turn at a fixed dogleg severity toward a toolface until a target TVD (RKB) is reached — course length is solved automatically.'
+};
+
+function openSectionModal(index){
+  const isNew = index >= sections.length;
+  const existing = isNew ? null : sections[index];
+  const kind = existing ? existing.kind : (index===0 ? 'direct' : 'hold');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'sectionModalOverlay';
+  overlay.onclick = (e)=>{ if (e.target===overlay) closeSectionModal(); };
+
+  const d = existing || {};
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${isNew ? 'Add Section' : 'Edit Section'} #${index+1}</h3>
+
+      <div class="modal-field">
+        <label>Section type</label>
+        <select id="mKind" class="type-select" onchange="renderModalFields()">
+          <option value="direct" ${kind==='direct'?'selected':''}>Direct Inc/Az + CL</option>
+          <option value="hold" ${kind==='hold'?'selected':''}>HOLD (DLS = 0)</option>
+          <option value="dlstf" ${kind==='dlstf'?'selected':''}>DLS + Toolface + CL</option>
+          <option value="dlstf_inc" ${kind==='dlstf_inc'?'selected':''}>DLS + Toolface + until Inc</option>
+          <option value="dlstf_az" ${kind==='dlstf_az'?'selected':''}>DLS + Toolface + until Az</option>
+          <option value="dlstf_tvd" ${kind==='dlstf_tvd'?'selected':''}>DLS + Toolface + until TVD</option>
+        </select>
+      </div>
+      <div class="modal-sub" id="mHelp"></div>
+
+      <div id="mFields"></div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeSectionModal()">Cancel</button>
+        <button class="secondary" onclick="saveSectionModal(${index}, false)">Apply</button>
+        <button onclick="saveSectionModal(${index}, true)">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.dataset.data = JSON.stringify(d);
+  renderModalFields();
+}
+
+function renderModalFields(){
+  const overlay = document.getElementById('sectionModalOverlay');
+  const d = JSON.parse(overlay.dataset.data || '{}');
+  const kind = document.getElementById('mKind').value;
+  document.getElementById('mHelp').textContent = KIND_HELP[kind];
+  const fields = document.getElementById('mFields');
+
+  if (kind==='direct'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Inclination (&deg;)</label><input type="number" id="mInc" step="0.1" value="${d.inc ?? 20}"></div>
+      <div class="modal-field"><label>Azimuth (&deg;)</label><input type="number" id="mAz" step="0.1" value="${d.az ?? 0}"></div>
+      <div class="modal-field"><label>Course Length (m)</label><input type="number" id="mCl" step="1" value="${d.cl ?? 300}"></div>`;
+  } else if (kind==='hold'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>Course Length (m)</label><input type="number" id="mCl" step="1" value="${d.cl ?? 300}"></div>`;
+  } else if (kind==='dlstf'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Toolface (&deg;, high side ref)</label><input type="number" id="mTf" step="1" value="${d.tf ?? 0}"></div>
+      <div class="modal-field"><label>Course Length (m)</label><input type="number" id="mCl" step="1" value="${d.cl ?? 300}"></div>`;
+  } else if (kind==='dlstf_inc'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Toolface (&deg;, high side ref)</label><input type="number" id="mTf" step="1" value="${d.tf ?? 0}"></div>
+      <div class="modal-field"><label>Target Inclination (&deg;)</label><input type="number" id="mTargetInc" step="0.1" value="${d.targetInc ?? 30}"></div>`;
+  } else if (kind==='dlstf_az'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Toolface (&deg;, high side ref)</label><input type="number" id="mTf" step="1" value="${d.tf ?? 0}"></div>
+      <div class="modal-field"><label>Target Azimuth (&deg;)</label><input type="number" id="mTargetAz" step="0.1" value="${d.targetAz ?? 90}"></div>`;
+  } else if (kind==='dlstf_tvd'){
+    fields.innerHTML = `
+      <div class="modal-field"><label>DLS (&deg;/30m)</label><input type="number" id="mDls" step="0.1" value="${d.dls ?? 3}"></div>
+      <div class="modal-field"><label>Toolface (&deg;, high side ref)</label><input type="number" id="mTf" step="1" value="${d.tf ?? 0}"></div>
+      <div class="modal-field"><label>Target TVD (m, RKB)</label><input type="number" id="mTargetTvd" step="1" value="${d.targetTvd ?? 1500}"></div>`;
+  }
+}
+
+function closeSectionModal(){
+  const overlay = document.getElementById('sectionModalOverlay');
+  if (overlay) overlay.remove();
+}
+
+function readModalSectionObject(){
+  const kind = document.getElementById('mKind').value;
+  if (kind==='direct'){
+    return { kind, inc: parseFloat(document.getElementById('mInc').value) || 0,
+      az: parseFloat(document.getElementById('mAz').value) || 0,
+      cl: parseFloat(document.getElementById('mCl').value) || 0 };
+  }
+  if (kind==='hold'){
+    return { kind, cl: parseFloat(document.getElementById('mCl').value) || 0 };
+  }
+  if (kind==='dlstf'){
+    return { kind, cl: parseFloat(document.getElementById('mCl').value) || 0,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      tf: parseFloat(document.getElementById('mTf').value) || 0 };
+  }
+  if (kind==='dlstf_inc'){
+    return { kind,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      tf: parseFloat(document.getElementById('mTf').value) || 0,
+      targetInc: parseFloat(document.getElementById('mTargetInc').value) || 0 };
+  }
+  if (kind==='dlstf_az'){
+    return { kind,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      tf: parseFloat(document.getElementById('mTf').value) || 0,
+      targetAz: parseFloat(document.getElementById('mTargetAz').value) || 0 };
+  }
+  if (kind==='dlstf_tvd'){
+    return { kind,
+      dls: parseFloat(document.getElementById('mDls').value) || 0,
+      tf: parseFloat(document.getElementById('mTf').value) || 0,
+      targetTvd: parseFloat(document.getElementById('mTargetTvd').value) || 0 };
+  }
+}
+
+// closeAfter=true -> "Save" (apply + close). closeAfter=false -> "Apply" (apply, stays open).
+function saveSectionModal(index, closeAfter){
+  const obj = readModalSectionObject();
+  if (index >= sections.length) sections.push(obj); else sections[index] = obj;
+  renderSections();
+  recompute();
+  if (closeAfter){ closeSectionModal(); }
+  else {
+    const overlay = document.getElementById('sectionModalOverlay');
+    overlay.dataset.data = JSON.stringify(obj);
+  }
+}
+
+/* ============================================================
+   COMPUTE FULL TRAJECTORY — interpolated every ~10 m within each
+   plan section. Each plan section is assumed to hold a CONSTANT
+   curvature (build+turn rate) along its length, which is the same
+   assumption minimum curvature itself makes between two survey
+   stations. So interior points are found by spherically
+   interpolating the attitude (tangent) unit vector between the
+   section's start and end orientation (slerp by arc-length
+   fraction t), then applying minimum curvature (Eqs. 8.33-8.37)
+   from the section start to that interpolated orientation to get
+   position. This reduces exactly to the section's own start/end
+   values at t=0 and t=1.
+   ============================================================ */
+const STATION_STEP = 10; // meters
+
+function attitudeVector(inc, az){
+  const i=inc*D2R, a=az*D2R;
+  return [Math.sin(i)*Math.cos(a), Math.sin(i)*Math.sin(a), Math.cos(i)];
+}
+
+function computeTrajectory(){
+  stations = [{md:0, inc:wellStart.inc, az:wellStart.az, tvd:0, n:0, e:0, dls30:0}];
+  let curInc=wellStart.inc, curAz=wellStart.az, md=0, tvd=0, n=0, e=0;
+
+  sections.forEach(s=>{
+    const resolved = resolveSectionEndpoint(curInc, curAz, tvd, s);
+    const endInc = resolved.endInc, endAz = resolved.endAz, CL = resolved.cl;
+    if (!(CL > 0)){ curInc=endInc; curAz=endAz; return; }
+
+    const startInc=curInc, startAz=curAz;
+    const a1=startInc*D2R, a2=endInc*D2R, e1=startAz*D2R, e2=endAz*D2R;
+    let cosBetaTotal = Math.cos(a2-a1) - Math.sin(a1)*Math.sin(a2)*(1-Math.cos(e2-e1));
+    cosBetaTotal = Math.max(-1, Math.min(1, cosBetaTotal));
+    const betaTotal = Math.acos(cosBetaTotal);
+    const sectionDls30 = (betaTotal*R2D/CL)*30;
+
+    const A = attitudeVector(startInc, startAz), B = attitudeVector(endInc, endAz);
+    const baseMD=md, baseTVD=tvd, baseN=n, baseE=e;
+    const numSteps = Math.max(1, Math.round(CL/STATION_STEP));
+
+    for (let k=1; k<=numSteps; k++){
+      const sLen = (k/numSteps)*CL;
+      const t = sLen/CL;
+      let incT, azT;
+      if (k===numSteps){ incT=endInc; azT=endAz; } // exact endpoint, avoids fp drift
+      else if (betaTotal < 1e-8){ incT=startInc; azT=startAz; }
+      else {
+        const sinBeta = Math.sin(betaTotal);
+        const f1 = Math.sin((1-t)*betaTotal)/sinBeta;
+        const f2 = Math.sin(t*betaTotal)/sinBeta;
+        const v = [A[0]*f1+B[0]*f2, A[1]*f1+B[1]*f2, A[2]*f1+B[2]*f2];
+        const norm = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]) || 1;
+        const vn = [v[0]/norm, v[1]/norm, v[2]/norm];
+        incT = Math.acos(Math.max(-1,Math.min(1,vn[2])))*R2D;
+        azT = Math.atan2(vn[1], vn[0])*R2D; if (azT<0) azT+=360;
+      }
+      const mc = minimumCurvature(startInc, startAz, incT, azT, sLen);
+      md = baseMD + sLen; tvd = baseTVD + mc.dTVD; n = baseN + mc.dN; e = baseE + mc.dE;
+      stations.push({md, inc:incT, az:azT, tvd, n, e, dls30:sectionDls30});
+    }
+    curInc = endInc; curAz = endAz;
+  });
+}
+
+/* ============================================================
+   RENDER: station table, target feedback, plots
+   ============================================================ */
+function renderStationsTable(){
+  const tbody = document.querySelector('#stationsTable tbody');
+  tbody.innerHTML = '';
+  stations.forEach(st=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${st.md.toFixed(1)}</td><td>${st.inc.toFixed(1)}</td><td>${st.az.toFixed(1)}</td>
+      <td>${st.tvd.toFixed(1)}</td><td>${st.n.toFixed(1)}</td><td>${st.e.toFixed(1)}</td><td>${st.dls30.toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderTargetFeedback(){
+  const div = document.getElementById('targetFeedback');
+  if (targets.length===0){ div.innerHTML = '<span class="note">Add a target to see live miss-distance feedback.</span>'; return; }
+  const last = stations[stations.length-1];
+  div.innerHTML = '';
+  targets.forEach(t=>{
+    // closest approach: minimum 3D distance from any station to this target
+    let best = Infinity;
+    stations.forEach(st=>{
+      const d = Math.sqrt((st.n-t.n)**2 + (st.e-t.e)**2 + (st.tvd-t.tvd)**2);
+      if (d<best) best=d;
+    });
+    const finalDist = Math.sqrt((last.n-t.n)**2 + (last.e-t.e)**2 + (last.tvd-t.tvd)**2);
+    const hit = best <= t.r;
+    const el = document.createElement('div');
+    el.className = 'target-check';
+    el.innerHTML = `<b>${t.name}</b> &mdash; closest approach: ${best.toFixed(1)} m
+      (target R = ${t.r} m) <span class="badge ${hit?'good':'bad'}">${hit?'WITHIN RADIUS':'MISSED'}</span>
+      <br><span class="note" style="margin:0">distance from trajectory end: ${finalDist.toFixed(1)} m</span>`;
+    div.appendChild(el);
+  });
+}
+
+function defaultVsAzimuth(){
+  if (targets.length>0){
+    const t = targets[0];
+    let az = Math.atan2(t.e, t.n)*R2D;
+    if (az<0) az+=360;
+    return az;
+  }
+  return 0;
+}
+
+function renderPlots(){
+  const vsAz = parseFloat(document.getElementById('vsAzimuth').value)||0;
+  const N = stations.map(s=>s.n), E = stations.map(s=>s.e), TVD = stations.map(s=>s.tvd);
+
+  // Plan view: East (x) vs North (y)
+  const planTraces = [{x:E, y:N, mode:'lines+markers', name:'Trajectory', line:{color:'#4da3ff'}}];
+  targets.forEach(t=>{
+    planTraces.push({x:[t.e], y:[t.n], mode:'markers+text', name:t.name, text:[t.name], textposition:'top center',
+      marker:{size:10, color:'#ff5c5c', symbol:'circle-open'}});
+  });
+  Plotly.newPlot('planView', planTraces, {
+    title:'Plan View (N vs E)', xaxis:{title:'East (m)'}, yaxis:{title:'North (m)', scaleanchor:'x'},
+    paper_bgcolor:'#171b21', plot_bgcolor:'#171b21', font:{color:'#e6e9ef', size:10}, margin:{t:36}
+  }, {responsive:true});
+
+  // Vertical section view: VS distance (projected on vsAz) vs TVD
+  function vsOf(n,e){
+    const horiz = Math.sqrt(n*n+e*e);
+    let depAz = Math.atan2(e,n)*R2D; if (depAz<0) depAz+=360;
+    return horiz*Math.cos((depAz-vsAz)*D2R);
+  }
+  const VS = stations.map(s=>vsOf(s.n,s.e));
+  const secTraces = [{x:VS, y:TVD, mode:'lines+markers', name:'Trajectory', line:{color:'#4da3ff'}}];
+  targets.forEach(t=>{
+    secTraces.push({x:[vsOf(t.n,t.e)], y:[t.tvd], mode:'markers+text', text:[t.name], textposition:'top center',
+      marker:{size:10, color:'#ff5c5c', symbol:'circle-open'}});
+  });
+  Plotly.newPlot('sectionView', secTraces, {
+    title:`Vertical Section (VS Az = ${vsAz.toFixed(1)}°)`, xaxis:{title:'Vertical Section (m)'},
+    yaxis:{title:'TVD (m, RKB)', autorange:'reversed', scaleanchor:'x', scaleratio:1},
+    paper_bgcolor:'#171b21', plot_bgcolor:'#171b21', font:{color:'#e6e9ef', size:10}, margin:{t:36}
+  }, {responsive:true});
+
+  // 3D view
+  const traces3d = [{x:E, y:N, z:TVD, mode:'lines+markers', type:'scatter3d', name:'Trajectory',
+    line:{color:'#4da3ff', width:5}, marker:{size:2}}];
+  targets.forEach(t=>{
+    traces3d.push({x:[t.e], y:[t.n], z:[t.tvd], mode:'markers+text', type:'scatter3d', text:[t.name],
+      marker:{size:5, color:'#ff5c5c'}});
+  });
+  Plotly.newPlot('view3d', traces3d, {
+    title:'3D Trajectory',
+    scene:{
+      xaxis:{title:'East (m)'}, yaxis:{title:'North (m)'},
+      zaxis:{title:'TVD (m, RKB)', autorange:'reversed'},
+      aspectmode:'data'
+    },
+    paper_bgcolor:'#171b21', font:{color:'#e6e9ef', size:10}, margin:{t:36}
+  }, {responsive:true});
+}
+
+function recompute(){
+  computeTrajectory();
+  renderStationsTable();
+  renderTargetFeedback();
+  if (document.getElementById('vsAzimuth').dataset.userSet !== '1'){
+    document.getElementById('vsAzimuth').value = defaultVsAzimuth().toFixed(1);
+  }
+  renderPlots();
+}
+document.getElementById('vsAzimuth').addEventListener('input', function(){ this.dataset.userSet='1'; });
+
+/* ============================================================
+   INIT — seed with a simple example so the page isn't blank
+   ============================================================ */
+addTargetRow(300, 400, 2500, 20);
+sections.push({kind:'direct', inc:20, az:53, cl:500});
+sections.push({kind:'dlstf_inc', dls:3, tf:0, targetInc:60});
+sections.push({kind:'hold', cl:800});
+renderSections();
+recompute();
+</script>
+</body>
+</html>

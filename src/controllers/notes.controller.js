@@ -781,6 +781,17 @@ notesCrtl.renderUploadFracPlanes = async(req,res)=>{
 };
 
 
+// Quick Plan — standalone directional-plan sanity checker. No note/job/DB
+// coupling at all (unlike T&D/Hydraulics, which at least accept an optional
+// ?mtxJobId=... to preload a job): this is a pure client-side calculator
+// (minimum curvature only) for a drilling engineer to rough out a well path
+// and check target/DLS feasibility before doing anything in a real job.
+// Available to every authenticated role — no canUseModelers gate.
+notesCrtl.renderQuickPlan = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    res.render('quickPlan.ejs', {user});
+};
+
 notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{
     // res.send('Edit note...');
     let user = await User.findById(req.session.passport.user);
