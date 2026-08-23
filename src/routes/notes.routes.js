@@ -76,6 +76,18 @@ const {
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
 
+// Added 2026-08-24: route-level guard for 6-axis Data case writes (save +
+// delete) — the 'viewer' role can load/see cases but never create or
+// remove them, per the person's role matrix (Admin: full CRUD; Leader/User:
+// create+save, no delete; Viewer: read-only). Requires isAuthenticated to
+// have already run (req.user present).
+function blockViewerFromSaving(req, res, next){
+    if(req.user && req.user.role === 'viewer'){
+        return res.status(403).json({ok:false, error:'Your role does not have permission to do this.'});
+    }
+    next();
+}
+
 //Get note
 router.get('/notes/add', isAuthenticated, renderNoteForm);
 
@@ -247,12 +259,18 @@ router.get('/notes/quickPlan', isAuthenticated, renderQuickPlan);
 //pattern as Quick Plan above (no bound note/job, open to every role).
 router.get('/notes/sixAxisData', isAuthenticated, renderSixAxisData);
 
-//6-axis Data — saved cases (per-user, 2026-08-23): raw imported rows +
-//Input Data panel state, so a session's work can be reloaded later.
-router.post('/notes/sixAxisData/case', isAuthenticated, saveSixAxisCase);
+//6-axis Data — saved cases (2026-08-23, updated 2026-08-24 to be shared
+//across all users with role-based CRUD): raw imported rows + Input Data
+//panel state. Visible/loadable by every authenticated role. Create/save
+//is blocked for 'viewer' (blockViewerFromSaving below); delete is further
+//restricted inside deleteSixAxisCase itself (admin = any case, leader/user
+//= only cases they created, viewer = none — the route-level guard here
+//already blocks viewer, so the controller only needs to handle the
+//admin-vs-owner distinction).
+router.post('/notes/sixAxisData/case', isAuthenticated, blockViewerFromSaving, saveSixAxisCase);
 router.get('/notes/sixAxisData/cases', isAuthenticated, listSixAxisCases);
 router.get('/notes/sixAxisData/case/:id', isAuthenticated, getSixAxisCase);
-router.delete('/notes/sixAxisData/case/:id', isAuthenticated, deleteSixAxisCase);
+router.delete('/notes/sixAxisData/case/:id', isAuthenticated, blockViewerFromSaving, deleteSixAxisCase);
 
 
 module.exports = router;

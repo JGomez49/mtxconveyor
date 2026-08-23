@@ -7,6 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<!-- Added 2026-08-24: for the "Download Case PDF" button (jsPDF core +
+     the autoTable plugin for the data tables). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   /*
     Restyled 2026-08-22 to match MTX Conveyor's own standalone-tool look
@@ -47,6 +51,11 @@
   }
   button:hover{filter:brightness(1.1);}
   button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  /* Added 2026-08-24 per the person's direction: "Use Already Uploaded
+     File" buttons get a green background so they stand out from a fresh
+     "Import Excel File" action. */
+  button.btn-uploaded{background:var(--good);color:#08131f;border:1px solid var(--good);}
+  button.btn-uploaded:hover{filter:brightness(1.08);}
   .note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}
   /* Added 2026-08-23: highlight for Reference INC/AZ after a Quick Row Select
      click — the imported file has no INC/AZ column, so these are blanked on
@@ -79,19 +88,30 @@
   </div>
 
   <!-- Added 2026-08-23: Saved Cases — persists the raw imported rows +
-       Input Data panel state per user (MongoDB, via /notes/sixAxisData/case
-       routes), so a case can be named, reloaded, and deleted later. -->
+       Input Data panel state (MongoDB, via /notes/sixAxisData/case routes).
+       Updated 2026-08-24: cases are now visible/loadable by every role;
+       Save is hidden for Viewer (also enforced server-side); Delete is
+       shown only where the server would actually allow it (Admin = any
+       case, Leader/User = only cases they created, Viewer = never) — see
+       refreshCaseList()'s per-option "can delete" logic below, which reads
+       the currentUserId/currentUserRole the case-list endpoint returns. -->
   <div class="panel">
     <h2>Saved Cases</h2>
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <% if (user.role !== 'viewer') { %>
       <button type="button" id="saveCaseBtn" class="secondary">Save Case</button>
+      <% } %>
       <select id="caseSelect" style="max-width:280px;">
         <option value="">Select a saved case…</option>
       </select>
       <button type="button" id="loadCaseBtn" class="secondary">Load</button>
+      <% if (user.role !== 'viewer') { %>
       <button type="button" id="deleteCaseBtn" class="secondary">Delete</button>
+      <% } %>
+      <button type="button" id="downloadCasePdfBtn" class="secondary">Download Case PDF</button>
     </div>
-    <div class="note">Save Case stores the raw imported Excel rows (whichever were last imported/used) and every Input Data field above. Load restores both.</div>
+    <div class="note">Save Case stores the raw imported Excel rows (whichever were last imported/used) and every Input Data field above. Load restores both. Cases are shared — everyone can see and load every case.</div>
+    <div id="caseMetaText" class="note" style="display:none;"></div>
   </div>
 
   <form id="inputForm">
@@ -242,8 +262,10 @@
              File" in the OTHER panel reuses that same cached data instead
              of prompting for the file again. -->
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);">
+          <% if (user.role !== 'viewer') { %>
           <button type="button" id="qrsImportBtn" class="secondary">Import Excel File</button>
-          <button type="button" id="qrsUseUploadedBtn" class="secondary">Use Already Uploaded File</button>
+          <% } %>
+          <button type="button" id="qrsUseUploadedBtn" class="secondary btn-uploaded">Use Already Uploaded File</button>
           <div class="note">Click a row below to auto-fill MD/Gx/Gy/Gz/Bx/By/Bz above (units reset to G/nT, matching the import format). Magnetic Field/Reference DIP/Reference DEC stay at their fixed defaults above — this page does not compute those from the row.</div>
           <div id="qrsTableContainer" style="margin-top:8px;max-height:260px;overflow:auto;"></div>
         </div>
@@ -251,6 +273,11 @@
     </div>
   </form>
 
+  <!-- Added 2026-08-24: "Valid Combinations (within tolerance)" is now
+       Admin-only per the person's direction. This is a server-side EJS
+       conditional (not just hidden with CSS), so the section is never
+       even sent to a non-admin's browser. -->
+  <% if (user.role === 'admin') { %>
   <div class="panel">
     <h2>Valid Combinations (within tolerance)</h2>
     <div style="overflow-x:auto;">
@@ -266,9 +293,12 @@
       </table>
     </div>
   </div>
+  <% } %>
 
   <div class="panel">
-    <h3>Comparison (first matching combination vs. as-entered)</h3>
+    <!-- Renamed 2026-08-24 from "Comparison (first matching combination vs.
+         as-entered)" per the person's direction. -->
+    <h3>Sensor Mapping</h3>
     <div class="note">Row 1 = as-entered values; Row 2 = the matching combination's values; Row 3 = which original input column each came from (by index); Row 4 = the sign/ratio applied.</div>
     <div style="overflow-x:auto;">
       <table id="comparisonTable">
@@ -291,8 +321,11 @@
   <div class="panel">
     <h2>Multi-Station Import (QC across a full run)</h2>
     <div class="note">Excel file must have columns, in order: <b>MD, Gx, Gy, Gz, Bx, By, Bz</b>. Uses the Reference DEC and the Calculated Magnetic Field Components above for the theoretical (t-prefixed) columns.</div>
+    <% if (user.role !== 'viewer') { %>
     <button type="button" id="importExcelBtn">Import Excel File</button>
-    <button type="button" id="msaUseUploadedBtn" class="secondary">Use Already Uploaded File</button>
+    <% } %>
+    <button type="button" id="msaUseUploadedBtn" class="secondary btn-uploaded">Use Already Uploaded File</button>
+    <button type="button" id="downloadSampleBtn" class="secondary">Download Sample Import Template</button>
     <div id="importedDataContainer"></div>
   </div>
 
@@ -503,43 +536,79 @@ function applyInputData(data) {
   });
 }
 
+// Added 2026-08-24: cache of the last case list fetched (id -> case meta),
+// so the "who created it / when" text and the delete-permission check can
+// look a case up by id without a second round-trip.
+let CASE_LIST_CACHE = {};
+let CURRENT_USER_ID = null;
+let CURRENT_USER_ROLE = null;
+
+function updateCaseMetaText(caseMeta) {
+  const el = document.getElementById("caseMetaText");
+  if (!caseMeta) { el.style.display = "none"; el.textContent = ""; return; }
+  el.style.display = "";
+  el.textContent = `Created by ${caseMeta.createdByName} on ${new Date(caseMeta.createdAt).toLocaleString()}`;
+}
+
+// Added 2026-08-24: can the current user delete this case? Mirrors the
+// server-side rule in deleteSixAxisCase exactly — admin: any case;
+// leader/user: only cases they created; viewer never gets here (the
+// Delete button doesn't exist in the DOM for viewer at all).
+function canDeleteCase(caseMeta) {
+  if (!caseMeta) return false;
+  if (CURRENT_USER_ROLE === "admin") return true;
+  return !!CURRENT_USER_ID && caseMeta.createdByUserId === CURRENT_USER_ID;
+}
+
 async function refreshCaseList(selectId) {
   const select = document.getElementById("caseSelect");
   try {
     const res = await fetch("/notes/sixAxisData/cases");
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Failed to list cases.");
+    CURRENT_USER_ID = json.currentUserId;
+    CURRENT_USER_ROLE = json.currentUserRole;
+    CASE_LIST_CACHE = {};
+    json.cases.forEach((c) => { CASE_LIST_CACHE[c._id] = c; });
     select.innerHTML = '<option value="">Select a saved case…</option>' +
-      json.cases.map((c) => `<option value="${c._id}">${c.name} (${new Date(c.createdAt).toLocaleString()})</option>`).join("");
+      json.cases.map((c) => `<option value="${c._id}">${c.name} — by ${c.createdByName} (${new Date(c.createdAt).toLocaleString()})</option>`).join("");
     if (selectId) select.value = selectId;
+    updateCaseMetaText(selectId ? CASE_LIST_CACHE[selectId] : null);
   } catch (err) {
     console.error("[SixAxisCase] list failed", err);
     alert("Could not load the saved case list.");
   }
 }
 
-document.getElementById("saveCaseBtn").addEventListener("click", async () => {
-  const name = prompt("Name this case (e.g. well/run name):");
-  if (!name || !name.trim()) return;
-  try {
-    const res = await fetch("/notes/sixAxisData/case", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: name.trim(),
-        rawRows: LAST_IMPORTED_ROWS || [],
-        inputData: collectInputData(),
-      }),
-    });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || "Failed to save case.");
-    await refreshCaseList(json.case._id);
-    alert(`Case "${name.trim()}" saved.`);
-  } catch (err) {
-    console.error("[SixAxisCase] save failed", err);
-    alert("Could not save this case.");
-  }
+document.getElementById("caseSelect").addEventListener("change", (e) => {
+  updateCaseMetaText(CASE_LIST_CACHE[e.target.value] || null);
 });
+
+const saveCaseBtnEl = document.getElementById("saveCaseBtn");
+if (saveCaseBtnEl) {
+  saveCaseBtnEl.addEventListener("click", async () => {
+    const name = prompt("Name this case (e.g. well/run name):");
+    if (!name || !name.trim()) return;
+    try {
+      const res = await fetch("/notes/sixAxisData/case", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          rawRows: LAST_IMPORTED_ROWS || [],
+          inputData: collectInputData(),
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Failed to save case.");
+      await refreshCaseList(json.case._id);
+      alert(`Case "${name.trim()}" saved.`);
+    } catch (err) {
+      console.error("[SixAxisCase] save failed", err);
+      alert("Could not save this case.");
+    }
+  });
+}
 
 document.getElementById("loadCaseBtn").addEventListener("click", async () => {
   const id = document.getElementById("caseSelect").value;
@@ -553,30 +622,205 @@ document.getElementById("loadCaseBtn").addEventListener("click", async () => {
     if (LAST_IMPORTED_ROWS && LAST_IMPORTED_ROWS.length) {
       renderQuickSelectTable(LAST_IMPORTED_ROWS);
     }
+    updateCaseMetaText({createdByName: json.case.createdByName, createdAt: json.case.createdAt});
   } catch (err) {
     console.error("[SixAxisCase] load failed", err);
     alert("Could not load this case.");
   }
 });
 
-document.getElementById("deleteCaseBtn").addEventListener("click", async () => {
-  const select = document.getElementById("caseSelect");
-  const id = select.value;
-  if (!id) { alert("Select a saved case first."); return; }
-  const label = select.options[select.selectedIndex].textContent;
-  if (!confirm(`Delete case "${label}"? This cannot be undone.`)) return;
-  try {
-    const res = await fetch(`/notes/sixAxisData/case/${id}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || "Failed to delete case.");
-    await refreshCaseList();
-  } catch (err) {
-    console.error("[SixAxisCase] delete failed", err);
-    alert("Could not delete this case.");
-  }
-});
+const deleteCaseBtnEl = document.getElementById("deleteCaseBtn");
+if (deleteCaseBtnEl) {
+  deleteCaseBtnEl.addEventListener("click", async () => {
+    const select = document.getElementById("caseSelect");
+    const id = select.value;
+    if (!id) { alert("Select a saved case first."); return; }
+    const caseMeta = CASE_LIST_CACHE[id];
+    if (!canDeleteCase(caseMeta)) {
+      alert("You don't have permission to delete this case (you can only delete cases you created).");
+      return;
+    }
+    const label = select.options[select.selectedIndex].textContent;
+    if (!confirm(`Delete case "${label}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/notes/sixAxisData/case/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Failed to delete case.");
+      await refreshCaseList();
+    } catch (err) {
+      console.error("[SixAxisCase] delete failed", err);
+      alert("Could not delete this case.");
+    }
+  });
+}
 
 refreshCaseList();
+
+// Added 2026-08-24: "Download Sample Import Template" — a plain .xlsx with
+// the exact required header row (MD, Gx, Gy, Gz, Bx, By, Bz — see
+// pickAndImportExcelFile's own header check above) plus two example rows,
+// so a new import always starts from a file that's already in the right
+// shape.
+document.getElementById("downloadSampleBtn").addEventListener("click", () => {
+  const sampleRows = [
+    ["MD", "Gx", "Gy", "Gz", "Bx", "By", "Bz"],
+    [100, -0.61, -0.79, 0.07, -40701, -8096, 18795],
+    [200, -0.60, -0.78, 0.08, -40650, -8050, 18800],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sampleRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sample");
+  XLSX.writeFile(wb, "6-axis-data-sample-template.xlsx");
+});
+
+// Added 2026-08-24: "Download Case PDF" — a single PDF covering the
+// current on-page state (Input Data, the Sensor Mapping table, any
+// Imported/Rearranged Data tables, and every QC plot), each part starting
+// on its own page with a bookmark/outline entry so it reads like tabs in
+// a PDF viewer. Per the person's direction, the "Valid Combinations
+// (within tolerance)" and "MSA-Corrected (reserved)" tables are
+// deliberately EXCLUDED from this export.
+const INPUT_DATA_PDF_ROWS = [
+  ["mdInput", "MD", "m"],
+  ["gx", "Gx", "gxUnit"], ["gy", "Gy", "gyUnit"], ["gz", "Gz", "gzUnit"],
+  ["bx", "Bx", "bxUnit"], ["by", "By", "byUnit"], ["bz", "Bz", "bzUnit"],
+  ["refBT", "Magnetic Field (BT)", "uT"],
+  ["refGT", "Gravity Field (GT)", "G"],
+  ["refInc", "Reference INC", "deg"],
+  ["refAz", "Reference AZ", "deg"],
+  ["refDip", "Reference DIP", "deg"],
+  ["refDec", "Reference DEC", "deg"],
+  ["incError", "INC Error", "deg"],
+  ["dipError", "DIP Error", "deg"],
+  ["azError", "AZ Error", "deg"],
+];
+
+function buildInputDataPdfRows() {
+  return INPUT_DATA_PDF_ROWS.map(([id, label, unitOrUnitId]) => {
+    const el = document.getElementById(id);
+    const value = el ? el.value : "";
+    let unit = unitOrUnitId;
+    const unitEl = document.getElementById(unitOrUnitId);
+    if (unitEl) unit = unitEl.value;
+    return [label, value, unit];
+  });
+}
+
+document.getElementById("downloadCasePdfBtn").addEventListener("click", async () => {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("PDF library did not load — check your internet connection and try again.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  // Fixed 2026-08-24: Rearranged Data has ~28 columns (MD/Gx/Gy/Gz/Bx/By/Bz
+  // + DIP/ToolFace/INC/AZ/GT/BT/Tg/Th + 9 unit-vector columns + 5
+  // theoretical t-columns). On a portrait page autoTable was squeezing
+  // every column to a sliver, wrapping headers/values into single
+  // characters. Landscape gives ~30% more width, and horizontalPageBreak
+  // (below) spills the rest onto continuation pages instead of forcing
+  // an unreadable squeeze.
+  const doc = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
+  const outline = [];
+  let pageStarted = false;
+
+  function startSection(title) {
+    if (pageStarted) doc.addPage();
+    pageStarted = true;
+    doc.setFontSize(16);
+    doc.setTextColor(20, 20, 20);
+    doc.text(title, 40, 50);
+    outline.push({ title, page: doc.internal.getNumberOfPages() });
+    return 70;
+  }
+
+  const caseSelectEl = document.getElementById("caseSelect");
+  const selectedCaseLabel = caseSelectEl && caseSelectEl.value
+    ? caseSelectEl.options[caseSelectEl.selectedIndex].textContent
+    : "(unsaved / current page state)";
+
+  // Section: Input Data
+  let y = startSection("Input Data");
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Case: ${selectedCaseLabel}`, 40, 65);
+  doc.autoTable({
+    startY: y + 10,
+    head: [["Field", "Value", "Unit"]],
+    body: buildInputDataPdfRows(),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [30, 35, 43] },
+  });
+
+  // Section: Sensor Mapping (renamed 2026-08-24 from "Comparison...") —
+  // only if it actually has rows (i.e. Find has been run at least once).
+  const comparisonBody = document.querySelector("#comparisonTable tbody");
+  if (comparisonBody && comparisonBody.children.length) {
+    startSection("Sensor Mapping");
+    doc.autoTable({ startY: 70, html: "#comparisonTable", styles: { fontSize: 8 } });
+  }
+
+  // Section: Imported Data (raw uploaded rows, Multi-Station Import panel)
+  const importedTable = document.getElementById("importedTable");
+  if (importedTable) {
+    startSection("Imported Data");
+    doc.autoTable({ startY: 70, html: "#importedTable", styles: { fontSize: 7 } });
+  }
+
+  // Section: Rearranged Data with Unit Vectors — wide (~28 columns), so it
+  // uses horizontalPageBreak to spill onto continuation pages at a
+  // readable font size instead of being squeezed onto one page (the
+  // "funky"/character-wrapped look reported 2026-08-24). Column 0 (MD) is
+  // repeated on every continuation page for context.
+  const rearrangedTable = document.getElementById("rearrangedTable");
+  if (rearrangedTable) {
+    startSection("Rearranged Data with Unit Vectors");
+    doc.autoTable({
+      startY: 70,
+      html: "#rearrangedTable",
+      styles: { fontSize: 7, cellPadding: 2, overflow: "linebreak" },
+      headStyles: { fontSize: 7 },
+      horizontalPageBreak: true,
+      horizontalPageBreakRepeat: 0,
+    });
+  }
+
+  // Section: every QC plot, one per page, as a PNG snapshot via Plotly.
+  for (const plotId of QC_PLOT_IDS) {
+    const plotEl = document.getElementById(plotId);
+    if (!plotEl || !plotEl.data) continue; // not drawn (e.g. Plotly not loaded on this element)
+    let imgData;
+    try {
+      imgData = await Plotly.toImage(plotEl, { format: "png", width: 900, height: 500 });
+    } catch (err) {
+      console.warn(`[Case PDF] could not snapshot plot ${plotId}`, err);
+      continue;
+    }
+    const title = (plotEl.layout && plotEl.layout.title && plotEl.layout.title.text) || plotId;
+    startSection(title);
+    // Sized/positioned for the landscape page (792x612pt) added 2026-08-24;
+    // keeps the plot's 900x500 (9:5) aspect ratio.
+    doc.addImage(imgData, "PNG", 40, 75, 700, 389);
+  }
+
+  // Bookmark/outline entries so the PDF's own navigation panel jumps
+  // straight to each section, like tabs. jsPDF's outline plugin is part
+  // of the core UMD bundle as of 2.5.x; if a future/older build doesn't
+  // have it, fail soft rather than blocking the download.
+  try {
+    if (doc.outline && typeof doc.outline.add === "function") {
+      outline.forEach((sec) => {
+        doc.outline.add(null, sec.title, { pageNumber: sec.page });
+      });
+    }
+  } catch (err) {
+    console.warn("[Case PDF] outline/bookmarks not supported in this jsPDF build", err);
+  }
+
+  const fileName = (caseSelectEl && caseSelectEl.value
+    ? caseSelectEl.options[caseSelectEl.selectedIndex].textContent.split(" — ")[0]
+    : "6-axis-case").replace(/[^\w\- ]+/g, "").trim() || "6-axis-case";
+  doc.save(`${fileName}.pdf`);
+});
 
 function pickAndImportExcelFile(onData) {
   const input = document.createElement("input");
@@ -612,17 +856,27 @@ function useAlreadyUploaded(onData) {
 }
 
 // Multi-Station Import panel (bottom) — full Rearrange/Plots/TF pipeline
-document.getElementById("importExcelBtn").addEventListener("click", () => {
-  pickAndImportExcelFile((json) => renderImportedTable(json));
-});
+// Added 2026-08-24: "Import Excel File" buttons are hidden in the DOM for
+// the Viewer role (a server-side EJS conditional above wraps each one), so
+// these listeners are now guarded with an existence check instead of
+// assuming the element is always present.
+const importExcelBtnEl = document.getElementById("importExcelBtn");
+if (importExcelBtnEl) {
+  importExcelBtnEl.addEventListener("click", () => {
+    pickAndImportExcelFile((json) => renderImportedTable(json));
+  });
+}
 document.getElementById("msaUseUploadedBtn").addEventListener("click", () => {
   useAlreadyUploaded((json) => renderImportedTable(json));
 });
 
 // Quick Row Select panel (below Find) — click a row to auto-fill Input Data
-document.getElementById("qrsImportBtn").addEventListener("click", () => {
-  pickAndImportExcelFile((json) => renderQuickSelectTable(json));
-});
+const qrsImportBtnEl = document.getElementById("qrsImportBtn");
+if (qrsImportBtnEl) {
+  qrsImportBtnEl.addEventListener("click", () => {
+    pickAndImportExcelFile((json) => renderQuickSelectTable(json));
+  });
+}
 document.getElementById("qrsUseUploadedBtn").addEventListener("click", () => {
   useAlreadyUploaded((json) => renderQuickSelectTable(json));
 });

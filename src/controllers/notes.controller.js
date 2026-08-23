@@ -808,10 +808,16 @@ notesCrtl.renderSixAxisData = async(req,res)=>{
 };
 
 // 6-axis Data — saved "cases" (2026-08-23, per the person's request to
-// persist work between sessions). Each case stores the raw imported Excel
-// rows + the Input Data panel state for one user; the tool itself stays
-// standalone/no-job, but cases are now saved per-user in MongoDB so they
-// can be named, listed, reloaded, and deleted from the page.
+// persist work between sessions; updated 2026-08-24 to be shared across
+// all users with role-based CRUD instead of private-per-user). Each case
+// stores the raw imported Excel rows + the Input Data panel state, and
+// who created it + when. Role matrix (enforced here + at the route level
+// via blockViewerFromSaving):
+//   - admin:  full CRUD — can save, load, and delete ANY case.
+//   - leader/user: can save (create) new cases and load ANY case, but can
+//     only delete cases THEY created.
+//   - viewer: read-only — can list/load cases, but the route-level guard
+//     blocks save/delete entirely before either handler below even runs.
 notesCrtl.saveSixAxisCase = async(req,res)=>{
     try{
         const {name, rawRows, inputData} = req.body;
@@ -831,36 +837,69 @@ notesCrtl.saveSixAxisCase = async(req,res)=>{
     }
 };
 
+// Shared across all users (no longer filtered to req.session.passport.user)
+// — every authenticated role can see every case. createdByUserId lets the
+// page decide client-side whether to show a Delete button for a
+// leader/user viewing their own case (the server still re-checks on the
+// actual delete request, since this list alone isn't access control).
 notesCrtl.listSixAxisCases = async(req,res)=>{
     try{
-        const cases = await SixAxisCase.find({user: req.session.passport.user}, 'name createdAt updatedAt')
+        const cases = await SixAxisCase.find({}, 'name createdAt user')
+            .populate('user', 'name email')
             .sort({createdAt:-1})
             .lean();
-        res.json({ok:true, cases});
+        const shaped = cases.map(c => ({
+            _id: c._id,
+            name: c.name,
+            createdAt: c.createdAt,
+            createdByName: c.user ? (c.user.name || c.user.email || 'Unknown') : 'Unknown',
+            createdByUserId: c.user ? String(c.user._id) : null,
+        }));
+        res.json({
+            ok:true,
+            cases: shaped,
+            currentUserId: req.session.passport.user ? String(req.session.passport.user) : null,
+            currentUserRole: req.user ? req.user.role : null,
+        });
     }catch(err){
         console.error('[SixAxisCase] list failed', err);
         res.status(500).json({ok:false, error:'Failed to list cases.'});
     }
 };
 
+// Shared across all users — any authenticated role can load any case.
 notesCrtl.getSixAxisCase = async(req,res)=>{
     try{
-        const doc = await SixAxisCase.findOne({_id:req.params.id, user:req.session.passport.user}).lean();
+        const doc = await SixAxisCase.findById(req.params.id).populate('user', 'name email').lean();
         if(!doc){
             return res.status(404).json({ok:false, error:'Case not found.'});
         }
-        res.json({ok:true, case:doc});
+        res.json({ok:true, case:{
+            _id: doc._id,
+            name: doc.name,
+            rawRows: doc.rawRows,
+            inputData: doc.inputData,
+            createdAt: doc.createdAt,
+            createdByName: doc.user ? (doc.user.name || doc.user.email || 'Unknown') : 'Unknown',
+            createdByUserId: doc.user ? String(doc.user._id) : null,
+        }});
     }catch(err){
         console.error('[SixAxisCase] get failed', err);
         res.status(500).json({ok:false, error:'Failed to load case.'});
     }
 };
 
+// Admin can delete any case; leader/user can only delete cases they
+// created themselves (viewer never reaches here — blocked at the route).
 notesCrtl.deleteSixAxisCase = async(req,res)=>{
     try{
-        const result = await SixAxisCase.deleteOne({_id:req.params.id, user:req.session.passport.user});
+        const filter = {_id: req.params.id};
+        if(!req.user || req.user.role !== 'admin'){
+            filter.user = req.session.passport.user;
+        }
+        const result = await SixAxisCase.deleteOne(filter);
         if(!result.deletedCount){
-            return res.status(404).json({ok:false, error:'Case not found.'});
+            return res.status(404).json({ok:false, error:'Case not found, or you do not have permission to delete it.'});
         }
         res.json({ok:true});
     }catch(err){
