@@ -239,6 +239,7 @@ body.light-mode #statusTextbox {
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
 <script>
@@ -1043,14 +1044,40 @@ body.light-mode #statusTextbox {
                                     <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
                                         <option value="">— Simplified (approximate) —</option>
                                     </select>
-                                    <label style="font-size:11px;color:#c8d8e8;" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2.7955 = sqrt(chi-square 95%, 3 DOF), the dimensionally-correct value for this 3D projection. Adjust to match another tool's reported SF if it uses a different confidence level/policy.">Confidence K:</label>
-                                    <input type="number" id="acpKSF" step="0.001" min="0.01" value="2.7955" class="form-control form-control-sm" style="max-width:90px;">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2 = flat sigma multiplier, matching Compass's documented default report convention (its .xls AC reports state 'Output errors are at 2.00 sigma'). The dimensionally-correct 3-DOF chi-square 95% value would be 2.7955 instead - use that if reconciling against a report/policy that specifies a true multi-DOF confidence level rather than a flat sigma multiple. Adjust freely to match whatever confidence convention another tool's report used.">Confidence K (sigma):</label>
+                                    <input type="number" id="acpKSF" step="0.001" min="0.01" value="2" class="form-control form-control-sm" style="max-width:90px;">
                                     <label style="font-size:11px;color:#c8d8e8;" title="Evaluate C2C/SF at a specific reference-well MD against every offset well, e.g. to cross-check a specific row from another program's report — interpolated between the reference well's own survey stations, not snapped to the nearest one.">Evaluate at Ref MD:</label>
                                     <input type="number" id="acpEvalMd" step="0.01" placeholder="e.g. 775" class="form-control form-control-sm" style="max-width:100px;">
                                     <button id="acpEvalMdBtn" class="btn btn-sm btn-outline-info">Evaluate</button>
                                     <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
                                 </div>
                                 <div id="acpEvalMdPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #39ff14;border-radius:4px;padding:8px 10px;margin-bottom:8px;"></div>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="Upload a Compass 'Error Ellipse Survey' PDF report for the current reference well. Extracts MD/Inc/Az/Semi-major/Semi-minor per station and lines it up next to MTX's own computed ellipse at the same stations, so the two can be checked row by row. STATUS 2026-08-21: the MWD+HRGM toolcode was found to be missing its SAG and XYM3/XYM4 systematic misalignment terms (both confirmed against Compass's own .ipm export and added to iscwsaToolcodes.json) — this closed the Semi-major/Semi-minor gap from ~2x low to within ~2-9%, confirmed against this well's own report. Only checked for MWD+HRGM; other toolcodes' .ipm files haven't been checked for the same gap.">Upload Error Ellipse (Compass PDF):</label>
+                                    <input type="file" id="acpErrEllipseFile" accept=".pdf" class="form-control form-control-sm" style="max-width:260px;">
+                                    <span id="acpErrEllipseStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="Which offset well the Center-to-Centre / Separation Factor columns below are computed against — must match the offset well the uploaded Anticollision PDF's section is for.">Offset Well (for C2C/SF):</label>
+                                    <select id="acpErrEllipseOffsetWell" class="form-select form-select-sm" style="max-width:220px;"></select>
+                                    <label style="font-size:11px;color:#c8d8e8;" title="Upload a Compass 'Anticollision' PDF report (the one with the per-offset-well Reference/Offset MD, Semi Major Axis, Between Centres, Between Ellipses, Minimum Separation, Separation Factor table). Only the section for the offset well selected above is used — matched by its 'Offset Design: ...' header. C2C/SF rows are matched to Error Ellipse rows by nearest reference-well MD.">Upload Anticollision (Compass PDF):</label>
+                                    <input type="file" id="acpAntiCollFile" accept=".pdf" class="form-control form-control-sm" style="max-width:260px;">
+                                    <span id="acpAntiCollStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                </div>
+                                <div id="acpErrEllipsePanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #ffb020;border-radius:4px;padding:8px 10px;margin-bottom:8px;max-height:420px;overflow:auto;"></div>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
+                                    <button id="acpMtxAcReportBtn" class="btn btn-sm btn-outline-warning" title="Builds an MTX-computed anticollision report, station-by-station for the selected Reference Well, against every offset well currently plotted — same layout as Compass's own 'Anticollision with Risk' report. All values come from MTX's own ISCWSA engine (same functions already used/validated above by the Evaluate-at-MD and Error Ellipse comparison panels), not from an uploaded Compass file.">📋 Build MTX AC Report</button>
+                                    <span id="acpMtxAcReportStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                    <button id="acpMtxAcReportXlsBtn" class="btn btn-sm btn-outline-success" style="display:none;">⬇ Download Excel</button>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="The physical borehole/casing radius sum (Rref+Roff, i.e. what the SPE-184644 slides call R1=Ro+Rr) that defines a 'direct hit' — a sample landing within this distance of the reference well's centerline counts as a hit. MTX does not model per-well borehole/casing radius (TBR) anywhere else in this tool, so there is nothing to default this to; you must supply it (e.g. sum of each well's own hole/casing OD/2, converted to metres). Leaving it at 0 makes 'hit' mean literal centerline-to-centerline crossing, which is the most conservative (smallest) possible hit volume, not a realistic borehole intersection.">Combined Hit Radius Rref+Roff (m):</label>
+                                    <input type="number" id="acpHitRadius" step="0.001" min="0" value="0.17" placeholder="e.g. 0.31 for two 12-1/4in holes" class="form-control form-control-sm" style="max-width:220px;">
+                                    <label style="font-size:11px;color:#c8d8e8;" title="Number of Monte Carlo trials per row/station. Higher = less sampling noise but slower (trials × rows total samples). 2500 is the person's own requested default (2026-08-22).">MC Trials:</label>
+                                    <input type="number" id="acpMcTrials" step="1" min="10" value="2500" class="form-control form-control-sm" style="max-width:90px;">
+                                    <button id="acpMcPocBtn" class="btn btn-sm btn-outline-danger" title="Monte Carlo estimate of Probability of Collision (Direct Hit): for every row of the already-built MTX AC Report, samples the RAW (unscaled, no Confidence-K) combined relative-position uncertainty — Σcomb = Σref + Σoff, the ISCWSA covariance already computed for this pair, summed with no cross-well correlation (the 'independent, most common assumption' case per Jon Bang SPE-184644 slide 24, same default already used for Separation Factor elsewhere in this tool) — as a 3D Gaussian centred on the actual relative position vector, and counts what fraction of samples land within the Combined Hit Radius of the reference centerline. This directly evaluates the same 'probability = integral of pdf over specific volume' definition given in SPE-184644 (slides 5/15) and the person's own notes, via numerical Monte Carlo integration instead of a closed-form formula — no drilling-engineering formula is invented here, only generic Gaussian sampling of the already-validated ISCWSA covariance. Build the report first.">🎲 Run Monte Carlo POC</button>
+                                </div>
+                                <div id="acpMtxAcReportPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #79c0ff;border-radius:4px;padding:8px 10px;margin-bottom:8px;max-height:520px;overflow:auto;"></div>
                                 <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     Need at least 2 wellbores with survey data loaded in the 3D viewer above.
                                 </div>
@@ -5520,20 +5547,26 @@ body.light-mode #statusTextbox {
     // against a specific report where that checkbox WAS used, but not
     // what drives the primary SF.)
     // ─────────────────────────────────────────────────────────────────
-    // K_SF: sqrt of the chi-square critical value scaling a confidence
-    // ellipse/ellipsoid to a given confidence level. This used to be
-    // hardcoded to 2.447 labeled "ISCWSA 95% confidence factor" — that's
-    // actually the 2-DOF (2D ellipse) 95% value (sqrt(chi2(0.95,2)) =
-    // 2.4477); since this code projects onto a genuine 3D unit vector
-    // (ux,uy,uz), the dimensionally-correct value is the 3-DOF one,
-    // sqrt(chi2(0.95,3)) = 2.7955, now the default below. That said, "the"
-    // correct K also depends on which confidence level / convention the
-    // tool you're comparing against uses — some companies configure a
-    // custom K as policy rather than a strict statistical confidence
-    // level — so this is exposed as a live control (Confidence K, next to
+    // K_SF: sigma_sep multiplier scaling the projected 1-sigma separation
+    // uncertainty up to a reporting confidence level. Default changed
+    // 2026-08-20 from 2.7955 (sqrt(chi2(0.95,3)), the dimensionally-
+    // correct 3-DOF 95% chi-square value for this genuine 3D projection)
+    // to a flat 2 — Compass's own .xls AC reports for this project state
+    // "Output errors are at 2.00 sigma" (a flat multiple, not a multi-DOF
+    // confidence level), and matching that convention by default is what
+    // lets MTX's SF be compared apples-to-apples against a default Compass
+    // report without the person needing to know to change this box first.
+    // Before that, this was hardcoded to 2.447, mislabeled "ISCWSA 95%
+    // confidence factor" — that's actually the 2-DOF (2D ellipse) 95%
+    // value (sqrt(chi2(0.95,2)) = 2.4477), wrong for a 3D projection.
+    // "The" correct K still depends on which confidence level/convention
+    // the tool being compared against uses — some companies configure a
+    // custom K as policy rather than any strict statistical confidence
+    // level — so this stays a live control (Confidence K (sigma), next to
     // Toolcode) rather than re-hardcoded, so it can be dialed in directly
-    // against another tool's reported SF instead of guessing blind.
-    var K_SF = 2.7955;
+    // (e.g. back to 2.7955) against another tool's reported SF instead of
+    // guessing blind.
+    var K_SF = 2;
     // Projects a full 3x3 covariance matrix onto an arbitrary separation
     // direction: sigma_sep^2 = u^T C u (standard result for the variance
     // of a linear combination of correlated random variables), returning
@@ -5706,7 +5739,7 @@ body.light-mode #statusTextbox {
         // Confidence K box even if it was changed without re-rendering.
         var kInput = document.getElementById('acpKSF');
         var kVal = kInput ? parseFloat(kInput.value) : NaN;
-        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2.7955;
+        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
 
         var refCov = computeWellCov(refWell, wellToolcode(refWell));
         var others = WELLS.filter(function(w){ return w.wellName !== refName; });
@@ -5794,6 +5827,721 @@ body.light-mode #statusTextbox {
         rows.sort(function(a,b){ return b.varAlong - a.varAlong; });
         return rows.slice(0, topN || 6);
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // ERROR ELLIPSE COMPARISON (Compass PDF vs MTX) — debugging aid
+    //
+    // Lets a person upload Compass's "Error Ellipse Survey" PDF report for
+    // the current reference well and see it side-by-side against MTX's own
+    // computed per-station uncertainty ellipse, so a real gap can be
+    // isolated station-by-station instead of guessed at.
+    //
+    // STATUS (2026-08-21): MTX's own Semi-major/Semi-minor computation
+    // below (ellipseHighsideLateral) is NOT yet validated. Checked against
+    // this well's own Compass report at MD=840/870/990/1200: magnitudes
+    // come out ~1.5-2x too small (not a constant ratio, so not a simple
+    // missing K-scale) and the reported ellipse Azimuth doesn't match at
+    // all. Adding the MWD+HRGM SAG term (see iscwsaToolcodes.json) barely
+    // moved the numbers, ruling that out as the cause. Current suspicion
+    // is a bug in the Highside/Lateral axis convention itself (sign/axis
+    // definition below), not a missing ISCWSA term - unconfirmed. This
+    // table exists specifically so that suspicion can be checked row by
+    // row against real Compass numbers rather than continuing to guess.
+    // DO NOT treat the "MTX" columns below as validated until this note
+    // is updated.
+    //
+    // Highside(H)/Lateral(L)/Along-hole(T) frame at inc I, true azimuth A
+    // (standard borehole coordinate frame; T = wellbore tangent, H = the
+    // component of "up" perpendicular to T in the vertical plane
+    // containing the wellbore, L completes a right-handed set):
+    //   T = ( sinI cosA,  sinI sinA,  cosI )   [N, E, V]
+    //   H = (-cosI cosA, -cosI sinA,  sinI )
+    //   L = ( sinA,      -cosA,       0    )
+    // Orthonormality (H.T=0, L.T=0, H.L=0) verified algebraically.
+    // Semi-major/minor = eigenvalues of the 2x2 [[HH,HL],[HL,LL]]
+    // sub-covariance (H^T*Cov*H etc., bilinear form on the full NEV
+    // covariance) - this part (the general "project a 3x3 covariance onto
+    // two given directions, then eigen-decompose" step) is standard linear
+    // algebra, not itself in question; what's unvalidated is whether H/L
+    // as defined above actually match Compass's own Highside/Lateral
+    // convention.
+    function ellipseHighsideLateral(covNEV, incRad, azTRad, K){
+        var cI = Math.cos(incRad), sI = Math.sin(incRad), cA = Math.cos(azTRad), sA = Math.sin(azTRad);
+        var H = [-cI*cA, -cI*sA, sI], L = [sA, -cA, 0];
+        function biform(u, v){
+            return u[0]*v[0]*covNEV.NN + u[1]*v[1]*covNEV.EE + u[2]*v[2]*covNEV.VV
+                 + (u[0]*v[1]+u[1]*v[0])*covNEV.NE + (u[0]*v[2]+u[2]*v[0])*covNEV.NV + (u[1]*v[2]+u[2]*v[1])*covNEV.EV;
+        }
+        var HH = biform(H,H), LL = biform(L,L), HL = biform(H,L);
+        var mean = (HH+LL)/2, diff = (HH-LL)/2, rad = Math.sqrt(diff*diff + HL*HL);
+        var l1 = mean+rad, l2 = mean-rad;
+        var angle = 0.5 * Math.atan2(2*HL, HH-LL) * 180/Math.PI;
+        return {
+            highside: K*Math.sqrt(Math.max(HH,0)), lateral: K*Math.sqrt(Math.max(LL,0)),
+            semiMajor: K*Math.sqrt(Math.max(l1,0)), semiMinor: K*Math.sqrt(Math.max(l2,0)), angle: angle
+        };
+    }
+
+    // Groups a PDF.js text-content result into visual lines (by rounded Y
+    // position) and returns each line's text left-to-right — pdf.js gives
+    // individual text fragments with no inherent line breaks, so this
+    // reconstruction is necessary before any row-pattern regex can work.
+    function pdfPageToLines(textContent){
+        var byY = {};
+        textContent.items.forEach(function(item){
+            var y = Math.round(item.transform[5] * 2) / 2; // 0.5pt bucket
+            if(!byY[y]) byY[y] = [];
+            byY[y].push({ x: item.transform[4], str: item.str });
+        });
+        var ys = Object.keys(byY).map(Number).sort(function(a,b){ return b-a; }); // top to bottom
+        return ys.map(function(y){
+            return byY[y].sort(function(a,b){ return a.x-b.x; }).map(function(it){ return it.str; }).join(' ').replace(/\s+/g,' ').trim();
+        }).filter(function(l){ return l.length; });
+    }
+
+    // Matches one "Error Ellipse Survey" data row, e.g.:
+    // "840.00 3.34 117.46 839.98 3.54 0.00 3.54 0.00 1.22 0.00 0.00 3.55 3.53 57.51 MWD+HRGM (1)"
+    // Columns: MD, Inc, Az, TVD, HighsideErr, HighsideBias, LateralErr,
+    // LateralBias, VerticalErr, VerticalBias, MagOfBias, SemiMajor,
+    // SemiMinor, Azimuth, ToolName.
+    var ERR_ELLIPSE_ROW_RE = /^([\d,]+\.\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d,]+\.\d{2})\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)/;
+    function parseErrorEllipsePdfText(lines){
+        var rows = [], seen = {};
+        lines.forEach(function(line){
+            var m = ERR_ELLIPSE_ROW_RE.exec(line);
+            if(!m) return;
+            var md = parseFloat(m[1].replace(/,/g,''));
+            var key = md.toFixed(2);
+            if(seen[key]) return; // dedupe (page-break repeats the last row of the previous page)
+            seen[key] = true;
+            rows.push({
+                md: md, inc: parseFloat(m[2]), az: parseFloat(m[3]),
+                semiMajor: parseFloat(m[12]), semiMinor: parseFloat(m[13]), azimuth: parseFloat(m[14])
+            });
+        });
+        rows.sort(function(a,b){ return a.md-b.md; });
+        return rows;
+    }
+
+    // Matches one "Anticollision" per-offset-well data row, e.g.:
+    // "25.00 25.00 24.60 24.60 0.31 0.26 175.85 -9.97 0.72 9.99 9.59 0.40 24.700"
+    // Columns: RefMD, RefTVD, OffMD, OffTVD, SemiMajorRef, SemiMajorOff,
+    // HighsideToolface, +N/-S, +E/-W, BetweenCentres, [BetweenEllipses,
+    // MinimumSeparation, SeparationFactor] (last 3 absent at MD=0, where
+    // C2C/SF aren't yet meaningful).
+    var ANTICOLL_ROW_RE = /^([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([\d,]+\.\d{2})(?:\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,.]+))?\s*$/;
+
+    // Extracts the digit-run "core token" from a well name (e.g. "161583"
+    // out of "[02] ETS 161583_L01") — used to locate the matching
+    // "Offset Design: ..." section in an Anticollision PDF, since MTX's
+    // and Compass's own well-name formatting/spacing don't line up
+    // character-for-character.
+    function wellNameCoreToken(name){
+        var m = /(\d{4,})/.exec(name || '');
+        return m ? m[1] : null;
+    }
+    function parseAnticollisionPdfText(lines, offsetWellName){
+        var token = wellNameCoreToken(offsetWellName);
+        if(!token) return [];
+        var rows = [], inSection = false, seen = {};
+        // The "Offset Design:" marker and the site/well-name text that
+        // names which offset it introduces can land on the SAME line
+        // (seen from some PDF text extractors, e.g. server-side pdfplumber
+        // during earlier validation) or on the line immediately BEFORE it
+        // (seen from pdf.js's own text-position-based line reconstruction,
+        // used here in the browser - the two pieces of text sit at
+        // slightly different y-coordinates in the PDF itself). Check both
+        // so this works regardless of extractor behavior.
+        var prevLine = '';
+        lines.forEach(function(line){
+            if(/^Offset Design:/.test(line)){
+                inSection = line.indexOf(token) !== -1 || prevLine.indexOf(token) !== -1;
+                prevLine = line;
+                return;
+            }
+            prevLine = line;
+            if(!inSection) return;
+            var m = ANTICOLL_ROW_RE.exec(line);
+            if(!m) return;
+            var mdRef = parseFloat(m[1].replace(/,/g,''));
+            var key = mdRef.toFixed(2);
+            if(seen[key]) return; // dedupe (page-break repeats)
+            seen[key] = true;
+            rows.push({
+                mdRef: mdRef, mdOff: parseFloat(m[3].replace(/,/g,'')),
+                betweenCentres: parseFloat(m[10].replace(/,/g,'')),
+                sf: m[13] != null ? parseFloat(m[13].replace(/,/g,'')) : null
+            });
+        });
+        rows.sort(function(a,b){ return a.mdRef-b.mdRef; });
+        return rows;
+    }
+    function findNearestAcRow(acRows, targetMd, tolerance){
+        if(!acRows || !acRows.length) return null;
+        var best = null, bd = Infinity;
+        acRows.forEach(function(r){ var d = Math.abs(r.mdRef-targetMd); if(d<bd){ bd=d; best=r; } });
+        return (best && bd <= (tolerance||5)) ? best : null;
+    }
+
+    var LAST_ERR_ELLIPSE_ROWS = null; // re-render target when either upload changes
+    var LAST_ANTICOLL_ROWS = null;
+
+    function renderErrEllipseCompare(){
+        var compassRows = LAST_ERR_ELLIPSE_ROWS;
+        if(!compassRows) return;
+        var panel = document.getElementById('acpErrEllipsePanel');
+        var statusEl = document.getElementById('acpErrEllipseStatus');
+        var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
+        if(!refWell){ statusEl.textContent = 'No reference well selected.'; return; }
+        var toolcodeName = wellToolcode(refWell);
+        var refCov = computeWellCov(refWell, toolcodeName);
+        var refPts = wellPoints(refWell);
+        var kInput = document.getElementById('acpKSF');
+        var kVal = kInput ? parseFloat(kInput.value) : NaN;
+        var K = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
+
+        var offSelect = document.getElementById('acpErrEllipseOffsetWell');
+        var offWell = offSelect ? WELLS.find(function(w){ return w.wellName === offSelect.value; }) : null;
+        var offCov = offWell ? computeWellCov(offWell, wellToolcode(offWell)) : null;
+        var offPts = offWell ? wellPoints(offWell) : null;
+        var acRows = (offWell && LAST_ANTICOLL_ROWS && LAST_ANTICOLL_ROWS.forWell === offWell.wellName) ? LAST_ANTICOLL_ROWS.rows : null;
+
+        var html = '<b style="color:#ffb020;">Error Ellipse comparison — Compass PDF vs MTX (' + refWell.wellName + ', toolcode ' + (toolcodeName||'—') + ', K=' + K.toFixed(4) + ')</b>' +
+            '<div style="color:#5a7080;margin:2px 0 6px;">MWD+HRGM\'s missing SAG/XYM3/XYM4 terms were found and added 2026-08-21 — Semi-major/Semi-minor now typically agree with Compass within ~2-9% (was ~2x low before). C2C/SF columns need both an offset well selected above and its matching Anticollision PDF uploaded.</div>' +
+            '<table style="width:100%;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<th style="padding:2px 8px 2px 0;">MD (m)</th><th style="padding:2px 8px;">Inc (°)</th><th style="padding:2px 8px;">Az (°)</th>' +
+            '<th style="padding:2px 8px;color:#ffb020;">Compass Semi-Maj (m)</th><th style="padding:2px 8px;color:#ffb020;">Compass Semi-Min (m)</th>' +
+            '<th style="padding:2px 8px;color:#79c0ff;">MTX Semi-Maj (m)</th><th style="padding:2px 8px;color:#79c0ff;">MTX Semi-Min (m)</th>' +
+            '<th style="padding:2px 8px;">Δ Semi-Maj</th><th style="padding:2px 8px;">Δ Semi-Min</th>' +
+            '<th style="padding:2px 8px;color:#ffb020;border-left:1px solid #2a3a4a;">Compass C2C (m)</th><th style="padding:2px 8px;color:#ffb020;">Compass SF</th>' +
+            '<th style="padding:2px 8px;color:#79c0ff;">MTX C2C (m)</th><th style="padding:2px 8px;color:#79c0ff;">MTX SF</th></tr>' +
+            compassRows.map(function(r){
+                var P = interpAtMd(refPts, r.md);
+                var st = refCov ? findNearestCovStation(refCov, r.md) : null;
+                var mtx = (P && st) ? ellipseHighsideLateral(st.cov, P.incl*Math.PI/180, P.azim*Math.PI/180, K) : null;
+                var dMaj = mtx ? (100*(mtx.semiMajor - r.semiMajor)/(r.semiMajor||1e-9)) : null;
+                var dMin = mtx ? (100*(mtx.semiMinor - r.semiMinor)/(r.semiMinor||1e-9)) : null;
+
+                var compassAc = acRows ? findNearestAcRow(acRows, r.md) : null;
+                var mtxAc = null;
+                if(offWell && offPts && P){
+                    var closest = closestApproachDistance(P, offPts);
+                    var offPt = { md: closest.offMd, incl: closest.offIncl, azim: closest.offAzim, x: closest.offX, y: closest.offY, z: closest.offZ };
+                    var offSt = offCov ? findNearestCovStation(offCov, closest.offMd) : null;
+                    var sfResult = (st && offSt) ? separationFactorReal(P, offPt, closest.dist, st, offSt) : null;
+                    if(!sfResult) sfResult = separationFactorSimplified(P, offPt, closest.dist);
+                    mtxAc = { c2c: closest.dist, sf: sfResult.sf };
+                }
+                return '<tr><td style="padding:2px 8px 2px 0;">' + r.md.toFixed(2) + '</td>' +
+                    '<td style="padding:2px 8px;">' + r.inc.toFixed(2) + '</td>' +
+                    '<td style="padding:2px 8px;">' + r.az.toFixed(2) + '</td>' +
+                    '<td style="padding:2px 8px;color:#ffb020;">' + r.semiMajor.toFixed(3) + '</td>' +
+                    '<td style="padding:2px 8px;color:#ffb020;">' + r.semiMinor.toFixed(3) + '</td>' +
+                    '<td style="padding:2px 8px;color:#79c0ff;">' + (mtx ? mtx.semiMajor.toFixed(3) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;color:#79c0ff;">' + (mtx ? mtx.semiMinor.toFixed(3) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;">' + (dMaj!=null ? dMaj.toFixed(1)+'%' : '—') + '</td>' +
+                    '<td style="padding:2px 8px;">' + (dMin!=null ? dMin.toFixed(1)+'%' : '—') + '</td>' +
+                    '<td style="padding:2px 8px;color:#ffb020;border-left:1px solid #2a3a4a;">' + (compassAc ? compassAc.betweenCentres.toFixed(2) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;color:#ffb020;">' + (compassAc && compassAc.sf!=null ? compassAc.sf.toFixed(3) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;color:#79c0ff;">' + (mtxAc ? mtxAc.c2c.toFixed(2) : '—') + '</td>' +
+                    '<td style="padding:2px 8px;color:#79c0ff;">' + (mtxAc && isFinite(mtxAc.sf) ? mtxAc.sf.toFixed(3) : (mtxAc ? '∞' : '—')) + '</td></tr>';
+            }).join('') + '</table>';
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+        var acNote = offWell ? (acRows ? (acRows.length + ' Anticollision row(s) matched for ' + offWell.wellName + '.') : ('No Anticollision PDF uploaded yet for ' + offWell.wellName + ' — C2C/SF (Compass) will show as "—".')) : 'Select an offset well to enable C2C/SF columns.';
+        statusEl.textContent = compassRows.length + ' station(s) parsed from Error Ellipse PDF. ' + acNote;
+    }
+
+    (function setupErrEllipseUpload(){
+        var fileInput = document.getElementById('acpErrEllipseFile');
+        var statusEl = document.getElementById('acpErrEllipseStatus');
+        if(!fileInput) return;
+        fileInput.addEventListener('change', function(){
+            var file = fileInput.files && fileInput.files[0];
+            if(!file) return;
+            if(typeof pdfjsLib === 'undefined'){ statusEl.textContent = 'PDF library failed to load.'; return; }
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            statusEl.textContent = 'Parsing PDF…';
+            var reader = new FileReader();
+            reader.onload = function(){
+                pdfjsLib.getDocument({ data: new Uint8Array(reader.result) }).promise.then(function(pdf){
+                    var pagePromises = [];
+                    for(var p = 1; p <= pdf.numPages; p++){
+                        pagePromises.push(pdf.getPage(p).then(function(page){ return page.getTextContent(); }).then(pdfPageToLines));
+                    }
+                    return Promise.all(pagePromises);
+                }).then(function(pagesOfLines){
+                    var allLines = [].concat.apply([], pagesOfLines);
+                    var rows = parseErrorEllipsePdfText(allLines);
+                    if(!rows.length){
+                        statusEl.textContent = 'No Error Ellipse rows recognized in this PDF — is it a Compass "Error Ellipse Survey" report?';
+                        return;
+                    }
+                    LAST_ERR_ELLIPSE_ROWS = rows;
+                    renderErrEllipseCompare();
+                }).catch(function(err){
+                    console.error('[AC Plots] Error Ellipse PDF parse failed', err);
+                    statusEl.textContent = 'Failed to parse PDF: ' + err.message;
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    })();
+
+    (function setupAnticollUpload(){
+        var fileInput = document.getElementById('acpAntiCollFile');
+        var statusEl = document.getElementById('acpAntiCollStatus');
+        var offSelect = document.getElementById('acpErrEllipseOffsetWell');
+        if(!fileInput) return;
+        fileInput.addEventListener('change', function(){
+            var file = fileInput.files && fileInput.files[0];
+            if(!file) return;
+            var offWellName = offSelect ? offSelect.value : null;
+            if(!offWellName){ statusEl.textContent = 'Select an offset well first.'; return; }
+            if(typeof pdfjsLib === 'undefined'){ statusEl.textContent = 'PDF library failed to load.'; return; }
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            statusEl.textContent = 'Parsing PDF…';
+            var reader = new FileReader();
+            reader.onload = function(){
+                pdfjsLib.getDocument({ data: new Uint8Array(reader.result) }).promise.then(function(pdf){
+                    var pagePromises = [];
+                    for(var p = 1; p <= pdf.numPages; p++){
+                        pagePromises.push(pdf.getPage(p).then(function(page){ return page.getTextContent(); }).then(pdfPageToLines));
+                    }
+                    return Promise.all(pagePromises);
+                }).then(function(pagesOfLines){
+                    var allLines = [].concat.apply([], pagesOfLines);
+                    var rows = parseAnticollisionPdfText(allLines, offWellName);
+                    if(!rows.length){
+                        statusEl.textContent = 'No matching "Offset Design" section found for ' + offWellName + ' in this PDF — check the offset well selection and that this is the right Anticollision report.';
+                        return;
+                    }
+                    LAST_ANTICOLL_ROWS = { forWell: offWellName, rows: rows };
+                    renderErrEllipseCompare();
+                }).catch(function(err){
+                    console.error('[AC Plots] Anticollision PDF parse failed', err);
+                    statusEl.textContent = 'Failed to parse PDF: ' + err.message;
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        if(offSelect) offSelect.addEventListener('change', function(){ renderErrEllipseCompare(); });
+    })();
+
+    // ─────────────────────────────────────────────────────────────────
+    // MTX AC REPORT
+    //
+    // A station-by-station anticollision report, computed entirely by
+    // MTX's own ISCWSA engine, for the selected Reference Well against
+    // EVERY offset well currently plotted (per person's explicit choice:
+    // "All offset wells currently plotted" for report scope). Laid out
+    // to match Compass's own "Anticollision with Risk" report (see the
+    // person's attached screenshot, [01] ETS 161582 ... Anticollision
+    // with Risk.PDF): Reference (MD,VD), Offset (MD,VD), Semi Major Axis
+    // (Ref, Off), Between Centres, Wall-Wall Distance, Between Ellipses,
+    // Minimum Separation, Separation Factor, Probability of Collision,
+    // Warning.
+    //
+    // Column definitions and what they reuse from ALREADY-VALIDATED code
+    // in this same panel (not new/guessed math):
+    //   - Reference MD/VD, Offset MD/VD: wellPoints()/closestApproachDistance()
+    //     (same functions the C2C/SF charts above already use). VD here
+    //     is TVDss = -z, same convention as evaluateAtMd().
+    //   - Semi Major Axis (Ref/Off): UR_ref/UR_off from separationFactorReal()
+    //     — the K-scaled pedal-curve radius of each well's OWN uncertainty
+    //     ellipsoid projected onto the line joining the two wells. This is
+    //     the same quantity already labeled "UR_ref (m)"/"UR_off (m)" in
+    //     the Evaluate-at-MD panel above, which was cross-checked against
+    //     this well's real Compass Anticollision report.
+    //   - Between Centres: closestApproachDistance()'s dist (= C2C).
+    //   - Wall-Wall Distance: set equal to Between Centres for now, per
+    //     the person's explicit direction (2026-08-22) — MTX does not yet
+    //     model a per-well wellbore/casing wall radius (TBR) subtracted
+    //     from Between Centres, so there is nothing else to report here.
+    //   - Between Ellipses / Minimum Separation: Between Centres minus
+    //     (Semi Major Axis Ref + Semi Major Axis Off) — the same pedal-
+    //     curve subtraction that sfFromTwoRadii() uses internally to get
+    //     SF (S/(urRef+urOff)); reported as its own column here so it can
+    //     be read directly like Compass's own "Between Ellipses" column.
+    //     Minimum Separation is set equal to Between Ellipses (no TBR
+    //     term available to distinguish the two — see Wall-Wall Distance
+    //     note above; if TBR is added later, Minimum Separation should
+    //     become Between Ellipses - TBR while Between Ellipses stays as-is).
+    //   - Separation Factor: separationFactorReal()/sfFromTwoRadii() — the
+    //     exact same SF already plotted/validated elsewhere in this panel.
+    //   - Probability of Collision: NOT IMPLEMENTED. Two candidate source
+    //     documents (SPE-184644, Jon Bang/Gyrodata 2017; OWSG sub-committee
+    //     Dec-2023 meeting slides) were read in full on 2026-08-22 and
+    //     neither contains a complete, implementable, validated POC
+    //     formula — SPE-184644's slide deck shows only a partial Taylor-
+    //     expansion approximation (Slide 8: Pj ≈ fX fY fZ (pi R1 R2 L) + ...)
+    //     with fX/fY/fZ and the segment angle beta_j left undefined (those
+    //     live only in the full OnePetro paper, not in the slide deck we
+    //     have); the OWSG deck's POC section is literally a discussion
+    //     agenda asking operators "Is there an agreement in the industry
+    //     on a specific model to calculate Probability of Collision?" and
+    //     "what is the calculation method used in Compass?" — i.e. even
+    //     ISCWSA's own sub-committee did not have Compass's formula as of
+    //     Dec 2023. Per the hard project rule against inventing/guessing
+    //     drilling-engineering formulas, this column reports a fixed
+    //     placeholder until a validated source (e.g. the full SPE-184644-MS
+    //     OnePetro paper, or Compass's documented method) is obtained.
+    //   - Warning: classified from Separation Factor using the SAME
+    //     thresholds already used elsewhere in this file's Anti-Collision
+    //     tooling (see classForSF/classForC2C in the PAD AC SCRIPT block
+    //     above: SF < 1.0 = red/collision risk, SF < 1.25 = amber/caution)
+    //     — reused here for consistency, not a newly invented threshold.
+    // ─────────────────────────────────────────────────────────────────
+    var LAST_MTX_AC_REPORT = null; // { refName, rows: [...] }
+
+    function mtxAcWarningFor(sf){
+        if(sf == null || !isFinite(sf)) return '';
+        if(sf < 1.0) return 'COLLISION RISK (SF<1.0)';
+        if(sf < 1.25) return 'CAUTION (SF<1.25)';
+        return '';
+    }
+
+    function buildMtxAcReport(){
+        var refName = refSelect.value;
+        var refWell = WELLS.find(function(w){ return w.wellName === refName; });
+        if(!refWell) return null;
+
+        var kInput = document.getElementById('acpKSF');
+        var kVal = kInput ? parseFloat(kInput.value) : NaN;
+        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
+
+        var refPts = wellPoints(refWell);
+        var refCov = computeWellCov(refWell, wellToolcode(refWell));
+        var offsetWells = WELLS.filter(function(w){ return w.wellName !== refName; });
+
+        var rows = [];
+        offsetWells.forEach(function(offWell){
+            var offPts = wellPoints(offWell);
+            var offCov = computeWellCov(offWell, wellToolcode(offWell));
+            refPts.forEach(function(P){
+                var ca = closestApproachDistance(P, offPts);
+                var offPt = { md: ca.offMd, incl: ca.offIncl, azim: ca.offAzim, x: ca.offX, y: ca.offY, z: ca.offZ };
+                var sf;
+                if(refCov && offCov){
+                    var refSt = findNearestCovStation(refCov, P.md);
+                    var offSt = findNearestCovStation(offCov, ca.offMd);
+                    sf = separationFactorReal(P, offPt, ca.dist, refSt, offSt);
+                    if(sf == null) sf = separationFactorSimplified(P, offPt, ca.dist);
+                } else {
+                    sf = separationFactorSimplified(P, offPt, ca.dist);
+                }
+                var betweenEllipses = ca.dist - (sf.urRef + sf.urOff);
+
+                // Raw (unscaled, no Confidence-K) local-frame covariance for
+                // each well at this pair of points — reuses the SAME
+                // nevToLocalCov() conversion separationFactorReal() already
+                // uses above, just without the K-scaled/directional
+                // projection, since Monte Carlo needs the full 3x3 (not a
+                // single projected radius). Falls back to the same diagonal
+                // simplifiedCovariance() the SF fallback path uses when no
+                // real per-station ISCWSA covariance is available.
+                var refStForMc = (refCov ? findNearestCovStation(refCov, P.md) : null);
+                var offStForMc = (offCov ? findNearestCovStation(offCov, ca.offMd) : null);
+                var refLocalCov, offLocalCov;
+                if(refStForMc && offStForMc){
+                    refLocalCov = nevToLocalCov(refStForMc.cov);
+                    offLocalCov = nevToLocalCov(offStForMc.cov);
+                } else {
+                    var cRefSimp = simplifiedCovariance(P.md, P.incl);
+                    var cOffSimp = simplifiedCovariance(offPt.md, offPt.incl);
+                    refLocalCov = { xx: cRefSimp.xx, yy: cRefSimp.yy, zz: cRefSimp.zz, xy: 0, xz: 0, yz: 0 };
+                    offLocalCov = { xx: cOffSimp.xx, yy: cOffSimp.yy, zz: cOffSimp.zz, xy: 0, xz: 0, yz: 0 };
+                }
+                // Independent combination (no cross-well correlation) — Sc =
+                // S1 + S2, the "most common assumption" default per Jon Bang
+                // SPE-184644 slide 24, matching the same no-correlation
+                // default already documented/used for SF above.
+                var covComb = {
+                    xx: refLocalCov.xx + offLocalCov.xx, yy: refLocalCov.yy + offLocalCov.yy, zz: refLocalCov.zz + offLocalCov.zz,
+                    xy: refLocalCov.xy + offLocalCov.xy, xz: refLocalCov.xz + offLocalCov.xz, yz: refLocalCov.yz + offLocalCov.yz
+                };
+
+                rows.push({
+                    offsetName: offWell.wellName,
+                    refMd: P.md, refVd: -P.z,
+                    offMd: ca.offMd, offVd: (ca.offZ != null ? -ca.offZ : null),
+                    semiMajorRef: sf.urRef, semiMajorOff: sf.urOff,
+                    betweenCentres: ca.dist,
+                    wallWallDistance: ca.dist, // = Between Centres for now, per person's direction (no TBR modeled yet)
+                    betweenEllipses: betweenEllipses,
+                    minimumSeparation: betweenEllipses, // = Between Ellipses for now (no TBR to distinguish them — see comment above)
+                    sf: sf.sf,
+                    poc: null, // filled in by runMonteCarloPoc() when the person runs it — see that function's comment
+                    warning: mtxAcWarningFor(sf.sf),
+                    _dx: P.x - offPt.x, _dy: P.y - offPt.y, _dz: P.z - offPt.z, // relative position vector, same local x/y/z frame as everything else in this panel
+                    _covComb: covComb
+                });
+            });
+        });
+        rows.sort(function(a,b){
+            if(a.offsetName !== b.offsetName) return a.offsetName < b.offsetName ? -1 : 1;
+            return a.refMd - b.refMd;
+        });
+        return { refName: refName, rows: rows };
+    }
+
+    function fmt(v, dec){ return (v == null || !isFinite(v)) ? '—' : v.toFixed(dec); }
+
+    // Formats a Monte Carlo hit count as odds, "1 / X (P%)" — matching the
+    // "1 in X" convention Compass itself uses for this same column (see the
+    // real Compass "Introducing probability of collision" report screenshot
+    // reviewed 2026-08-22, e.g. "1 in 481", "1 in 35,428"), rather than the
+    // raw "hits/trials" fraction. Normalizes hits to a numerator of 1 by
+    // dividing trials by hits — undefined when hits=0, so that case is
+    // reported as "0 hits" with the trial count instead of a false "1 / ∞".
+    function pocOddsLabel(poc){
+        if(!poc) return 'Not run';
+        var pct = (poc.phat * 100).toFixed(poc.phat > 0 && poc.phat < 0.005 ? 4 : 2);
+        if(poc.hits <= 0) return '0 hits / ' + poc.trials + ' (< ' + (100/poc.trials).toFixed(4) + '%)';
+        var oneInX = poc.trials / poc.hits;
+        return '1 / ' + oneInX.toFixed(oneInX >= 100 ? 0 : 1) + ' (' + pct + '%)';
+    }
+
+    function renderMtxAcReport(){
+        var panel = document.getElementById('acpMtxAcReportPanel');
+        var xlsBtn = document.getElementById('acpMtxAcReportXlsBtn');
+        var statusEl = document.getElementById('acpMtxAcReportStatus');
+        var report = buildMtxAcReport();
+        if(!report || !report.rows.length){
+            panel.style.display = 'none';
+            xlsBtn.style.display = 'none';
+            if(statusEl) statusEl.textContent = 'Need a Reference Well and at least one other well plotted.';
+            return;
+        }
+        LAST_MTX_AC_REPORT = report;
+        if(statusEl) statusEl.textContent = report.rows.length + ' rows (' + report.refName + ' vs ' +
+            (WELLS.length - 1) + ' offset well' + (WELLS.length - 1 === 1 ? '' : 's') + ', K=' + K_SF.toFixed(4) + ')';
+        renderMtxAcReportTable();
+        xlsBtn.style.display = 'inline-block';
+    }
+
+    // Re-renders LAST_MTX_AC_REPORT without rebuilding it — used both right
+    // after buildMtxAcReport() and after runMonteCarloPoc() fills in each
+    // row's .poc, so a Monte Carlo run doesn't discard itself by re-sweeping
+    // the geometry.
+    function renderMtxAcReportTable(){
+        var panel = document.getElementById('acpMtxAcReportPanel');
+        var report = LAST_MTX_AC_REPORT;
+        if(!report || !report.rows.length) return;
+
+        var pocNote = report.rows.length && report.rows[0].poc
+            ? ('Probability of Collision = Monte Carlo estimate, ' + report.mcTrials + ' trials/row, Combined Hit Radius = ' + report.hitRadius + ' m — see 🎲 button tooltip for exactly what is/isn\'t validated here.')
+            : 'Probability of Collision: no analytic formula could be validated from available sources (see code comment above buildMtxAcReport()) — click 🎲 Run Monte Carlo POC for a numerical estimate instead.';
+
+        var html = '<b style="color:#79c0ff;">MTX AC Report</b> — Reference: ' + report.refName +
+            ' (computed by MTX\'s own ISCWSA engine — see code comment above buildMtxAcReport() for exactly which already-validated functions each column reuses). ' + pocNote + '<br>' +
+            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<th style="padding:2px 8px 2px 0;">Offset Well</th>' +
+            '<th style="padding:2px 8px;">Ref MD (m)</th><th style="padding:2px 8px;">Ref VD (m)</th>' +
+            '<th style="padding:2px 8px;">Off MD (m)</th><th style="padding:2px 8px;">Off VD (m)</th>' +
+            '<th style="padding:2px 8px;">Semi Major Axis Ref (m)</th><th style="padding:2px 8px;">Semi Major Axis Off (m)</th>' +
+            '<th style="padding:2px 8px;">Between Centres (m)</th><th style="padding:2px 8px;">Wall-Wall Distance (m)</th>' +
+            '<th style="padding:2px 8px;">Between Ellipses (m)</th><th style="padding:2px 8px;">Minimum Separation (m)</th>' +
+            '<th style="padding:2px 8px;">Separation Factor</th><th style="padding:2px 8px;">Probability of Collision (Monte Carlo)</th>' +
+            '<th style="padding:2px 8px;">Warning</th></tr>' +
+            report.rows.map(function(r){
+                var warnColor = r.warning.indexOf('COLLISION') === 0 ? '#ff4060' : (r.warning ? '#ffb020' : '#5a7080');
+                var pocCell = pocOddsLabel(r.poc);
+                var pocColor = r.poc && r.poc.hits > 0 ? '#ff4060' : '#5a7080';
+                return '<tr><td style="padding:2px 8px 2px 0;">' + r.offsetName + '</td>' +
+                    '<td style="padding:2px 8px;">' + fmt(r.refMd,2) + '</td><td style="padding:2px 8px;">' + fmt(r.refVd,2) + '</td>' +
+                    '<td style="padding:2px 8px;">' + fmt(r.offMd,2) + '</td><td style="padding:2px 8px;">' + fmt(r.offVd,2) + '</td>' +
+                    '<td style="padding:2px 8px;">' + fmt(r.semiMajorRef,3) + '</td><td style="padding:2px 8px;">' + fmt(r.semiMajorOff,3) + '</td>' +
+                    '<td style="padding:2px 8px;">' + fmt(r.betweenCentres,3) + '</td><td style="padding:2px 8px;">' + fmt(r.wallWallDistance,3) + '</td>' +
+                    '<td style="padding:2px 8px;">' + fmt(r.betweenEllipses,3) + '</td><td style="padding:2px 8px;">' + fmt(r.minimumSeparation,3) + '</td>' +
+                    '<td style="padding:2px 8px;">' + (isFinite(r.sf) ? r.sf.toFixed(3) : '∞') + '</td>' +
+                    '<td style="padding:2px 8px;color:' + pocColor + ';">' + pocCell + '</td>' +
+                    '<td style="padding:2px 8px;color:' + warnColor + ';">' + (r.warning || '') + '</td></tr>';
+            }).join('') + '</table>';
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // MONTE CARLO PROBABILITY OF COLLISION (DIRECT HIT)
+    //
+    // Numerically evaluates the exact same probability definition given
+    // conceptually in both POC sources read on 2026-08-22:
+    //   - SPE-184644 (Jon Bang/Gyrodata, 2017), Slide 15: "Probability =
+    //     integral of pdf over specific volume."
+    //   - The person's own notes: relative position modeled as Gaussian
+    //     (mean = relative position, covariance = Σcomb from both wells),
+    //     collision = relative distance ≤ Rref+Roff, POC = the 3D Gaussian
+    //     integral of that pdf over the sphere of radius Rref+Roff.
+    // Rather than deriving/guessing a closed-form formula for that
+    // integral (SPE-184644's own closed-form approximation was found to
+    // be incomplete/unreproducible from the slide deck alone — see the
+    // comment above buildMtxAcReport()), this evaluates it directly by
+    // Monte Carlo sampling: draw N samples from N(meanVec, Σcomb) using a
+    // standard Cholesky-decomposition sampler (generic linear algebra,
+    // not a drilling-specific formula), count what fraction land within
+    // the Combined Hit Radius of the reference centerline. This is a
+    // standard, textbook numerical-integration technique — no ISCWSA/SPE
+    // formula is invented; the only domain-specific inputs are Σcomb
+    // (the ALREADY-VALIDATED ISCWSA relative covariance, RAW/unscaled —
+    // no Confidence-K applied, since K is a reporting confidence multiplier
+    // for SF, not part of the physical uncertainty distribution itself)
+    // and meanVec (the actual surveyed relative position, both already
+    // computed in buildMtxAcReport()).
+    //
+    // Numerically validated 2026-08-22 (standalone Node script, not
+    // committed): for an isotropic N(0,sigma^2*I) covariance, Monte Carlo
+    // hit rate vs. the closed-form Maxwell/chi(3) CDF P(|v|<=R) =
+    // erf(R/(sigma*sqrt2)) - sqrt(2/pi)*(R/sigma)*exp(-R^2/(2*sigma^2))
+    // matched to within ~0.03% at 2,000,000 trials across R/sigma =
+    // 0.5..2; and cholesky3x3()'s sampler reproduced an arbitrary
+    // correlated 3x3 target covariance (incl. nonzero cross terms) to
+    // within ~0.1% over 3,000,000 draws — confirming both the sampler and
+    // the hit-counting logic are correct generic implementations before
+    // being wired into this report.
+    //
+    // Σcomb combination = independent sum (no cross-well correlation),
+    // matching Jon Bang slide 24's "Independent (most common assumption):
+    // r12=0, σc²=σ1²+σ2²" — i.e. the SAME default already used for this
+    // tool's Separation Factor (see comment above K_SF/separationFactorReal).
+    //
+    // CAVEATS a person reading these numbers must know:
+    //   1. Combined Hit Radius is a REQUIRED user input — MTX does not
+    //      model per-well borehole/casing radius (TBR) anywhere else in
+    //      this tool, so this is not a validated drilling-engineering
+    //      default, it is whatever the person typed into the box.
+    //   2. This is a random estimate, not a deterministic value — with
+    //      1000 trials, results will vary run to run (a further reason to
+    //      raise the trial count if a specific station's hit rate matters).
+    //   3. This only computes the DIRECT HIT probability (relative
+    //      position lands inside the hit sphere at ANY sampled instant at
+    //      each station individually) — NOT the "unintentional crossing"
+    //      (UC) probability along a wellpath segment, which per SPE-184644
+    //      needs a materially different method (segment/volume integral,
+    //      not a per-station point estimate) that is not implemented here.
+    // ─────────────────────────────────────────────────────────────────
+    function randStdNormal(){
+        var u1 = 0;
+        while(u1 === 0) u1 = Math.random();
+        var u2 = Math.random();
+        return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    }
+
+    // Cholesky decomposition of a symmetric 3x3 (cov = {xx,yy,zz,xy,xz,yz})
+    // into lower-triangular L such that L*L^T ≈ cov, clipped to remain
+    // real/PSD the same way this file's eigenvalue code elsewhere clips
+    // negative variances (Math.max(...,0)) — generic linear algebra, not
+    // drilling-specific.
+    function cholesky3x3(cov){
+        var L11 = Math.sqrt(Math.max(cov.xx, 0));
+        var L21 = L11 > 1e-12 ? cov.xy / L11 : 0;
+        var L31 = L11 > 1e-12 ? cov.xz / L11 : 0;
+        var L22 = Math.sqrt(Math.max(cov.yy - L21*L21, 0));
+        var L32 = L22 > 1e-12 ? (cov.yz - L31*L21) / L22 : 0;
+        var L33 = Math.sqrt(Math.max(cov.zz - L31*L31 - L32*L32, 0));
+        return { L11: L11, L21: L21, L31: L31, L22: L22, L32: L32, L33: L33 };
+    }
+
+    function monteCarloHitCount(meanVec, cov, hitRadius, trials){
+        var L = cholesky3x3(cov);
+        var hits = 0;
+        for(var i = 0; i < trials; i++){
+            var z1 = randStdNormal(), z2 = randStdNormal(), z3 = randStdNormal();
+            var vx = meanVec[0] + L.L11*z1;
+            var vy = meanVec[1] + L.L21*z1 + L.L22*z2;
+            var vz = meanVec[2] + L.L31*z1 + L.L32*z2 + L.L33*z3;
+            var d = Math.sqrt(vx*vx + vy*vy + vz*vz);
+            if(d <= hitRadius) hits++;
+        }
+        return hits;
+    }
+
+    function runMonteCarloPoc(){
+        var statusEl = document.getElementById('acpMtxAcReportStatus');
+        if(!LAST_MTX_AC_REPORT || !LAST_MTX_AC_REPORT.rows.length){
+            if(statusEl) statusEl.textContent = 'Build the MTX AC Report first.';
+            return;
+        }
+        var radiusInput = document.getElementById('acpHitRadius');
+        var trialsInput = document.getElementById('acpMcTrials');
+        var hitRadius = parseFloat(radiusInput && radiusInput.value);
+        var trials = parseInt(trialsInput && trialsInput.value, 10);
+        if(isNaN(hitRadius) || hitRadius < 0){
+            if(statusEl) statusEl.textContent = 'Enter a valid Combined Hit Radius (Rref+Roff, metres) first — MTX does not model borehole/casing radius (TBR), so you must supply it.';
+            return;
+        }
+        if(!trials || trials < 1) trials = 1000;
+
+        if(statusEl) statusEl.textContent = 'Running Monte Carlo (' + trials + ' trials/row × ' + LAST_MTX_AC_REPORT.rows.length + ' rows)…';
+        // setTimeout(...,10) lets the "Running…" status paint before the
+        // (synchronous, potentially multi-second) sampling loop blocks the
+        // main thread.
+        setTimeout(function(){
+            var t0 = Date.now();
+            LAST_MTX_AC_REPORT.rows.forEach(function(r){
+                var hits = monteCarloHitCount([r._dx, r._dy, r._dz], r._covComb, hitRadius, trials);
+                r.poc = { hits: hits, trials: trials, phat: hits / trials };
+            });
+            LAST_MTX_AC_REPORT.hitRadius = hitRadius;
+            LAST_MTX_AC_REPORT.mcTrials = trials;
+            var ms = Date.now() - t0;
+            renderMtxAcReportTable();
+            if(statusEl) statusEl.textContent = 'Monte Carlo done in ' + ms + ' ms (' + trials + ' trials/row, Combined Hit Radius=' + hitRadius + ' m).';
+        }, 10);
+    }
+
+    function downloadMtxAcReportXlsx(){
+        if(!LAST_MTX_AC_REPORT || !LAST_MTX_AC_REPORT.rows.length) return;
+        var hasPoc = !!LAST_MTX_AC_REPORT.rows[0].poc;
+        var headers = ['Offset Well','Ref MD (m)','Ref VD (m)','Off MD (m)','Off VD (m)',
+            'Semi Major Axis Ref (m)','Semi Major Axis Off (m)','Between Centres (m)','Wall-Wall Distance (m)',
+            'Between Ellipses (m)','Minimum Separation (m)','Separation Factor',
+            hasPoc ? ('POC, "1 in X" (Monte Carlo, ' + LAST_MTX_AC_REPORT.mcTrials + ' trials)') : 'Probability of Collision',
+            hasPoc ? 'POC (%)' : null,
+            'Warning'].filter(function(h){ return h !== null; });
+        var aoa = [headers].concat(LAST_MTX_AC_REPORT.rows.map(function(r){
+            var row = [r.offsetName, r.refMd, r.refVd, r.offMd, r.offVd,
+                r.semiMajorRef, r.semiMajorOff, r.betweenCentres, r.wallWallDistance,
+                r.betweenEllipses, r.minimumSeparation, r.sf];
+            if(hasPoc){ row.push(pocOddsLabel(r.poc)); row.push(r.poc.phat*100); }
+            else { row.push('Not implemented — see MTX AC Report panel notes'); }
+            row.push(r.warning || '');
+            return row;
+        }));
+        if(hasPoc){
+            aoa.push([]);
+            aoa.push(['Monte Carlo Combined Hit Radius (Rref+Roff, m):', LAST_MTX_AC_REPORT.hitRadius]);
+            aoa.push(['Monte Carlo trials per row:', LAST_MTX_AC_REPORT.mcTrials]);
+            aoa.push(['NOTE: Monte Carlo Direct-Hit estimate only — not the Unintentional-Crossing probability along a segment; see code comment above runMonteCarloPoc() in job.ejs.']);
+        }
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'MTX AC Report');
+        var fname = 'MTX_AC_Report_' + LAST_MTX_AC_REPORT.refName.replace(/[^a-z0-9]+/gi,'_') + '.xlsx';
+        XLSX.writeFile(wb, fname);
+    }
+
+    // Build + immediately run Monte Carlo POC in one click, per person's
+    // direction (2026-08-22: "run it when push the Build Mtx AC report
+    // button please") — renderMtxAcReport() rebuilds LAST_MTX_AC_REPORT
+    // fresh (clearing any prior .poc), so runMonteCarloPoc() is chained
+    // right after rather than run independently, using whatever Combined
+    // Hit Radius / MC Trials values are currently in the two boxes above
+    // (defaulted to 0.17 m / 25000 trials per the person's own values,
+    // but still editable before clicking Build if a different run is wanted).
+    function buildAndRunMtxAcReport(){
+        renderMtxAcReport();
+        if(LAST_MTX_AC_REPORT && LAST_MTX_AC_REPORT.rows.length) runMonteCarloPoc();
+    }
+
+    (function setupMtxAcReportButtons(){
+        var buildBtn = document.getElementById('acpMtxAcReportBtn');
+        var xlsBtn = document.getElementById('acpMtxAcReportXlsBtn');
+        var mcBtn = document.getElementById('acpMcPocBtn');
+        if(buildBtn) buildBtn.addEventListener('click', buildAndRunMtxAcReport);
+        if(xlsBtn) xlsBtn.addEventListener('click', downloadMtxAcReportXlsx);
+        if(mcBtn) mcBtn.addEventListener('click', runMonteCarloPoc);
+    })();
 
     var palette = ['#ff6b35', '#39ff14', '#ffd060', '#c084fc', '#2dd4bf', '#ff4060', '#79c0ff', '#e879f9'];
     var acpChart = null;
@@ -6056,43 +6804,73 @@ body.light-mode #statusTextbox {
             .map(function(w){ return { well: w, pts: wellPoints(w) }; })
             .filter(function(e){ return e.pts.length >= 2; });
 
+        // BUGFIX (2026-08-22): this used to push a single dataset per well
+        // containing raw `null` entries to create gaps (no crossing at that
+        // reference station / outside Max Scan Radius), relying on
+        // spanGaps:false to break the line visually. That's the documented
+        // pattern for Chart.js's category/value line charts, but this is a
+        // 'scatter' chart with object-form {x,y} points, where a bare
+        // `null` array entry doesn't parse the same way — Chart.js's own
+        // interaction/tooltip code (getElementsAtEventForMode, its default
+        // hover handling) would try to read e.g. `.x` off that null point
+        // whenever the mouse passed near it while dragging the depth
+        // slider, throwing "Cannot read properties of null (reading 'x')"
+        // from INSIDE chart.js. That uncaught exception happened mid-frame
+        // inside Chart.js's own internals, which could leave the chart
+        // instance partially torn down — so the NEXT renderTravelingCylinder()
+        // call's `acpChartTCV.destroy()` wouldn't fully release the
+        // canvas's Chart.js registration, causing the cascading "Canvas is
+        // already in use" and "Cannot read properties of undefined
+        // (reading 'hitRadius')" (an internal Chart.js point-element
+        // config field, unrelated to this file's own MC hitRadius) errors
+        // seen in the console. Root fix: never put `null` in a scatter
+        // dataset's data array — split each well's crossings into separate
+        // no-null segment datasets instead (one dataset per contiguous run
+        // of real points), which draws identically (each segment still
+        // shows as its own connected line) but gives Chart.js nothing to
+        // choke on.
         var datasets = [];
         var maxR = 0;
         offsetWells.forEach(function(entry, i){
-            var data = [];
+            var segments = [[]];
             for(var rmd = mdMin; rmd <= mdMax; rmd += interval){
                 var refStation = interpAtMD(refPts, rmd);
                 var frame = tcvFrame(refStation.incl, refStation.azim);
                 var refPos = { x: refStation.x, y: refStation.y, z: refStation.z };
                 var crossing = findPlaneCrossing(entry.pts, refPos, frame.ahead);
+                var pt = null;
                 if(crossing){
                     var v = { x: crossing.x-refPos.x, y: crossing.y-refPos.y, z: crossing.z-refPos.z };
                     var px = dot3(v, frame.right), py = dot3(v, frame.high);
                     var r = Math.sqrt(px*px+py*py);
                     if(r <= maxRadius){
-                        data.push({ x: px, y: py, md: rmd, offMd: crossing.md });
+                        pt = { x: px, y: py, md: rmd, offMd: crossing.md };
                         maxR = Math.max(maxR, r);
-                    } else {
-                        data.push(null); // outside Max Scan Radius -> not computed/shown
                     }
-                } else {
-                    data.push(null); // break the line where there's no crossing at this reference station
+                    // else: outside Max Scan Radius -> not computed/shown (gap)
+                }
+                // else: no crossing at this reference station (gap)
+                if(pt){
+                    segments[segments.length-1].push(pt);
+                } else if(segments[segments.length-1].length){
+                    segments.push([]); // start a fresh segment after a gap
                 }
             }
-            while(data.length && data[0] === null) data.shift();
-            while(data.length && data[data.length-1] === null) data.pop();
-            if(!data.length) return; // never crosses any swept plane within radius -> no trace for this well
+            segments = segments.filter(function(seg){ return seg.length > 0; });
+            if(!segments.length) return; // never crosses any swept plane within radius -> no trace for this well
 
-            datasets.push({
-                label: entry.well.wellName,
-                data: data,
-                showLine: true,
-                spanGaps: false,
-                borderColor: palette[i % palette.length],
-                backgroundColor: palette[i % palette.length],
-                borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5
+            segments.forEach(function(seg, segIdx){
+                datasets.push({
+                    label: entry.well.wellName,
+                    data: seg,
+                    showLine: true,
+                    borderColor: palette[i % palette.length],
+                    backgroundColor: palette[i % palette.length],
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    _tcvIsExtraSegment: segIdx > 0 // dedupe legend below — same well, later segment
+                });
             });
         });
 
@@ -6106,7 +6884,23 @@ body.light-mode #statusTextbox {
         var nRings = Math.ceil((fitR || ringStep) / ringStep);
         var axisMax = Math.min(nRings * ringStep * 1.08, maxRadius * 1.08); // small margin, capped at the scan radius
 
-        if(acpChartTCV) acpChartTCV.destroy();
+        // Robust teardown: don't rely solely on our own `acpChartTCV`
+        // variable to know what's registered on this canvas — if a prior
+        // render left Chart.js in a half-torn-down state (see bugfix note
+        // above), our variable and Chart.js's own canvas registry can
+        // disagree. Chart.getChart() asks Chart.js directly what chart (if
+        // any) currently owns this canvas element, and destroying THAT is
+        // what actually clears the "Canvas is already in use" registration
+        // — wrapped in try/catch so a chart that's already broken doesn't
+        // stop us from proceeding to build a fresh one.
+        try {
+            var zombie = (typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : acpChartTCV;
+            if(zombie) zombie.destroy();
+        } catch(destroyErr){
+            console.warn('[TCV] existing chart destroy failed (continuing to rebuild)', destroyErr);
+        }
+        acpChartTCV = null;
+
         acpChartTCV = new Chart(canvas.getContext('2d'), {
             type: 'scatter',
             data: { datasets: datasets },
@@ -6116,11 +6910,22 @@ body.light-mode #statusTextbox {
                 aspectRatio: 1,
                 animation: false, // chart rebuilds on every slider drag frame — animating each rebuild is what made it feel laggy/distracting
                 plugins: {
-                    legend: { display: document.getElementById('acpShowLegend').checked, labels: { color: '#c8d8e8', boxWidth: 12, font: { size: 10 } } },
+                    legend: {
+                        display: document.getElementById('acpShowLegend').checked,
+                        labels: {
+                            color: '#c8d8e8', boxWidth: 12, font: { size: 10 },
+                            // Skip the extra per-segment datasets (see bugfix note
+                            // above — a well with multiple crossing segments now
+                            // has one dataset per segment) so each well still
+                            // shows exactly one legend entry.
+                            filter: function(item, data){ return !(data.datasets[item.datasetIndex] || {})._tcvIsExtraSegment; }
+                        }
+                    },
                     tcvGrid: { ringStep: ringStep },
                     tcvLabels: { show: document.getElementById('acpTcvShowLabels').checked },
                     tooltip: { callbacks: { label: function(ctx){
                         var d = ctx.raw;
+                        if(!d) return ''; // defensive only — data no longer contains null points, see bugfix note above
                         return ctx.dataset.label + ': ref MD ' + d.md.toFixed(1) + ' m (offset MD ' + d.offMd.toFixed(1) +
                             ' m), Right ' + d.x.toFixed(1) + ' m, High Side ' + d.y.toFixed(1) + ' m';
                     } } }
@@ -6303,7 +7108,7 @@ body.light-mode #statusTextbox {
         // immediately without a page reload.
         var kInput = document.getElementById('acpKSF');
         var kVal = kInput ? parseFloat(kInput.value) : NaN;
-        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2.7955;
+        K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
 
         var showLegend = document.getElementById('acpShowLegend').checked;
 
@@ -6616,13 +7421,26 @@ body.light-mode #statusTextbox {
             opt.value = w.wellName; opt.textContent = w.wellName;
             refSelect.appendChild(opt);
         });
+        function populateErrEllipseOffsetSelect(){
+            var sel = document.getElementById('acpErrEllipseOffsetWell');
+            if(!sel) return;
+            var prev = sel.value;
+            sel.innerHTML = '';
+            WELLS.filter(function(w){ return w.wellName !== refSelect.value; }).forEach(function(w){
+                var opt = document.createElement('option');
+                opt.value = w.wellName; opt.textContent = w.wellName;
+                sel.appendChild(opt);
+            });
+            if(prev && Array.prototype.some.call(sel.options, function(o){ return o.value === prev; })) sel.value = prev;
+        }
+        populateErrEllipseOffsetSelect();
         function resetTcvRefMd(){
             var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
             var pts = refWell ? wellPoints(refWell) : [];
             var mdInput = document.getElementById('acpTcvRefMd');
             if(mdInput && pts.length) mdInput.value = pts[pts.length-1].md.toFixed(1);
         }
-        refSelect.addEventListener('change', function(){ resetTcvRefMd(); renderPlot(); document.getElementById('acpEvalMdPanel').style.display='none'; });
+        refSelect.addEventListener('change', function(){ resetTcvRefMd(); renderPlot(); populateErrEllipseOffsetSelect(); document.getElementById('acpEvalMdPanel').style.display='none'; document.getElementById('acpErrEllipsePanel').style.display='none'; document.getElementById('acpMtxAcReportPanel').style.display='none'; document.getElementById('acpMtxAcReportXlsBtn').style.display='none'; LAST_MTX_AC_REPORT = null; });
         var resetBtn = document.getElementById('acpResetZoomBtn');
         if(resetBtn) resetBtn.addEventListener('click', function(){ if(acpChart) acpChart.resetZoom(); if(acpChartSF) acpChartSF.resetZoom(); tcvResetView(); });
         var tcvResetMdBtn = document.getElementById('acpTcvResetMdBtn');

@@ -18,6 +18,7 @@ const CasingDesign = require("../models/CasingDesign");
 const CasingLoadCasesCore = require("../public/js/casingLoadCases.js");
 const PasonPlots = require("../models/PasonPlots");
 const PadAC       = require("../models/PadAC");
+const SixAxisCase = require("../models/SixAxisCase");
 const { buildActivityReport } = require("../helpers/activityStats");
 const SiteConfig    = require("../models/SiteConfig");
 
@@ -790,6 +791,82 @@ notesCrtl.renderUploadFracPlanes = async(req,res)=>{
 notesCrtl.renderQuickPlan = async(req,res)=>{
     let user = await User.findById(req.session.passport.user);
     res.render('quickPlan.ejs', {user});
+};
+
+// 6-axis Data — MWD sensor axis-mapping/calibration diagnostic (brute-forces
+// which accelerometer/magnetometer axis permutation+sign combination
+// reproduces a known reference Inc/Az/Dip, and QCs a full multi-station run
+// via Excel import). Ported 2026-08-22 from the person's own pre-existing
+// standalone tool (left in the working folder as "MWD sensor mapping" —
+// index.html/script.js/style.css); the math itself was NOT changed, only
+// restyled to match MTX's theme and wired in here. Same "no bound
+// note/job, no MongoDB" pattern as renderQuickPlan above, available to
+// every authenticated role — no canUseModelers gate.
+notesCrtl.renderSixAxisData = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    res.render('sixAxisData.ejs', {user});
+};
+
+// 6-axis Data — saved "cases" (2026-08-23, per the person's request to
+// persist work between sessions). Each case stores the raw imported Excel
+// rows + the Input Data panel state for one user; the tool itself stays
+// standalone/no-job, but cases are now saved per-user in MongoDB so they
+// can be named, listed, reloaded, and deleted from the page.
+notesCrtl.saveSixAxisCase = async(req,res)=>{
+    try{
+        const {name, rawRows, inputData} = req.body;
+        if(!name || !String(name).trim()){
+            return res.status(400).json({ok:false, error:'A case name is required.'});
+        }
+        const doc = await SixAxisCase.create({
+            user: req.session.passport.user,
+            name: String(name).trim(),
+            rawRows: Array.isArray(rawRows) ? rawRows : [],
+            inputData: inputData || {},
+        });
+        res.json({ok:true, case:{_id:doc._id, name:doc.name, createdAt:doc.createdAt}});
+    }catch(err){
+        console.error('[SixAxisCase] save failed', err);
+        res.status(500).json({ok:false, error:'Failed to save case.'});
+    }
+};
+
+notesCrtl.listSixAxisCases = async(req,res)=>{
+    try{
+        const cases = await SixAxisCase.find({user: req.session.passport.user}, 'name createdAt updatedAt')
+            .sort({createdAt:-1})
+            .lean();
+        res.json({ok:true, cases});
+    }catch(err){
+        console.error('[SixAxisCase] list failed', err);
+        res.status(500).json({ok:false, error:'Failed to list cases.'});
+    }
+};
+
+notesCrtl.getSixAxisCase = async(req,res)=>{
+    try{
+        const doc = await SixAxisCase.findOne({_id:req.params.id, user:req.session.passport.user}).lean();
+        if(!doc){
+            return res.status(404).json({ok:false, error:'Case not found.'});
+        }
+        res.json({ok:true, case:doc});
+    }catch(err){
+        console.error('[SixAxisCase] get failed', err);
+        res.status(500).json({ok:false, error:'Failed to load case.'});
+    }
+};
+
+notesCrtl.deleteSixAxisCase = async(req,res)=>{
+    try{
+        const result = await SixAxisCase.deleteOne({_id:req.params.id, user:req.session.passport.user});
+        if(!result.deletedCount){
+            return res.status(404).json({ok:false, error:'Case not found.'});
+        }
+        res.json({ok:true});
+    }catch(err){
+        console.error('[SixAxisCase] delete failed', err);
+        res.status(500).json({ok:false, error:'Failed to delete case.'});
+    }
 };
 
 notesCrtl.renderUploadTorqueAndDrag = async(req,res)=>{

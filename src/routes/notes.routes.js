@@ -55,6 +55,11 @@ const {
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
     renderQuickPlan,
+    renderSixAxisData,
+    saveSixAxisCase,
+    listSixAxisCases,
+    getSixAxisCase,
+    deleteSixAxisCase,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     setWellboreTrajectoryToolcode,
@@ -237,6 +242,17 @@ router.get('/notes/uploadCasingDesign', isAuthenticated, canUseModelers, renderU
 //Quick Plan — standalone directional-plan checker, open to every role
 //(no canUseModelers gate, unlike the three modelers above).
 router.get('/notes/quickPlan', isAuthenticated, renderQuickPlan);
+
+//6-axis Data — standalone MWD sensor axis-mapping/calibration tool, same
+//pattern as Quick Plan above (no bound note/job, open to every role).
+router.get('/notes/sixAxisData', isAuthenticated, renderSixAxisData);
+
+//6-axis Data — saved cases (per-user, 2026-08-23): raw imported rows +
+//Input Data panel state, so a session's work can be reloaded later.
+router.post('/notes/sixAxisData/case', isAuthenticated, saveSixAxisCase);
+router.get('/notes/sixAxisData/cases', isAuthenticated, listSixAxisCases);
+router.get('/notes/sixAxisData/case/:id', isAuthenticated, getSixAxisCase);
+router.delete('/notes/sixAxisData/case/:id', isAuthenticated, deleteSixAxisCase);
 
 
 module.exports = router;

@@ -44,10 +44,20 @@
 //     differ by ~3% due to a known, intentional simplification — see
 //     "KNOWN GAP" below.
 //   - Full-well combined covariance (NN/EE/VV) checked at all 268 survey
-//     stations against the spreadsheet's TOTALS sheet: matches to <0.1%
-//     from MD=1200m onward; the only larger relative errors are in the
-//     top ~200m where absolute uncertainty is tiny anyway (a few cm) and
-//     the same known surface-tie-on simplification dominates.
+//     stations against the spreadsheet's TOTALS sheet. Convergence is
+//     slower than earlier stated here: ~19.8% error remains at MD=1200m
+//     (still build-up, Inc=0-ish), dropping below ~1% around MD=2200m
+//     (Inc~60 deg) and below 0.1% only from about MD=4500m onward. The
+//     dominant contributors throughout are the same known surface-tie-on
+//     gap (XYM3E/XYM4E, ABXY-TI1S/TI2S) - not a separate issue - and the
+//     absolute uncertainty in that shallow range is small (a few cm) even
+//     though the relative error is large. Re-validated 2026-08-20:
+//     per-term covariance and the drdp matrix both match the spreadsheet
+//     exactly at Inc=90 deg stations (MD~5400m) as well, with TOTALS error
+//     there under 0.3% and shrinking with MD - i.e. no growth of error
+//     near-horizontal, ruling this engine out as the source of the
+//     separate SF-divergence-at-near-90-deg issue tracked in the AC module
+//     (see job.ejs SF/C2C combination code for that investigation).
 // Three real bugs were caught and fixed during this validation (not
 // theoretical — each one produced a concrete, measurable mismatch against
 // the reference data before being fixed): (1) a JS truthiness bug in the

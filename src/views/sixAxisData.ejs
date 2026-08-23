@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6-axis Data — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<style>
+  /*
+    Restyled 2026-08-22 to match MTX Conveyor's own standalone-tool look
+    (same CSS-variable dark panel theme as quickPlan.ejs) — this page was
+    ported as-is from the person's own pre-existing "MWD sensor mapping"
+    tool (index.html/script.js/style.css, left in the working folder
+    2026-08-22): a 6-axis (3-axis accelerometer + 3-axis magnetometer)
+    sensor mapping/calibration diagnostic — brute-forces which axis
+    permutation/sign combination reproduces a known reference Inc/Az/Dip,
+    and (via an imported multi-station Excel file) generates per-station
+    QC plots and a TensorFlow.js bias/scale fit against the theoretical
+    magnetic field. NONE of the underlying math was changed in this port —
+    only the visual theme and page wiring (route/menu) are new.
+  */
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c;
+    --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:12px;}
+  .wrap{max-width:1400px;margin:0 auto;padding:16px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+  .panel h2,.panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:5px 6px;border-bottom:1px solid var(--border);text-align:center;}
+  table thead th{color:var(--muted);font-weight:500;background:var(--panel2);}
+  td:first-child, th:first-child { text-align:left; }
+  input[type=number],input[type=text],select{
+    width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:4px 6px;border-radius:4px;font-size:12px;
+  }
+  button{
+    background:var(--accent);border:none;color:#08131f;font-weight:600;padding:7px 12px;
+    border-radius:5px;font-size:12px;cursor:pointer;margin:4px 4px 4px 0;
+  }
+  button:hover{filter:brightness(1.1);}
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  .note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  /* Added 2026-08-23: highlight for Reference INC/AZ after a Quick Row Select
+     click — the imported file has no INC/AZ column, so these are blanked on
+     row click (rather than silently keeping a stale value from a different
+     station) and flagged until the person re-enters them. */
+  .needs-input{border-color:var(--bad) !important;box-shadow:0 0 0 1px var(--bad);}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  #plotsContainer{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  #plotsContainer > div{background:var(--panel2);border:1px solid var(--border);border-radius:6px;min-height:260px;}
+  #importedDataContainer,#rearrangedDataContainer,#liveCombinationsContainer{margin-top:12px;overflow-x:auto;}
+  @media (max-width:900px){ .grid-2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>6-axis Data — MWD Sensor Mapping</h1>
+  <div class="sub">Accelerometer/magnetometer axis mapping &amp; calibration diagnostic &middot; standalone, not tied to a job/note</div>
+</header>
+
+<div class="wrap">
+
+  <div class="panel">
+    <p class="note">
+      Enter one station's raw Gx/Gy/Gz (accelerometer) and Bx/By/Bz (magnetometer) readings and the reference
+      Inc/Az/Dip/Dec/field-strength values for that same station (from the definitive survey), then click Find —
+      this brute-forces all 48 axis permutation/sign combinations and reports which ones reproduce the reference
+      values within the tolerances below. To QC a full run instead, import an Excel file with columns
+      <b>MD, Gx, Gy, Gz, Bx, By, Bz</b> using the button near the bottom.
+    </p>
+  </div>
+
+  <!-- Added 2026-08-23: Saved Cases — persists the raw imported rows +
+       Input Data panel state per user (MongoDB, via /notes/sixAxisData/case
+       routes), so a case can be named, reloaded, and deleted later. -->
+  <div class="panel">
+    <h2>Saved Cases</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <button type="button" id="saveCaseBtn" class="secondary">Save Case</button>
+      <select id="caseSelect" style="max-width:280px;">
+        <option value="">Select a saved case…</option>
+      </select>
+      <button type="button" id="loadCaseBtn" class="secondary">Load</button>
+      <button type="button" id="deleteCaseBtn" class="secondary">Delete</button>
+    </div>
+    <div class="note">Save Case stores the raw imported Excel rows (whichever were last imported/used) and every Input Data field above. Load restores both.</div>
+  </div>
+
+  <form id="inputForm">
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Input Data</h2>
+        <table>
+          <thead><tr><th>Sensor</th><th>Value</th><th>Unit</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>MD</td>
+              <td><input type="number" id="mdInput" value="" /></td>
+              <td>m</td>
+            </tr>
+            <tr>
+              <td>Gx</td>
+              <td><input type="number" id="gx" value="-0.61" /></td>
+              <td>
+                <select id="gxUnit">
+                  <option value="ug">uG</option>
+                  <option value="g" selected>G</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Gy</td>
+              <td><input type="number" id="gy" value="-0.79" /></td>
+              <td>
+                <select id="gyUnit">
+                  <option value="ug">uG</option>
+                  <option value="g" selected>G</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Gz</td>
+              <td><input type="number" id="gz" value="0.07" /></td>
+              <td>
+                <select id="gzUnit">
+                  <option value="ug">uG</option>
+                  <option value="g" selected>G</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Bx</td>
+              <td><input type="number" id="bx" value="-40701" /></td>
+              <td>
+                <select id="bxUnit">
+                  <option value="ut">uT</option>
+                  <option value="mt">mT</option>
+                  <option value="nt" selected>nT</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>By</td>
+              <td><input type="number" id="by" value="-8096" /></td>
+              <td>
+                <select id="byUnit">
+                  <option value="ut">uT</option>
+                  <option value="mt">mT</option>
+                  <option value="nt" selected>nT</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Bz</td>
+              <td><input type="number" id="bz" value="18795" /></td>
+              <td>
+                <select id="bzUnit">
+                  <option value="ut">uT</option>
+                  <option value="mt">mT</option>
+                  <option value="nt" selected>nT</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Magnetic Field</td>
+              <td><input type="number" id="refBT" value="56.7785" /></td>
+              <td>uT</td>
+            </tr>
+            <tr>
+              <td>Gravity Field</td>
+              <td><input type="number" id="refGT" value="1.0000" /></td>
+              <td>G</td>
+            </tr>
+            <tr>
+              <td>Reference INC</td>
+              <td><input type="number" id="refInc" value="86.1" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>Reference AZ</td>
+              <td><input type="number" id="refAz" value="314.26" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>Reference DIP</td>
+              <td><input type="number" id="refDip" value="76.12" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>Reference DEC</td>
+              <td><input type="number" id="refDec" value="11.82" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>INC Error</td>
+              <td><input type="number" id="incError" value="5" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>DIP Error</td>
+              <td><input type="number" id="dipError" value="5" /></td>
+              <td>&deg;</td>
+            </tr>
+            <tr>
+              <td>Az Error</td>
+              <td><input type="number" id="azError" value="5" /></td>
+              <td>&deg;</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Calculated Magnetic Field Components</h2>
+        <table>
+          <tr><td>MagN:</td><td><span id="MagNValue">--</span> &micro;T</td></tr>
+          <tr><td>MagE:</td><td><span id="MagEValue">--</span> &micro;T</td></tr>
+          <tr><td>MagV:</td><td><span id="MagVValue">--</span> &micro;T</td></tr>
+        </table>
+        <div class="note">MagN/E/V are the reference total field resolved into North/East/Vertical using the Reference DIP and Reference DEC above (BT&middot;cos(DIP)&middot;cos(DEC), BT&middot;cos(DIP)&middot;sin(DEC), BT&middot;sin(DIP)).</div>
+        <button type="button" id="calculateBtn" style="margin-top:10px;">Find</button>
+
+        <!-- ── Quick Row Select (2026-08-23) ──────────────────────────────
+             A separate, lighter entry point from the "Multi-Station Import"
+             panel further down: that one feeds the full Rearrange Sensors →
+             Show Plots → TensorFlow fit pipeline; this one is just for
+             quickly browsing an imported file and clicking a row to
+             auto-populate MD/Gx/Gy/Gz/Bx/By/Bz above — e.g. when all that's
+             needed right now is finding the sensor axis order for one
+             station, not the full multi-station QC process. Per the
+             person's direction, importing is NOT duplicated between the
+             two: whichever panel imports a file first caches the parsed
+             rows (LAST_IMPORTED_ROWS below), and "Use Already Uploaded
+             File" in the OTHER panel reuses that same cached data instead
+             of prompting for the file again. -->
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);">
+          <button type="button" id="qrsImportBtn" class="secondary">Import Excel File</button>
+          <button type="button" id="qrsUseUploadedBtn" class="secondary">Use Already Uploaded File</button>
+          <div class="note">Click a row below to auto-fill MD/Gx/Gy/Gz/Bx/By/Bz above (units reset to G/nT, matching the import format). Magnetic Field/Reference DIP/Reference DEC stay at their fixed defaults above — this page does not compute those from the row.</div>
+          <div id="qrsTableContainer" style="margin-top:8px;max-height:260px;overflow:auto;"></div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="panel">
+    <h2>Valid Combinations (within tolerance)</h2>
+    <div style="overflow-x:auto;">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>Gx (G)</th><th>Gy (G)</th><th>Gz (G)</th>
+            <th>Bx (uT)</th><th>By (uT)</th><th>Bz (uT)</th>
+            <th>INC (deg)</th><th>AZ (deg)</th><th>DIP (deg)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Comparison (first matching combination vs. as-entered)</h3>
+    <div class="note">Row 1 = as-entered values; Row 2 = the matching combination's values; Row 3 = which original input column each came from (by index); Row 4 = the sign/ratio applied.</div>
+    <div style="overflow-x:auto;">
+      <table id="comparisonTable">
+        <thead><tr><th>Gx</th><th>Gy</th><th>Gz</th><th>Bx</th><th>By</th><th>Bz</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>MSA-Corrected (reserved)</h3>
+    <div style="overflow-x:auto;">
+      <table id="MSAresultTable">
+        <thead><tr><th>Station</th><th>Corrected Bx</th><th>Corrected By</th><th>Corrected Bz</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Multi-Station Import (QC across a full run)</h2>
+    <div class="note">Excel file must have columns, in order: <b>MD, Gx, Gy, Gz, Bx, By, Bz</b>. Uses the Reference DEC and the Calculated Magnetic Field Components above for the theoretical (t-prefixed) columns.</div>
+    <button type="button" id="importExcelBtn">Import Excel File</button>
+    <button type="button" id="msaUseUploadedBtn" class="secondary">Use Already Uploaded File</button>
+    <div id="importedDataContainer"></div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// Ported 2026-08-22 from the person's own pre-existing "MWD sensor
+// mapping" tool (index.html/script.js), left in the working folder for
+// integration as a standalone MTX Conveyor page. This is the person's
+// own prior work, not a new drilling-engineering derivation — the sensor
+// axis-mapping brute force, DIP/INC/AZ formulas, and the TensorFlow.js
+// bias/scale fit below are UNCHANGED from the original tool. Only dead
+// commented-out earlier attempts (a manual grid-search bias/scale
+// optimizer superseded by the TF.js version, and two unused table-extractor
+// helpers) were dropped for cleanliness; nothing that was active before is
+// different here.
+// ─────────────────────────────────────────────────────────────────
+
+// Calculate Button
+document.getElementById("calculateBtn").addEventListener("click", () => {
+  const gx = convertUnit(parseFloat(document.getElementById("gx").value), document.getElementById("gxUnit").value, "g");
+  const gy = convertUnit(parseFloat(document.getElementById("gy").value), document.getElementById("gyUnit").value, "g");
+  const gz = convertUnit(parseFloat(document.getElementById("gz").value), document.getElementById("gzUnit").value, "g");
+
+  const bx = convertUnit(parseFloat(document.getElementById("bx").value), document.getElementById("bxUnit").value, "ut");
+  const by = convertUnit(parseFloat(document.getElementById("by").value), document.getElementById("byUnit").value, "ut");
+  const bz = convertUnit(parseFloat(document.getElementById("bz").value), document.getElementById("bzUnit").value, "ut");
+
+  const refBT = parseFloat(document.getElementById("refBT").value);
+  const refGT = parseFloat(document.getElementById("refGT").value);
+
+  const refDip = parseFloat(document.getElementById("refDip").value);
+  const refInc = parseFloat(document.getElementById("refInc").value);
+  const refAz = parseFloat(document.getElementById("refAz").value);
+  const refDec = parseFloat(document.getElementById("refDec").value);
+
+  const originalSet = [gx, gy, gz, bx, by, bz];
+
+  if (!originalSet || originalSet.length < 6) {
+    console.error("Invalid originalSet:", originalSet);
+    return;
+  }
+
+  // Calculate Magnetic Field Components
+  const magneticComponents = calculateMagneticComponents(refBT, refDip, refDec);
+
+  document.getElementById("MagNValue").textContent = magneticComponents.MagN;
+  document.getElementById("MagEValue").textContent = magneticComponents.MagE;
+  document.getElementById("MagVValue").textContent = magneticComponents.MagV;
+
+  const results = calculateCombinations([gx, gy, gz], [bx, by, bz],
+    refDip, refInc, refAz, refDec, originalSet, magneticComponents);
+  displayResults(results, originalSet);
+});
+
+// Function to calculate magnetic field components
+function calculateMagneticComponents(BT, DIP, Dec) {
+  const dipRad = DIP * (Math.PI / 180);
+  const decRad = Dec * (Math.PI / 180);
+
+  const MagN = BT * Math.cos(dipRad) * Math.cos(decRad);
+  const MagE = BT * Math.cos(dipRad) * Math.sin(decRad);
+  const MagV = BT * Math.sin(dipRad);
+
+  return {
+    MagN: MagN.toFixed(5),
+    MagE: MagE.toFixed(5),
+    MagV: MagV.toFixed(5)
+  };
+}
+
+// Convert Units
+function convertUnit(value, fromUnit, toUnit) {
+  const conversions = {
+    g: { g: 1, mg: 0.001, ug: 0.000001 },
+    ut: { ut: 1, mt: 1000, nt: 0.001 },
+  };
+  return value * conversions[toUnit][fromUnit];
+}
+
+function calculateCombinations(gyroData, magData, refDip, refInc, refAz, refDec, originalSet, magneticComponents) {
+  const gyroPermutations = permuteAndSign(gyroData);
+  const magPermutations = permuteAndSign(magData);
+  const results = [];
+  // Added 2026-08-23: track the single closest-scoring combination across
+  // all 48 permutations, regardless of whether it passes tolerance, so the
+  // UI can show a "nearest miss" instead of leaving the tables blank with
+  // no explanation when nothing matches. Does not alter the existing
+  // tolerance-matching logic/results array above.
+  let closest = null;
+  let closestScore = Infinity;
+
+  gyroPermutations.forEach(([gx, gy, gz]) => {
+    magPermutations.forEach(([bx, by, bz]) => {
+      const bt = Math.sqrt(bx ** 2 + by ** 2 + bz ** 2);
+      const gt = Math.sqrt(gx ** 2 + gy ** 2 + gz ** 2);
+      const dip = Math.asin((gx * bx + gy * by + gz * bz) / (gt * bt)) * (180 / Math.PI);
+      const inc = Math.acos(gz / gt) * (180 / Math.PI);
+      const az = refDec + Math.atan2(
+        (bx * gy - by * gx),
+        (bz * (gx ** 2 + gy ** 2) - gz * (gx * bx + gy * by))
+      ) * (180 / Math.PI);
+
+      const dipError = document.getElementById("dipError").value || 5;
+      const incError = document.getElementById("incError").value || 5;
+      const azError = document.getElementById("azError").value || 5;
+
+      if (refAz > 180) {
+        refAz = 360 - refAz;
+      }
+
+      const dDip = Math.abs(dip - refDip);
+      const dInc = Math.abs(inc - refInc);
+      const dAz = Math.abs(az - refAz);
+
+      if (
+        dDip < dipError &&
+        dInc < incError &&
+        dAz < azError
+      ) {
+        results.push({ gx, gy, gz, bx, by, bz, inc, az, dip });
+      }
+
+      const score = dDip + dInc + dAz;
+      if (score < closestScore) {
+        closestScore = score;
+        closest = { gx, gy, gz, bx, by, bz, inc, az, dip, dDip, dInc, dAz };
+      }
+    });
+  });
+
+  results.closest = closest;
+  return results;
+}
+
+// Permute and Add Sign Variations
+function permuteAndSign(array) {
+  const permutations = [];
+  const signs = [-1, 1];
+
+  function generatePermutations(arr, current) {
+    if (arr.length === 0) {
+      signs.forEach((s1) => signs.forEach((s2) => signs.forEach((s3) =>
+        permutations.push([current[0] * s1, current[1] * s2, current[2] * s3])
+      )));
+      return;
+    }
+    for (let i = 0; i < arr.length; i++) {
+      const newCurrent = [...current, arr[i]];
+      const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+      generatePermutations(remaining, newCurrent);
+    }
+  }
+
+  generatePermutations(array, []);
+  return permutations;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Shared Excel import (2026-08-23) — two separate entry points share
+// ONE cached copy of whatever was last imported (LAST_IMPORTED_ROWS),
+// per the person's direction: "Import Excel File" in either the Quick
+// Row Select panel above or the Multi-Station Import panel below opens
+// a fresh file picker and re-caches; "Use Already Uploaded File" in
+// EITHER panel reuses that cache instead of prompting for the file
+// again, so a file never has to be browsed/uploaded twice in one
+// session no matter which panel is used first.
+// ─────────────────────────────────────────────────────────────────
+let LAST_IMPORTED_ROWS = null;
+
+// Added 2026-08-23: ids of the currently-drawn QC plots, used by the
+// dots-only/lines+dots toggle (see generatePlots()) to restyle every plot
+// in place without rebuilding them.
+let QC_PLOT_IDS = [];
+
+// ─────────────────────────────────────────────────────────────────
+// Added 2026-08-23: Saved Cases — persists LAST_IMPORTED_ROWS (the raw
+// imported Excel rows) and the Input Data panel fields per user, via the
+// /notes/sixAxisData/case* routes backed by the new SixAxisCase MongoDB
+// collection. The tool itself stays standalone (no bound job/note); cases
+// are just a per-user save/reload convenience on top of that.
+// ─────────────────────────────────────────────────────────────────
+const INPUT_DATA_FIELD_IDS = [
+  "mdInput", "gx", "gy", "gz", "bx", "by", "bz",
+  "gxUnit", "gyUnit", "gzUnit", "bxUnit", "byUnit", "bzUnit",
+  "refBT", "refGT", "refInc", "refAz", "refDip", "refDec",
+  "incError", "dipError", "azError",
+];
+
+function collectInputData() {
+  const data = {};
+  INPUT_DATA_FIELD_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    data[id] = el ? String(el.value) : "";
+  });
+  return data;
+}
+
+function applyInputData(data) {
+  if (!data) return;
+  INPUT_DATA_FIELD_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && typeof data[id] !== "undefined" && data[id] !== "") {
+      el.value = data[id];
+      el.classList.remove("needs-input");
+    }
+  });
+}
+
+async function refreshCaseList(selectId) {
+  const select = document.getElementById("caseSelect");
+  try {
+    const res = await fetch("/notes/sixAxisData/cases");
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Failed to list cases.");
+    select.innerHTML = '<option value="">Select a saved case…</option>' +
+      json.cases.map((c) => `<option value="${c._id}">${c.name} (${new Date(c.createdAt).toLocaleString()})</option>`).join("");
+    if (selectId) select.value = selectId;
+  } catch (err) {
+    console.error("[SixAxisCase] list failed", err);
+    alert("Could not load the saved case list.");
+  }
+}
+
+document.getElementById("saveCaseBtn").addEventListener("click", async () => {
+  const name = prompt("Name this case (e.g. well/run name):");
+  if (!name || !name.trim()) return;
+  try {
+    const res = await fetch("/notes/sixAxisData/case", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        rawRows: LAST_IMPORTED_ROWS || [],
+        inputData: collectInputData(),
+      }),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Failed to save case.");
+    await refreshCaseList(json.case._id);
+    alert(`Case "${name.trim()}" saved.`);
+  } catch (err) {
+    console.error("[SixAxisCase] save failed", err);
+    alert("Could not save this case.");
+  }
+});
+
+document.getElementById("loadCaseBtn").addEventListener("click", async () => {
+  const id = document.getElementById("caseSelect").value;
+  if (!id) { alert("Select a saved case first."); return; }
+  try {
+    const res = await fetch(`/notes/sixAxisData/case/${id}`);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Failed to load case.");
+    applyInputData(json.case.inputData);
+    LAST_IMPORTED_ROWS = Array.isArray(json.case.rawRows) ? json.case.rawRows : null;
+    if (LAST_IMPORTED_ROWS && LAST_IMPORTED_ROWS.length) {
+      renderQuickSelectTable(LAST_IMPORTED_ROWS);
+    }
+  } catch (err) {
+    console.error("[SixAxisCase] load failed", err);
+    alert("Could not load this case.");
+  }
+});
+
+document.getElementById("deleteCaseBtn").addEventListener("click", async () => {
+  const select = document.getElementById("caseSelect");
+  const id = select.value;
+  if (!id) { alert("Select a saved case first."); return; }
+  const label = select.options[select.selectedIndex].textContent;
+  if (!confirm(`Delete case "${label}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/notes/sixAxisData/case/${id}`, { method: "DELETE" });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Failed to delete case.");
+    await refreshCaseList();
+  } catch (err) {
+    console.error("[SixAxisCase] delete failed", err);
+    alert("Could not delete this case.");
+  }
+});
+
+refreshCaseList();
+
+function pickAndImportExcelFile(onData) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".xlsx, .xls";
+  input.addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    const headers = json[0];
+    if (headers.join(",") !== "MD,Gx,Gy,Gz,Bx,By,Bz") {
+      alert("The file must have these columns: MD, Gx, Gy, Gz, Bx, By, Bz.");
+      return;
+    }
+
+    LAST_IMPORTED_ROWS = json;
+    onData(json);
+  });
+  input.click();
+}
+
+function useAlreadyUploaded(onData) {
+  if (!LAST_IMPORTED_ROWS) {
+    alert("Nothing imported yet in this session — use an \"Import Excel File\" button first.");
+    return;
+  }
+  onData(LAST_IMPORTED_ROWS);
+}
+
+// Multi-Station Import panel (bottom) — full Rearrange/Plots/TF pipeline
+document.getElementById("importExcelBtn").addEventListener("click", () => {
+  pickAndImportExcelFile((json) => renderImportedTable(json));
+});
+document.getElementById("msaUseUploadedBtn").addEventListener("click", () => {
+  useAlreadyUploaded((json) => renderImportedTable(json));
+});
+
+// Quick Row Select panel (below Find) — click a row to auto-fill Input Data
+document.getElementById("qrsImportBtn").addEventListener("click", () => {
+  pickAndImportExcelFile((json) => renderQuickSelectTable(json));
+});
+document.getElementById("qrsUseUploadedBtn").addEventListener("click", () => {
+  useAlreadyUploaded((json) => renderQuickSelectTable(json));
+});
+
+// Renders the imported rows (MD, Gx, Gy, Gz, Bx, By, Bz) as a plain
+// clickable table under the Find button — clicking a row fills MD and the
+// six raw sensor textboxes above (resetting their unit dropdowns to G/nT,
+// the units the imported file's numbers are assumed to already be in,
+// same as this tool's own default selects). Magnetic Field/Reference
+// DIP/Reference DEC/Gravity Field/the three error margins are left at
+// their fixed page defaults — per the person's direction (2026-08-23),
+// this page does not compute those per-row (no WMM/lat-long lookup here).
+function renderQuickSelectTable(data) {
+  const container = document.getElementById("qrsTableContainer");
+  const rows = data.slice(1);
+  container.innerHTML = `
+    <table id="qrsTable">
+      <thead><tr><th>MD</th><th>Gx</th><th>Gy</th><th>Gz</th><th>Bx</th><th>By</th><th>Bz</th></tr></thead>
+      <tbody>
+        ${rows.map((row, i) => `
+          <tr class="qrsRow" data-row-index="${i}" style="cursor:pointer;">
+            ${row.map((cell, ci) => `<td>${typeof cell === 'number' ? cell.toFixed(ci === 0 ? 2 : 5) : cell}</td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+
+  container.querySelectorAll(".qrsRow").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const row = rows[parseInt(tr.dataset.rowIndex, 10)];
+      const [md, gx, gy, gz, bx, by, bz] = row;
+
+      document.getElementById("mdInput").value = md;
+      document.getElementById("gx").value = gx;
+      document.getElementById("gy").value = gy;
+      document.getElementById("gz").value = gz;
+      document.getElementById("bx").value = bx;
+      document.getElementById("by").value = by;
+      document.getElementById("bz").value = bz;
+
+      document.getElementById("gxUnit").value = "g";
+      document.getElementById("gyUnit").value = "g";
+      document.getElementById("gzUnit").value = "g";
+      document.getElementById("bxUnit").value = "nt";
+      document.getElementById("byUnit").value = "nt";
+      document.getElementById("bzUnit").value = "nt";
+
+      // Fixed defaults per the person's direction (2026-08-23) — not
+      // derived from this row, just kept consistent on every click.
+      document.getElementById("refBT").value = "56.7785";
+      document.getElementById("refGT").value = "1.0000";
+      document.getElementById("refDip").value = "76.12";
+      document.getElementById("refDec").value = "11.82";
+      document.getElementById("incError").value = "5";
+      document.getElementById("dipError").value = "5";
+      document.getElementById("azError").value = "5";
+
+      // Added 2026-08-23: the imported file has no Reference INC/AZ column,
+      // so a stale value from a previously-selected station (or the page's
+      // original demo defaults) would otherwise silently carry over and
+      // produce a misleading "zero matches" result. Blank + highlight both
+      // fields so it's obvious they need the person's own input for this
+      // station before clicking Find.
+      const refIncEl = document.getElementById("refInc");
+      const refAzEl = document.getElementById("refAz");
+      refIncEl.value = "";
+      refAzEl.value = "";
+      refIncEl.classList.add("needs-input");
+      refAzEl.classList.add("needs-input");
+
+      container.querySelectorAll(".qrsRow").forEach((r) => r.style.background = "");
+      tr.style.background = "var(--panel2)";
+    });
+  });
+}
+
+// Added 2026-08-23: clear the needs-input highlight on Reference INC/AZ
+// once the person types a value, so the flag doesn't linger after it's
+// been addressed.
+["refInc", "refAz"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("input", () => el.classList.remove("needs-input"));
+  }
+});
+
+// Render Imported Data Table with Proper Formatting
+function renderImportedTable(data) {
+  const container = document.getElementById("importedDataContainer");
+  container.innerHTML = `
+    <h3>Imported Data</h3>
+    <div style="overflow-x:auto;">
+    <table id="importedTable">
+      <thead>
+        <tr>
+          ${data[0].map((header) => `<th>${header}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${data.slice(1).map((row) => `
+          <tr>
+            ${row.map((cell, index) => {
+              let num = parseFloat(cell);
+              if (isNaN(num)) {
+                num = parseFloat(String(cell).replace(/[^0-9.-]/g, ""));
+              }
+              if (!isNaN(num)) {
+                return `<td>${index === 0 ? num.toFixed(2) : num.toFixed(5)}</td>`;
+              } else {
+                return `<td>${cell}</td>`;
+              }
+            }).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    </div>
+    <br>
+    <button id="rearrangeBtn" class="secondary">Rearrange Sensors</button>
+    <div id="rearrangedDataContainer"></div>
+  `;
+
+  document.getElementById("rearrangeBtn").addEventListener("click", () => {
+    rearrangeSensors(data);
+  });
+}
+
+// Rearrange Sensors Columns and Add New Table with DIP Calculation
+function rearrangeSensors(data) {
+  const headers = data[0];
+  const reorderedHeaders = ["MD", "Gz", "Gy", "Gx", "Bz", "By", "Bx"];
+
+  if (!headers || headers.length === 0) {
+    console.error("Headers are not defined or invalid:", headers);
+    return;
+  }
+
+  const reorderedData = [reorderedHeaders, ...data.slice(1).map((row) => {
+    return reorderedHeaders.map((header) => {
+      const value = row[headers.indexOf(header)];
+      let num = parseFloat(value);
+      if (isNaN(num)) {
+        num = parseFloat(String(value).replace(/[^0-9.-]/g, ""));
+      }
+      return !isNaN(num) ? num.toFixed(5) : value;
+    });
+  })];
+
+  if (!reorderedData || reorderedData.length === 0) {
+    console.error("reorderedData is not defined or invalid:", reorderedData);
+    return;
+  }
+
+  reorderedData[0].push("DIP (deg)", "ToolFace (deg)", "INC (deg)", "AZ (deg)",
+                        "GT (G)", "BT (uT)", "Tg", "Th",
+                        "Nx", "Ex", "Vx", "Ny", "Ey", "Vy", "Nz", "Ez", "Vz",
+                        "tBx", "tBy", "tBz", "tBT", "tdip");
+
+  reorderedData.slice(1).forEach((row) => {
+    const gx = parseFloat(row[3]);
+    const gy = parseFloat(row[2]);
+    const gz = parseFloat(row[1]);
+    const bx = parseFloat(row[6]);
+    const by = parseFloat(row[5]);
+    const bz = parseFloat(row[4]);
+    const md = parseFloat(row[0]);
+
+    const gt = Math.sqrt(gx ** 2 + gy ** 2 + gz ** 2);
+    const bt = Math.sqrt(bx ** 2 + by ** 2 + bz ** 2);
+    const dip = Math.asin((gx * bx + gy * by + gz * bz) / (gt * bt)) * (180 / Math.PI);
+    const toolFace = Math.atan2(-gx, -gy) * (180 / Math.PI);
+    const inc = Math.acos(gz / gt) * (180 / Math.PI);
+
+    const refDec = parseFloat(document.getElementById("refDec").value);
+    const az = refDec + Math.atan2(
+      (bx * gy - by * gx),
+      (bz * (gx ** 2 + gy ** 2) - gz * (gx * bx + gy * by))
+    ) * (180 / Math.PI);
+
+    const tg = Math.sqrt(gy ** 2 + gz ** 2);
+    const th = Math.sqrt(by ** 2 + bz ** 2);
+
+    row[0] = md.toFixed(2);
+    row.push(
+      dip.toFixed(5),
+      toolFace.toFixed(5),
+      inc.toFixed(2),
+      az.toFixed(2),
+      gt.toFixed(5),
+      bt.toFixed(5),
+      tg.toFixed(5),
+      th.toFixed(5)
+    );
+  });
+
+  reorderedData.slice(1).forEach((row) => {
+    const inc = parseFloat(row[9]) * (Math.PI / 180);
+    const az = parseFloat(row[10]) * (Math.PI / 180);
+    const tf = parseFloat(row[8]) * (Math.PI / 180);
+    const gx = parseFloat(row[3]) * (Math.PI / 180);
+    const gy = parseFloat(row[2]) * (Math.PI / 180);
+    const gz = parseFloat(row[1]) * (Math.PI / 180);
+    const gt = Math.sqrt(gx ** 2 + gy ** 2 + gz ** 2);
+
+    const Nx = Math.cos(inc) * Math.cos(az) * Math.sin(tf) + Math.sin(az) * Math.cos(tf);
+    const Ex = Math.cos(inc) * Math.sin(az) * Math.sin(tf) - Math.cos(az) * Math.cos(tf);
+    const Vx = -Math.sin(inc) * Math.sin(tf);
+
+    const Ny = Math.cos(inc) * Math.cos(az) * Math.cos(tf) - Math.sin(az) * Math.sin(tf);
+    const Ey = Math.cos(inc) * Math.sin(az) * Math.cos(tf) + Math.cos(az) * Math.sin(tf);
+    const Vy = -Math.sin(inc) * Math.cos(tf);
+
+    const Nz = Math.sin(inc) * Math.cos(az);
+    const Ez = Math.sin(inc) * Math.sin(az);
+    const Vz = Math.cos(inc);
+
+    const cosI = Math.cos(inc);
+    const sinI = Math.sin(inc);
+    const cosA = Math.cos(az);
+    const sinA = Math.sin(az);
+    const cosT = Math.cos(tf);
+    const sinT = Math.sin(tf);
+
+    const MagN = parseFloat(document.getElementById("MagNValue").innerHTML);
+    const MagE = parseFloat(document.getElementById("MagEValue").innerHTML);
+    const MagV = parseFloat(document.getElementById("MagVValue").innerHTML);
+
+    const tBx = (cosI * cosA * sinT + sinA * cosT) * MagN
+              + (cosI * sinA * sinT - cosA * cosT) * MagE
+              - sinI * sinT * MagV;
+    const tBy = (cosI * cosA * cosT - sinA * sinT) * MagN
+              + (cosI * sinA * cosT + cosA * sinT) * MagE
+              - sinI * cosT * MagV;
+    const tBz = (sinI * cosA) * MagN
+              + (sinI * sinA) * MagE
+              + cosI * MagV;
+
+    const tBT = Math.sqrt(tBx ** 2 + tBy ** 2 + tBz ** 2);
+    const tdip = Math.asin((gx * tBx + gy * tBy + gz * tBz) / (gt * tBT)) * (180 / Math.PI);
+
+    row.push(
+      Nx.toFixed(5), Ex.toFixed(5), Vx.toFixed(5),
+      Ny.toFixed(5), Ey.toFixed(5), Vy.toFixed(5),
+      Nz.toFixed(5), Ez.toFixed(5), Vz.toFixed(5),
+      tBx.toFixed(5), tBy.toFixed(5), tBz.toFixed(5),
+      tBT.toFixed(5), tdip.toFixed(5)
+    );
+  });
+
+  const rearrangedContainer = document.getElementById("rearrangedDataContainer");
+  rearrangedContainer.innerHTML = `
+    <h3>Rearranged Data with Unit Vectors</h3>
+    <div style="overflow-x:auto;">
+    <table id="rearrangedTable">
+      <thead>
+        <tr>${reorderedData[0].map((header) => `<th>${header}</th>`).join("")}</tr>
+      </thead>
+      <tbody>
+        ${reorderedData.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+      </tbody>
+    </table>
+    </div>
+    <br>
+    <button id="showPlotsBtn" class="secondary">Show Plots</button>
+  `;
+
+  document.getElementById("showPlotsBtn").addEventListener("click", () => {
+    generatePlots(reorderedData.slice(1));
+  });
+}
+
+// Display Results in Table
+function displayResults(results, originalSet) {
+  const resultsTableBody = document.querySelector("#resultsTable tbody");
+  resultsTableBody.innerHTML = "";
+
+  const comparisonTableBody = document.querySelector("#comparisonTable tbody");
+  comparisonTableBody.innerHTML = "";
+
+  function fillComparisonTable(result) {
+    const originalRow = document.createElement("tr");
+    originalRow.innerHTML = originalSet.map((value) =>
+      `<td>${value.toFixed(5)}</td>`
+    ).join("");
+
+    const newRow = document.createElement("tr");
+    const newValues = [result.gx, result.gy, result.gz, result.bx, result.by, result.bz];
+    newRow.innerHTML = newValues.map((value) =>
+      `<td>${value.toFixed(5)}</td>`
+    ).join("");
+
+    const indexRow = document.createElement("tr");
+    const indices = newValues.map(value =>
+      originalSet.findIndex(origValue => Math.abs(Math.abs(origValue) - Math.abs(value)) < 0.00001) + 1
+    );
+    indexRow.innerHTML = indices.map(index => `<td>${index || "N/A"}</td>`).join("");
+
+    const divisionRow = document.createElement("tr");
+    divisionRow.innerHTML = indices.map((index, col) =>
+      index ? `<td>${(newValues[col] / originalSet[index - 1]).toFixed(0)}</td>` : "<td>N/A</td>"
+    ).join("");
+
+    comparisonTableBody.append(originalRow, newRow, indexRow, divisionRow);
+  }
+
+  results.forEach((result) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${result.gx.toFixed(5)}</td>
+      <td>${result.gy.toFixed(5)}</td>
+      <td>${result.gz.toFixed(5)}</td>
+      <td>${result.bx.toFixed(5)}</td>
+      <td>${result.by.toFixed(5)}</td>
+      <td>${result.bz.toFixed(5)}</td>
+      <td>${result.inc.toFixed(5)}</td>
+      <td>${result.az.toFixed(5)}</td>
+      <td>${result.dip.toFixed(5)}</td>
+    `;
+    resultsTableBody.appendChild(row);
+
+    if (comparisonTableBody.children.length === 0) {
+      fillComparisonTable(result);
+    }
+  });
+
+  // Added 2026-08-23: when nothing is within tolerance, show the single
+  // closest-scoring combination anyway (labeled "outside tolerance", with
+  // its Delta Dip/Inc/Az) instead of leaving all tables blank with no
+  // explanation — per the person's approved fix for the empty-results
+  // report on 2026-08-23.
+  if (results.length === 0 && results.closest) {
+    const c = results.closest;
+    const row = document.createElement("tr");
+    row.style.color = "var(--bad)";
+    row.title = "Outside tolerance — closest combination found across all 48 permutations.";
+    row.innerHTML = `
+      <td>${c.gx.toFixed(5)}</td>
+      <td>${c.gy.toFixed(5)}</td>
+      <td>${c.gz.toFixed(5)}</td>
+      <td>${c.bx.toFixed(5)}</td>
+      <td>${c.by.toFixed(5)}</td>
+      <td>${c.bz.toFixed(5)}</td>
+      <td>${c.inc.toFixed(5)}</td>
+      <td>${c.az.toFixed(5)}</td>
+      <td>${c.dip.toFixed(5)}</td>
+    `;
+    resultsTableBody.appendChild(row);
+
+    const noteRow = document.createElement("tr");
+    noteRow.style.color = "var(--muted)";
+    noteRow.innerHTML = `<td colspan="9" style="font-size:11px;">Outside tolerance (closest match shown above) — &Delta;Dip=${c.dDip.toFixed(3)}&deg;, &Delta;Inc=${c.dInc.toFixed(3)}&deg;, &Delta;Az=${c.dAz.toFixed(3)}&deg;. Widen the error tolerances or check Reference INC/AZ/DIP.</td>`;
+    resultsTableBody.appendChild(noteRow);
+
+    fillComparisonTable(c);
+  }
+}
+
+// Function to generate plots
+function generatePlots(data) {
+  const md = data.map(row => parseFloat(row[0]));
+  const gx = data.map(row => parseFloat(row[3]));
+  const gy = data.map(row => parseFloat(row[2]));
+  const gz = data.map(row => parseFloat(row[1]));
+  const bx = data.map(row => parseFloat(row[6]));
+  const by = data.map(row => parseFloat(row[5]));
+  const bz = data.map(row => parseFloat(row[4]));
+  const gt = data.map(row => parseFloat(row[11]));
+  const bt = data.map(row => parseFloat(row[12]));
+  const Tg = data.map(row => parseFloat(row[13]));
+  const Th = data.map(row => parseFloat(row[14]));
+  const Dip = data.map(row => parseFloat(row[7]));
+  const TF = data.map(row => parseFloat(row[8]));
+  const inc = data.map(row => parseFloat(row[9]));
+  const az = data.map(row => parseFloat(row[10]));
+
+  // Added 2026-08-23: remove the whole QC Plots panel (not just the inner
+  // container) before rebuilding, so re-running Show Plots doesn't stack
+  // duplicate "QC Plots" headers/toggles.
+  let existingPlotsPanel = document.getElementById("qcPlotsPanel");
+  if (existingPlotsPanel) {
+    existingPlotsPanel.remove();
+  }
+
+  const plotsPanel = document.createElement("div");
+  plotsPanel.className = "panel";
+  plotsPanel.id = "qcPlotsPanel";
+  plotsPanel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0;">QC Plots</h2>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" id="qcPlotLinesToggle" style="width:auto;">
+        Lines + Dots (uncheck for Dots only)
+      </label>
+    </div>
+  `;
+  const plotsContainer = document.createElement("div");
+  plotsContainer.id = "plotsContainer";
+  plotsPanel.appendChild(plotsContainer);
+  document.querySelector(".wrap").appendChild(plotsPanel);
+
+  // Added 2026-08-23: dots-only vs lines+dots toggle for every QC plot,
+  // defaulting to Dots only per the person's direction. Uses Plotly's
+  // own restyle (no data refetch/re-import, no TF re-optimization) so
+  // toggling is instant and doesn't disturb anything else on the page.
+  document.getElementById("qcPlotLinesToggle").addEventListener("change", (e) => {
+    const mode = e.target.checked ? "lines+markers" : "markers";
+    QC_PLOT_IDS.forEach((id) => {
+      if (document.getElementById(id)) {
+        Plotly.restyle(id, { mode: [mode] });
+      }
+    });
+  });
+
+  const plotLayout = {
+    paper_bgcolor: "#1e232b", plot_bgcolor: "#1e232b",
+    font: { color: "#e6e9ef", size: 10 },
+    margin: { l: 40, r: 10, t: 30, b: 30 }
+  };
+
+  // Added 2026-08-23, per the person's direction: on the three "vs MD" QC
+  // plots for which a physical tolerance exists (GT, BT, Dip), draw a
+  // reference line at the live Reference value plus a green tolerance band
+  // (ref +/- 1x tolerance shaded, dashed lines at +/- 1x) and fix the
+  // y-axis range to ref +/- 3x tolerance so the plot is centered on the
+  // reference regardless of the data spread. Tolerances are fixed
+  // QC-plot-specific constants (person's own instrument-spec numbers, not
+  // tied to the Find-tab incError/dipError/azError fields, which are for a
+  // different comparison): GT +/-0.0025 G, BT +/-300 nT (=0.3 uT, since
+  // this page's BT column is in uT), DIP +/-0.3 deg. Reference values are
+  // read live from the refGT/refBT/refDip Input Data fields at plot-build
+  // time (per the person's choice), so they track whatever the person has
+  // entered rather than a hardcoded constant.
+  const refGTLive = parseFloat(document.getElementById("refGT").value);
+  const refBTLive = parseFloat(document.getElementById("refBT").value);
+  const refDipLive = parseFloat(document.getElementById("refDip").value);
+
+  const TOL_GT = 0.0025;   // G
+  const TOL_BT = 0.3;      // uT (300 nT)
+  const TOL_DIP = 0.3;     // deg
+
+  const plotData = [
+    { y: gx, x: md, title: "Gx vs MD", id: "plot1" },
+    { y: bx, x: md, title: "Bx vs MD", id: "plot2" },
+    { y: gy, x: md, title: "Gy vs MD", id: "plot3" },
+    { y: by, x: md, title: "By vs MD", id: "plot4" },
+    { y: gz, x: md, title: "Gz vs MD", id: "plot5" },
+    { y: bz, x: md, title: "Bz vs MD", id: "plot6" },
+    { y: gt, x: md, title: "GT vs MD", id: "plot7", ref: refGTLive, tol: TOL_GT },
+    { y: bt, x: md, title: "BT vs MD", id: "plot8", ref: refBTLive, tol: TOL_BT },
+    { y: Tg, x: md, title: "Tg vs MD", id: "plot9" },
+    { y: Th, x: md, title: "Th vs MD", id: "plot10" },
+    { y: Dip, x: md, title: "Dip vs MD", id: "plot11", ref: refDipLive, tol: TOL_DIP },
+    { y: TF, x: md, title: "TF vs MD", id: "plot12" },
+    { y: gx, x: TF, title: "Gx vs TF", id: "plot13" },
+    { y: bx, x: TF, title: "Bx vs TF", id: "plot14" },
+    { y: gy, x: TF, title: "Gy vs TF", id: "plot15" },
+    { y: by, x: TF, title: "By vs TF", id: "plot16" },
+    { y: gz, x: TF, title: "Gz vs TF", id: "plot17" },
+    { y: bz, x: TF, title: "Bz vs TF", id: "plot18" },
+    { y: gx, x: gy, title: "Gx vs Gy", id: "plot19" },
+    { y: bx, x: by, title: "Bx vs By", id: "plot20" },
+    { y: Dip, x: TF, title: "TF vs Dip", id: "plot21", ref: refDipLive, tol: TOL_DIP },
+    { y: bt, x: TF, title: "TF vs BT", id: "plot22", ref: refBTLive, tol: TOL_BT },
+    { y: inc, x: md, title: "INC vs MD", id: "plot23" },
+    { y: az, x: md, title: "AZ vs MD", id: "plot24" },
+  ];
+
+  QC_PLOT_IDS = plotData.map((plot) => plot.id);
+
+  plotData.forEach((plot) => {
+    const plotDiv = document.createElement("div");
+    plotDiv.id = plot.id;
+    plotDiv.style.height = "260px";
+    plotsContainer.appendChild(plotDiv);
+
+    const layout = Object.assign({}, plotLayout, {
+      title: { text: plot.title, font: { size: 11 } },
+      yaxis: { title: plot.title.split(" vs ")[0] }
+    });
+
+    if (typeof plot.ref === "number" && !isNaN(plot.ref) && typeof plot.tol === "number") {
+      const ref = plot.ref;
+      const tol = plot.tol;
+      layout.yaxis = Object.assign({}, layout.yaxis, { range: [ref - 3 * tol, ref + 3 * tol] });
+      layout.shapes = [
+        // Green tolerance band: ref +/- 1x tolerance
+        {
+          type: "rect", xref: "paper", x0: 0, x1: 1,
+          yref: "y", y0: ref - tol, y1: ref + tol,
+          fillcolor: "rgba(46,204,113,0.15)", line: { width: 0 }, layer: "below"
+        },
+        // Reference line
+        {
+          type: "line", xref: "paper", x0: 0, x1: 1,
+          yref: "y", y0: ref, y1: ref,
+          line: { color: "#4da3ff", width: 1.5, dash: "solid" }
+        },
+        // Tolerance boundary dashed lines
+        {
+          type: "line", xref: "paper", x0: 0, x1: 1,
+          yref: "y", y0: ref - tol, y1: ref - tol,
+          line: { color: "#2ecc71", width: 1, dash: "dash" }
+        },
+        {
+          type: "line", xref: "paper", x0: 0, x1: 1,
+          yref: "y", y0: ref + tol, y1: ref + tol,
+          line: { color: "#2ecc71", width: 1, dash: "dash" }
+        }
+      ];
+    }
+
+    Plotly.newPlot(plot.id, [{
+      x: plot.x,
+      y: plot.y,
+      type: "scatter",
+      // Added 2026-08-23: default to lines+markers per the person's
+      // direction; defaults to Dots only (2026-08-23 change) — the
+      // qcPlotLinesToggle checkbox above restyles this in place afterward.
+      mode: "markers",
+      line: { color: "#4da3ff", width: 1 },
+      marker: { color: "#4da3ff", size: 5 },
+      name: plot.title
+    }], layout);
+  });
+
+  optimizeBiasAndScaleWithTF();
+}
+
+// Function to extract all data from the rearranged table
+function getTableData() {
+  const table = document.getElementById("rearrangedTable");
+  if (!table) {
+    console.error("Table with id 'rearrangedTable' not found.");
+    return [];
+  }
+
+  const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.innerText.trim());
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+
+  const data = rows.map(row => {
+    const cells = row.querySelectorAll("td");
+    let rowData = {};
+
+    cells.forEach((cell, index) => {
+      rowData[headers[index]] = parseFloat(cell.innerText) || cell.innerText.trim();
+    });
+
+    return rowData;
+  });
+
+  return data;
+}
+
+async function optimizeBiasAndScaleWithTF() {
+  const tableData = getTableData();
+  if (tableData.length === 0) {
+    console.error("Table data is empty.");
+    return;
+  }
+
+  const observedObjects = tableData.map(row => ({
+    Bx: row["Bx"],
+    By: row["By"],
+    Bz: row["Bz"]
+  }));
+
+  const theoreticalObjects = tableData.map(row => ({
+    tBx: row["tBx"],
+    tBy: row["tBy"],
+    tBz: row["tBz"]
+  }));
+
+  function trainModel(observedValues, theoreticalValues) {
+    return new Promise((resolve) => {
+      const xs = tf.tensor1d(observedValues);
+      const ys = tf.tensor1d(theoreticalValues);
+
+      const bias = tf.variable(tf.scalar(0, "float32"));
+      const scale = tf.variable(tf.scalar(1, "float32"));
+
+      function loss() {
+        const predictions = xs.mul(scale).add(bias);
+        return predictions.sub(ys).square().mean();
+      }
+
+      const optimizer = tf.train.sgd(0.0001);
+
+      async function train() {
+        for (let i = 0; i < 1000; i++) {
+          optimizer.minimize(loss);
+        }
+
+        const bestBias = bias.dataSync()[0];
+        const bestScale = scale.dataSync()[0];
+
+        resolve({ bestBias, bestScale });
+      }
+
+      train();
+    });
+  }
+
+  const observedBx = observedObjects.map(row => row.Bx);
+  const observedBy = observedObjects.map(row => row.By);
+  const observedBz = observedObjects.map(row => row.Bz);
+
+  const theoreticalBx = theoreticalObjects.map(row => row.tBx);
+  const theoreticalBy = theoreticalObjects.map(row => row.tBy);
+  const theoreticalBz = theoreticalObjects.map(row => row.tBz);
+
+  const [optimalBx, optimalBy, optimalBz] = await Promise.all([
+    trainModel(observedBx, theoreticalBx),
+    trainModel(observedBy, theoreticalBy),
+    trainModel(observedBz, theoreticalBz)
+  ]);
+
+  console.log("Optimal Bias and Scale (TensorFlow.js):");
+  console.log("Bx:", optimalBx);
+  console.log("By:", optimalBy);
+  console.log("Bz:", optimalBz);
+
+  const correctedObservations = observedObjects.map(obs => ({
+    Bx: (obs.Bx * optimalBx.bestScale) + optimalBx.bestBias,
+    By: (obs.By * optimalBy.bestScale) + optimalBy.bestBias,
+    Bz: (obs.Bz * optimalBz.bestScale) + optimalBz.bestBias
+  }));
+
+  console.log("Corrected Observations (TensorFlow.js):", correctedObservations);
+}
+</script>
+</body>
+</html>
