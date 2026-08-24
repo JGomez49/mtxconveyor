@@ -619,6 +619,11 @@ body.light-mode #statusTextbox {
                     .wbt-fp-field input:focus, .wbt-fp-field select:focus{
                         outline:none; border-color: var(--wbt-accent);
                     }
+                    /* Added 2026-08-25 for the Polylines panel's color swatch +
+                       file picker, which don't want the same padding as text
+                       inputs. */
+                    .wbt-fp-field input[type=color]{ padding:2px 3px; height:28px; cursor:pointer; }
+                    .wbt-fp-field input[type=file]{ padding:3px 4px; font-size:10px; }
                     .wbt-fp-field.w60{ width:60px; }
                     .wbt-fp-field.w80{ width:80px; }
                     .wbt-fp-field.w100{ width:100px; }
@@ -839,6 +844,70 @@ body.light-mode #statusTextbox {
                             </div>
                             <div class="wbt-fp-status" id="wbtFPStatus">Select a wellbore and enter parameters to add a Frac Plane.</div>
                             <div class="wbt-fp-list" id="wbtFPList"></div>
+                        </div>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- ── Polylines Controller Panel (accordion) ──────────────────
+                         Added 2026-08-25: a sibling accordion below Frac Planes (NOT
+                         nested inside it) — a closed map-view outline (Northing/
+                         Easting, e.g. an imported channel/geobody extent) is
+                         extruded between two TVDss depths into a solid volume in the
+                         viewer. Not tied to any one wellbore (job-level, keyed only
+                         by noteId), so there's no wellbore selector here. Reuses the
+                         .wbt-fp-* CSS classes from the Frac Plane panel above for a
+                         consistent look. -->
+                    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+                    <div class="wbt-fp-accordion-wrap">
+                        <div class="wbt-fp-acc-header collapsed" id="wbtPolyAccHeader">
+                            <span><span class="wbt-dot" style="background:#ff4060;box-shadow:0 0 7px #ff4060;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Polylines</span>
+                            <span class="wbt-fp-acc-icon">&#9660;</span>
+                        </div>
+                        <div class="wbt-fp-acc-body collapsed" id="wbtPolyAccBody">
+                        <div class="wbt-fp-root" id="wbtPolyRoot">
+                            <div class="wbt-fp-row">
+                                <div class="wbt-fp-field w160">
+                                    <label>Name</label>
+                                    <input type="text" id="wbtPolyName" placeholder="W20 Channel">
+                                </div>
+                                <div class="wbt-fp-field w100">
+                                    <label>TVDss From (m)</label>
+                                    <input type="number" id="wbtPolyFrom" step="0.1">
+                                </div>
+                                <div class="wbt-fp-field w100">
+                                    <label>TVDss To (m)</label>
+                                    <input type="number" id="wbtPolyTo" step="0.1">
+                                </div>
+                                <div class="wbt-fp-field w80">
+                                    <label>Color</label>
+                                    <input type="color" id="wbtPolyColor" value="#ff0000">
+                                </div>
+                                <!-- Added 2026-08-25: per-polyline display style, saved to the DB
+                                     alongside color/TVD. -->
+                                <div class="wbt-fp-field w100">
+                                    <label>Display</label>
+                                    <select id="wbtPolyStyle">
+                                        <option value="solid">Solid (fill)</option>
+                                        <option value="wireframe">Wireframe</option>
+                                        <option value="lines">Lines (as entered)</option>
+                                    </select>
+                                </div>
+                                <div class="wbt-fp-field w160">
+                                    <label>Excel file (Northing, Easting)</label>
+                                    <input type="file" id="wbtPolyFile" accept=".xlsx,.xls,.csv">
+                                </div>
+                            </div>
+                            <div class="wbt-fp-status" id="wbtPolyImportStatus">No file imported yet.</div>
+
+                            <div class="wbt-fp-btns">
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-add" id="wbtPolyAddBtn">+ ADD</button>
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-upd" id="wbtPolyUpdBtn" disabled>UPDATE</button>
+                                <button type="button" class="wbt-fp-btn wbt-fp-btn-del" id="wbtPolyDelBtn" disabled>DELETE</button>
+                                <button type="button" class="wbt-fp-btn" id="wbtPolyClearBtn">CLEAR</button>
+                            </div>
+                            <div class="wbt-fp-status" id="wbtPolyStatus">Import an Excel file (Northing, Easting columns), enter the TVDss range and a color, then click + ADD.</div>
+                            <div class="wbt-fp-list" id="wbtPolyList"></div>
                         </div>
                         </div>
                     </div>
@@ -2685,6 +2754,7 @@ body.light-mode #statusTextbox {
             setupWbtUI();
             loadWellbores();
             wbtFPInit();
+            wbtPolyInit();
         }
 
         function onResize(){
@@ -4107,6 +4177,314 @@ body.light-mode #statusTextbox {
             const sel = document.getElementById('wbtFPWell');
             sel.addEventListener('change', () => wbtFPOnWellChange(trajList));
             wbtFPSetupButtons();
+        }
+
+        // ================================================================
+        // POLYLINES — closed map-view outlines extruded into solid volumes
+        // ================================================================
+        // Added 2026-08-25. A Polyline is a job-level feature (keyed by
+        // noteId only, NOT tied to a wellbore): a closed Northing/Easting
+        // polygon (e.g. an imported channel/geobody outline) is extruded
+        // vertically between two TVDss depths into a solid, semi-
+        // transparent volume, using the same X=Easting/Y=-TVD/Z=-Northing
+        // convention as everything else in this viewer.
+        //
+        // Mesh construction: build a THREE.Shape from (easting, northing)
+        // points (both un-negated at this stage), extrude it along the
+        // shape's local Z by (tvdTo - tvdFrom), then:
+        //   1. rotateX(-PI/2) — maps local Z (extrusion) -> world Y, and
+        //      local Y (northing) -> world -Z (i.e. -northing, matching the
+        //      viewer's Z=-Northing convention). Local X (easting) is
+        //      untouched by an X-axis rotation, so it stays world X.
+        //   2. scale(1,-1,1) — flips the extrusion so it grows in -Y
+        //      (deeper => more negative Y, matching Y=-TVD) instead of +Y.
+        // The mesh is then positioned at Y = -tvdFrom (its "top" face,
+        // i.e. z=0 before rotation) so it spans world Y from -tvdFrom down
+        // to -tvdTo.
+
+        let wbtPolyActiveId = null;
+        let wbtPolyMeshes   = [];      // THREE.Mesh[] currently in the scene
+        let wbtPolyImportedPoints = null; // [{northing,easting}, ...] from the last file import
+        let WBT_POLYLINES = [];        // cache of the loaded list (for edit/re-render)
+
+        function wbtPolySetupAccordion(){
+            const hdr = document.getElementById('wbtPolyAccHeader');
+            const bdy = document.getElementById('wbtPolyAccBody');
+            if(!hdr || !bdy) return;
+            hdr.addEventListener('click', () => {
+                hdr.classList.toggle('collapsed');
+                bdy.classList.toggle('collapsed');
+            });
+        }
+
+        // ── Excel import (Northing, Easting columns — same convention as
+        //    the wellbore survey uploads). Header names are matched
+        //    case-insensitively; column ORDER is what actually matters
+        //    (column 1 = Northing, column 2 = Easting), matching the
+        //    person's sample file. ──
+        function wbtPolySetupFileInput(){
+            document.getElementById('wbtPolyFile').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                const statusEl = document.getElementById('wbtPolyImportStatus');
+                if(!file) return;
+                try{
+                    const buf = await file.arrayBuffer();
+                    let wb;
+                    try { wb = XLSX.read(buf, { type: 'array' }); }
+                    catch(err){
+                        const csv = new TextDecoder('utf-8').decode(new Uint8Array(buf));
+                        wb = XLSX.read(csv, { type: 'string' });
+                    }
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+                    const dataRows = rows.slice(1).filter(r => r.length >= 2 && r[0] !== '' && r[1] !== '');
+                    if(dataRows.length < 3){
+                        statusEl.textContent = 'File needs at least 3 data rows (Northing, Easting).';
+                        statusEl.style.color = 'var(--wbt-red)';
+                        wbtPolyImportedPoints = null;
+                        return;
+                    }
+                    wbtPolyImportedPoints = dataRows.map(r => ({ northing: Number(r[0]), easting: Number(r[1]) }));
+                    const closed = Math.abs(wbtPolyImportedPoints[0].northing - wbtPolyImportedPoints[wbtPolyImportedPoints.length-1].northing) < 1e-6
+                                 && Math.abs(wbtPolyImportedPoints[0].easting  - wbtPolyImportedPoints[wbtPolyImportedPoints.length-1].easting)  < 1e-6;
+                    statusEl.textContent = `Imported ${wbtPolyImportedPoints.length} points from "${file.name}"` + (closed ? ' (closed loop).' : ' (open — will be auto-closed on save).');
+                    statusEl.style.color = 'var(--wbt-accent3)';
+                } catch(err){
+                    console.error(err);
+                    statusEl.textContent = 'Could not read this file — check it has Northing/Easting columns.';
+                    statusEl.style.color = 'var(--wbt-red)';
+                    wbtPolyImportedPoints = null;
+                }
+            });
+        }
+
+        // ── 3D mesh builder ──
+        // Added 2026-08-25: three display styles, chosen per-polyline
+        // (poly.displayStyle, saved in the DB):
+        //   'solid'     — filled/shaded extruded volume (original behavior).
+        //   'wireframe' — the same extruded volume, edges only (EdgesGeometry
+        //                 + LineSegments, same technique as the Frac Plane
+        //                 box/cylinder wireframes above).
+        //   'lines'     — no extrusion at all: just the closed outline drawn
+        //                 twice, once at TVDss From and once at TVDss To
+        //                 ("as entered"), with no side walls/caps connecting
+        //                 them.
+        // Returns a THREE.Object3D (Mesh, LineSegments, or a Group of two
+        // LineLoops) — the caller (wbtRenderPolyMeshes) treats all three
+        // uniformly via group.add()/group.remove().
+        function wbtBuildExtrudedGeometry(poly){
+            const shapePts = poly.points.map(p => new THREE.Vector2(p.easting, p.northing));
+            const shape = new THREE.Shape(shapePts);
+            const depth = Math.max(Math.abs((poly.tvdTo||0) - (poly.tvdFrom||0)), 0.01);
+            const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, steps: 1 });
+            geo.rotateX(-Math.PI/2);
+            geo.scale(1, -1, 1);
+            return geo;
+        }
+
+        function wbtBuildPolylineMesh(poly, colorInt){
+            if(!poly.points || poly.points.length < 3) return null;
+            const style = poly.displayStyle || 'solid';
+
+            if(style === 'lines'){
+                // Just the closed outline "as entered", at each depth — no
+                // extrusion, no side walls.
+                const group3d = new THREE.Group();
+                const mat = new THREE.LineBasicMaterial({ color: colorInt });
+                [poly.tvdFrom||0, poly.tvdTo||0].forEach(tvd => {
+                    const pts = poly.points.map(p => new THREE.Vector3(p.easting, -tvd, -p.northing));
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    group3d.add(new THREE.LineLoop(geo, mat));
+                });
+                return group3d;
+            }
+
+            const geo = wbtBuildExtrudedGeometry(poly);
+
+            if(style === 'wireframe'){
+                const edges = new THREE.EdgesGeometry(geo);
+                const mat = new THREE.LineBasicMaterial({ color: colorInt });
+                const mesh = new THREE.LineSegments(edges, mat);
+                mesh.position.set(0, -(poly.tvdFrom||0), 0);
+                return mesh;
+            }
+
+            // 'solid' (default)
+            const mat = new THREE.MeshBasicMaterial({
+                color: colorInt, transparent: true, opacity: 0.45,
+                side: THREE.DoubleSide, depthWrite: false,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(0, -(poly.tvdFrom||0), 0);
+            return mesh;
+        }
+
+        function wbtClearPolyMeshes(){
+            wbtPolyMeshes.forEach(m => group.remove(m));
+            wbtPolyMeshes = [];
+        }
+
+        function wbtRenderPolyMeshes(polylines){
+            wbtClearPolyMeshes();
+            (polylines||[]).forEach(poly => {
+                const colorInt = poly.colorHex ? parseInt(poly.colorHex.replace('#',''), 16) : 0xff0000;
+                const mesh = wbtBuildPolylineMesh(poly, colorInt);
+                if(mesh){ group.add(mesh); wbtPolyMeshes.push(mesh); }
+            });
+        }
+
+        // ── List panel ──
+        function wbtPolyRebuildList(polylines){
+            const listEl = document.getElementById('wbtPolyList');
+            listEl.innerHTML = '';
+            if(!polylines || polylines.length === 0){
+                listEl.innerHTML = '<div style="font-family:var(--wbt-mono);font-size:10px;color:var(--wbt-text-dim);padding:4px 0">No polylines defined for this job.</div>';
+                return;
+            }
+            polylines.forEach(poly => {
+                const item = document.createElement('div');
+                item.className = 'wbt-fp-list-item';
+                item.dataset.polyid = String(poly._id);
+                const styleTag = { solid: 'FILL', wireframe: 'WIRE', lines: 'LINES' }[poly.displayStyle] || 'FILL';
+                item.innerHTML =
+                    `<span style="font-family:var(--wbt-mono);font-size:9px;color:${poly.colorHex||'#ff0000'};border:1px solid ${poly.colorHex||'#ff0000'}60;padding:1px 4px;border-radius:2px">${(poly.points||[]).length}pt</span>` +
+                    `<span style="font-family:var(--wbt-mono);font-size:9px;color:var(--wbt-text-dim);border:1px solid var(--wbt-border);padding:1px 4px;border-radius:2px">${styleTag}</span>` +
+                    `<span class="wbt-fp-lbl">${poly.name||'(no name)'}</span>` +
+                    `<span class="wbt-fp-meta">TVDss ${poly.tvdFrom}–${poly.tvdTo}m</span>`;
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('#wbtPolyList .wbt-fp-list-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    wbtPolyActiveId = String(poly._id);
+                    wbtPolyFillForm(poly);
+                    document.getElementById('wbtPolyUpdBtn').disabled = false;
+                    document.getElementById('wbtPolyDelBtn').disabled = false;
+                });
+                listEl.appendChild(item);
+            });
+        }
+
+        function wbtPolyFillForm(poly){
+            document.getElementById('wbtPolyName').value  = poly.name || '';
+            document.getElementById('wbtPolyFrom').value  = poly.tvdFrom;
+            document.getElementById('wbtPolyTo').value    = poly.tvdTo;
+            document.getElementById('wbtPolyColor').value = poly.colorHex || '#ff0000';
+            document.getElementById('wbtPolyStyle').value = poly.displayStyle || 'solid';
+            wbtPolyImportedPoints = poly.points || null; // re-uploading is optional on update
+            document.getElementById('wbtPolyImportStatus').textContent =
+                `Using this polyline's ${ (poly.points||[]).length } saved points (import a new file to replace them).`;
+            document.getElementById('wbtPolyImportStatus').style.color = 'var(--wbt-text-dim)';
+        }
+
+        function wbtPolyClearForm(){
+            document.getElementById('wbtPolyName').value = '';
+            document.getElementById('wbtPolyFrom').value = '';
+            document.getElementById('wbtPolyTo').value = '';
+            document.getElementById('wbtPolyColor').value = '#ff0000';
+            document.getElementById('wbtPolyStyle').value = 'solid';
+            document.getElementById('wbtPolyFile').value = '';
+            document.getElementById('wbtPolyImportStatus').textContent = 'No file imported yet.';
+            document.getElementById('wbtPolyImportStatus').style.color = 'var(--wbt-text-dim)';
+            wbtPolyImportedPoints = null;
+            wbtPolyActiveId = null;
+            document.getElementById('wbtPolyUpdBtn').disabled = true;
+            document.getElementById('wbtPolyDelBtn').disabled = true;
+            document.querySelectorAll('#wbtPolyList .wbt-fp-list-item').forEach(el => el.classList.remove('active'));
+        }
+
+        function wbtPolySetStatus(msg, ok){
+            const el = document.getElementById('wbtPolyStatus');
+            el.textContent = msg;
+            el.style.color = ok === true ? 'var(--wbt-accent3)' : (ok === false ? 'var(--wbt-red)' : 'var(--wbt-text-dim)');
+        }
+
+        function wbtPolyReadForm(){
+            return {
+                name: document.getElementById('wbtPolyName').value || '',
+                tvdFrom: Number(document.getElementById('wbtPolyFrom').value),
+                tvdTo: Number(document.getElementById('wbtPolyTo').value),
+                colorHex: document.getElementById('wbtPolyColor').value || '#ff0000',
+                displayStyle: document.getElementById('wbtPolyStyle').value || 'solid',
+                points: wbtPolyImportedPoints,
+            };
+        }
+
+        async function wbtPolyRefresh(){
+            const res = await fetch('/notes/polyline/list/' + WBT_NOTE_ID);
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error || res.statusText);
+            WBT_POLYLINES = data.polylines || [];
+            wbtRenderPolyMeshes(WBT_POLYLINES);
+            wbtPolyRebuildList(WBT_POLYLINES);
+        }
+
+        async function wbtPolyAdd(){
+            const body = wbtPolyReadForm();
+            if(!body.points || body.points.length < 3){
+                wbtPolySetStatus('Import an Excel file with at least 3 points first.', false);
+                return;
+            }
+            if(!Number.isFinite(body.tvdFrom) || !Number.isFinite(body.tvdTo)){
+                wbtPolySetStatus('Enter numeric TVDss From/To values.', false);
+                return;
+            }
+            wbtPolySetStatus('Adding...');
+            try{
+                const res = await fetch('/notes/polyline/' + WBT_NOTE_ID, {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtPolySetStatus('Polyline added.', true);
+                await wbtPolyRefresh();
+                wbtPolyClearForm();
+            } catch(err){
+                wbtPolySetStatus('Error: ' + err.message, false);
+            }
+        }
+
+        async function wbtPolyUpdate(){
+            if(!wbtPolyActiveId){ wbtPolySetStatus('Select a polyline to update.', false); return; }
+            const body = wbtPolyReadForm();
+            wbtPolySetStatus('Updating...');
+            try{
+                const res = await fetch('/notes/polyline/' + wbtPolyActiveId, {
+                    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtPolySetStatus('Polyline updated.', true);
+                await wbtPolyRefresh();
+                wbtPolyClearForm();
+            } catch(err){
+                wbtPolySetStatus('Error: ' + err.message, false);
+            }
+        }
+
+        async function wbtPolyDelete(){
+            if(!wbtPolyActiveId){ wbtPolySetStatus('Select a polyline to delete.', false); return; }
+            if(!confirm('Delete this polyline? This cannot be undone.')) return;
+            wbtPolySetStatus('Deleting...');
+            try{
+                const res = await fetch('/notes/polyline/' + wbtPolyActiveId, { method:'DELETE' });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || res.statusText);
+                wbtPolySetStatus('Polyline deleted.', true);
+                await wbtPolyRefresh();
+                wbtPolyClearForm();
+            } catch(err){
+                wbtPolySetStatus('Error: ' + err.message, false);
+            }
+        }
+
+        function wbtPolyInit(){
+            if(!document.getElementById('wbtPolyAccHeader')) return; // viewer-only role without the panel
+            wbtPolySetupAccordion();
+            wbtPolySetupFileInput();
+            document.getElementById('wbtPolyAddBtn').addEventListener('click', wbtPolyAdd);
+            document.getElementById('wbtPolyUpdBtn').addEventListener('click', wbtPolyUpdate);
+            document.getElementById('wbtPolyDelBtn').addEventListener('click', wbtPolyDelete);
+            document.getElementById('wbtPolyClearBtn').addEventListener('click', wbtPolyClearForm);
+            wbtPolyRefresh().catch(err => console.error('[Polyline] initial load failed', err));
         }
 
         // ================================================================

@@ -10,6 +10,7 @@ const ImageMirelleDog = require('../models/ImageMirelleDog');
 const NewSchedule = require("../models/NewSchedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
+const Polyline = require("../models/Polyline");
 const TDModel = require("../models/TDModel");
 const TDModelCore = require("../public/js/tdModel.js");
 const HydraulicsModel = require("../models/HydraulicsModel");
@@ -2025,6 +2026,117 @@ notesCrtl.deleteFracPlane = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+// ---------------------------------------------------------------------
+// Polyline CRUD (2026-08-25) — closed map-view outlines (Northing/Easting,
+// e.g. an imported channel/geobody extent), extruded between two TVDss
+// depths into a solid volume in the Wellbore 3D Trajectory viewer. Kept in
+// their own top-level collection (not a WellboreTrajectory sub-array like
+// fracPlanes) since a Polyline isn't tied to any one wellbore — it's a
+// job-level geographic feature, keyed only by noteId.
+// ---------------------------------------------------------------------
+
+// If the uploaded points aren't already a closed loop (first point ==
+// last point), close it by appending a copy of the first point — per the
+// person's direction (2026-08-25), rather than rejecting the upload.
+function closePolylineLoop(points){
+  if(!Array.isArray(points) || points.length < 3) return points || [];
+  const first = points[0], last = points[points.length - 1];
+  const alreadyClosed = Math.abs(first.northing - last.northing) < 1e-9
+                     && Math.abs(first.easting  - last.easting)  < 1e-9;
+  return alreadyClosed ? points : [...points, { northing: first.northing, easting: first.easting }];
+}
+
+// GET /notes/polyline/list/:noteId
+notesCrtl.listPolylines = async (req, res) => {
+  try{
+    const noteId = req.params.noteId;
+    const polylines = await Polyline.find({noteId}).sort({createdAt: 1});
+    res.json({ success: true, polylines });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST /notes/polyline/:noteId — add a new Polyline
+notesCrtl.addPolyline = async (req, res) => {
+  try{
+    const { noteId } = req.params;
+    const { name, points, tvdFrom, tvdTo, colorHex, displayStyle } = req.body;
+
+    if(!Array.isArray(points) || points.length < 3){
+      return res.status(400).json({ error: "A polyline needs at least 3 points." });
+    }
+    const from = Number(tvdFrom), to = Number(tvdTo);
+    if(!Number.isFinite(from) || !Number.isFinite(to)){
+      return res.status(400).json({ error: "TVDss From/To must be numbers." });
+    }
+    const validStyles = ['solid', 'wireframe', 'lines'];
+
+    const doc = await Polyline.create({
+      noteId,
+      name: name || "",
+      points: closePolylineLoop(points),
+      tvdFrom: Math.min(from, to),
+      tvdTo:   Math.max(from, to),
+      colorHex: colorHex || "#ff0000",
+      displayStyle: validStyles.includes(displayStyle) ? displayStyle : 'solid',
+      user: req.session.passport.user,
+      createdAt: new Date(),
+    });
+
+    console.log(`<<<< Polyline added to note ${noteId} >>>>`);
+    res.json({ success: true, polyline: doc });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /notes/polyline/:polylineId — update a Polyline
+notesCrtl.updatePolyline = async (req, res) => {
+  try{
+    const { polylineId } = req.params;
+    const { name, points, tvdFrom, tvdTo, colorHex, displayStyle } = req.body;
+
+    const doc = await Polyline.findById(polylineId);
+    if(!doc) return res.status(404).json({ error: "Polyline not found" });
+
+    if(name !== undefined) doc.name = name;
+    if(Array.isArray(points) && points.length >= 3) doc.points = closePolylineLoop(points);
+    if(tvdFrom !== undefined && tvdTo !== undefined){
+      const from = Number(tvdFrom), to = Number(tvdTo);
+      if(Number.isFinite(from) && Number.isFinite(to)){
+        doc.tvdFrom = Math.min(from, to);
+        doc.tvdTo   = Math.max(from, to);
+      }
+    }
+    if(colorHex) doc.colorHex = colorHex;
+    if(['solid', 'wireframe', 'lines'].includes(displayStyle)) doc.displayStyle = displayStyle;
+
+    await doc.save();
+    console.log(`<<<< Polyline updated (${polylineId}) >>>>`);
+    res.json({ success: true, polyline: doc });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE /notes/polyline/:polylineId — delete a Polyline
+notesCrtl.deletePolyline = async (req, res) => {
+  try{
+    const { polylineId } = req.params;
+    const result = await Polyline.deleteOne({_id: polylineId});
+    if(!result.deletedCount) return res.status(404).json({ error: "Polyline not found" });
+    console.log(`<<<< Polyline deleted (${polylineId}) >>>>`);
+    res.json({ success: true });
+  } catch(error){
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // PATCH /notes/padStats/:id — save trajectory pad summary stats to the note
 notesCrtl.savePadStats = async (req, res) => {
     try {

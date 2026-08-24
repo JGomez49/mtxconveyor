@@ -71,6 +71,10 @@ const {
     addFracPlane,
     updateFracPlane,
     deleteFracPlane,
+    listPolylines,
+    addPolyline,
+    updatePolyline,
+    deletePolyline,
     savePadStats,
 } = require('../controllers/notes.controller');
 
@@ -238,6 +242,13 @@ router.get('/notes/wellboreTrajectory/list/:id', isAuthenticated, listWellboreTr
 router.post('/notes/fracPlane/:trajectoryId', isAuthenticated, addFracPlane);
 router.put('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, updateFracPlane);
 router.delete('/notes/fracPlane/:trajectoryId/:fracPlaneId', isAuthenticated, deleteFracPlane);
+
+//Polyline CRUD (2026-08-25) — job-level (noteId-keyed), NOT tied to any
+//one wellbore, unlike FracPlanes above.
+router.get('/notes/polyline/list/:noteId', isAuthenticated, listPolylines);
+router.post('/notes/polyline/:noteId', isAuthenticated, addPolyline);
+router.put('/notes/polyline/:polylineId', isAuthenticated, updatePolyline);
+router.delete('/notes/polyline/:polylineId', isAuthenticated, deletePolyline);
 router.patch('/notes/padStats/:id', isAuthenticated, savePadStats);
 
 
