@@ -703,6 +703,15 @@ body.light-mode #statusTextbox {
                                 <label><input type="checkbox" id="wbtToggleLegend"> Legend</label>
                                 <label><input type="checkbox" id="wbtToggleGrid" checked> Grid</label>
                             </div>
+                            <!-- Added 2026-08-25: Single/Multi wellbore coloring toggle,
+                                 saved per job via PATCH /notes/wbtColorMode/:id. -->
+                            <div class="wbt-section">
+                                <h6>Well Colors</h6>
+                                <select id="wbtColorMode">
+                                    <option value="single">Single (Subject navy / Offset red)</option>
+                                    <option value="multi">Multi (distinct color per well)</option>
+                                </select>
+                            </div>
                             <div class="wbt-section">
                                 <h6>Formations</h6>
                                 <div id="wbtFormationList" style="max-height:560px;overflow-y:auto;"></div>
@@ -2689,6 +2698,34 @@ body.light-mode #statusTextbox {
         const WELLBORES = JSON.parse(document.getElementById('wbtData').textContent);
         const fallbackColors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
 
+        // Added 2026-08-25: Single-mode colors — every Subject well navy
+        // blue, every Offset well red.
+        const WBT_SINGLE_SUBJECT_COLOR = 0x1a3fa0; // navy blue
+        const WBT_SINGLE_OFFSET_COLOR  = 0xff0000; // red
+
+        // Subject/Offset classification shared by both coloring modes and
+        // the dashboard/table logic below — explicit wellCategory tag wins;
+        // for legacy untagged data, fall back to the [NN]..._LNN name
+        // pattern (same rule duplicated at several other points in this
+        // file, e.g. wbtIsSubjectWell inside loadWellbores()).
+        function wbtWellIsSubjectByCategory(well){
+            const wn = (well.wellName || '').trim();
+            if(well.wellCategory === 'subject') return true;
+            if(well.wellCategory === 'offset') return false;
+            return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+        }
+
+        // Returns the numeric THREE color for one well, honoring the
+        // current WBT_COLOR_MODE. In 'multi' mode this is exactly the
+        // original behavior (well.colorHex if set, else a fallback from
+        // the palette by index).
+        function wbtColorForWell(well, idx){
+            if(WBT_COLOR_MODE === 'single'){
+                return wbtWellIsSubjectByCategory(well) ? WBT_SINGLE_SUBJECT_COLOR : WBT_SINGLE_OFFSET_COLOR;
+            }
+            return well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length];
+        }
+
         let scene, camera, renderer, controls;
         let group, axesHelper, gridHelper, curtainGroup;
         let wellsData = [];
@@ -2949,7 +2986,7 @@ body.light-mode #statusTextbox {
             let allPoints = [];
 
             WELLBORES.forEach((well, idx) => {
-                const color = well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length];
+                const color = wbtColorForWell(well, idx);
                 const survey = well.survey || [];
                 // X = Eastings, Y = -TVD (only TVD goes down), Z = -Northings.
                 // Recomputed here from raw easting/tvd/northing (not the stored
@@ -3011,7 +3048,7 @@ body.light-mode #statusTextbox {
                 .filter(wbtIsSubjectWell)
                 .map((well, idx) => ({
                     name: well.wellName,
-                    color: well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length],
+                    color: wbtColorForWell(well, idx),
                     survey: well.survey || []
                 }));
             wbtRenderDashboard(wellsForDashboard);
@@ -3078,7 +3115,50 @@ body.light-mode #statusTextbox {
         }
 
         // ---------------- UI wiring ----------------
+        // Added 2026-08-25: recolor every already-built wellbore tube mesh
+        // + legend swatch + tooltip color in place, without touching
+        // anything else (curtains/markers/formations) — loadWellbores()
+        // itself can't safely be called a second time since it ADDS new
+        // meshes/curtains rather than replacing them.
+        function wbtApplyColorMode(){
+            wellsData.forEach((w, idx) => {
+                const well = WELLBORES.find(b => String(b._id) === String(w._id)) || w;
+                const color = wbtColorForWell(well, idx);
+                w.color = color;
+                w.colorHex = '#' + color.toString(16).padStart(6, '0');
+                if(w.mesh && w.mesh.material) w.mesh.material.color.setHex(color);
+            });
+            // Legend swatches (rebuilt in well order, same as loadWellbores())
+            const swatches = document.querySelectorAll('#wbtLegendList .wbt-swatch');
+            swatches.forEach((sw, idx) => {
+                if(wellsData[idx]) sw.style.background = wellsData[idx].colorHex;
+            });
+            // Tooltip color tint (see wbtTubeMeshData usage in the tooltip builder)
+            wbtTubeMeshData.forEach(td => {
+                const w = wellsData.find(x => x.mesh === td.mesh);
+                if(w) td.colorHex = w.colorHex;
+            });
+        }
+
         function setupWbtUI(){
+            const colorModeEl = document.getElementById('wbtColorMode');
+            if(colorModeEl){
+                colorModeEl.value = WBT_COLOR_MODE;
+                colorModeEl.addEventListener('change', async (e) => {
+                    WBT_COLOR_MODE = e.target.value;
+                    wbtApplyColorMode();
+                    try{
+                        await fetch('/notes/wbtColorMode/' + WBT_NOTE_ID, {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ wbtColorMode: WBT_COLOR_MODE }),
+                        });
+                    }catch(err){
+                        console.error('[wbtColorMode] save failed', err);
+                    }
+                });
+            }
+
             ['wbtToggleAxes','wbtToggleCurtains','wbtToggleLegend','wbtToggleGrid'].forEach(id => {
                 document.getElementById(id).addEventListener('change', applyWbtVisibility);
             });
@@ -4152,6 +4232,10 @@ body.light-mode #statusTextbox {
 
         // ── FracPlane glue (job.ejs) ──
         const WBT_NOTE_ID = "<%- note._id %>";
+        // Added 2026-08-25: Single/Multi wellbore coloring mode, saved on
+        // the job (Note.wbtColorMode) so every viewer sees the same choice.
+        // The model defaults new/legacy jobs to 'single' server-side too.
+        let WBT_COLOR_MODE = "<%- (note.wbtColorMode === 'multi') ? 'multi' : 'single' %>";
 
         // Return numeric color for a trajectory by its _id
         function wbtGetColorForTraj(trajectoryId){

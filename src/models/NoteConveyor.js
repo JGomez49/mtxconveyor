@@ -34,6 +34,13 @@ const NoteConveyorSchema = new Schema({
     // job's pad/site backward — start date moves earlier, end date stays put.
     batchDays: {type: Number, default: 0},
 
+    // Wellbore 3D Trajectory viewer: wellbore line coloring mode. Added
+    // 2026-08-25 per the person's direction — 'single' (default, new
+    // behavior) colors every Subject well navy blue and every Offset well
+    // red; 'multi' is the original behavior (a distinct color per well).
+    // Saved on the job so everyone opening it sees the same choice.
+    wbtColorMode: {type: String, enum: ['single', 'multi'], default: 'single'},
+
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
     checkOffsetWellsInfo: {type: String, defaultValue: "No"},

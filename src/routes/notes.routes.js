@@ -76,6 +76,7 @@ const {
     updatePolyline,
     deletePolyline,
     savePadStats,
+    saveWbtColorMode,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -250,6 +251,7 @@ router.post('/notes/polyline/:noteId', isAuthenticated, addPolyline);
 router.put('/notes/polyline/:polylineId', isAuthenticated, updatePolyline);
 router.delete('/notes/polyline/:polylineId', isAuthenticated, deletePolyline);
 router.patch('/notes/padStats/:id', isAuthenticated, savePadStats);
+router.patch('/notes/wbtColorMode/:id', isAuthenticated, saveWbtColorMode);
 
 
 //Get Upload Frac Planes form

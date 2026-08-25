@@ -2152,3 +2152,21 @@ notesCrtl.savePadStats = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// PATCH /notes/wbtColorMode/:id — Wellbore 3D Trajectory viewer coloring
+// mode (2026-08-25). 'single' = Subject wells navy blue, Offset wells red;
+// 'multi' = a distinct color per well (the original behavior). Saved on
+// the job itself so every viewer sees the same choice.
+notesCrtl.saveWbtColorMode = async (req, res) => {
+    try {
+        const { wbtColorMode } = req.body;
+        if(!['single', 'multi'].includes(wbtColorMode)){
+            return res.status(400).json({ error: "wbtColorMode must be 'single' or 'multi'." });
+        }
+        await Note.findByIdAndUpdate(req.params.id, { wbtColorMode });
+        res.json({ success: true });
+    } catch(error){
+        console.error('saveWbtColorMode error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
