@@ -54,6 +54,7 @@ const {
     uploadNewSchedule,
     renderUploadFracPlanes,
     renderUploadTorqueAndDrag,
+    renderHelp,
     renderQuickPlan,
     renderSixAxisData,
     saveSixAxisCase,
@@ -263,6 +264,9 @@ router.get('/notes/uploadTorqueAndDrag', isAuthenticated, canUseModelers, render
 router.get('/notes/uploadHydraulics', isAuthenticated, canUseModelers, renderUploadHydraulics);
 router.get('/notes/uploadCasingDesign', isAuthenticated, canUseModelers, renderUploadCasingDesign);
 
+
+//Help — static in-app help page, open to every authenticated role.
+router.get('/notes/help', isAuthenticated, renderHelp);
 
 //Quick Plan — standalone directional-plan checker, open to every role
 //(no canUseModelers gate, unlike the three modelers above).

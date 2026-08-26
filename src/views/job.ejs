@@ -28,9 +28,14 @@ body.light-mode {
     --an-border:      #c8d4de;
     --an-accent:      #0077a8;
     --an-accent2:     #c04010;
-    --an-text:        #2c3e50;
-    --an-text-dim:    #607080;
-    --an-text-bright: #111820;
+    /* Darkened 2026-08-26 (was #2c3e50/#607080/#111820) — the Anti-collision
+       Plots section has many small (10-11px) labels/values; the previous
+       medium-tone values read as washed-out/low-contrast on the white
+       panel background. Darkened for a black/near-black, high-contrast
+       reading per the person's direct request. */
+    --an-text:        #10161c;
+    --an-text-dim:    #3d4a56;
+    --an-text-bright: #000000;
 }
 body {
     background: var(--an-bg) !important;
@@ -148,9 +153,15 @@ body.light-mode .wbt-root {
     --wbt-panel: #f8f9fa;
     --wbt-panel2: #ffffff;
     --wbt-border: #dee2e6;
-    --wbt-text: #212529;
-    --wbt-text-dim: #6c757d;
-    --wbt-text-bright: #111820;
+    /* Darkened 2026-08-26 (was #212529/#6c757d/#111820) — this override
+       WAS being applied correctly, but at 9-10px uppercase letter-spaced
+       label sizes (Frac Planes / Polylines field labels, status text) the
+       previous medium-tone values still read as washed-out. Darkened to
+       near-black for real high-contrast reading, same reasoning as the
+       --an-text-dim darkening above. */
+    --wbt-text: #0a0d10;
+    --wbt-text-dim: #454e57;
+    --wbt-text-bright: #000000;
 }
 
 /* Logs section: dark mode keeps its current background but forces white
@@ -265,7 +276,7 @@ body.light-mode #statusTextbox {
 <!-- ================= BATCH DAYS (Gantt stretch, admin only) ================= -->
 <% if (user.role === 'admin') { %>
 <div class="card bg-secondary border-0 mb-2 p-2" style="max-width:420px;">
-    <label class="form-label mb-1" style="font-size:11px;color:#e8f4ff;font-family:monospace;">
+    <label class="form-label mb-1" style="font-size:11px;color:var(--an-text-bright,#e8f4ff);font-family:monospace;">
         📊 Gantt — Batch Days
     </label>
     <div class="d-flex align-items-center gap-2">
@@ -275,7 +286,7 @@ body.light-mode #statusTextbox {
         <button id="batchDaysSaveBtn" class="btn btn-sm btn-success">💾 Save</button>
         <span id="batchDaysStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
     </div>
-    <div style="font-size:10px;color:#aaa;margin-top:4px;">
+    <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-top:4px;">
         Stretches the first (earliest) Gantt bar for this job's pad backward by this many days.
         End date stays the same.
     </div>
@@ -641,6 +652,11 @@ body.light-mode #statusTextbox {
                     .wbt-fp-btn-add:hover{ background: rgba(57,255,20,.08); border-color: var(--wbt-accent3); color: var(--wbt-accent3); }
                     .wbt-fp-btn-upd{ border-color: #ffd060; color: #ffd060; }
                     .wbt-fp-btn-upd:hover{ background: rgba(255,208,96,.08); border-color: #ffd060; color: #ffd060; }
+                    /* Light mode: yellow-on-white read as low-contrast/washed
+                       out (2026-08-26, person's direct request) — switch the
+                       UPDATE button to black border+text instead of yellow. */
+                    body.light-mode .wbt-fp-btn-upd{ border-color:#000; color:#000; }
+                    body.light-mode .wbt-fp-btn-upd:hover{ background: rgba(0,0,0,.06); border-color:#000; color:#000; }
                     .wbt-fp-btn-del{ border-color: var(--wbt-red); color: var(--wbt-red); }
                     .wbt-fp-btn-del:hover{ background: rgba(255,64,96,.08); border-color: var(--wbt-red); color: var(--wbt-red); }
                     .wbt-fp-btn:disabled{ opacity:.35; cursor:not-allowed; }
@@ -1006,7 +1022,7 @@ body.light-mode #statusTextbox {
                                             💾 Save to Job
                                         </button>
                                     </div>
-                                    <div style="font-size:10px;color:#aaa;">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
+                                    <div style="font-size:10px;color:var(--an-text-dim,#aaa);">Tip: Chrome/Edge let you select a <strong>folder</strong>; otherwise select multiple files.</div>
 
                                     <!-- Row 2: all filters + column toggles (one row, all roles see the col toggles below) -->
                                     <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:11px;">
@@ -1090,8 +1106,8 @@ body.light-mode #statusTextbox {
                                         <tbody id="padACTbody"></tbody>
                                     </table>
                                 </div>
-                                <div id="padACCount" style="font-size:10px;color:#aaa;margin-top:4px;"></div>
-                                <div id="padACEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;">No PAD AC data saved for this job yet.</div>
+                                <div id="padACCount" style="font-size:10px;color:var(--an-text-dim,#aaa);margin-top:4px;"></div>
+                                <div id="padACEmpty" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;">No PAD AC data saved for this job yet.</div>
 
                             </div>
                         </div>
@@ -1111,82 +1127,82 @@ body.light-mode #statusTextbox {
                         <div id="collapseAcPlots" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Reference Well:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Reference Well:</label>
                                     <select id="acpRefSelect" class="form-select form-select-sm" style="max-width:280px;"></select>
                                     <button id="acpResetZoomBtn" class="btn btn-sm btn-outline-info">⤢ Reset Zoom</button>
                                     <div class="form-check form-check-inline ms-2">
                                         <input class="form-check-input" type="checkbox" id="acpShowLegend">
-                                        <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:#c8d8e8;">Show Legend</label>
+                                        <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:var(--an-text,#c8d8e8);">Show Legend</label>
                                     </div>
-                                    <label style="font-size:11px;color:#c8d8e8;">Toolcode:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Toolcode:</label>
                                     <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
                                         <option value="">— Simplified (approximate) —</option>
                                     </select>
-                                    <label style="font-size:11px;color:#c8d8e8;" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2 = flat sigma multiplier, matching Compass's documented default report convention (its .xls AC reports state 'Output errors are at 2.00 sigma'). The dimensionally-correct 3-DOF chi-square 95% value would be 2.7955 instead - use that if reconciling against a report/policy that specifies a true multi-DOF confidence level rather than a flat sigma multiple. Adjust freely to match whatever confidence convention another tool's report used.">Confidence K (sigma):</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2 = flat sigma multiplier, matching Compass's documented default report convention (its .xls AC reports state 'Output errors are at 2.00 sigma'). The dimensionally-correct 3-DOF chi-square 95% value would be 2.7955 instead - use that if reconciling against a report/policy that specifies a true multi-DOF confidence level rather than a flat sigma multiple. Adjust freely to match whatever confidence convention another tool's report used.">Confidence K (sigma):</label>
                                     <input type="number" id="acpKSF" step="0.001" min="0.01" value="2" class="form-control form-control-sm" style="max-width:90px;">
-                                    <label style="font-size:11px;color:#c8d8e8;" title="Evaluate C2C/SF at a specific reference-well MD against every offset well, e.g. to cross-check a specific row from another program's report — interpolated between the reference well's own survey stations, not snapped to the nearest one.">Evaluate at Ref MD:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Evaluate C2C/SF at a specific reference-well MD against every offset well, e.g. to cross-check a specific row from another program's report — interpolated between the reference well's own survey stations, not snapped to the nearest one.">Evaluate at Ref MD:</label>
                                     <input type="number" id="acpEvalMd" step="0.01" placeholder="e.g. 775" class="form-control form-control-sm" style="max-width:100px;">
                                     <button id="acpEvalMdBtn" class="btn btn-sm btn-outline-info">Evaluate</button>
-                                    <span id="acpStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                    <span id="acpStatus" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;"></span>
                                 </div>
                                 <div id="acpEvalMdPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #39ff14;border-radius:4px;padding:8px 10px;margin-bottom:8px;"></div>
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
-                                    <label style="font-size:11px;color:#c8d8e8;" title="Upload a Compass 'Error Ellipse Survey' PDF report for the current reference well. Extracts MD/Inc/Az/Semi-major/Semi-minor per station and lines it up next to MTX's own computed ellipse at the same stations, so the two can be checked row by row. STATUS 2026-08-21: the MWD+HRGM toolcode was found to be missing its SAG and XYM3/XYM4 systematic misalignment terms (both confirmed against Compass's own .ipm export and added to iscwsaToolcodes.json) — this closed the Semi-major/Semi-minor gap from ~2x low to within ~2-9%, confirmed against this well's own report. Only checked for MWD+HRGM; other toolcodes' .ipm files haven't been checked for the same gap.">Upload Error Ellipse (Compass PDF):</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Upload a Compass 'Error Ellipse Survey' PDF report for the current reference well. Extracts MD/Inc/Az/Semi-major/Semi-minor per station and lines it up next to MTX's own computed ellipse at the same stations, so the two can be checked row by row. STATUS 2026-08-21: the MWD+HRGM toolcode was found to be missing its SAG and XYM3/XYM4 systematic misalignment terms (both confirmed against Compass's own .ipm export and added to iscwsaToolcodes.json) — this closed the Semi-major/Semi-minor gap from ~2x low to within ~2-9%, confirmed against this well's own report. Only checked for MWD+HRGM; other toolcodes' .ipm files haven't been checked for the same gap.">Upload Error Ellipse (Compass PDF):</label>
                                     <input type="file" id="acpErrEllipseFile" accept=".pdf" class="form-control form-control-sm" style="max-width:260px;">
-                                    <span id="acpErrEllipseStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                    <span id="acpErrEllipseStatus" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;"></span>
                                 </div>
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;" title="Which offset well the Center-to-Centre / Separation Factor columns below are computed against — must match the offset well the uploaded Anticollision PDF's section is for.">Offset Well (for C2C/SF):</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Which offset well the Center-to-Centre / Separation Factor columns below are computed against — must match the offset well the uploaded Anticollision PDF's section is for.">Offset Well (for C2C/SF):</label>
                                     <select id="acpErrEllipseOffsetWell" class="form-select form-select-sm" style="max-width:220px;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;" title="Upload a Compass 'Anticollision' PDF report (the one with the per-offset-well Reference/Offset MD, Semi Major Axis, Between Centres, Between Ellipses, Minimum Separation, Separation Factor table). Only the section for the offset well selected above is used — matched by its 'Offset Design: ...' header. C2C/SF rows are matched to Error Ellipse rows by nearest reference-well MD.">Upload Anticollision (Compass PDF):</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Upload a Compass 'Anticollision' PDF report (the one with the per-offset-well Reference/Offset MD, Semi Major Axis, Between Centres, Between Ellipses, Minimum Separation, Separation Factor table). Only the section for the offset well selected above is used — matched by its 'Offset Design: ...' header. C2C/SF rows are matched to Error Ellipse rows by nearest reference-well MD.">Upload Anticollision (Compass PDF):</label>
                                     <input type="file" id="acpAntiCollFile" accept=".pdf" class="form-control form-control-sm" style="max-width:260px;">
-                                    <span id="acpAntiCollStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                    <span id="acpAntiCollStatus" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;"></span>
                                 </div>
                                 <div id="acpErrEllipsePanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #ffb020;border-radius:4px;padding:8px 10px;margin-bottom:8px;max-height:420px;overflow:auto;"></div>
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
                                     <button id="acpMtxAcReportBtn" class="btn btn-sm btn-outline-warning" title="Builds an MTX-computed anticollision report, station-by-station for the selected Reference Well, against every offset well currently plotted — same layout as Compass's own 'Anticollision with Risk' report. All values come from MTX's own ISCWSA engine (same functions already used/validated above by the Evaluate-at-MD and Error Ellipse comparison panels), not from an uploaded Compass file.">📋 Build MTX AC Report</button>
-                                    <span id="acpMtxAcReportStatus" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+                                    <span id="acpMtxAcReportStatus" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;"></span>
                                     <button id="acpMtxAcReportXlsBtn" class="btn btn-sm btn-outline-success" style="display:none;">⬇ Download Excel</button>
                                 </div>
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="border-top:1px dashed #2a3a4a;padding-top:8px;">
-                                    <label style="font-size:11px;color:#c8d8e8;" title="The physical borehole/casing radius sum (Rref+Roff, i.e. what the SPE-184644 slides call R1=Ro+Rr) that defines a 'direct hit' — a sample landing within this distance of the reference well's centerline counts as a hit. MTX does not model per-well borehole/casing radius (TBR) anywhere else in this tool, so there is nothing to default this to; you must supply it (e.g. sum of each well's own hole/casing OD/2, converted to metres). Leaving it at 0 makes 'hit' mean literal centerline-to-centerline crossing, which is the most conservative (smallest) possible hit volume, not a realistic borehole intersection.">Combined Hit Radius Rref+Roff (m):</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="The physical borehole/casing radius sum (Rref+Roff, i.e. what the SPE-184644 slides call R1=Ro+Rr) that defines a 'direct hit' — a sample landing within this distance of the reference well's centerline counts as a hit. MTX does not model per-well borehole/casing radius (TBR) anywhere else in this tool, so there is nothing to default this to; you must supply it (e.g. sum of each well's own hole/casing OD/2, converted to metres). Leaving it at 0 makes 'hit' mean literal centerline-to-centerline crossing, which is the most conservative (smallest) possible hit volume, not a realistic borehole intersection.">Combined Hit Radius Rref+Roff (m):</label>
                                     <input type="number" id="acpHitRadius" step="0.001" min="0" value="0.17" placeholder="e.g. 0.31 for two 12-1/4in holes" class="form-control form-control-sm" style="max-width:220px;">
-                                    <label style="font-size:11px;color:#c8d8e8;" title="Number of Monte Carlo trials per row/station. Higher = less sampling noise but slower (trials × rows total samples). 2500 is the person's own requested default (2026-08-22).">MC Trials:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Number of Monte Carlo trials per row/station. Higher = less sampling noise but slower (trials × rows total samples). 2500 is the person's own requested default (2026-08-22).">MC Trials:</label>
                                     <input type="number" id="acpMcTrials" step="1" min="10" value="2500" class="form-control form-control-sm" style="max-width:90px;">
                                     <button id="acpMcPocBtn" class="btn btn-sm btn-outline-danger" title="Monte Carlo estimate of Probability of Collision (Direct Hit): for every row of the already-built MTX AC Report, samples the RAW (unscaled, no Confidence-K) combined relative-position uncertainty — Σcomb = Σref + Σoff, the ISCWSA covariance already computed for this pair, summed with no cross-well correlation (the 'independent, most common assumption' case per Jon Bang SPE-184644 slide 24, same default already used for Separation Factor elsewhere in this tool) — as a 3D Gaussian centred on the actual relative position vector, and counts what fraction of samples land within the Combined Hit Radius of the reference centerline. This directly evaluates the same 'probability = integral of pdf over specific volume' definition given in SPE-184644 (slides 5/15) and the person's own notes, via numerical Monte Carlo integration instead of a closed-form formula — no drilling-engineering formula is invented here, only generic Gaussian sampling of the already-validated ISCWSA covariance. Build the report first.">🎲 Run Monte Carlo POC</button>
                                 </div>
                                 <div id="acpMtxAcReportPanel" style="display:none;font-size:11px;font-family:monospace;background:var(--an-panel2,#161e28);border:1px solid #79c0ff;border-radius:4px;padding:8px 10px;margin-bottom:8px;max-height:520px;overflow:auto;"></div>
-                                <div id="acpEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                <div id="acpEmpty" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     Need at least 2 wellbores with survey data loaded in the 3D viewer above.
                                 </div>
                                 <div id="acpMagCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;margin-bottom:8px;"></div>
                                 <div id="acpDataWarnings" style="margin-bottom:6px;"></div>
                                 <div id="acpChartWrap" style="display:none;gap:8px;">
                                     <div id="acpChartC2CWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
-                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--an-text-dim,#5a7080);margin-bottom:6px;flex-wrap:wrap;">
                                             <span>X:</span>
-                                            <input type="number" id="acpC2cXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpC2cXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span>to</span>
-                                            <input type="number" id="acpC2cXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpC2cXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span style="margin-left:10px;">Y:</span>
-                                            <input type="number" id="acpC2cYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpC2cYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span>to</span>
-                                            <input type="number" id="acpC2cYMax" placeholder="20" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpC2cYMax" placeholder="20" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                         </div>
                                         <div style="flex:1;min-height:0;position:relative;">
                                             <canvas id="acpChart"></canvas>
                                         </div>
                                     </div>
                                     <div id="acpChartSFWrap" style="flex:1;min-width:0;height:460px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;display:flex;flex-direction:column;">
-                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#5a7080;margin-bottom:6px;flex-wrap:wrap;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--an-text-dim,#5a7080);margin-bottom:6px;flex-wrap:wrap;">
                                             <span>X:</span>
-                                            <input type="number" id="acpSfXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpSfXMin" placeholder="0" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span>to</span>
-                                            <input type="number" id="acpSfXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpSfXMax" placeholder="auto" style="width:60px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span style="margin-left:10px;">Y:</span>
-                                            <input type="number" id="acpSfYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpSfYMin" placeholder="0" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                             <span>to</span>
-                                            <input type="number" id="acpSfYMax" placeholder="2" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 4px;font-size:10px;">
+                                            <input type="number" id="acpSfYMax" placeholder="2" style="width:50px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 4px;font-size:10px;">
                                         </div>
                                         <div style="flex:1;min-height:0;position:relative;">
                                             <canvas id="acpChartSF"></canvas>
@@ -1199,34 +1215,34 @@ body.light-mode #statusTextbox {
                                 <div style="margin-top:14px;border-top:1px solid var(--an-border);padding-top:10px;">
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                         <span style="font-size:12px;font-weight:700;color:var(--an-text-bright,#e8f4ff);">Traveling Cylinder Plot</span>
-                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Reference MD (m):</label>
-                                        <input type="number" id="acpTcvRefMd" step="1" style="width:100px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
-                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Window (± m):</label>
-                                        <input type="number" id="acpTcvWindow" step="10" min="1" value="500" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
-                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">MD Interval (m):</label>
-                                        <input type="number" id="acpTcvInterval" step="1" min="1" value="60" style="width:70px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
-                                        <label style="font-size:11px;color:#c8d8e8;margin-left:8px;">Max Scan Radius (m):</label>
-                                        <input type="number" id="acpTcvMaxRadius" step="10" min="1" value="100" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:#c8d8e8;border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);margin-left:8px;">Reference MD (m):</label>
+                                        <input type="number" id="acpTcvRefMd" step="1" style="width:100px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);margin-left:8px;">Window (± m):</label>
+                                        <input type="number" id="acpTcvWindow" step="10" min="1" value="500" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);margin-left:8px;">MD Interval (m):</label>
+                                        <input type="number" id="acpTcvInterval" step="1" min="1" value="60" style="width:70px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 6px;font-size:11px;">
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);margin-left:8px;">Max Scan Radius (m):</label>
+                                        <input type="number" id="acpTcvMaxRadius" step="10" min="1" value="100" style="width:80px;background:var(--an-panel,#111820);border:1px solid var(--an-border);color:var(--an-text,#c8d8e8);border-radius:3px;padding:2px 6px;font-size:11px;">
                                         <div class="form-check form-check-inline ms-2">
                                             <input class="form-check-input" type="checkbox" id="acpTcvShowLabels">
-                                            <label class="form-check-label" for="acpTcvShowLabels" style="font-size:11px;color:#c8d8e8;">Show Depths</label>
+                                            <label class="form-check-label" for="acpTcvShowLabels" style="font-size:11px;color:var(--an-text,#c8d8e8);">Show Depths</label>
                                         </div>
                                         <button id="acpTcvResetMdBtn" class="btn btn-sm btn-outline-info">⤢ Reset to Deepest Station</button>
                                     </div>
-                                    <div style="font-size:9px;color:#5a7080;margin-bottom:6px;">Scroll to zoom on the plot (stays centered on the reference well) — Max Scan Radius controls which crossings are computed at all, independent of the current zoom level. Drag the depth slider (or scroll over it) to travel down the reference well.</div>
+                                    <div style="font-size:9px;color:var(--an-text-dim,#5a7080);margin-bottom:6px;">Scroll to zoom on the plot (stays centered on the reference well) — Max Scan Radius controls which crossings are computed at all, independent of the current zoom level. Drag the depth slider (or scroll over it) to travel down the reference well.</div>
                                     <div style="display:flex;gap:14px;max-width:620px;margin:0 auto;height:520px;">
                                         <div id="acpTcvSliderWrap" style="width:44px;flex-shrink:0;position:relative;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;">
                                             <div id="acpTcvSliderTrack" style="position:absolute;left:50%;top:14px;bottom:14px;width:4px;background:var(--an-border);transform:translateX(-50%);border-radius:2px;cursor:pointer;"></div>
                                             <div id="acpTcvSliderThumb" style="position:absolute;left:50%;width:16px;height:16px;background:#00c8ff;border:2px solid #e8f4ff;border-radius:50%;transform:translate(-50%,-50%);cursor:grab;top:14px;box-shadow:0 0 4px rgba(0,0,0,.6);"></div>
-                                            <div id="acpTcvSliderTopLbl" style="position:absolute;top:1px;left:50%;transform:translateX(-50%);font-size:8px;color:#5a7080;white-space:nowrap;">0 m</div>
-                                            <div id="acpTcvSliderBotLbl" style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);font-size:8px;color:#5a7080;white-space:nowrap;">TD</div>
-                                            <div id="acpTcvSliderVal" style="position:absolute;left:48px;font-size:10px;color:#e8f4ff;font-family:monospace;white-space:nowrap;background:var(--an-panel,#111820);padding:1px 4px;border-radius:3px;border:1px solid var(--an-border);top:14px;pointer-events:none;">0 m</div>
+                                            <div id="acpTcvSliderTopLbl" style="position:absolute;top:1px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--an-text-dim,#5a7080);white-space:nowrap;">0 m</div>
+                                            <div id="acpTcvSliderBotLbl" style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--an-text-dim,#5a7080);white-space:nowrap;">TD</div>
+                                            <div id="acpTcvSliderVal" style="position:absolute;left:48px;font-size:10px;color:var(--an-text-bright,#e8f4ff);font-family:monospace;white-space:nowrap;background:var(--an-panel,#111820);padding:1px 4px;border-radius:3px;border:1px solid var(--an-border);top:14px;pointer-events:none;">0 m</div>
                                         </div>
                                         <div style="flex:1;min-width:0;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px;position:relative;">
                                             <canvas id="acpChartTCV"></canvas>
                                         </div>
                                     </div>
-                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                    <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:8px;">
                                         Standard Traveling Cylinder Plot construction (Thorogood &amp; Sawaryn, SPE 19989,
                                         1991): swept along the <b>reference well's own MD</b> (Reference MD ± Window above,
                                         step = MD Interval), building a fresh High Side/Right frame (High Side = "up",
@@ -1249,7 +1265,7 @@ body.light-mode #statusTextbox {
                                     </div>
                                 </div>
 
-                                <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:8px;">
                                     <b>Left — C2C:</b> center-to-center distance from the reference well to the closest point
                                     on each other wellbore's 3D trajectory, at every survey station along the reference well —
                                     same closest-approach method as the Frac Planes / AC Scan tool. Uses Northing/Easting
@@ -1296,7 +1312,7 @@ body.light-mode #statusTextbox {
                                     </button>
                                 </div>
                                 <div id="legsContainer"></div>
-                                <div id="legsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                <div id="legsEmpty" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;">
                                     No STK or ICP comments found in uploaded wellbores.
                                 </div>
                             </div>
@@ -1328,25 +1344,25 @@ body.light-mode #statusTextbox {
                                     </button>
                                     <span id="pasonPlotsStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
                                 </div>
-                                <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-bottom:8px;">
                                     Upload the Excel file exported from "Export All Plots to Excel" on the Pason EDR upload page.
                                 </div>
                                 <% } %>
 
                                 <div id="pasonPlotsViewer" style="display:none;">
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                        <label style="font-size:12px;color:#c8d8e8;">Plot:</label>
+                                        <label style="font-size:12px;color:var(--an-text,#c8d8e8);">Plot:</label>
                                         <select id="pasonPlotSelect" class="form-select form-select-sm" style="max-width:320px;"></select>
                                         <button id="pasonZoomResetBtn" class="btn btn-sm btn-outline-light">Reset Zoom</button>
-                                        <span style="font-size:10px;color:#5a7080;">Ctrl+Scroll to zoom, drag to pan.</span>
+                                        <span style="font-size:10px;color:var(--an-text-dim,#5a7080);">Ctrl+Scroll to zoom, drag to pan.</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
-                                        <label style="font-size:11px;color:#c8d8e8;">Well:</label>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well:</label>
                                         <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
                                         <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                        <label style="font-size:11px;color:#c8d8e8;">Pause per milestone (days):</label>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Pause per milestone (days):</label>
                                         <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
-                                        <label style="font-size:11px;color:#c8d8e8;">Pause at Intermediate Casing (days):</label>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Pause at Intermediate Casing (days):</label>
                                         <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
                                         <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
                                         <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
@@ -1356,7 +1372,7 @@ body.light-mode #statusTextbox {
                                         ⓘ This well hasn't been saved yet — showing a live preview (default pauses: 0.15 days, 1.0 day at Intermediate Casing). Not stored.
                                     </div>
                                     <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;" id="pasonTDCalcHint">
+                                    <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-bottom:8px;" id="pasonTDCalcHint">
                                         Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
                                     </div>
                                     <% } %>
@@ -1370,21 +1386,21 @@ body.light-mode #statusTextbox {
                                         <span id="pasonRawXYStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonDotSizeRow" style="display:none;">
-                                        <label style="font-size:11px;color:#c8d8e8;">Dot size:</label>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Dot size:</label>
                                         <input type="range" id="pasonDotSizeSlider" min="1" max="10" step="1" value="3" style="max-width:180px;">
-                                        <span id="pasonDotSizeVal" style="font-size:11px;color:#5a7080;">3</span>
+                                        <span id="pasonDotSizeVal" style="font-size:11px;color:var(--an-text-dim,#5a7080);">3</span>
                                         <button id="pasonRawXYRemoveBtn" class="btn btn-sm btn-outline-danger">✕ Remove imported dots</button>
                                     </div>
-                                    <div style="font-size:10px;color:#aaa;margin-bottom:8px;">
+                                    <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-bottom:8px;">
                                         Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
                                     </div>
                                     <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
                                         <canvas id="pasonChart" style="max-height:65vh;"></canvas>
                                     </div>
-                                    <div id="pasonPlotsMeta" style="font-size:10px;color:#5a7080;margin-top:6px;"></div>
+                                    <div id="pasonPlotsMeta" style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:6px;"></div>
                                 </div>
 
-                                <div id="pasonPlotsEmpty" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;">
+                                <div id="pasonPlotsEmpty" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;">
                                     No Pason plots uploaded yet for this job.
                                 </div>
                             </div>
@@ -1400,28 +1416,53 @@ body.light-mode #statusTextbox {
                             <button class="accordion-button collapsed" type="button"
                                     data-bs-toggle="collapse" data-bs-target="#collapseCsd"
                                     aria-expanded="false">
-                                🧱 Casing Design
+                                <!-- Casing Design icon: inline SVG "stacked pipes" glyph
+                                     (2026-08-26, replacing the 🧱 brick emoji per the
+                                     person's request — modeled after a reference stacked-
+                                     casing-pipe icon they shared). Self-contained fill
+                                     colors, so it reads the same in both themes without
+                                     needing a var()/isLight branch like the text elsewhere
+                                     in this file. -->
+                                <svg width="20" height="20" viewBox="0 0 64 40" style="vertical-align:-4px;margin-right:2px;" aria-hidden="true">
+                                    <circle cx="16" cy="28" r="11" fill="#0aa8ff" stroke="#0077b3" stroke-width="1.5"/>
+                                    <circle cx="16" cy="28" r="4" fill="#eaf6ff"/>
+                                    <circle cx="38" cy="28" r="11" fill="#0aa8ff" stroke="#0077b3" stroke-width="1.5"/>
+                                    <circle cx="38" cy="28" r="4" fill="#eaf6ff"/>
+                                    <circle cx="27" cy="12" r="11" fill="#3ad0ff" stroke="#0077b3" stroke-width="1.5"/>
+                                    <circle cx="27" cy="12" r="4" fill="#eaf6ff"/>
+                                </svg>
+                                Casing Design
                             </button>
                         </h2>
                         <div id="collapseCsd" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well/Leg:</label>
                                     <select id="csdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Scenario:</label>
                                     <select id="csdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="csdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <span id="csdStatusText" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;">Loading…</span>
                                     <% if (canUseModelers) { %>
                                     <a href="/notes/uploadCasingDesign?mtxJobId=<%= note.mtxJobId %>" target="_blank"
-                                       class="btn btn-sm btn-outline-info">🧱 Open in Casing Design</a>
+                                       class="btn btn-sm btn-outline-info">
+                                        <svg width="14" height="14" viewBox="0 0 64 40" style="vertical-align:-2px;margin-right:1px;" aria-hidden="true">
+                                            <circle cx="16" cy="28" r="11" fill="#0aa8ff" stroke="#0077b3" stroke-width="1.5"/>
+                                            <circle cx="16" cy="28" r="4" fill="#eaf6ff"/>
+                                            <circle cx="38" cy="28" r="11" fill="#0aa8ff" stroke="#0077b3" stroke-width="1.5"/>
+                                            <circle cx="38" cy="28" r="4" fill="#eaf6ff"/>
+                                            <circle cx="27" cy="12" r="11" fill="#3ad0ff" stroke="#0077b3" stroke-width="1.5"/>
+                                            <circle cx="27" cy="12" r="4" fill="#eaf6ff"/>
+                                        </svg>
+                                        Open in Casing Design
+                                    </a>
                                     <% } %>
                                 </div>
-                                <div id="csdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                <div id="csdEmptyMsg" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Casing Design model saved yet for this job.
                                 </div>
                                 <div id="csdResultsWrap" style="display:none;">
                                     <div id="csdStringCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:8px;align-items:start;"></div>
-                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                    <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:8px;">
                                         Physics: API TR 5C3 (burst/collapse/triaxial), Bourgoyne et al. "Applied Drilling Engineering,"
                                         SPE Textbook Series Vol. 2, Ch. 7 (ellipse of plasticity collapse derating), and this job's
                                         "Casing Design Foundation" (CNRL, Rev 0) Simple Method load cases.
@@ -1448,17 +1489,17 @@ body.light-mode #statusTextbox {
                         <div id="collapseTD" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well/Leg:</label>
                                     <select id="tdWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Scenario:</label>
                                     <select id="tdScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="tdStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <span id="tdStatusText" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;">Loading…</span>
                                     <% if (canUseModelers) { %>
                                     <a href="/notes/uploadTorqueAndDrag?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🔧 Open in Torque &amp; Drag Modeler</a>
                                     <% } %>
                                 </div>
-                                <div id="tdEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                <div id="tdEmptyMsg" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Torque &amp; Drag model saved yet for this job.
                                 </div>
                                 <div id="tdSchematicWrap" style="display:none;overflow-x:auto;margin-bottom:1rem;">
@@ -1473,7 +1514,7 @@ body.light-mode #statusTextbox {
                                     <div class="td-chart-panel mb-3">
                                         <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Hook Load vs Bit Depth</div>
                                         <canvas id="td_c_hl" style="max-height:45vh;"></canvas>
-                                        <div id="td_c_hl_msg" style="color:#5a7080;font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
+                                        <div id="td_c_hl_msg" style="color:var(--an-text-dim,#5a7080);font-size:11px;padding:10px;display:none;">Hookload data not available in this saved run.</div>
                                     </div>
                                     <div class="td-chart-panel mb-3">
                                         <div class="td-chart-title" style="font-size:15px;margin-bottom:6px;">Side Force vs Measured Depth</div>
@@ -1511,23 +1552,23 @@ body.light-mode #statusTextbox {
                         <div id="collapseHyd" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <label style="font-size:11px;color:#c8d8e8;">Well/Leg:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well/Leg:</label>
                                     <select id="hydWellSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <label style="font-size:11px;color:#c8d8e8;">Scenario:</label>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Scenario:</label>
                                     <select id="hydScenarioSelect2" class="form-select form-select-sm" style="max-width:220px;display:none;"></select>
-                                    <span id="hydStatusText" style="font-size:11px;color:#5a7080;font-family:monospace;">Loading…</span>
+                                    <span id="hydStatusText" style="font-size:11px;color:var(--an-text-dim,#5a7080);font-family:monospace;">Loading…</span>
                                     <% if (canUseModelers) { %>
                                     <a href="/notes/uploadHydraulics?mtxJobId=<%= note.mtxJobId %>" target="_blank"
                                        class="btn btn-sm btn-outline-info">🌊 Open in Bit Hydraulics Program</a>
                                     <% } %>
                                 </div>
-                                <div id="hydEmptyMsg" style="color:#5a7080;font-size:12px;font-family:monospace;padding:8px;display:none;">
+                                <div id="hydEmptyMsg" style="color:var(--an-text-dim,#5a7080);font-size:12px;font-family:monospace;padding:8px;display:none;">
                                     No Bit Hydraulics model saved yet for this job.
                                 </div>
                                 <div id="hydResultsWrap" style="display:none;">
                                     <div id="hydWarnings"></div>
                                     <div id="hydResultCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px;"></div>
-                                    <div style="font-size:11px;color:#5a7080;margin-bottom:4px;">Pressure Loss Distribution</div>
+                                    <div style="font-size:11px;color:var(--an-text-dim,#5a7080);margin-bottom:4px;">Pressure Loss Distribution</div>
                                     <div id="hydPlBar" style="height:22px;border-radius:3px;overflow:hidden;display:flex;border:1px solid var(--an-border);margin-bottom:10px;"></div>
                                     <div class="td-2col" style="border-radius:.5rem;padding:1rem;">
                                         <div class="td-chart-panel mb-3">
@@ -1543,7 +1584,7 @@ body.light-mode #statusTextbox {
                                             </div>
                                         </div>
                                     </div>
-                                    <div style="font-size:10px;color:#5a7080;margin-top:8px;">
+                                    <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:8px;">
                                         Physics: Bourgoyne, Millheim, Chenevert, Young, "Applied Drilling Engineering," SPE Textbook Series Vol. 2, 1986, Ch. 4
                                         (Bingham Plastic &amp; Power Law pipe/annular pressure loss).
                                         <% if (canUseModelers) { %>Edit setup and recalculate in the
@@ -2699,9 +2740,15 @@ body.light-mode #statusTextbox {
         const fallbackColors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
 
         // Added 2026-08-25: Single-mode colors — every Subject well navy
-        // blue, every Offset well red.
-        const WBT_SINGLE_SUBJECT_COLOR = 0x1a3fa0; // navy blue
-        const WBT_SINGLE_OFFSET_COLOR  = 0xff0000; // red
+        // blue (light mode) / electric blue (dark mode), every Offset well
+        // red. Dark-mode Subject color changed 2026-08-26 from navy
+        // (0x1a3fa0) to electric blue (0x0066ff) per the person's direct
+        // request — navy read too dark/low-contrast against the viewer's
+        // near-black background. Light mode keeps navy, which reads fine
+        // against the light-mode viewer background.
+        const WBT_SINGLE_SUBJECT_COLOR_LIGHT = 0x1a3fa0; // navy blue
+        const WBT_SINGLE_SUBJECT_COLOR_DARK  = 0x0066ff; // electric blue
+        const WBT_SINGLE_OFFSET_COLOR        = 0xff0000; // red
 
         // Subject/Offset classification shared by both coloring modes and
         // the dashboard/table logic below — explicit wellCategory tag wins;
@@ -2721,7 +2768,9 @@ body.light-mode #statusTextbox {
         // the palette by index).
         function wbtColorForWell(well, idx){
             if(WBT_COLOR_MODE === 'single'){
-                return wbtWellIsSubjectByCategory(well) ? WBT_SINGLE_SUBJECT_COLOR : WBT_SINGLE_OFFSET_COLOR;
+                if(!wbtWellIsSubjectByCategory(well)) return WBT_SINGLE_OFFSET_COLOR;
+                var isLight = document.body.classList.contains('light-mode');
+                return isLight ? WBT_SINGLE_SUBJECT_COLOR_LIGHT : WBT_SINGLE_SUBJECT_COLOR_DARK;
             }
             return well.colorHex ? parseInt(well.colorHex.replace('#',''), 16) : fallbackColors[idx % fallbackColors.length];
         }
@@ -6216,12 +6265,12 @@ body.light-mode #statusTextbox {
         var html = '<b style="color:#39ff14;">Evaluate at Ref MD ' + md.toFixed(2) + '</b> — ' + refName +
             ' at N=' + P.y.toFixed(2) + ' E=' + P.x.toFixed(2) + ' TVDss=' + (-P.z).toFixed(2) +
             ' Inc=' + P.incl.toFixed(2) + '° (K=' + K_SF.toFixed(4) + ', each well uses its own saved toolcode, default = no cross-well correlation per Compass default behavior)<br>' +
-            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:var(--an-text-dim,#5a7080);text-align:left;">' +
             '<th style="padding:2px 8px 2px 0;">Offset Well</th><th style="padding:2px 8px;">Offset MD (m)</th>' +
             '<th style="padding:2px 8px;">C2C / "Between Centres" (m)</th>' +
             '<th style="padding:2px 8px;">UR_ref (m)</th><th style="padding:2px 8px;">UR_off (m)</th>' +
             '<th style="padding:2px 8px;">SF (default, no correlation)</th>' +
-            '<th style="padding:2px 8px;color:#5a7080;">for comparison: correlation-aware combined radius (Eq35, "Reduce Global Lateral Errors" equivalent) (m)</th></tr>' +
+            '<th style="padding:2px 8px;color:var(--an-text-dim,#5a7080);">for comparison: correlation-aware combined radius (Eq35, "Reduce Global Lateral Errors" equivalent) (m)</th></tr>' +
             rows.map(function(r){
                 return '<tr><td style="padding:2px 8px 2px 0;">' + r.name + '</td>' +
                     '<td style="padding:2px 8px;">' + (r.offMd!=null ? r.offMd.toFixed(2) : '—') + '</td>' +
@@ -6229,7 +6278,7 @@ body.light-mode #statusTextbox {
                     '<td style="padding:2px 8px;">' + (r.urRef!=null ? r.urRef.toFixed(2) : '—') + '</td>' +
                     '<td style="padding:2px 8px;">' + (r.urOff!=null ? r.urOff.toFixed(2) : '—') + '</td>' +
                     '<td style="padding:2px 8px;">' + (isFinite(r.sf) ? r.sf.toFixed(3) : '∞') + '</td>' +
-                    '<td style="padding:2px 8px;color:#5a7080;">' + (r.urCombinedCorrelated!=null ? r.urCombinedCorrelated.toFixed(2) : '—') + '</td></tr>';
+                    '<td style="padding:2px 8px;color:var(--an-text-dim,#5a7080);">' + (r.urCombinedCorrelated!=null ? r.urCombinedCorrelated.toFixed(2) : '—') + '</td></tr>';
             }).join('') + '</table>';
 
         // Term-by-term breakdown for the CLOSEST offset well only (rows[0]
@@ -6254,7 +6303,7 @@ body.light-mode #statusTextbox {
                         return '&nbsp;&nbsp;' + t.code + ': ' + t.sigma1.toFixed(3) + ' m (' + t.pct.toFixed(1) + '% of variance)';
                     }).join('<br>') + '</div>';
             }
-            html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a;font-size:10px;color:#c8d8e8;">' +
+            html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a;font-size:10px;color:var(--an-text,#c8d8e8);">' +
                 '<b style="color:#39ff14;">Term breakdown for closest offset (' + closest.name + '):</b>' +
                 termTable(refName + ' (ref)', refTerms) + termTable(closest.name + ' (offset)', offTerms) +
                 '</div>';
@@ -6469,8 +6518,8 @@ body.light-mode #statusTextbox {
         var acRows = (offWell && LAST_ANTICOLL_ROWS && LAST_ANTICOLL_ROWS.forWell === offWell.wellName) ? LAST_ANTICOLL_ROWS.rows : null;
 
         var html = '<b style="color:#ffb020;">Error Ellipse comparison — Compass PDF vs MTX (' + refWell.wellName + ', toolcode ' + (toolcodeName||'—') + ', K=' + K.toFixed(4) + ')</b>' +
-            '<div style="color:#5a7080;margin:2px 0 6px;">MWD+HRGM\'s missing SAG/XYM3/XYM4 terms were found and added 2026-08-21 — Semi-major/Semi-minor now typically agree with Compass within ~2-9% (was ~2x low before). C2C/SF columns need both an offset well selected above and its matching Anticollision PDF uploaded.</div>' +
-            '<table style="width:100%;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<div style="color:var(--an-text-dim,#5a7080);margin:2px 0 6px;">MWD+HRGM\'s missing SAG/XYM3/XYM4 terms were found and added 2026-08-21 — Semi-major/Semi-minor now typically agree with Compass within ~2-9% (was ~2x low before). C2C/SF columns need both an offset well selected above and its matching Anticollision PDF uploaded.</div>' +
+            '<table style="width:100%;border-collapse:collapse;"><tr style="color:var(--an-text-dim,#5a7080);text-align:left;">' +
             '<th style="padding:2px 8px 2px 0;">MD (m)</th><th style="padding:2px 8px;">Inc (°)</th><th style="padding:2px 8px;">Az (°)</th>' +
             '<th style="padding:2px 8px;color:#ffb020;">Compass Semi-Maj (m)</th><th style="padding:2px 8px;color:#ffb020;">Compass Semi-Min (m)</th>' +
             '<th style="padding:2px 8px;color:#79c0ff;">MTX Semi-Maj (m)</th><th style="padding:2px 8px;color:#79c0ff;">MTX Semi-Min (m)</th>' +
@@ -6797,7 +6846,7 @@ body.light-mode #statusTextbox {
 
         var html = '<b style="color:#79c0ff;">MTX AC Report</b> — Reference: ' + report.refName +
             ' (computed by MTX\'s own ISCWSA engine — see code comment above buildMtxAcReport() for exactly which already-validated functions each column reuses). ' + pocNote + '<br>' +
-            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:#5a7080;text-align:left;">' +
+            '<table style="width:100%;margin-top:6px;border-collapse:collapse;"><tr style="color:var(--an-text-dim,#5a7080);text-align:left;">' +
             '<th style="padding:2px 8px 2px 0;">Offset Well</th>' +
             '<th style="padding:2px 8px;">Ref MD (m)</th><th style="padding:2px 8px;">Ref VD (m)</th>' +
             '<th style="padding:2px 8px;">Off MD (m)</th><th style="padding:2px 8px;">Off VD (m)</th>' +
@@ -7118,9 +7167,16 @@ body.light-mode #statusTextbox {
             var cx = xScale.getPixelForValue(0), cy = yScale.getPixelForValue(0);
             var maxVal = Math.max(xScale.max, yScale.max, -xScale.min, -yScale.min);
             var nRings = Math.ceil(maxVal / ringStep);
+            // Ring/spoke/label colors picked per theme (2026-08-26 fix —
+            // these were hardcoded to a light rgba(200,216,232,*) that
+            // reads fine on the dark background but is nearly invisible
+            // against light-mode's white chart background).
+            var isLight = document.body.classList.contains('light-mode');
+            var ringStroke = isLight ? 'rgba(44,62,80,0.35)' : 'rgba(200,216,232,0.25)';
+            var ringLabelFill = isLight ? 'rgba(44,62,80,0.75)' : 'rgba(200,216,232,0.55)';
             ctx.save();
-            ctx.strokeStyle = 'rgba(200,216,232,0.25)';
-            ctx.fillStyle = 'rgba(200,216,232,0.55)';
+            ctx.strokeStyle = ringStroke;
+            ctx.fillStyle = ringLabelFill;
             ctx.font = '10px monospace';
             ctx.lineWidth = 1;
             for(var i=1;i<=nRings;i++){
@@ -7142,7 +7198,7 @@ body.light-mode #statusTextbox {
             ctx.moveTo(leftPx, cy); ctx.lineTo(rightPx, cy);
             ctx.stroke();
             ctx.textAlign = 'center';
-            ctx.fillStyle = 'rgba(200,216,232,0.85)';
+            ctx.fillStyle = isLight ? 'rgba(44,62,80,0.9)' : 'rgba(200,216,232,0.85)';
             ctx.font = 'bold 11px monospace';
             ctx.textBaseline = 'bottom';
             ctx.fillText('HIGH SIDE', cx, topPx-6);
@@ -7153,7 +7209,7 @@ body.light-mode #statusTextbox {
             ctx.textAlign = 'right';
             ctx.fillText('LEFT', leftPx-4, cy);
             // Origin marker (the reference station itself)
-            ctx.fillStyle = '#e8f4ff';
+            ctx.fillStyle = isLight ? '#111820' : '#e8f4ff';
             ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         }
@@ -7168,6 +7224,9 @@ body.light-mode #statusTextbox {
             var opts = (chart.options.plugins && chart.options.plugins.tcvLabels) || {};
             if(!opts.show) return;
             var ctx = chart.ctx;
+            // Fallback only (each dataset normally sets its own borderColor)
+            // — themed per 2026-08-26 light-mode fix, see tcvGridPlugin above.
+            var fallbackColor = document.body.classList.contains('light-mode') ? '#2c3e50' : '#c8d8e8';
             ctx.save();
             ctx.font = '9px monospace';
             ctx.textAlign = 'left';
@@ -7179,7 +7238,7 @@ body.light-mode #statusTextbox {
                     if(!pt || pt.md == null) return;
                     var el = meta.data[i];
                     if(!el) return;
-                    ctx.fillStyle = ds.borderColor || '#c8d8e8';
+                    ctx.fillStyle = ds.borderColor || fallbackColor;
                     ctx.fillText(pt.md.toFixed(0), el.x+4, el.y-4);
                 });
             });
@@ -7375,7 +7434,9 @@ body.light-mode #statusTextbox {
                     legend: {
                         display: document.getElementById('acpShowLegend').checked,
                         labels: {
-                            color: '#c8d8e8', boxWidth: 12, font: { size: 10 },
+                            // Themed per 2026-08-26 light-mode fix (see tcvGridPlugin above).
+                            color: document.body.classList.contains('light-mode') ? '#2c3e50' : '#c8d8e8',
+                            boxWidth: 12, font: { size: 10 },
                             // Skip the extra per-segment datasets (see bugfix note
                             // above — a well with multiple crossing segments now
                             // has one dataset per segment) so each well still
@@ -7531,13 +7592,13 @@ body.light-mode #statusTextbox {
         panel.innerHTML =
             '<b style="color:#00c8ff;">Closest-point detail</b> (click another point to update)<br>' +
             '<table style="margin-top:6px;border-collapse:collapse;">' +
-            '<tr><td style="padding:2px 12px 2px 0;color:#5a7080;">Well</td><td style="padding:2px 12px;">MD (m)</td><td style="padding:2px 12px;">Northing</td><td style="padding:2px 12px;">Easting</td><td style="padding:2px 12px;">TVDss (used)</td><td style="padding:2px 12px;color:#5a7080;">TVD (RKB, ref only)</td></tr>' +
-            '<tr><td style="padding:2px 12px 2px 0;color:#c8d8e8;">' + refWell + ' (ref)</td><td style="padding:2px 12px;">' + fmtN(refPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-refPt.z) + '</td><td style="padding:2px 12px;color:#5a7080;">' + fmtN(refPt.tvd) + '</td></tr>' +
-            '<tr><td style="padding:2px 12px 2px 0;color:#c8d8e8;">' + offWell + ' (offset)</td><td style="padding:2px 12px;">' + fmtN(offPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-offPt.z) + '</td><td style="padding:2px 12px;color:#5a7080;">' + fmtN(offPt.tvd) + '</td></tr>' +
+            '<tr><td style="padding:2px 12px 2px 0;color:var(--an-text-dim,#5a7080);">Well</td><td style="padding:2px 12px;">MD (m)</td><td style="padding:2px 12px;">Northing</td><td style="padding:2px 12px;">Easting</td><td style="padding:2px 12px;">TVDss (used)</td><td style="padding:2px 12px;color:var(--an-text-dim,#5a7080);">TVD (RKB, ref only)</td></tr>' +
+            '<tr><td style="padding:2px 12px 2px 0;color:var(--an-text,#c8d8e8);">' + refWell + ' (ref)</td><td style="padding:2px 12px;">' + fmtN(refPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(refPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-refPt.z) + '</td><td style="padding:2px 12px;color:var(--an-text-dim,#5a7080);">' + fmtN(refPt.tvd) + '</td></tr>' +
+            '<tr><td style="padding:2px 12px 2px 0;color:var(--an-text,#c8d8e8);">' + offWell + ' (offset)</td><td style="padding:2px 12px;">' + fmtN(offPt.md) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.y) + '</td><td style="padding:2px 12px;">' + fmtN(offPt.x) + '</td><td style="padding:2px 12px;">' + fmtN(-offPt.z) + '</td><td style="padding:2px 12px;color:var(--an-text-dim,#5a7080);">' + fmtN(offPt.tvd) + '</td></tr>' +
             '</table>' +
-            '<div style="margin-top:6px;color:#5a7080;">3D distance (using TVDss): <b style="color:#e8f4ff;">' + fmtN(c2c) + ' m</b> ' +
+            '<div style="margin-top:6px;color:var(--an-text-dim,#5a7080);">3D distance (using TVDss): <b style="color:var(--an-text-bright,#e8f4ff);">' + fmtN(c2c) + ' m</b> ' +
             '(ΔN=' + fmtN(refPt.y-offPt.y) + ', ΔE=' + fmtN(refPt.x-offPt.x) + ', ΔTVDss=' + fmtN(-refPt.z-(-offPt.z)) + '). ' +
-            'Separation Factor at this point: <b style="color:#e8f4ff;">' + sfStr + '</b>. ' +
+            'Separation Factor at this point: <b style="color:var(--an-text-bright,#e8f4ff);">' + sfStr + '</b>. ' +
             'The dimmed TVD (RKB) column is shown for reference only and is NOT used in the distance — TVD is per-well-referenced and not safe to compare across wells; if it disagrees sharply with TVDss here, that well\'s RKB/KB elevation differs from the others.</div>';
     }
 
@@ -7559,6 +7620,18 @@ body.light-mode #statusTextbox {
         var refWell = WELLS.find(function(w){ return w.wellName === refName; });
         if(!refWell){ return; }
         renderMagCards();
+        // Chart.js needs resolved color strings (CSS var() refs aren't
+        // understood by its canvas drawing code), so the axis/legend/grid
+        // colors below are picked per theme here rather than left as the
+        // dark-mode hex values they used to be hardcoded to (2026-08-26 —
+        // that's what made this chart unreadable in light mode: near-white
+        // ticks/legend text and a near-invisible grid on a white
+        // background). Matches the isLight/textColor/tickColor/gridColor
+        // pattern already used for the Pason plot chart (renderPasonChart).
+        var isLight = document.body.classList.contains('light-mode');
+        var acpTickColor = isLight ? '#2c3e50' : '#c8d8e8';
+        var acpAxisTitleColor = isLight ? '#607080' : '#5a7080';
+        var acpGridColor = isLight ? 'rgba(0,0,0,0.12)' : '#1e2d3d';
         syncToolcodeSelectToRefWell();
         var refPts = wellPoints(refWell);
         var others = WELLS.filter(function(w){ return w.wellName !== refName; });
@@ -7663,7 +7736,7 @@ body.light-mode #statusTextbox {
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: showLegend, labels: { color: '#c8d8e8' } },
+                    legend: { display: showLegend, labels: { color: acpTickColor } },
                     tooltip: { callbacks: { label: function(ctx){
                         var offMdStr = (ctx.raw.offMd != null) ? (', at offset MD=' + ctx.raw.offMd.toFixed(0) + ' m') : '';
                         return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, C2C=' + ctx.raw.y.toFixed(2) + ' m' + offMdStr + ' (click to inspect)';
@@ -7674,8 +7747,8 @@ body.light-mode #statusTextbox {
                     }
                 },
                 scales: {
-                    x: { min: c2cXRange.min, max: c2cXRange.max, title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
-                    y: { min: c2cYRange.min, max: c2cYRange.max, title: { display: true, text: 'C2C (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
+                    x: { min: c2cXRange.min, max: c2cXRange.max, title: { display: true, text: 'MD (m)', color: acpAxisTitleColor }, grid: { color: acpGridColor }, ticks: { color: acpTickColor } },
+                    y: { min: c2cYRange.min, max: c2cYRange.max, title: { display: true, text: 'C2C (m)', color: acpAxisTitleColor }, grid: { color: acpGridColor }, ticks: { color: acpTickColor } }
                 }
             }
         });
@@ -7693,7 +7766,7 @@ body.light-mode #statusTextbox {
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: showLegend, labels: { color: '#c8d8e8' } },
+                    legend: { display: showLegend, labels: { color: acpTickColor } },
                     tooltip: { callbacks: { label: function(ctx){
                         var raw = isFinite(ctx.raw.sfRaw) ? ctx.raw.sfRaw.toFixed(2) : ('>' + SF_CAP);
                         return ctx.dataset.label + ': ref MD=' + ctx.raw.x.toFixed(0) + ' m, SF≈' + raw + ' (click to inspect)';
@@ -7704,8 +7777,8 @@ body.light-mode #statusTextbox {
                     }
                 },
                 scales: {
-                    x: { min: sfXRange.min, max: sfXRange.max, title: { display: true, text: 'MD (m)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
-                    y: { min: sfYRange.min, max: sfYRange.max, title: { display: true, text: 'SF', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
+                    x: { min: sfXRange.min, max: sfXRange.max, title: { display: true, text: 'MD (m)', color: acpAxisTitleColor }, grid: { color: acpGridColor }, ticks: { color: acpTickColor } },
+                    y: { min: sfYRange.min, max: sfYRange.max, title: { display: true, text: 'SF', color: acpAxisTitleColor }, grid: { color: acpGridColor }, ticks: { color: acpTickColor } }
                 }
             }
         });
@@ -7844,7 +7917,7 @@ body.light-mode #statusTextbox {
         if(!cardsEl) return;
         cardsEl.innerHTML = '';
         if(typeof WMMModel === 'undefined'){
-            cardsEl.innerHTML = '<div style="font-size:10px;color:#5a7080;">WMM module not loaded — magnetics unavailable.</div>';
+            cardsEl.innerHTML = '<div style="font-size:10px;color:var(--an-text-dim,#5a7080);">WMM module not loaded — magnetics unavailable.</div>';
             return;
         }
         var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
@@ -7857,13 +7930,17 @@ body.light-mode #statusTextbox {
         metrics.forEach(function(pair){
             var card = document.createElement('div');
             card.style.cssText = 'background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:6px 10px;';
-            card.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">' + pair[0] + '</div>' +
-                '<div style="font-size:16px;font-family:monospace;color:#e8f4ff;">' + pair[1] + '</div>';
+            // Label/value colors use the theme CSS vars, not hardcoded dark-
+            // mode hex (2026-08-26 fix — the old hardcoded '#e8f4ff' value
+            // color is near-white and was invisible on the light-mode white
+            // background; '#5a7080' label color was likewise low-contrast).
+            card.innerHTML = '<div style="font-size:10px;color:var(--an-text-dim,#5a7080);text-transform:uppercase;letter-spacing:.5px;">' + pair[0] + '</div>' +
+                '<div style="font-size:16px;font-family:monospace;color:var(--an-text-bright,#e8f4ff);">' + pair[1] + '</div>';
             cardsEl.appendChild(card);
         });
         if(refWell && !m){
             var warnCard = document.createElement('div');
-            warnCard.style.cssText = 'grid-column:1/-1;font-size:10px;color:#5a7080;padding:4px 2px;';
+            warnCard.style.cssText = 'grid-column:1/-1;font-size:10px;color:var(--an-text-dim,#5a7080);padding:4px 2px;';
             warnCard.textContent = 'No surface lat/long for ' + refWell.wellName + ' — magnetics unavailable for this well.';
             cardsEl.appendChild(warnCard);
         }
@@ -9666,7 +9743,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             cards.forEach(function(c){
                 var d = document.createElement('div');
                 d.style.cssText = 'background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:8px 10px;';
-                d.innerHTML = '<div style="font-size:10px;color:#5a7080;text-transform:uppercase;letter-spacing:.5px;">'+c[0]+'</div><div style="font-family:monospace;font-size:15px;color:#e8f4ff;">'+c[1]+'</div><div style="font-family:monospace;font-size:11px;color:#5a7080;margin-top:2px;">'+c[2]+'</div>';
+                d.innerHTML = '<div style="font-size:10px;color:var(--an-text-dim,#5a7080);text-transform:uppercase;letter-spacing:.5px;">'+c[0]+'</div><div style="font-family:monospace;font-size:15px;color:var(--an-text-bright,#e8f4ff);">'+c[1]+'</div><div style="font-family:monospace;font-size:11px;color:var(--an-text-dim,#5a7080);margin-top:2px;">'+c[2]+'</div>';
                 cardsEl.appendChild(d);
             });
         }
@@ -9844,6 +9921,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         var canvasId = 'csdTriChart_' + name.replace(/[^a-z0-9]/gi, '_');
         var canvas = document.getElementById(canvasId);
         if(!canvas) return;
+        // Themed per 2026-08-26 light-mode fix (same isLight pattern as
+        // renderPasonChart/buildTDCharts/renderPlot) — this chart's axis
+        // title/tick/grid colors were hardcoded to the dark-theme values.
+        var isLight = document.body.classList.contains('light-mode');
+        var csdAxisTitleColor = isLight ? '#495057' : '#5a7080';
+        var csdTickColor = isLight ? '#000000' : '#c8d8e8';
+        var csdGridColor = isLight ? 'rgba(0,0,0,.15)' : '#1e2d3d';
         var envelope = triaxial.envelope;
         var high = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaHigh_N/1000 }; });
         var low = envelope.map(function(p){ return { x: p.dp_Pa/1e6, y: p.FaLow_N/1000 }; });
@@ -9902,8 +9986,8 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                     }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'Δp = pi − po (MPa)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } },
-                    y: { title: { display: true, text: 'Fa (kN)', color: '#5a7080' }, grid: { color: '#1e2d3d' }, ticks: { color: '#c8d8e8' } }
+                    x: { title: { display: true, text: 'Δp = pi − po (MPa)', color: csdAxisTitleColor }, grid: { color: csdGridColor }, ticks: { color: csdTickColor } },
+                    y: { title: { display: true, text: 'Fa (kN)', color: csdAxisTitleColor }, grid: { color: csdGridColor }, ticks: { color: csdTickColor } }
                 }
             }
         });
@@ -9937,7 +10021,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 var loadStr = isForce ? fmtN_kN(src.load) + ' kN' : fmtPa_kPa(src.load) + ' kPa';
                 var methodTag = g.governedBy === 'engineered' ? ' [eng]' : (g.governedBy === 'alternative' ? ' [alt]' : '');
                 return '<span style="margin-right:14px;">' + label + ' <b style="color:' + color + ';">DF ' + fmt(src.achievedDF, 2) +
-                    '</b><span style="color:#5a7080;">' + methodTag + ' (req ' + fmt(src.requiredDF, 2) + ', load ' + loadStr + ')</span></span>';
+                    '</b><span style="color:var(--an-text-dim,#5a7080);">' + methodTag + ' (req ' + fmt(src.requiredDF, 2) + ', load ' + loadStr + ')</span></span>';
             }).join('');
             var parentLine = '';
             if(e.parentCheck && !e.parentCheck.error){
@@ -9968,7 +10052,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                 chartHtml = '<div style="height:260px;background:var(--an-panel2,#161e28);border:1px solid var(--an-border);border-radius:4px;padding:6px;margin-top:8px;">' +
                     '<canvas id="' + canvasId + '"></canvas></div>';
             }
-            row.innerHTML = '<div style="font-family:var(--cond, inherit);font-weight:700;color:#e8f4ff;margin-bottom:4px;">' + name + '</div>' +
+            row.innerHTML = '<div style="font-family:var(--cond, inherit);font-weight:700;color:var(--an-text-bright,#e8f4ff);margin-bottom:4px;">' + name + '</div>' +
                 '<div style="font-size:11px;font-family:monospace;">' + pieces + '</div>' + parentLine + overpullLine + bucklingLine2 + chartHtml;
             cardsEl.appendChild(row);
             if(e.triaxial && e.triaxial.envelope && e.triaxial.envelope.length){

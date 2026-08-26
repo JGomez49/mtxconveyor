@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help — MTX Conveyor</title>
+<style>
+  /*
+    Added 2026-08-27 — first version of the in-app Help page, per the
+    person's request ("can you make a help for the user in the menu?").
+    Styled to match the existing standalone-tool look used by
+    quickPlan.ejs / sixAxisData.ejs (same CSS-variable dark panel theme) —
+    this page is reached from the account dropdown menu, not from inside a
+    specific job, so it doesn't use job.ejs's light/dark toggle.
+
+    CONTENT SCOPE: this explains what each module does and how to use it,
+    plus the name/citation of the engineering method or standard each one
+    implements — it deliberately does NOT restate exact formulas here.
+    Every formula already has its own tooltip/comment at the point of use
+    in the app (hover the (i)/labeled fields in each module), and those are
+    the validated, citation-checked source of truth per this project's own
+    rule against duplicating formulas in more than one place where they can
+    drift out of sync. This page points to what each thing IS and WHERE to
+    find the exact math, rather than re-deriving it.
+  */
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c;
+    --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:12px;}
+  a{color:var(--accent);}
+  .backBtn{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:5px;font-size:12px;text-decoration:none;}
+  .backBtn:hover{filter:brightness(1.15);}
+  .layout{display:grid;grid-template-columns:230px 1fr;gap:0;max-width:1300px;margin:0 auto;}
+  nav.toc{position:sticky;top:0;align-self:start;padding:16px 12px;border-right:1px solid var(--border);max-height:100vh;overflow-y:auto;}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;font-size:12px;padding:5px 8px;border-radius:4px;line-height:1.4;}
+  nav.toc a:hover{background:var(--panel2);color:var(--text);}
+  nav.toc .grp{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;padding:0 8px;}
+  nav.toc .grp:first-child{margin-top:0;}
+  main{padding:16px 24px 60px;max-width:900px;}
+  section{margin-bottom:34px;scroll-margin-top:16px;}
+  section h2{font-size:16px;margin:0 0 4px;color:var(--text);}
+  section .tag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:2px 8px;margin-left:8px;vertical-align:middle;}
+  section p{font-size:13px;line-height:1.65;color:var(--text);margin:8px 0;}
+  section ul{font-size:13px;line-height:1.65;margin:8px 0;padding-left:20px;}
+  section li{margin-bottom:4px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:10px 0;}
+  .basis{background:var(--panel2);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:8px 12px;font-size:12px;color:var(--muted);margin:10px 0;}
+  .basis b{color:var(--text);}
+  code{background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:12px;color:var(--accent);}
+  .top{padding:8px 24px;font-size:12px;color:var(--muted);}
+  .top a{color:var(--accent);}
+  hr.rule{border:none;border-top:1px solid var(--border);margin:32px 0;}
+  @media (max-width:800px){ .layout{grid-template-columns:1fr;} nav.toc{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);} }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>MTX Conveyor — Help</h1>
+    <div class="sub">What each tool does, how to use it, and what it's based on.</div>
+  </div>
+  <a class="backBtn" href="/notes">← Back to Jobs</a>
+</header>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="grp">Getting started</div>
+    <a href="#overview">Overview</a>
+    <a href="#theme">Light / Dark mode</a>
+
+    <div class="grp">Inside a Job</div>
+    <a href="#wbt">Wellbore 3D Trajectory</a>
+    <a href="#fracplanes">Frac Planes</a>
+    <a href="#polylines">Polylines</a>
+    <a href="#acplots">Anti-collision Plots</a>
+    <a href="#padac">PAD AC Risk</a>
+    <a href="#legs">Legs Summary</a>
+    <a href="#pason">Drilling Mechanics (Pason)</a>
+    <a href="#casing">Casing Design</a>
+    <a href="#td">Torque &amp; Drag</a>
+    <a href="#hyd">Hydraulics</a>
+
+    <div class="grp">Standalone Tools</div>
+    <a href="#quickplan">Quick Plan</a>
+    <a href="#sixaxis">6-axis Data</a>
+
+    <div class="grp">Account</div>
+    <a href="#roles">Roles &amp; permissions</a>
+    <a href="#support">Getting more help</a>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        MTX Conveyor is organized around <b>Jobs</b> — each job is a well/pad with its
+        own uploaded trajectories, plots, and models. Most of the tools below live
+        <i>inside</i> a job page (open a job from the Jobs list, then use the
+        accordions to expand each section). A few tools are standalone and don't
+        belong to any job — those are reached directly from the account menu.
+      </p>
+      <p>
+        Every calculation panel in the app has its own inline tooltips — hover a
+        label or (i) icon next to a field to see exactly what it computes and, where
+        applicable, which published standard or paper it follows. This Help page is
+        a map of what exists and where to find it; the tooltips are the authoritative
+        detail.
+      </p>
+    </section>
+
+    <section id="theme">
+      <h2>Light / Dark mode</h2>
+      <p>
+        The sun/moon switch in the top navbar (inside a job page) toggles between
+        dark and light themes and remembers your choice for next time. Standalone
+        tools (Quick Plan, 6-axis Data, this Help page) use a fixed dark theme.
+      </p>
+    </section>
+
+    <hr class="rule">
+
+    <section id="wbt">
+      <h2>Wellbore 3D Trajectory</h2>
+      <p>
+        An interactive 3D viewer of every wellbore trajectory uploaded to the job —
+        Subject and Offset wells, colored either per-well (<b>Multi</b>) or by role
+        (<b>Single</b>: Subject wells in blue, Offset wells in red — a per-job
+        setting, remembered in the database). Drag to orbit, scroll to zoom. The
+        left sidebar has toggles for axes, grid, curtains, legend, line thickness,
+        marker size, and formation planes; the right sidebar lists every well with
+        a visibility checkbox.
+      </p>
+      <ul>
+        <li><b>Markers</b> — depth/event markers along each trajectory (casing points, targets, etc.).</li>
+        <li><b>Curtains</b> — vertical "curtain" panels below each trajectory, useful for visualizing TVD separation.</li>
+        <li><b>Formations</b> — horizontal planes at specified TVD values.</li>
+      </ul>
+      <p>Frac Planes and Polylines (below) are sub-features of this same viewer.</p>
+    </section>
+
+    <section id="fracplanes">
+      <h2>Frac Planes <span class="tag">Wellbore 3D Trajectory</span></h2>
+      <p>
+        Adds a wireframe box or cylinder at a chosen MD along a specific wellbore —
+        used to represent a planned or as-built frac stage/plane for visual
+        reference against nearby offset wells. Pick a wellbore, a label, the MD, the
+        geometry type (box/cylinder), its dimensions, and roll/pitch/yaw, then
+        <b>+ ADD</b>. Saved per wellbore in the database; select an existing one from
+        the list to <b>UPDATE</b> or <b>DELETE</b> it.
+      </p>
+    </section>
+
+    <section id="polylines">
+      <h2>Polylines <span class="tag">Wellbore 3D Trajectory</span></h2>
+      <p>
+        Imports a map-view outline (Northing/Easting points, e.g. a channel or
+        geobody extent) from an Excel file and extrudes it vertically between two
+        TVDss depths into a 3D volume — useful for visualizing a geological feature
+        or exclusion zone against the wellbore trajectories. Upload the Excel file
+        (first column Northing, second column Easting), enter the TVDss From/To
+        range and a color, choose a display style (solid fill / wireframe / outline
+        lines only), then <b>+ ADD</b>. An open (non-closed) outline is closed
+        automatically. Saved per job; multiple Polylines can be defined and toggled
+        independently from the list.
+      </p>
+    </section>
+
+    <section id="acplots">
+      <h2>Anti-collision Plots</h2>
+      <p>
+        The core anti-collision (AC) tool: pick a Reference well and see Center-to-
+        Center distance (C2C) and Separation Factor (SF) against every other well in
+        the job, plotted along the reference well's MD. Also includes a Traveling
+        Cylinder Plot, Compass PDF comparison tools, and an MTX-generated AC report.
+      </p>
+      <ul>
+        <li><b>C2C</b> — straight-line distance between the reference well and the closest point on each other well's trajectory, using TVDss (a common vertical datum across wells, unlike raw TVD which is referenced to each well's own RKB/KB).</li>
+        <li><b>SF (Separation Factor)</b> — ratio of that distance to the combined positional uncertainty at that point (scaled by the Confidence K multiplier), via the real ISCWSA error model for wells with a saved toolcode and survey inc/azim data (falls back to a simplified model otherwise).</li>
+        <li><b>Toolcode / Confidence K</b> — the reference well's own saved MWD toolcode drives its uncertainty terms; Confidence K sets the sigma multiplier used in the SF ratio (default 2, matching Compass's documented report convention).</li>
+        <li><b>Evaluate at Ref MD</b> — cross-checks C2C/SF/uncertainty terms at one specific station, e.g. to match a row from another program's report.</li>
+        <li><b>Upload Error Ellipse / Anticollision (Compass PDF)</b> — lines up MTX's own computed values against an uploaded Compass report, station by station, for direct comparison.</li>
+        <li><b>Build MTX AC Report</b> — generates a full station-by-station report in the same layout as Compass's own "Anticollision with Risk" report, using only MTX's own ISCWSA engine.</li>
+        <li><b>Monte Carlo POC</b> — given a Combined Hit Radius (borehole/casing radius sum), estimates probability of a direct hit by sampling the combined positional uncertainty as a 3D Gaussian.</li>
+        <li><b>Traveling Cylinder Plot</b> — the standard "looking down the reference well" view of nearby offset-well crossings, swept along the reference well's own MD.</li>
+      </ul>
+      <div class="basis">
+        <b>Basis:</b> the error-model uncertainty (and therefore SF) uses the
+        <b>ISCWSA Rev5.13</b> error model definition. The Traveling Cylinder Plot
+        construction follows Thorogood &amp; Sawaryn, SPE 19989 (1991). The Monte
+        Carlo hit-probability estimate follows the independent-uncertainty
+        combination convention described in SPE-184644 (Jon Bang). Exact per-term
+        formulas, default assumptions, and edge cases are documented in each
+        field's own tooltip in this panel — hover any label for the details and
+        citation.
+      </div>
+    </section>
+
+    <section id="padac">
+      <h2>PAD AC Risk</h2>
+      <p>
+        Uploads one or more Compass anti-collision report files (or a whole folder)
+        for a pad and builds a combined risk table across every well pair, with
+        filters (e.g. hide rows above a Ref MD threshold, hide "E2E empty" rows) and
+        export to CSV/Excel. Useful for a pad-level risk review rather than one
+        well-pair at a time.
+      </p>
+    </section>
+
+    <section id="legs">
+      <h2>Legs Summary</h2>
+      <p>
+        Summarizes STK (sidetrack) and ICP comments found across the job's uploaded
+        wellbores into one table, downloadable to Excel.
+      </p>
+    </section>
+
+    <section id="pason">
+      <h2>Drilling Mechanics (Pason)</h2>
+      <p>
+        Imports an Excel export from the Pason EDR "Export All Plots to Excel"
+        page and plots Min/Max/Average curves (Hole Depth vs Time, ROP vs Depth,
+        etc.) per well. Also builds a planned Time-vs-Depth curve from the
+        selected wellbore's trajectory, casing points, and the average ROP from
+        the imported data — with configurable pause days per milestone / at
+        intermediate casing. Optionally overlay imported X,Y "dots" (e.g. raw rig
+        data) alongside the calculated curves.
+      </p>
+    </section>
+
+    <section id="casing">
+      <h2>Casing Design</h2>
+      <p>
+        Opens the dedicated Casing Design modeler (separate page) to build and save
+        load cases and casing string designs for a well/leg/scenario. Back in the
+        job page, this accordion shows a read-only summary — including the
+        <b>triaxial (Von Mises) design envelope chart</b> per string, with load
+        points (Simple / Alternative / Engineered) plotted against the burst/
+        collapse envelope and buckling threshold.
+      </p>
+      <div class="basis">
+        <b>Basis:</b> triaxial/Von Mises yield criterion for casing burst/collapse
+        design, per the "Casing Design Foundation" (CNRL, Rev 0) Simple Method load
+        cases referenced in the module. Exact formulas and load-case definitions
+        live in the Casing Design modeler itself — open it via the button in this
+        accordion.
+      </div>
+    </section>
+
+    <section id="td">
+      <h2>Torque &amp; Drag</h2>
+      <p>
+        Opens the dedicated Torque &amp; Drag modeler to build and save runs. Back
+        in the job page, this accordion shows a read-only summary for a saved
+        well/leg/scenario: Effective Tension, Hook Load, Side Force, Surface
+        Torque, Inclination, and DLS vs Measured Depth, each for the standard
+        trip/rotate cases (Tripping In/Out, Rotating On/Off Bottom, Slide
+        Drilling), plus a true-scale wellbore/BHA schematic.
+      </p>
+    </section>
+
+    <section id="hyd">
+      <h2>Hydraulics</h2>
+      <p>
+        Opens the dedicated Bit Hydraulics program to build and save runs. Back in
+        the job page, this accordion shows a read-only summary for a saved
+        well/leg/scenario, including the Pressure Loss Distribution.
+      </p>
+    </section>
+
+    <hr class="rule">
+
+    <section id="quickplan">
+      <h2>Quick Plan <span class="tag">Standalone</span></h2>
+      <p>
+        A pure client-side directional-plan sanity checker — no job/database
+        coupling. Rough out a well path (build-hold-turn style legs) and check
+        target/DLS feasibility before doing anything in a real job. Uses minimum
+        curvature. Available to every logged-in role.
+      </p>
+    </section>
+
+    <section id="sixaxis">
+      <h2>6-axis Data <span class="tag">Standalone</span></h2>
+      <p>
+        An MWD sensor axis-mapping/calibration diagnostic: brute-forces which
+        accelerometer/magnetometer axis permutation and sign combination reproduces
+        a known reference Inc/Az/Dip, and (via an imported multi-station Excel
+        file) generates per-station QC plots and a bias/scale fit against the
+        theoretical magnetic field. Cases can be saved and re-opened later, and
+        exported to PDF. Available to every logged-in role.
+      </p>
+    </section>
+
+    <hr class="rule">
+
+    <section id="roles">
+      <h2>Roles &amp; permissions</h2>
+      <p>
+        What you can see and do depends on your account role (Admin, Leader,
+        Member/User, Viewer). Some panels are hidden or read-only for certain
+        roles — for example, only Admin/Leader/User roles see the Casing Design /
+        Torque &amp; Drag / Hydraulics "Open in Modeler" buttons, and Viewer-role
+        accounts cannot save changes. If something you expect to see or edit is
+        missing, check with your account administrator.
+      </p>
+    </section>
+
+    <section id="support">
+      <h2>Getting more help</h2>
+      <p>
+        For anything not covered here — a bug, a question about a specific number
+        the tool produced, or a feature request — reach out to whoever administers
+        MTX Conveyor for your organization. Every calculation panel's own tooltips
+        are the fastest way to check exactly what a number means and where it comes
+        from before asking; most fields explain themselves on hover.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

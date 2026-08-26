@@ -783,6 +783,15 @@ notesCrtl.renderUploadFracPlanes = async(req,res)=>{
 };
 
 
+// Help — static in-app help page (added 2026-08-27 per the person's
+// request for a Help link in the account menu). No job/DB coupling, same
+// "available to every authenticated role" pattern as Quick Plan/6-axis
+// Data below. Content lives entirely in help.ejs; this just renders it.
+notesCrtl.renderHelp = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    res.render('help.ejs', {user});
+};
+
 // Quick Plan — standalone directional-plan sanity checker. No note/job/DB
 // coupling at all (unlike T&D/Hydraulics, which at least accept an optional
 // ?mtxJobId=... to preload a job): this is a pure client-side calculator
