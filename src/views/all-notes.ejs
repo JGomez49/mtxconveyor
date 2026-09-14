@@ -360,6 +360,17 @@ tr[style*="color:white"] { color: var(--an-text) !important; }
     border-radius: 8px;
     border: 1px solid var(--an-border);
 }
+/* ADDED 2026-09-14: dedicated class for the Snapshot section's 4-pies-per-
+   year charts so they can be sized independently of the This Year/Next Year
+   pies above (.pie-chart, capped at 450px) — user asked for the Snapshot
+   pies 2x bigger than they were. */
+.snapshot-pie-chart {
+    max-width: 900px;
+    max-height: 900px;
+    background: var(--an-panel);
+    border-radius: 8px;
+    border: 1px solid var(--an-border);
+}
 
 /* ════════════════════════════════════════════════════════
    COMPILED SUMMARY — title
@@ -3060,7 +3071,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             yearBlock.appendChild(yearHeading);
 
             const pieRow = document.createElement('div');
-            pieRow.className = 'row';
+            // CHANGED 2026-09-14: user asked for the 4 Snapshot pies tighter
+            // together (readable in a screenshot) — switched off Bootstrap's
+            // .row gutters to a flex row with a small explicit gap instead
+            // of the previous 'row'/'col-md-3' Bootstrap grid spacing.
+            pieRow.className = 'snapshot-pie-row';
+            pieRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
 
             if(chartType === 'bar'){
                 // ADDED 2026-09-14: "Stacked Bars" branch of the Snapshot
@@ -3110,11 +3126,24 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     const counts = countsByArea[area];
                     const total  = SNAPSHOT_LABELS.reduce((s,l) => s + counts[l], 0);
 
+                    // CHANGED 2026-09-14: tighter columns (was 'col-md-3' with
+                    // a 180px min-width inside a Bootstrap .row — replaced by
+                    // the flex 'snapshot-pie-row' above), no legend (removed
+                    // per spec), title font and datalabel (%) font both 2.5x
+                    // their previous size (12->30, 9->22.5) so the pies stay
+                    // legible in a screenshot.
+                    // CHANGED 2026-09-14 (round 2): chart size doubled per
+                    // user feedback ("chart size is wrong, make it 2x
+                    // bigger") — column min/max-width doubled (160/260 ->
+                    // 320/520) and the canvas now uses the dedicated
+                    // .snapshot-pie-chart class (900px cap) instead of the
+                    // shared .pie-chart class, so the This Year/Next Year
+                    // pies above are unaffected.
                     const col = document.createElement('div');
-                    col.className = 'col-md-3';
-                    col.style.cssText = 'min-width:180px;';
+                    col.className = 'snapshot-pie-col';
+                    col.style.cssText = 'flex:1 1 0;min-width:320px;max-width:520px;';
                     const canvas = document.createElement('canvas');
-                    canvas.className = 'pie-chart';
+                    canvas.className = 'snapshot-pie-chart';
                     col.appendChild(canvas);
                     pieRow.appendChild(col);
 
@@ -3133,15 +3162,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         options: {
                             layout: { padding: 0 },
                             plugins: {
-                                title: { display:true, text:`${area}: ${total} Wells`, color: anChartColor(), font:{size:12,weight:"normal"} },
-                                legend: { position:"bottom", labels:{ color: anChartColor(), font:{ size:8 }, boxWidth:10, padding:4 } },
+                                title: { display:true, text:`${area}: ${total} Wells`, color: anChartColor(), font:{size:30,weight:"normal"} },
+                                legend: { display:false },
                                 datalabels: {
                                     color: (ctx) => {
                                         const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
                                         const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
                                         return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                                     },
-                                    font:{weight:"bold",size:9},
+                                    font:{weight:"bold",size:22.5},
                                     formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
                                 }
                             }
@@ -3174,17 +3203,45 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             });
             const combinedTotal = SNAPSHOT_LABELS.reduce((s,l) => s + combined[l], 0);
 
+            // CHANGED 2026-09-14: Snapshot table header ("title") font sizes
+            // set to 2.5x their previous size (0.75rem->1.875rem) per spec;
+            // data-row cell font size (tdStyle) left unchanged since the
+            // request was specifically for the table's titles.
+            // CHANGED 2026-09-14 (round 2): per user feedback ("column
+            // headers are too small, make them 2.5x bigger") — another 2.5x
+            // applied on top of the round-1 size (1.875rem -> 4.6875rem).
+            // CHANGED 2026-09-14 (round 3): the two rounds above never
+            // actually rendered bigger — root cause found: the global rule
+            // `.table th[style*="background-color"] { font-size: 9px
+            // !important; }` (see the <style> block near the top of this
+            // file) matches every status-header <th> site-wide (not just
+            // this table) and its !important was beating our plain inline
+            // font-size the whole time, so the header text the user kept
+            // seeing was always the original ~9px regardless of what the
+            // JS set. Rather than touch that shared rule (it also governs
+            // summaryTable2/renderCompiledSummary, out of scope here), each
+            // font-size below is now itself !important so the inline style
+            // — which has higher specificity than any stylesheet selector —
+            // wins as intended. Since rounds 1 and 2 never visually applied,
+            // this is treated as a single real 2.5x jump off the true
+            // original size (0.75rem -> 1.875rem), not a further compound
+            // of the (invisible) earlier attempts.
+            // CHANGED 2026-09-14 (round 4): user asked for the Snapshot
+            // table's cell (data row) font 2x bigger (0.8rem -> 1.6rem).
+            // !important added defensively in case a global .table td rule
+            // is added later — no such override exists today, unlike the
+            // th case above, but this keeps the two styles consistent.
             const tdStyle = isLightMode
-                ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
-                : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+                ? 'style="text-align:center;font-size:1.6rem !important;padding:3px 6px;color:#212529;"'
+                : 'style="text-align:center;font-size:1.6rem !important;padding:3px 6px;"';
             const thStyle = (bg, fg) => {
                 let useFg = fg;
                 if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
-                return `style="text-align:center;background-color:${bg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
+                return `style="text-align:center;background-color:${bg};color:${useFg};font-size:1.875rem !important;padding:4px 6px;"`;
             };
             const totalHdr = isLightMode
-                ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
-                : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
+                ? 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
+                : 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;"';
 
             const table = document.createElement('table');
             table.className = 'table table-dark table-sm table-bordered table-hover mt-2';
