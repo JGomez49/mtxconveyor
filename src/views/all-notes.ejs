@@ -2438,9 +2438,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         function buildSiteSet(tableId){
             const t = document.getElementById(tableId);
             if(!t) return new Set();
+            // FIX 2026-09-14: was a hardcoded r.cells[4] assuming "Project" is
+            // always the 5th column (ID,Q,Task,Vers.,Project). The 2026-09-14
+            // bulk-select checkbox column added earlier that day (admin-only)
+            // shifted every column one to the right for admin users, so
+            // cells[4] silently became "Wells" instead of "Project" for them —
+            // this broke the site-key match and zeroed out the "In Progress"/
+            // "Setup Queue"/"Design Queue"/"BlackOps" buckets in the Gantt
+            // chart + summary table for any admin viewing the page (reported:
+            // "In Progress: 0" for This Year and Next Year). Fixed by locating
+            // the "Project" column by its header text instead of a fixed
+            // index, so this survives any future column reordering too.
+            const headerCells = Array.from(t.querySelectorAll("thead th"));
+            let projIdx = headerCells.findIndex(th => th.textContent.trim().toLowerCase() === "project");
+            if(projIdx === -1) projIdx = 4; // fallback, should not normally trigger
             const s = new Set();
             t.querySelectorAll("tbody tr").forEach(r => {
-                const projCell = r.cells[4]; // "Project" column = index 4 (ID,Q,Task,Vers.,Project)
+                const projCell = r.cells[projIdx];
                 if(projCell) s.add(projCell.textContent.trim().slice(0, 14));
             });
             return s;
