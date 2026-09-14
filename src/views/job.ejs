@@ -777,8 +777,27 @@ body.light-mode #statusTextbox {
                     </div>
 
 
-                    <!-- ── FracPlane Controller Panel (accordion) ── -->
-                    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+                    <!-- ── FracPlane Controller Panel (accordion) ──────────────────
+                         FIX 2026-09-13: this whole panel (including the read-only
+                         list and the 3D rendering of existing Frac Planes) used to
+                         be wrapped in the admin/leader/user role check below. Any
+                         other role (e.g. a Directional Engineer account tagged with
+                         a different role string) got NONE of the panel's HTML at
+                         all — and because wbtFPInit() (called unconditionally from
+                         initScene()) unconditionally did
+                         document.getElementById('wbtFPWell').addEventListener(...),
+                         it threw a TypeError on a null element for those roles,
+                         which silently aborted the rest of initScene() — including
+                         the very next line, wbtPolyInit() — so Polylines never
+                         rendered either for those roles. Fix: the edit FORM/BUTTONS
+                         stay role-gated below (no server-side role check exists on
+                         the fracPlane/polyline routes, so this client-side gate is
+                         the only thing stopping non-editor roles from writing), but
+                         the accordion, the read-only list, and the 3D rendering are
+                         now unconditional for every role. See the matching
+                         defensive guards added in wbtFPInit()/wbtFPSetupButtons()
+                         and wbtPolyInit()/wbtPolySetupFileInput() below. -->
+                    <% const wbtCanEdit = (user.role == 'admin' || user.role == 'leader' || user.role == 'user'); %>
                     <div class="wbt-fp-accordion-wrap">
                         <div class="wbt-fp-acc-header" id="wbtFPAccHeader">
                             <span><span class="wbt-dot" style="background:#ffd060;box-shadow:0 0 7px #ffd060;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Frac Planes</span>
@@ -786,6 +805,7 @@ body.light-mode #statusTextbox {
                         </div>
                         <div class="wbt-fp-acc-body collapsed" id="wbtFPAccBody">
                         <div class="wbt-fp-root" id="wbtFPRoot">
+                            <% if (wbtCanEdit) { %>
                             <!-- Row 1: Well + Label + MD + Geometry type -->
                             <div class="wbt-fp-row">
                                 <div class="wbt-fp-field w160">
@@ -868,11 +888,13 @@ body.light-mode #statusTextbox {
                                 <button type="button" class="wbt-fp-btn" id="wbtFPClearBtn">CLEAR</button>
                             </div>
                             <div class="wbt-fp-status" id="wbtFPStatus">Select a wellbore and enter parameters to add a Frac Plane.</div>
+                            <% } else { %>
+                            <div class="wbt-fp-status" style="margin-bottom:6px;">View-only — editing Frac Planes requires an admin, leader, or user account.</div>
+                            <% } %>
                             <div class="wbt-fp-list" id="wbtFPList"></div>
                         </div>
                         </div>
                     </div>
-                    <% } %>
 
                     <!-- ── Polylines Controller Panel (accordion) ──────────────────
                          Added 2026-08-25: a sibling accordion below Frac Planes (NOT
@@ -882,8 +904,12 @@ body.light-mode #statusTextbox {
                          viewer. Not tied to any one wellbore (job-level, keyed only
                          by noteId), so there's no wellbore selector here. Reuses the
                          .wbt-fp-* CSS classes from the Frac Plane panel above for a
-                         consistent look. -->
-                    <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user') { %>
+                         consistent look.
+
+                         FIX 2026-09-13: same restructuring as the Frac Plane panel
+                         above (see that comment) — the accordion and read-only list
+                         are unconditional; only the edit form+buttons stay role-gated
+                         (wbtCanEdit, set above). -->
                     <div class="wbt-fp-accordion-wrap">
                         <div class="wbt-fp-acc-header collapsed" id="wbtPolyAccHeader">
                             <span><span class="wbt-dot" style="background:#ff4060;box-shadow:0 0 7px #ff4060;width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;"></span>Polylines</span>
@@ -891,6 +917,7 @@ body.light-mode #statusTextbox {
                         </div>
                         <div class="wbt-fp-acc-body collapsed" id="wbtPolyAccBody">
                         <div class="wbt-fp-root" id="wbtPolyRoot">
+                            <% if (wbtCanEdit) { %>
                             <div class="wbt-fp-row">
                                 <div class="wbt-fp-field w160">
                                     <label>Name</label>
@@ -932,11 +959,13 @@ body.light-mode #statusTextbox {
                                 <button type="button" class="wbt-fp-btn" id="wbtPolyClearBtn">CLEAR</button>
                             </div>
                             <div class="wbt-fp-status" id="wbtPolyStatus">Import an Excel file (Northing, Easting columns), enter the TVDss range and a color, then click + ADD.</div>
+                            <% } else { %>
+                            <div class="wbt-fp-status" style="margin-bottom:6px;">View-only — editing Polylines requires an admin, leader, or user account.</div>
+                            <% } %>
                             <div class="wbt-fp-list" id="wbtPolyList"></div>
                         </div>
                         </div>
                     </div>
-                    <% } %>
 
 
 
@@ -4302,12 +4331,21 @@ body.light-mode #statusTextbox {
                 survey:     b.survey || [],
                 fracPlanes: b.fracPlanes || [],
             }));
-            wbtFPPopulateWellSelector(trajList);
-            // Render existing fracPlanes for all wellbores immediately
+            // FIX 2026-09-13: render FIRST and unconditionally — this must run
+            // for every role, since the edit-form elements referenced below
+            // (wbtFPWell etc.) no longer exist in the DOM for roles without
+            // edit permission (see the HTML comment above the Frac Planes
+            // accordion). Previously this whole function crashed on the next
+            // line's now-guarded document.getElementById(...).addEventListener
+            // call for those roles, which silently aborted initScene() before
+            // it ever reached wbtPolyInit() — so Polylines never rendered for
+            // any role outside admin/leader/user either.
             trajList.forEach(t => {
                 wbtRenderFPMeshes(t.id, t.fracPlanes, t.color);
             });
+            wbtFPPopulateWellSelector(trajList); // no-ops if wbtFPWell doesn't exist (already guarded)
             const sel = document.getElementById('wbtFPWell');
+            if(!sel) return; // no edit form for this role — read-only rendering above already ran
             sel.addEventListener('change', () => wbtFPOnWellChange(trajList));
             wbtFPSetupButtons();
         }
@@ -4356,7 +4394,9 @@ body.light-mode #statusTextbox {
         //    (column 1 = Northing, column 2 = Easting), matching the
         //    person's sample file. ──
         function wbtPolySetupFileInput(){
-            document.getElementById('wbtPolyFile').addEventListener('change', async (e) => {
+            const fileEl = document.getElementById('wbtPolyFile');
+            if(!fileEl) return; // no edit form for this role (2026-09-13 fix)
+            fileEl.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 const statusEl = document.getElementById('wbtPolyImportStatus');
                 if(!file) return;
@@ -4489,15 +4529,26 @@ body.light-mode #statusTextbox {
                     item.classList.add('active');
                     wbtPolyActiveId = String(poly._id);
                     wbtPolyFillForm(poly);
-                    document.getElementById('wbtPolyUpdBtn').disabled = false;
-                    document.getElementById('wbtPolyDelBtn').disabled = false;
+                    // FIX 2026-09-13: view-only roles (no edit form rendered) don't
+                    // have these buttons — guard so clicking a list item to inspect
+                    // it doesn't throw and silently break the rest of the viewer.
+                    const updBtn = document.getElementById('wbtPolyUpdBtn');
+                    const delBtn = document.getElementById('wbtPolyDelBtn');
+                    if(updBtn) updBtn.disabled = false;
+                    if(delBtn) delBtn.disabled = false;
                 });
                 listEl.appendChild(item);
             });
         }
 
         function wbtPolyFillForm(poly){
-            document.getElementById('wbtPolyName').value  = poly.name || '';
+            // FIX 2026-09-13: no edit form exists for view-only roles — bail
+            // out before touching any form field so viewing the list doesn't
+            // throw (see wbtFPInit()/wbtPolyInit() comments for the crash
+            // mechanism this whole round of fixes addresses).
+            const nameEl = document.getElementById('wbtPolyName');
+            if(!nameEl) return;
+            nameEl.value  = poly.name || '';
             document.getElementById('wbtPolyFrom').value  = poly.tvdFrom;
             document.getElementById('wbtPolyTo').value    = poly.tvdTo;
             document.getElementById('wbtPolyColor').value = poly.colorHex || '#ff0000';
@@ -4610,14 +4661,24 @@ body.light-mode #statusTextbox {
         }
 
         function wbtPolyInit(){
-            if(!document.getElementById('wbtPolyAccHeader')) return; // viewer-only role without the panel
+            // FIX 2026-09-13: the accordion (header + list) now renders for
+            // EVERY role — only the edit form below is role-gated in the EJS
+            // (see wbtCanEdit). Previously this function bailed out entirely
+            // for any role lacking 'wbtPolyAccHeader', which meant restricted
+            // roles (e.g. a "DE" role, or any string outside admin/leader/user)
+            // never got wbtPolyRefresh() called, so Polylines never rendered
+            // for them at all. Fix: always set up the accordion toggle and
+            // load/render the polylines first; only wire up the edit-only
+            // buttons/file-input if the edit form actually exists for this role.
             wbtPolySetupAccordion();
+            wbtPolyRefresh().catch(err => console.error('[Polyline] initial load failed', err));
+            const addBtn = document.getElementById('wbtPolyAddBtn');
+            if(!addBtn) return; // view-only role — no edit form, rendering above already covers it
             wbtPolySetupFileInput();
-            document.getElementById('wbtPolyAddBtn').addEventListener('click', wbtPolyAdd);
+            addBtn.addEventListener('click', wbtPolyAdd);
             document.getElementById('wbtPolyUpdBtn').addEventListener('click', wbtPolyUpdate);
             document.getElementById('wbtPolyDelBtn').addEventListener('click', wbtPolyDelete);
             document.getElementById('wbtPolyClearBtn').addEventListener('click', wbtPolyClearForm);
-            wbtPolyRefresh().catch(err => console.error('[Polyline] initial load failed', err));
         }
 
         // ================================================================

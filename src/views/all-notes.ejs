@@ -501,6 +501,63 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
         <div class="accordion accordion-flush my-4 small" id="accordionExample">
 
+            <!-- Added 2026-09-14: shared select/bulk-delete helpers reused by every
+                 accordion table below EXCEPT New Schedule and DP Stats (not requested)
+                 and Archived (which already has its own dedicated archivedXxx()
+                 functions from 2026-09-14 earlier — left as-is/untouched to avoid
+                 regressing a working feature). Each table below is given a unique
+                 "group" id (e.g. 'inProgress', 'onHold', 'notStarted_blackops', ...)
+                 so its checkboxes/button/form don't interfere with any other table's.
+                 Same Alt+click range-select as Archived, same admin-only server-side
+                 enforcement via the existing /notes/deleteBulk route (deleteNotesBulk
+                 in notes.controller.js) — nothing new needed server-side, it already
+                 just deletes whatever Note _ids it's given. -->
+            <% if (user.role == 'admin') { %>
+            <script>
+                window.bulk2LastCheckedIdx = window.bulk2LastCheckedIdx || {};
+                function bulk2RowCheckClick(e, cb, group){
+                    const checks = Array.from(document.querySelectorAll('.bulk2-row-check[data-group="'+group+'"]'));
+                    const idx = checks.indexOf(cb);
+                    if(e.altKey && window.bulk2LastCheckedIdx[group] !== undefined){
+                        const start = Math.min(window.bulk2LastCheckedIdx[group], idx);
+                        const end = Math.max(window.bulk2LastCheckedIdx[group], idx);
+                        for(let i = start; i <= end; i++){ checks[i].checked = true; }
+                    } else {
+                        window.bulk2LastCheckedIdx[group] = idx;
+                    }
+                    bulk2UpdateSelectedCount(group);
+                }
+                function bulk2ToggleAll(sourceCb, group){
+                    document.querySelectorAll('.bulk2-row-check[data-group="'+group+'"]').forEach(c => { c.checked = sourceCb.checked; });
+                    bulk2UpdateSelectedCount(group);
+                }
+                function bulk2UpdateSelectedCount(group){
+                    const checks = document.querySelectorAll('.bulk2-row-check[data-group="'+group+'"]');
+                    const checked = Array.from(checks).filter(c => c.checked);
+                    const countEl = document.getElementById('bulk2SelectedCount_'+group);
+                    if(countEl) countEl.textContent = checked.length;
+                    const btn = document.getElementById('bulk2DeleteBtn_'+group);
+                    if(btn) btn.disabled = checked.length === 0;
+                    const allCb = document.getElementById('bulk2SelectAll_'+group);
+                    if(allCb) allCb.checked = checks.length > 0 && checked.length === checks.length;
+                }
+                function bulk2DeleteSubmit(e, group){
+                    const checked = Array.from(document.querySelectorAll('.bulk2-row-check[data-group="'+group+'"]')).filter(c => c.checked);
+                    if(checked.length === 0) return false;
+                    if(!confirm('Delete ' + checked.length + ' selected job(s) permanently? This cannot be undone.')) return false;
+                    const form = document.getElementById('bulk2DeleteForm_'+group);
+                    form.querySelectorAll('input[name="ids[]"]').forEach(el => el.remove());
+                    checked.forEach(cb => {
+                        const hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'ids[]';
+                        hidden.value = cb.value;
+                        form.appendChild(hidden);
+                    });
+                    return true;
+                }
+            </script>
+            <% } %>
 
 
 
@@ -523,9 +580,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                             <h4>BlackOps Queue</h4>
 
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only. See the shared
+                                 bulk2*() functions defined once near the top of this file. -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_notStarted_blackops" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'notStarted_blackops');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_notStarted_blackops" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_notStarted_blackops">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark table-sm" _style="color: red;" id="InBlackOpsQueueTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_notStarted_blackops" onclick="bulk2ToggleAll(this,'notStarted_blackops')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -552,7 +623,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
 
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
 
                                             <% if (note.status == 'Not Started' && note.title == "BlackOps") { %>
 
@@ -560,12 +631,27 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved the checkbox <td> here, right before the
+                                                         first real <td>/<th>, instead of right after the first <tr>
+                                                         above. This file's <tr style="color:...">> overrides above are
+                                                         unclosed (pre-existing bug, not fixed here) — the browser
+                                                         auto-closes whichever <tr> is open when it hits the next one,
+                                                         so a <td> placed before those overrides ended up isolated in
+                                                         its own empty row, and the real data row lost its checkbox.
+                                                         Placing it after all the overrides puts it in the <tr> that
+                                                         actually ends up holding the row's cells. -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="notStarted_blackops" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'notStarted_blackops')">
+                                                        </td>
                                                     <% } %>
 
                                                     <th scope="row">
@@ -638,9 +724,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                             <!-- ── WITH GROUP sub-table ── -->
                             <p style="font-family:var(--an-cond,sans-serif);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--an-accent,#00c8ff);margin:8px 0 4px;">With Group</p>
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_notStarted_designGroup" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'notStarted_designGroup');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_notStarted_designGroup" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_notStarted_designGroup">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InDesignQueueTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_notStarted_designGroup" onclick="bulk2ToggleAll(this,'notStarted_designGroup')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -665,9 +764,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
                                         <% if((note.group||'').trim()) { %>
-                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
 
-                                            <% if (note.status == 'Not Started' && 
+                                            <% if (note.status == 'Not Started' &&
                                                 (note.title != "Offsets+Subject" && note.title != "Offsets" && note.title != "Subject" && note.title != "BlackOps")
                                                 ){ %>
 
@@ -675,12 +774,21 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation) so this
+                                                         checkbox lands in the row that actually renders. -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="notStarted_designGroup" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'notStarted_designGroup')">
+                                                        </td>
                                                     <% } %>
 
                                                     <th scope="row">
@@ -749,9 +857,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                             <!-- ── NO GROUP sub-table ── -->
                             <p style="font-family:var(--an-cond,sans-serif);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--an-text-dim,#5a7080);margin:16px 0 4px;">No Group</p>
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_notStarted_designNoGroup" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'notStarted_designNoGroup');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_notStarted_designNoGroup" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_notStarted_designNoGroup">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InDesignQueueNoGroupTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_notStarted_designNoGroup" onclick="bulk2ToggleAll(this,'notStarted_designNoGroup')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -776,9 +897,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
                                         <% if(!(note.group||'').trim()) { %>
-                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
 
-                                            <% if (note.status == 'Not Started' && 
+                                            <% if (note.status == 'Not Started' &&
                                                 (note.title != "Offsets+Subject" && note.title != "Offsets" && note.title != "Subject" && note.title != "BlackOps")
                                                 ){ %>
 
@@ -786,12 +907,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="notStarted_designNoGroup" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'notStarted_designNoGroup')">
+                                                        </td>
                                                     <% } %>
 
                                                     <th scope="row">
@@ -823,7 +952,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <% if (note.responsible == "Orphan") { %>
                                                                 <span class="dotOrphan"></span>
                                                             <% } %>
-                                                        <% } %> 
+                                                        <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
@@ -863,9 +992,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                             <!-- ── WITH GROUP sub-table ── -->
                             <p style="font-family:var(--an-cond,sans-serif);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--an-accent,#00c8ff);margin:8px 0 4px;">With Group</p>
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_notStarted_setupGroup" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'notStarted_setupGroup');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_notStarted_setupGroup" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_notStarted_setupGroup">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InSetupQueueTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_notStarted_setupGroup" onclick="bulk2ToggleAll(this,'notStarted_setupGroup')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -890,7 +1032,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
                                         <% if((note.group||'').trim()) { %>
-                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
 
                                             <% if (note.status == 'Not Started' && (note.title == "Offsets+Subject" || note.title == "Offsets" || note.title == "Subject")) { %>
 
@@ -898,12 +1040,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="notStarted_setupGroup" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'notStarted_setupGroup')">
+                                                        </td>
                                                     <% } %>
 
                                                     <th scope="row">
@@ -935,14 +1085,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <% if (note.responsible == "Orphan") { %>
                                                                 <span class="dotOrphan"></span>
                                                             <% } %>
-                                                        <% } %> 
+                                                        <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
 
                                                     <td><%= count_NotStarted_setup = count_NotStarted_setup + 1 %></td>
-                                                    
-                                                    <td><%= note.title %></td>                                                
+
+                                                    <td><%= note.title %></td>
                                                     <td><%= note.customerJobNumber %></td>
                                                     <td><%= note.project %></td>
 
@@ -973,9 +1123,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                             <!-- ── NO GROUP sub-table ── -->
                             <p style="font-family:var(--an-cond,sans-serif);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--an-text-dim,#5a7080);margin:16px 0 4px;">No Group</p>
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_notStarted_setupNoGroup" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'notStarted_setupNoGroup');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_notStarted_setupNoGroup" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_notStarted_setupNoGroup">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark table-sm" style="color: gray;" id="InSetupQueueNoGroupTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_notStarted_setupNoGroup" onclick="bulk2ToggleAll(this,'notStarted_setupNoGroup')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -1000,7 +1163,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
                                         <% if(!(note.group||'').trim()) { %>
-                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %> 
+                                    <% if (user.role == 'admin' || user.role == 'leader' || user.name == note.responsible || user.list == note.customer) { %>
 
                                             <% if (note.status == 'Not Started' && (note.title == "Offsets+Subject" || note.title == "Offsets" || note.title == "Subject")) { %>
 
@@ -1008,12 +1171,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="notStarted_setupNoGroup" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'notStarted_setupNoGroup')">
+                                                        </td>
                                                     <% } %>
 
                                                     <th scope="row">
@@ -1045,14 +1216,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                             <% if (note.responsible == "Orphan") { %>
                                                                 <span class="dotOrphan"></span>
                                                             <% } %>
-                                                        <% } %> 
+                                                        <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
                                                     </th>
 
                                                     <td><%= count_NotStarted_setup = count_NotStarted_setup + 1 %></td>
-                                                    
-                                                    <td><%= note.title %></td>                                                
+
+                                                    <td><%= note.title %></td>
                                                     <td><%= note.customerJobNumber %></td>
                                                     <td><%= note.project %></td>
 
@@ -1107,9 +1278,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseTwo" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark">
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_inProgress" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'inProgress');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_inProgress" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_inProgress">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark _table-primary table-sm" style="color: gray;" id="InProgressTable">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_inProgress" onclick="bulk2ToggleAll(this,'inProgress')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Q</th>
                                         <th scope="col">Task</th>
@@ -1139,26 +1323,34 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         return ad-bd;
                                     }).forEach(note => { %>
 
-                                        <% if ( user.role == 'admin' || 
-                                                user.role == 'leader' || 
-                                                user.name == note.responsible || 
+                                        <% if ( user.role == 'admin' ||
+                                                user.role == 'leader' ||
+                                                user.name == note.responsible ||
                                                 user.list == note.customer) { %>
 
-                                                <% if (note.status == 'In Progress' 
+                                                <% if (note.status == 'In Progress'
                                                     && note.title != 'Exe-Review'
-                                                    && note.title != 'Execution' 
-                                                    && note.title != 'Exe-QC' 
+                                                    && note.title != 'Execution'
+                                                    && note.title != 'Exe-QC'
                                                     && note.title != 'Exe-Vendor') { %>
 
                                                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
 
                                                         <% if (note.responsible == "Orphan") { %>
                                                             <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                        <% } %>   
+                                                        <% } %>
                                                         <% if (user.name == note.responsible) { %>
                                                             <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                        <% } %>   
-                                                                                            
+                                                        <% } %>
+
+                                                        <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                             (see notStarted_blackops for the full explanation). -->
+                                                        <% if (user.role == 'admin') { %>
+                                                            <td onclick="event.stopPropagation();">
+                                                                <input type="checkbox" class="bulk2-row-check" data-group="inProgress" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'inProgress')">
+                                                            </td>
+                                                        <% } %>
+
                                                         <th scope="row">
                                                             <% if (user.role == 'admin' || user.role == '_leader') { %>
                                                                 <% if (note.responsible == "Camilo") { %>
@@ -1240,9 +1432,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseTwo" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark">
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_execution" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'execution');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_execution" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_execution">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark _table-primary table-sm" style="color: gray;">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_execution" onclick="bulk2ToggleAll(this,'execution')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Task</th>
                                         <th scope="col">Vers.</th>
@@ -1264,7 +1469,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const bd=b.dueDate?new Date(b.dueDate):new Date('9999-12-31');
                                         return ad-bd;
                                     }).forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || 
+                                        <% if (user.role == 'admin' || user.role == 'leader' ||
                                             user.name == note.responsible || user.list == note.customer) { %>
 
                                             <% if ((note.status == 'In Progress')
@@ -1277,10 +1482,18 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="execution" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'execution')">
+                                                        </td>
+                                                    <% } %>
                                                                                         
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
@@ -1361,9 +1574,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseThree" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark">
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_onHold" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'onHold');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_onHold" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_onHold">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped _table-danger table-dark table-sm" style="color: gray;">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_onHold" onclick="bulk2ToggleAll(this,'onHold')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Task</th>
                                         <th scope="col">Vers.</th>
@@ -1387,7 +1613,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const bd=b.dueDate?new Date(b.dueDate):new Date('9999-12-31');
                                         return ad-bd;
                                     }).forEach(note => { %>
-                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' 
+                                        <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user'
                                             || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'On Hold') { %>
 
@@ -1395,13 +1621,21 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <% if (note.title == "Execution") { %>
                                                         <tr style="color: green;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>  
+                                                    <% } %>
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %> 
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="onHold" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'onHold')">
+                                                        </td>
+                                                    <% } %>
 
                                                     <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                     <td><%= note.title %></td>
@@ -1444,9 +1678,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseFour" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark table-sm">
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_qaqc" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'qaqc');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_qaqc" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_qaqc">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped _table-warning table-dark" style="color: gray;">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_qaqc" onclick="bulk2ToggleAll(this,'qaqc')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Task</th>
                                         <th scope="col">Vers.</th>
@@ -1480,10 +1727,18 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                     <% } %>   -->
                                                     <% if (note.responsible == "Orphan") { %>
                                                         <tr style="color: white;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %>   
+                                                    <% } %>
                                                     <% if (user.name == note.responsible) { %>
                                                         <tr style="color: red;" onclick="window.location.href='/notes/job/<%= note._id %>';">
-                                                    <% } %> 
+                                                    <% } %>
+
+                                                    <!-- FIX 2026-09-14: moved after the unclosed <tr> overrides above
+                                                         (see notStarted_blackops for the full explanation). -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="qaqc" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'qaqc')">
+                                                        </td>
+                                                    <% } %>
 
                                                     <th scope="row">
 
@@ -1562,9 +1817,22 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseFive" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark table-sm">
+                            <!-- Added 2026-09-14: bulk-select/delete, admin-only (shared bulk2*()). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="bulk2DeleteForm_completed" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return bulk2DeleteSubmit(event, 'completed');">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="bulk2DeleteBtn_completed" disabled>
+                                        🗑 Delete Selected (<span id="bulk2SelectedCount_completed">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover _table-striped table-dark" style="color: greenyellow;">
                                 <thead>
                                     <tr>
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="bulk2SelectAll_completed" onclick="bulk2ToggleAll(this,'completed')" title="Select all"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Task</th>
                                         <th scope="col">Vers.</th>
@@ -1588,6 +1856,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer' || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'Completed') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="bulk2-row-check" data-group="completed" value="<%= note._id %>" onclick="bulk2RowCheckClick(event, this, 'completed')">
+                                                        </td>
+                                                    <% } %>
 
                                                     <!-- <% if (user.name == note.responsible) { %>
                                                         <tr style="color: blue;" onclick="window.location.href='/notes/job/<%= note._id %>';">
@@ -1636,9 +1909,31 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     </h2>
                     <div id="collapseSix" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
                         <div class="accordion-body bg-dark">
+                            <!-- Added 2026-09-14: bulk-delete form for the checkbox column below.
+                                 The checkboxes live inside the table's <tbody>, NOT inside this
+                                 <form> (nesting the whole table in a <form> here would nest it
+                                 inside each row's own single-delete <form>, which is invalid
+                                 HTML). Instead, archivedBulkDeleteSubmit() below reads the
+                                 checked .archived-row-check boxes and injects hidden ids[]
+                                 inputs into THIS form right before it submits. Posts to
+                                 /notes/deleteBulk (admin-enforced server-side, see
+                                 deleteNotesBulk in notes.controller.js). -->
+                            <% if (user.role == 'admin') { %>
+                                <form id="archivedBulkDeleteForm" action="/notes/deleteBulk?_method=delete" method="post" class="mb-2"
+                                      onsubmit="return archivedBulkDeleteSubmit(event);">
+                                    <input type="hidden" name="_method" value="delete">
+                                    <button type="submit" class="btn btn-danger btn-sm" id="archivedBulkDeleteBtn" disabled>
+                                        🗑 Delete Selected (<span id="archivedSelectedCount">0</span>)
+                                    </button>
+                                </form>
+                            <% } %>
                             <table class="table table-hover table-striped table-dark table-sm">
                                 <thead>
                                     <tr>
+                                        <!-- Added 2026-09-14: "select all" checkbox for bulk delete. -->
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col"><input type="checkbox" id="archivedSelectAll" title="Select all" onclick="archivedToggleAll(this)"></th>
+                                        <% } %>
                                         <th scope="col">ID</th>
                                         <th scope="col">Task</th>
                                         <th scope="col">Cust.</th>
@@ -1651,6 +1946,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <th scope="col">Geo</th>
                                         <th scope="col">Rig</th>
                                         <!-- <th scope="col">Resp.</th> -->
+                                        <!-- Added 2026-09-13: permanent-delete column, admin-role only.
+                                             Deletes straight from this row (no need to open the job and
+                                             use its own Delete accordion) — confirmed via a JS confirm()
+                                             dialog before submitting, since Note.findByIdAndDelete is
+                                             irreversible. Posts to the existing /notes/delete/:id route
+                                             (method-override DELETE), which now also enforces
+                                             user.role === 'admin' server-side (see deleteNote in
+                                             notes.controller.js) so this isn't only a client-side gate. -->
+                                        <% if (user.role == 'admin') { %>
+                                            <th scope="col">Action</th>
+                                        <% } %>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1658,6 +1964,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         <% if (user.role == 'admin' || user.name == note.responsible || user.list == note.customer) { %>
                                             <% if (note.status == 'Billed' || note.status == 'Archived') { %>
                                                 <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <input type="checkbox" class="archived-row-check" value="<%= note._id %>" onclick="archivedRowCheckClick(event, this)">
+                                                        </td>
+                                                    <% } %>
                                                     <th scope="row"><small><%= note.mtxJobId %></small></th>
                                                     <td><%= note.title %></td>
                                                     <td><%= note.customer %></td>
@@ -1671,12 +1982,73 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                     <td><%= note.rig %></td>
                                                     <!-- <td><%= note.responsible %></td> -->
                                                     <!-- <td><small><%= note.dueDate %></small></td> -->
+                                                    <% if (user.role == 'admin') { %>
+                                                        <td onclick="event.stopPropagation();">
+                                                            <form action="/notes/delete/<%= note._id %>?_method=delete" method="post"
+                                                                  class="m-0"
+                                                                  onsubmit="return confirm('Delete job <%= note.mtxJobId %> (<%= note.title %>) permanently? This cannot be undone.');">
+                                                                <input type="hidden" name="_method" value="delete">
+                                                                <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
+                                                            </form>
+                                                        </td>
+                                                    <% } %>
                                                 </tr>
-                                            <% } %> 
-                                        <% } %>                    
-                                    <% }) %> 
+                                            <% } %>
+                                        <% } %>
+                                    <% }) %>
                                 </tbody>
                             </table>
+                            <% if (user.role == 'admin') { %>
+                            <script>
+                                // Added 2026-09-14: bulk-select/delete for the Archived table above.
+                                // Range-select: click a row's checkbox, then Alt+click another row's
+                                // checkbox to select every row in between (Explorer/Gmail-style
+                                // shift-click, rebound to Alt per the person's request). Only a plain
+                                // click moves the "anchor" row; Alt+click always extends/shrinks the
+                                // range from the last plain-clicked row.
+                                let archivedLastCheckedIdx = null;
+                                function archivedRowCheckClick(e, cb){
+                                    const checks = Array.from(document.querySelectorAll('.archived-row-check'));
+                                    const idx = checks.indexOf(cb);
+                                    if(e.altKey && archivedLastCheckedIdx !== null){
+                                        const start = Math.min(archivedLastCheckedIdx, idx);
+                                        const end = Math.max(archivedLastCheckedIdx, idx);
+                                        for(let i = start; i <= end; i++){ checks[i].checked = true; }
+                                    } else {
+                                        archivedLastCheckedIdx = idx;
+                                    }
+                                    archivedUpdateSelectedCount();
+                                }
+                                function archivedUpdateSelectedCount(){
+                                    const checks = document.querySelectorAll('.archived-row-check');
+                                    const checked = Array.from(checks).filter(c => c.checked);
+                                    document.getElementById('archivedSelectedCount').textContent = checked.length;
+                                    document.getElementById('archivedBulkDeleteBtn').disabled = checked.length === 0;
+                                    const allCb = document.getElementById('archivedSelectAll');
+                                    if(allCb) allCb.checked = checks.length > 0 && checked.length === checks.length;
+                                }
+                                function archivedToggleAll(sourceCb){
+                                    document.querySelectorAll('.archived-row-check').forEach(c => { c.checked = sourceCb.checked; });
+                                    archivedUpdateSelectedCount();
+                                }
+                                function archivedBulkDeleteSubmit(e){
+                                    const checked = Array.from(document.querySelectorAll('.archived-row-check')).filter(c => c.checked);
+                                    if(checked.length === 0) return false; // button is disabled in this case anyway
+                                    if(!confirm('Delete ' + checked.length + ' selected job(s) permanently? This cannot be undone.')) return false;
+                                    const form = document.getElementById('archivedBulkDeleteForm');
+                                    // remove any hidden ids[] inputs from a previous (cancelled/failed) attempt
+                                    form.querySelectorAll('input[name="ids[]"]').forEach(el => el.remove());
+                                    checked.forEach(cb => {
+                                        const hidden = document.createElement('input');
+                                        hidden.type = 'hidden';
+                                        hidden.name = 'ids[]';
+                                        hidden.value = cb.value;
+                                        form.appendChild(hidden);
+                                    });
+                                    return true;
+                                }
+                            </script>
+                            <% } %>
                         </div>
                     </div>
                 </div>

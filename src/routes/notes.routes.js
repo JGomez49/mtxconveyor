@@ -10,6 +10,7 @@ const {
     renderEditForm,
     updateNote,
     deleteNote,
+    deleteNotesBulk,
     renderJob,
     renderQueryNotes,
     renderQueryNotesPartial,
@@ -121,6 +122,14 @@ router.get('/notes/querypartial', isAuthenticated, renderQueryNotesPartial);
 
 //Delete note
 router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
+
+// Bulk delete (Archived table, admin-only — enforced server-side in the
+// controller). Added 2026-09-14 alongside the per-row Delete button.
+// FIX 2026-09-14: the view's form posts with ?_method=delete (method-override
+// rewrites it to a DELETE request, same pattern as /notes/delete/:id below),
+// but this was originally registered as router.post — mismatch caused
+// "Cannot DELETE /notes/deleteBulk". Registered as delete to match.
+router.delete('/notes/deleteBulk', isAuthenticated, deleteNotesBulk);
 
 //New Log Entry
 router.post('/notes/new-log/:id', isAuthenticated, createNewLog);

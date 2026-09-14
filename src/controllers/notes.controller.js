@@ -337,14 +337,64 @@ notesCrtl.updateNote = async (req,res)=>{
 
 
 notesCrtl.deleteNote = async (req,res)=>{
+    // FIX 2026-09-13: added a server-side admin check. This route previously
+    // only required isAuthenticated (see notes.routes.js) — the "Delete"
+    // control in job.ejs was gated to user.role=='admin' client-side only,
+    // and the new per-row Delete button in the all-notes.ejs "Archived" table
+    // is the same. Since a permanent MongoDB delete is irreversible and the
+    // client-side gate is not real access control (same class of gap fixed
+    // for Frac Planes/Polylines this session), enforce admin here too.
+    const requester = await User.findById(req.session.passport.user);
+    if(!requester || requester.role !== 'admin'){
+        req.flash('error_msg','Only admin accounts can delete a job.');
+        return res.redirect('/notes');
+    }
     let id = req.params.id
-    const note = await Note.findById(id)    
+    const note = await Note.findById(id)
     if(note.imageID){
         await cloudinary.v2.uploader.destroy(note.imageID)
         await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
     };
-    await Note.findByIdAndDelete(req.params.id); 
+    await Note.findByIdAndDelete(req.params.id);
     req.flash('success_msg','Note deleted successfully');
+    res.redirect('/notes');
+}
+
+// Added 2026-09-14: bulk version of deleteNote for the "select many, delete
+// at once" checkbox column in the all-notes.ejs Archived table. Same
+// server-side admin enforcement as the single-delete route above — the
+// checkbox column/button are also hidden client-side unless
+// user.role=='admin', but that alone is not real access control.
+// ids arrives as req.body.ids (an array of Note _id strings, sent by the
+// page's bulk-delete form as repeated ids[] fields, or as JSON from fetch).
+notesCrtl.deleteNotesBulk = async (req,res)=>{
+    const requester = await User.findById(req.session.passport.user);
+    if(!requester || requester.role !== 'admin'){
+        req.flash('error_msg','Only admin accounts can delete jobs.');
+        return res.redirect('/notes');
+    }
+    let ids = req.body.ids || [];
+    if(!Array.isArray(ids)) ids = [ids]; // a single checkbox posts as a bare string, not an array
+    ids = ids.filter(Boolean);
+    if(ids.length === 0){
+        req.flash('error_msg','No jobs were selected to delete.');
+        return res.redirect('/notes');
+    }
+    // Clean up Cloudinary images the same way the single-delete route does,
+    // before removing the DB documents themselves.
+    const notesToDelete = await Note.find({ _id: { $in: ids } });
+    for(const note of notesToDelete){
+        if(note.imageID){
+            try{
+                await cloudinary.v2.uploader.destroy(note.imageID);
+                await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+            } catch(err){
+                console.error('[deleteNotesBulk] image cleanup failed for note', note._id, err);
+            }
+        }
+    }
+    const result = await Note.deleteMany({ _id: { $in: ids } });
+    req.flash('success_msg', `${result.deletedCount} job(s) deleted successfully`);
     res.redirect('/notes');
 }
 
