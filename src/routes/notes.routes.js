@@ -79,6 +79,8 @@ const {
     deletePolyline,
     savePadStats,
     saveWbtColorMode,
+    renderVPAreas,
+    saveVPAreas,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -122,6 +124,12 @@ router.get('/notes/querypartial', isAuthenticated, renderQueryNotesPartial);
 
 //Delete note
 router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
+
+// VP Areas (admin-only, enforced server-side in the controller) — manages
+// the VP -> Main Area mapping used by the New Schedule Gantt's Snapshot
+// section (all-notes.ejs). Added 2026-09-14.
+router.get('/notes/vpAreas', isAuthenticated, renderVPAreas);
+router.post('/notes/vpAreas', isAuthenticated, saveVPAreas);
 
 // Bulk delete (Archived table, admin-only — enforced server-side in the
 // controller). Added 2026-09-14 alongside the per-row Delete button.

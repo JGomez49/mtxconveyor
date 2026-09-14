@@ -2323,6 +2323,29 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 </div>
                 <div class="gantt-plot-wrap">
                     <div id="chartDiv2" class="m-2"></div>
+
+                    <!-- ADDED 2026-09-14: "Snapshot" section — per-year, per-Main-Area
+                         (East/Central/West/Thermal) breakdown of the same 8-bucket
+                         FINAL/EXEC/DP-YES/IN-PROGRESS/IN-QUEUE/PRELIM-IR/NOT-REQ/OTHER
+                         classification used above for This Year / Next Year, plus a
+                         per-year summary table. Placed immediately after chartDiv2 so
+                         it sits right under the existing This-Year/Next-Year pies.
+                         See buildSnapshotYearTicks()/renderSnapshotSection() below. -->
+                    <div id="snapshotSection" class="m-2">
+                        <h5 style="margin-top:14px;">Snapshot</h5>
+                        <!-- ADDED 2026-09-14: Pie/Stacked-Bars chart-type toggle for the
+                             Snapshot section only (does NOT affect the This-Year/Next-Year
+                             pieCanvas/pieCanvas3 charts above, which remain pies always).
+                             Bootstrap button-group; default = Pie. Wired to
+                             snapshotChartType (module-scoped, see renderSnapshotSection()
+                             below) and calls renderSnapshotSection() immediately on change. -->
+                        <div id="snapshotChartTypeToggle" class="btn-group btn-group-sm mb-2" role="group" aria-label="Snapshot chart type">
+                            <button type="button" class="btn btn-outline-primary active" id="snapshotChartTypePie" data-chart-type="pie">Pie</button>
+                            <button type="button" class="btn btn-outline-primary" id="snapshotChartTypeBar" data-chart-type="bar">Stacked Bars</button>
+                        </div>
+                        <div id="snapshotYearTicks" class="mb-2"></div>
+                        <div id="snapshotContainer"></div>
+                    </div>
                 </div>
             </div>
 
@@ -2368,6 +2391,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     if(!newSchedule || !newSchedule.headers || !newSchedule.headers.length) return null;
     return { updatedAt: newSchedule.uploadedAt || null, user: (newSchedule.user && newSchedule.user.name) ? newSchedule.user.name : null };
 })()) %></script>
+
+<!-- ADDED 2026-09-14: VP → Main Area mapping data for the Snapshot section
+     below. Sourced from notesCrtl.renderNotes' vpAreaList (array of
+     {vpName, mainArea} from the VPArea collection, admin-managed at
+     /notes/vpAreas). Embedded as a plain object keyed by vpName -> mainArea
+     for O(1) client-side lookup; a vp not present here is treated as
+     "Unassigned" by renderSnapshotSection(). Non-executable
+     application/json tag, same pattern as ganttNotesMapData above, so a VP
+     name containing special characters can't break the surrounding JS. -->
+<script type="application/json" id="vpAreaMapData"><%- JSON.stringify((typeof vpAreaList !== 'undefined' ? vpAreaList : []).reduce((m,v)=>{ if(v && v.vpName){ m[v.vpName] = v.mainArea; } return m; },{})) %></script>
+<script>
+    // window.vpAreaMap: vpName -> 'East'|'Central'|'West'|'Thermal'. Read by
+    // classifySiteObj()'s caller inside the New Schedule Gantt IIFE below
+    // (renderSnapshotSection()) via window.vpAreaMap, since that IIFE is a
+    // separate closure from this top-level script block. 2026-09-14.
+    window.vpAreaMap = JSON.parse(document.getElementById('vpAreaMapData').textContent);
+</script>
 
 <!-- Script to generate the Charts -->
 
@@ -2425,7 +2465,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     function anChartBg(){   return anIsLight() ? '#f8f9fa' : 'transparent'; }
     function anGridColor(){  return anIsLight() ? '#ccc' : '#333'; }
 
-    // Default selections (everything on except VP and Group which have specific defaults)
+    // Default selections (everything on except Group which has a specific default)
+    // CHANGED 2026-09-14: gfVP used to pre-select only 'Gillian Lefebure'; user
+    // requested ALL VPs be checked by default instead. gfVP is left here for
+    // reference/back-compat but is no longer read — ganttBuildAllFilters2()
+    // now passes the same defaultAll() used for the Year filter to the VP
+    // filter group instead of a defaultVP() built from this array.
     const GANTT_DEFAULTS = {
         gfVP:        ['Gillian Lefebure'],
         gfGroup:     ['BV'],
@@ -2597,6 +2642,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     let ganttAllBars2    = [];
     let chartInstances2  = [];
     let ganttFiltersBuilt2 = false;
+
+    // ADDED 2026-09-14: state for the "Snapshot" section (see
+    // classifySiteObj/buildSnapshotYearTicks/renderSnapshotSection below).
+    // lastFilteredBars2 mirrors the `filtered` array ganttApplyAndRender2()
+    // computes each time filters change, so the Snapshot always reflects
+    // the currently-applied sidebar filters without recomputing them.
+    let lastFilteredBars2 = [];
+    let snapshotChartInstances2 = [];
+    let snapshotTicksBuilt = false;
+
+    // ADDED 2026-09-14: chart-type toggle for the Snapshot section only
+    // (This-Year/Next-Year pieCanvas/pieCanvas3 above are untouched and
+    // remain pies always). Module-scoped so both the toggle click handler
+    // and renderSnapshotSection() (which reads it at the top of each call)
+    // can see it. 'pie' (default) draws the existing 4-pies-per-year row;
+    // 'bar' draws one Chart.js stacked bar chart per year instead.
+    let snapshotChartType = 'pie';
 
     // Header→field mapping for the RAW newSchedule columns (no server-side
     // renaming — match by substring against whatever headers were uploaded).
@@ -2784,10 +2846,13 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             return [...vals];
         };
         const defaultAll = () => true;
+        // defaultVP retained but unused as of 2026-09-14 (see GANTT_DEFAULTS
+        // comment above) — VP filter now uses defaultAll so every VP is
+        // checked by default, per user request.
         const defaultVP  = v => GANTT_DEFAULTS.gfVP.includes(v);
         const defaultGrp = v => GANTT_DEFAULTS.gfGroup.includes(v);
 
-        ganttBuildFilterGroup2('gfVP2',        'vp',        uniqWithBlank('vp'),        defaultVP);
+        ganttBuildFilterGroup2('gfVP2',        'vp',        uniqWithBlank('vp'),        defaultAll);
         ganttBuildFilterGroup2('gfYear2',      'year',      uniqWithBlank('year'),      defaultAll);
         ganttBuildFilterGroup2('gfExplMgr2',   'explMgr',   uniqWithBlank('explMgr'),   defaultAll);
         ganttBuildFilterGroup2('gfGroup2',     'group',     uniqWithBlank('group'),     defaultGrp);
@@ -2815,6 +2880,347 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         return [...document.querySelectorAll(
             `#ganttSidebar2 input[type=checkbox][data-gfield="${fieldKey}"]:checked`
         )].map(cb => cb.value);
+    }
+
+    // ── Snapshot section (ADDED 2026-09-14) ──────────────────────────────
+    // See task spec: per-ticked-year, per-Main-Area (East/Central/West/
+    // Thermal) row of 4 pies + one combined summary table, under the
+    // existing This-Year/Next-Year pies. classifySiteObj() below is a
+    // DELIBERATE DUPLICATE of the 8-bucket switch(true) classification
+    // inside ganttRenderChart2() (see that function, case block starting
+    // "case (type === "FINAL" && ...)"), rather than a refactor of that
+    // working block in place — this mirrors the project's own established
+    // practice of not touching working Archived-table logic when adding a
+    // new consumer of the same rule, to avoid any risk of regressing the
+    // existing This Year/Next Year pies. If the classification rule ever
+    // changes, both copies must be updated together.
+    function classifySiteObj(siteObj, isInProgressTable, isInSetupQueueTable, isInDesignQueueTable, isInBlackOpsQueueTable){
+        const dpValue = siteObj.dp || "";
+        const type    = siteObj.type;
+        const dpReq   = siteObj.dpReq;
+        const rig     = siteObj.rig;
+        const rigToAvoid = ["PRECISION 183","PRECISION183","PD183","PD 183"];
+        const dpNo  = !dpValue || dpValue === "NO" || dpValue === "NO-DP" || dpValue === "";
+        const dpYes = dpValue === "YES" || dpValue === "YES-DP" || dpValue !== "";
+        const isForcedInProgress      = isInProgressTable === true;
+        const isForcedInSetupQueue    = isInSetupQueueTable === true;
+        const isForcedInDesignQueue   = isInDesignQueueTable === true;
+        const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
+
+        switch(true){
+            case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
+                return "FINAL";
+            case type === "FINAL":
+                return "FINAL";
+            case isForcedInProgress:
+                return "IN-PROGRESS";
+            case isForcedInSetupQueue:
+            case isForcedInDesignQueue:
+            case isForcedInBlackOpsQueue:
+                return "IN-QUEUE";
+            case type === "PRELIM - IR":
+                return "PRELIM-IR";
+            case (dpNo && !rigToAvoid.includes(rig) && dpReq !== ""):
+                return "IN-QUEUE";
+            case type === "EXEC":
+                return "EXEC";
+            case dpYes:
+                return "DP-YES";
+            case dpReq === "" || dpReq === " ":
+                return "NOT-REQ";
+            default:
+                return "OTHER";
+        }
+    }
+
+    // Snapshot-only duplicate of ganttBuildAllFilters2()'s local
+    // uniqWithBlank('year') helper (that one is function-scoped and not
+    // reusable from here) — same logic, restricted to the 'year' field,
+    // with the "Blank" bucket dropped since a year tickbox for blank years
+    // isn't meaningful for this section. 2026-09-14.
+    function snapshotUniqYears(){
+        const vals = new Set(ganttAllBars2.map(b => b.year).filter(Boolean));
+        return [...vals].sort();
+    }
+
+    function buildSnapshotYearTicks(){
+        const el = document.getElementById('snapshotYearTicks');
+        if(!el) return;
+        el.innerHTML = '';
+        const years = snapshotUniqYears();
+        const curYear  = String(new Date().getFullYear());
+        const nextYear = String(new Date().getFullYear() + 1);
+        years.forEach(y => {
+            const label = document.createElement('label');
+            label.className = 'snapshot-year-tick';
+            label.style.cssText = 'margin-right:14px;cursor:pointer;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = y;
+            cb.dataset.snapshotYear = '1';
+            // Default: current year + next year only, per spec.
+            cb.checked = (y === curYear || y === nextYear);
+            cb.addEventListener('change', renderSnapshotSection);
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + y));
+            el.appendChild(label);
+        });
+        snapshotTicksBuilt = true;
+    }
+
+    // ADDED 2026-09-14: wires the #snapshotChartTypeToggle button-group
+    // (Pie / Stacked Bars) built in the EJS markup above snapshotYearTicks.
+    // Sets the module-scoped snapshotChartType and re-renders immediately
+    // on click, per spec. Does not touch pieCanvas/pieCanvas3 (This-Year/
+    // Next-Year pies), which have no such toggle and remain pies always.
+    function wireSnapshotChartTypeToggle(){
+        const pieBtn = document.getElementById('snapshotChartTypePie');
+        const barBtn = document.getElementById('snapshotChartTypeBar');
+        if(!pieBtn || !barBtn) return;
+        const setType = (type) => {
+            snapshotChartType = type;
+            pieBtn.classList.toggle('active', type === 'pie');
+            barBtn.classList.toggle('active', type === 'bar');
+            renderSnapshotSection();
+        };
+        pieBtn.addEventListener('click', () => setType('pie'));
+        barBtn.addEventListener('click', () => setType('bar'));
+    }
+
+    // Same 8-bucket labels/colors as the This Year / Next Year pies
+    // (ganttRenderChart2, pieCanvas/pieCanvas3 below) — duplicated here
+    // rather than shared across the two render paths since they run at
+    // different times; MUST stay in sync with those literals if changed.
+    const SNAPSHOT_LABELS = ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"];
+    const SNAPSHOT_COLORS = ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
+    const SNAPSHOT_AREAS  = ["East","Central","West","Thermal"];
+
+    function snapshotEmptyCounts(){
+        const o = {}; SNAPSHOT_LABELS.forEach(l => o[l] = 0); return o;
+    }
+
+    function renderSnapshotSection(){
+        // ADDED 2026-09-14: read the module-scoped toggle state at the top of
+        // the render, per spec, so the branch below picks pies vs. one
+        // stacked bar chart per year.
+        const chartType = snapshotChartType;
+        const container = document.getElementById('snapshotContainer');
+        const ticksEl    = document.getElementById('snapshotYearTicks');
+        if(!container || !ticksEl) return;
+
+        snapshotChartInstances2.forEach(ch => { try{ ch.destroy(); }catch(e){} });
+        snapshotChartInstances2 = [];
+        container.innerHTML = '';
+
+        const checkedYears = [...ticksEl.querySelectorAll('input[data-snapshot-year]:checked')]
+            .map(cb => cb.value)
+            .sort((a,b) => Number(a) - Number(b)); // ascending, per spec
+
+        if(!checkedYears.length){
+            container.innerHTML = '<p style="color:var(--an-text-dim,#5a7080);padding:10px;">No year selected.</p>';
+            return;
+        }
+
+        const vpAreaMap = window.vpAreaMap || {};
+        const sourceBars = lastFilteredBars2; // respects current sidebar filters
+
+        const isLightMode = document.body.classList.contains("light-mode");
+
+        checkedYears.forEach(year => {
+            const yearBars = sourceBars.filter(b => String(b.year) === String(year));
+
+            // countsByArea: East/Central/West/Thermal/Unassigned -> 8-bucket counts
+            const countsByArea = {};
+            [...SNAPSHOT_AREAS, 'Unassigned'].forEach(a => countsByArea[a] = snapshotEmptyCounts());
+
+            yearBars.forEach(siteObj => {
+                if(!siteObj.site) return;
+                const siteKey = siteObj.site.slice(0, 14);
+                const bucket = classifySiteObj(
+                    siteObj,
+                    inProgressSites.has(siteKey),
+                    inSetupQueueSites.has(siteKey),
+                    inDesignQueueSites.has(siteKey),
+                    inBlackOpsQueueSites.has(siteKey)
+                );
+                // VP has no mapped Main Area -> visibly counted as
+                // "Unassigned" rather than silently dropped, per spec.
+                const area = vpAreaMap[siteObj.vp] || 'Unassigned';
+                if(!countsByArea[area]) countsByArea[area] = snapshotEmptyCounts();
+                countsByArea[area][bucket]++;
+            });
+
+            const yearBlock = document.createElement('div');
+            yearBlock.className = 'snapshot-year-block';
+            yearBlock.style.cssText = 'margin-bottom:22px;padding-top:8px;border-top:1px solid rgba(128,128,128,0.3);';
+
+            const yearHeading = document.createElement('h6');
+            yearHeading.textContent = year;
+            yearHeading.style.marginBottom = '6px';
+            yearBlock.appendChild(yearHeading);
+
+            const pieRow = document.createElement('div');
+            pieRow.className = 'row';
+
+            if(chartType === 'bar'){
+                // ADDED 2026-09-14: "Stacked Bars" branch of the Snapshot
+                // chart-type toggle. Replaces the 4-separate-pies-per-year
+                // layout with ONE Chart.js stacked bar chart per year: one
+                // bar per region (East/Central/West/Thermal) on the x-axis,
+                // each bar segmented by the same 8 status buckets as the
+                // pies. Reuses SNAPSHOT_LABELS/SNAPSHOT_COLORS verbatim (no
+                // new colors) so the two chart types stay visually
+                // consistent. Chart instances are pushed onto the same
+                // snapshotChartInstances2 array the pies use, so the
+                // destroy-all-first block at the top of renderSnapshotSection()
+                // cleans these up too on every re-render/toggle switch.
+                const col = document.createElement('div');
+                col.className = 'col-md-12';
+                const canvas = document.createElement('canvas');
+                canvas.className = 'bar-chart';
+                col.appendChild(canvas);
+                pieRow.appendChild(col);
+
+                const datasets = SNAPSHOT_LABELS.map((label, i) => ({
+                    label,
+                    data: SNAPSHOT_AREAS.map(area => countsByArea[area][label]),
+                    backgroundColor: SNAPSHOT_COLORS[i]
+                }));
+
+                const chart = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: SNAPSHOT_AREAS,
+                        datasets
+                    },
+                    options: {
+                        scales: {
+                            x: { stacked: true, ticks: { color: anChartColor() }, grid: { color: anGridColor() } },
+                            y: { stacked: true, ticks: { color: anChartColor() }, grid: { color: anGridColor() } }
+                        },
+                        plugins: {
+                            title: { display:true, text:`${year} — Wells by Region`, color: anChartColor(), font:{size:12,weight:"normal"} },
+                            legend: { position:"bottom", labels:{ color: anChartColor(), font:{ size:8 }, boxWidth:10, padding:4 } }
+                        }
+                    }
+                });
+                snapshotChartInstances2.push(chart);
+            } else {
+                SNAPSHOT_AREAS.forEach(area => {
+                    const counts = countsByArea[area];
+                    const total  = SNAPSHOT_LABELS.reduce((s,l) => s + counts[l], 0);
+
+                    const col = document.createElement('div');
+                    col.className = 'col-md-3';
+                    col.style.cssText = 'min-width:180px;';
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'pie-chart';
+                    col.appendChild(canvas);
+                    pieRow.appendChild(col);
+
+                    const chart = new Chart(canvas.getContext('2d'), {
+                        type: 'pie',
+                        data: {
+                            labels: SNAPSHOT_LABELS,
+                            datasets: [{
+                                data: SNAPSHOT_LABELS.map(l => counts[l]),
+                                backgroundColor: SNAPSHOT_COLORS,
+                                borderColor: '#333',
+                                borderWidth: 1
+                            }]
+                        },
+                        plugins: [ChartDataLabels],
+                        options: {
+                            layout: { padding: 0 },
+                            plugins: {
+                                title: { display:true, text:`${area}: ${total} Wells`, color: anChartColor(), font:{size:12,weight:"normal"} },
+                                legend: { position:"bottom", labels:{ color: anChartColor(), font:{ size:8 }, boxWidth:10, padding:4 } },
+                                datalabels: {
+                                    color: (ctx) => {
+                                        const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
+                                        return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
+                                    },
+                                    font:{weight:"bold",size:9},
+                                    formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
+                                }
+                            }
+                        }
+                    });
+                    snapshotChartInstances2.push(chart);
+                });
+            }
+
+            yearBlock.appendChild(pieRow);
+
+            // Unassigned count — visible note under the 4-pie row rather than
+            // a 5th pie, per spec ("your judgement on exact placement, but
+            // make it visible").
+            const unassignedTotal = SNAPSHOT_LABELS.reduce((s,l) => s + countsByArea['Unassigned'][l], 0);
+            const unassignedNote = document.createElement('div');
+            unassignedNote.className = 'badge';
+            unassignedNote.style.cssText = isLightMode
+                ? 'display:inline-block;margin-top:6px;background:#6c757d;color:#fff;padding:5px 10px;border-radius:4px;font-size:0.8rem;'
+                : 'display:inline-block;margin-top:6px;background:#495057;color:#fff;padding:5px 10px;border-radius:4px;font-size:0.8rem;';
+            unassignedNote.textContent = `Unassigned (VP not mapped to a Main Area): ${unassignedTotal} well(s)`;
+            yearBlock.appendChild(unassignedNote);
+
+            // Per-year summary table, all regions (East/Central/West/Thermal
+            // + Unassigned) combined — same 9-column scheme as
+            // renderCompiledSummary()/summaryTable2.
+            const combined = snapshotEmptyCounts();
+            [...SNAPSHOT_AREAS, 'Unassigned'].forEach(a => {
+                SNAPSHOT_LABELS.forEach(l => combined[l] += countsByArea[a][l]);
+            });
+            const combinedTotal = SNAPSHOT_LABELS.reduce((s,l) => s + combined[l], 0);
+
+            const tdStyle = isLightMode
+                ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
+                : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
+            const thStyle = (bg, fg) => {
+                let useFg = fg;
+                if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
+                return `style="text-align:center;background-color:${bg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
+            };
+            const totalHdr = isLightMode
+                ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
+                : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
+
+            const table = document.createElement('table');
+            table.className = 'table table-dark table-sm table-bordered table-hover mt-2';
+            table.innerHTML = `
+            <thead>
+                <tr>
+                    <th ${thStyle("transparent","white")}>YEAR</th>
+                    <th ${thStyle("#4caf50","#020202")}>FINAL</th>
+                    <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
+                    <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
+                    <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
+                    <th ${thStyle("#ff4c4c","#ffffff")}>IN QUEUE</th>
+                    <th ${thStyle("#37474f","#ffffff")}>NEED INFO</th>
+                    <th ${thStyle("#C0C0C0","#020202")}>NOT REQUESTED</th>
+                    <th ${thStyle("#c0392b","#ffffff")}>ERRORS</th>
+                    <th ${totalHdr}>TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td ${tdStyle}>${year}</td>
+                    <td ${tdStyle}>${combined["FINAL"]}</td>
+                    <td ${tdStyle}>${combined["EXEC"]}</td>
+                    <td ${tdStyle}>${combined["DP-YES"]}</td>
+                    <td ${tdStyle}>${combined["IN-PROGRESS"]}</td>
+                    <td ${tdStyle}>${combined["IN-QUEUE"]}</td>
+                    <td ${tdStyle}>${combined["PRELIM-IR"]}</td>
+                    <td ${tdStyle}>${combined["NOT-REQ"]}</td>
+                    <td ${tdStyle}>${combined["OTHER"]}</td>
+                    <td ${tdStyle}><b>${combinedTotal}</b></td>
+                </tr>
+            </tbody>`;
+            yearBlock.appendChild(table);
+
+            container.appendChild(yearBlock);
+        });
     }
 
     function ganttApplyAndRender2(){
@@ -2847,6 +3253,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
         ganttRenderChart2(filtered);
         console.log('[newSchedGantt] filtered bars passed to chart:', filtered.length, 'of', ganttAllBars2.length, 'total');
+
+        // ADDED 2026-09-14: keep the Snapshot section's data source in sync
+        // with whatever the sidebar filters currently produce, and
+        // re-render it here — the cleanest integration point since
+        // `filtered` is already computed and this function already runs on
+        // every filter change (see the .addEventListener(..., ganttApplyAndRender2)
+        // wiring above).
+        lastFilteredBars2 = filtered;
+        if(snapshotTicksBuilt) renderSnapshotSection();
     }
 
         function ganttRenderChart2(bars){
@@ -3460,6 +3875,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const chartDiv2 = document.getElementById('chartDiv2');
             console.log('[newSchedGantt] chartDiv2 element found:', !!chartDiv2);
             if (!ganttFiltersBuilt2) ganttBuildAllFilters2();
+            // ADDED 2026-09-14: build the Snapshot year tickboxes once, before
+            // the first ganttApplyAndRender2() call, so its call to
+            // renderSnapshotSection() (guarded by snapshotTicksBuilt above)
+            // has ticks in the DOM to read on the initial render too.
+            // ADDED 2026-09-14: wire the Pie/Stacked Bars toggle at the same
+            // guarded init point as buildSnapshotYearTicks() below, so the
+            // click handlers are attached exactly once even though
+            // renderNewScheduleGantt() itself can run more than once.
+            if (!snapshotTicksBuilt) { buildSnapshotYearTicks(); wireSnapshotChartTypeToggle(); }
             ganttApplyAndRender2();
             console.log('[newSchedGantt] renderNewScheduleGantt() complete.');
         } catch (err) {

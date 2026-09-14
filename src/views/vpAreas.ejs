@@ -1,0 +1,91 @@
+<!--
+    ADDED 2026-09-14: admin-only "VP Areas" management page.
+
+    Backs the New Schedule Gantt's "Snapshot" section in all-notes.ejs,
+    which groups jobs by Main Area (East/Central/West/Thermal) derived
+    from siteObj.vp via the VPArea collection this page edits.
+
+    Layout/head/nav conventions copied from the top of all-notes.ejs
+    (same header partial + admin-role-gated navigation include). Styling
+    reuses the app's existing Bootstrap classes (table/form-control/
+    btn-*), same as the rest of the admin pages — kept intentionally
+    minimal per the task spec ("doesn't need to be fancy").
+-->
+
+<%- include ('partials/header.ejs') %>
+
+<% if (user.role == 'admin') { %>
+
+    <%- include ('partials/navigation_Admin.ejs') %>
+
+    <div class="container mt-4 mb-5">
+        <h3>VP Areas</h3>
+        <p class="text-muted">
+            Maps each Exploration VP name to a Main Area (East / Central / West / Thermal).
+            Used by the New Schedule Gantt's "Snapshot" section to group jobs by area.
+            A VP not listed here is counted as "Unassigned" in that section.
+        </p>
+
+        <!--
+            Submitted as a plain POST form to /notes/vpAreas. Existing rows
+            use parallel array fields vpName[] (readonly) / mainArea[]
+            (select), matched by index in notesCrtl.saveVPAreas. The
+            "Add VP" row uses separate newVpName / newMainArea fields so
+            the controller doesn't need to guess whether the last array
+            entry is a new row or an edited existing one.
+        -->
+        <form action="/notes/vpAreas" method="POST">
+            <table class="table table-dark table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th style="width:60%;">VP Name</th>
+                        <th>Main Area</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% vpAreas.forEach(function(v){ %>
+                        <tr>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" value="<%= v.vpName %>" readonly>
+                                <input type="hidden" name="vpName[]" value="<%= v.vpName %>">
+                            </td>
+                            <td>
+                                <select name="mainArea[]" class="form-select form-select-sm">
+                                    <% ['East','Central','West','Thermal'].forEach(function(a){ %>
+                                        <option value="<%= a %>" <%= (v.mainArea === a) ? 'selected' : '' %>><%= a %></option>
+                                    <% }); %>
+                                </select>
+                            </td>
+                        </tr>
+                    <% }); %>
+
+                    <!-- Add a VP not yet in the mapping -->
+                    <tr>
+                        <td>
+                            <input type="text" name="newVpName" class="form-control form-control-sm" placeholder="New VP name">
+                        </td>
+                        <td>
+                            <select name="newMainArea" class="form-select form-select-sm">
+                                <option value="">-- select --</option>
+                                <option value="East">East</option>
+                                <option value="Central">Central</option>
+                                <option value="West">West</option>
+                                <option value="Thermal">Thermal</option>
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            <a href="/notes" class="btn btn-secondary btn-sm">Back to Jobs</a>
+        </form>
+    </div>
+
+<% } else { %>
+    <div class="container mt-4">
+        <p class="text-danger">You do not have permission to view this page.</p>
+    </div>
+<% } %>
+
+<%- include ('partials/footer.ejs') %>

@@ -22,6 +22,9 @@ const PadAC       = require("../models/PadAC");
 const SixAxisCase = require("../models/SixAxisCase");
 const { buildActivityReport } = require("../helpers/activityStats");
 const SiteConfig    = require("../models/SiteConfig");
+// ADDED 2026-09-14: VP -> Main Area mapping, backing renderVPAreas/saveVPAreas
+// below and the vpAreaList fed into all-notes.ejs's Snapshot section.
+const VPArea        = require("../models/VPArea");
 
 
 
@@ -177,9 +180,17 @@ notesCrtl.renderNotes = async (req,res)=>{
         }
     }
 
+    // ADDED 2026-09-14: fetch the VP->Main Area mapping and pass it through
+    // as vpAreaList so all-notes.ejs's Snapshot section can group jobs by
+    // Main Area (East/Central/West/Thermal) derived from siteObj.vp. Only
+    // this one fetch + pass-through was added to this function — nothing
+    // else here was changed. See VPArea model + renderVPAreas/saveVPAreas
+    // below for the admin-managed source of this mapping.
+    const vpAreaList = await VPArea.find().select('vpName mainArea -_id').lean();
+
     res.render('all-notes.ejs', {
         notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup,
-        canSeeActivity, activityReport,
+        canSeeActivity, activityReport, vpAreaList,
     });
 };
 
@@ -396,6 +407,78 @@ notesCrtl.deleteNotesBulk = async (req,res)=>{
     const result = await Note.deleteMany({ _id: { $in: ids } });
     req.flash('success_msg', `${result.deletedCount} job(s) deleted successfully`);
     res.redirect('/notes');
+}
+
+// ADDED 2026-09-14: admin-only "VP Areas" management page. Backs the new
+// Snapshot section in all-notes.ejs, which groups New Schedule jobs by
+// Main Area (East/Central/West/Thermal) derived from siteObj.vp via the
+// VPArea collection. Same server-side admin check pattern as
+// deleteNote/deleteNotesBulk above (User.findById(req.session.passport.user),
+// requester.role !== 'admin').
+notesCrtl.renderVPAreas = async (req,res)=>{
+    const requester = await User.findById(req.session.passport.user);
+    if(!requester || requester.role !== 'admin'){
+        req.flash('error_msg','Only admin accounts can manage VP Areas.');
+        return res.redirect('/notes');
+    }
+
+    // Seed the 4 default mappings the first time this page is used and the
+    // collection is empty. Upsert-style (per vpName) so re-running this on
+    // every page load never duplicates docs even if a doc already exists
+    // for one of the four defaults.
+    const existingCount = await VPArea.countDocuments();
+    if(existingCount === 0){
+        const defaults = [
+            { vpName: 'Gillian Lefebure', mainArea: 'East' },
+            { vpName: 'Richard Coates',   mainArea: 'Central' },
+            { vpName: 'Shawn Bond',       mainArea: 'West' },
+            { vpName: 'Steven Aspden',    mainArea: 'Thermal' },
+        ];
+        for(const d of defaults){
+            await VPArea.updateOne({ vpName: d.vpName }, { $setOnInsert: d }, { upsert: true });
+        }
+    }
+
+    const vpAreas = await VPArea.find().sort({ mainArea: 1, vpName: 1 }).lean();
+    const user = await User.findById(req.session.passport.user);
+    res.render('vpAreas.ejs', { user, vpAreas });
+};
+
+// ADDED 2026-09-14: saves the admin's edits from vpAreas.ejs. Accepts
+// parallel arrays vpName[]/mainArea[] (existing rows) plus an optional
+// single newVpName/newMainArea pair (the "Add VP" row) and upserts each
+// into VPArea by vpName. Same admin check as renderVPAreas above.
+notesCrtl.saveVPAreas = async (req,res)=>{
+    const requester = await User.findById(req.session.passport.user);
+    if(!requester || requester.role !== 'admin'){
+        req.flash('error_msg','Only admin accounts can manage VP Areas.');
+        return res.redirect('/notes');
+    }
+
+    let vpNames   = req.body.vpName || [];
+    let mainAreas = req.body.mainArea || [];
+    if(!Array.isArray(vpNames))   vpNames   = [vpNames];
+    if(!Array.isArray(mainAreas)) mainAreas = [mainAreas];
+
+    const pairs = vpNames.map((vpName, i) => ({ vpName: String(vpName || '').trim(), mainArea: mainAreas[i] }))
+        .filter(p => p.vpName && ['East','Central','West','Thermal'].includes(p.mainArea));
+
+    const newVpName  = String(req.body.newVpName || '').trim();
+    const newMainArea = req.body.newMainArea;
+    if(newVpName && ['East','Central','West','Thermal'].includes(newMainArea)){
+        pairs.push({ vpName: newVpName, mainArea: newMainArea });
+    }
+
+    for(const p of pairs){
+        await VPArea.updateOne(
+            { vpName: p.vpName },
+            { $set: { mainArea: p.mainArea } },
+            { upsert: true }
+        );
+    }
+
+    req.flash('success_msg','VP Areas saved successfully');
+    res.redirect('/notes/vpAreas');
 }
 
 
