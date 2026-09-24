@@ -2537,7 +2537,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         if (!container || rows.length === 0) return;
 
         const cols = [
-            { key: 'greenThisYear',  label: 'FINAL',            bg: '#4caf50', fg: '#020202' },
+            // CHANGED 2026-09-24: Vendor On It column added, FINAL -> VENDOR DP.
+            // NOTE: renderCompiledSummary() is not called anywhere in this file today.
+            { key: 'orangeThisYear', label: 'VENDOR ON IT',     bg: '#ff8c00', fg: '#020202' },
+            { key: 'greenThisYear',  label: 'VENDOR DP',        bg: '#4caf50', fg: '#020202' },
             { key: 'purpleThisYear', label: 'HANDED OVER',      bg: '#B11FDF', fg: '#ffffff' },
             { key: 'blueThisYear',   label: 'DP-YES',           bg: '#0084c7', fg: '#020202' },
             { key: 'yellowThisYear', label: 'IN PROGRESS',      bg: '#ffff00', fg: '#020202' },
@@ -2549,9 +2552,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const colsNY = cols.map(c => ({ ...c, key: c.key.replace('ThisYear','NextYear') }));
 
         // Grand totals
-        const totTY = { blueThisYear:0, greenThisYear:0, blackThisYear:0, yellowThisYear:0,
+        const totTY = { orangeThisYear:0, blueThisYear:0, greenThisYear:0, blackThisYear:0, yellowThisYear:0,
                          purpleThisYear:0, redThisYear:0, whiteThisYear:0, silverThisYear:0, totalThisYear:0 };
-        const totNY = { blueNextYear:0, greenNextYear:0, blackNextYear:0, yellowNextYear:0,
+        const totNY = { orangeNextYear:0, blueNextYear:0, greenNextYear:0, blackNextYear:0, yellowNextYear:0,
                          purpleNextYear:0, redNextYear:0, whiteNextYear:0, silverNextYear:0, totalNextYear:0 };
         rows.forEach(r => {
             Object.keys(totTY).forEach(k => totTY[k] += (r[k] || 0));
@@ -2919,28 +2922,29 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
 
         switch(true){
+            // CHANGED 2026-09-24: orange case now its own bucket (was "FINAL").
             case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
-                return "FINAL";
+                return "VENDOR ON IT";
             case type === "FINAL":
-                return "FINAL";
+                return "VENDOR DP";
             case isForcedInProgress:
-                return "IN-PROGRESS";
+                return "IN PROGRESS";
             case isForcedInSetupQueue:
             case isForcedInDesignQueue:
             case isForcedInBlackOpsQueue:
-                return "IN-QUEUE";
+                return "IN QUEUE";
             case type === "PRELIM - IR":
-                return "PRELIM-IR";
+                return "NEED INFO";
             case (dpNo && !rigToAvoid.includes(rig) && dpReq !== ""):
-                return "IN-QUEUE";
+                return "IN QUEUE";
             case type === "EXEC":
-                return "EXEC";
+                return "HANDED OVER";
             case dpYes:
                 return "DP-YES";
             case dpReq === "" || dpReq === " ":
-                return "NOT-REQ";
+                return "NOT REQUESTED";
             default:
-                return "OTHER";
+                return "ERRORS";
         }
     }
 
@@ -2969,8 +2973,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             cb.type = 'checkbox';
             cb.value = y;
             cb.dataset.snapshotYear = '1';
-            // Default: current year + next year only, per spec.
-            cb.checked = (y === curYear || y === nextYear);
+            // CHANGED 2026-09-24: default is the current year only (was
+            // current + next year), per user.
+            cb.checked = (y === curYear);
             cb.addEventListener('change', renderSnapshotSection);
             label.appendChild(cb);
             label.appendChild(document.createTextNode(' ' + y));
@@ -3002,8 +3007,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // (ganttRenderChart2, pieCanvas/pieCanvas3 below) — duplicated here
     // rather than shared across the two render paths since they run at
     // different times; MUST stay in sync with those literals if changed.
-    const SNAPSHOT_LABELS = ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"];
-    const SNAPSHOT_COLORS = ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
+    // CHANGED 2026-09-24: added "VENDOR ON IT" (orange #ff8c00) bucket —
+    // FINAL jobs with DP requested but no DP received date yet (same rule as
+    // the orange Gantt bar). These were previously counted inside the green
+    // FINAL bucket; they are now split out so green only counts FINAL jobs
+    // whose DP is back. Green relabelled "VENDOR DP" per user; pie labels now
+    // match the table headers (HANDED OVER / NEED INFO / ERRORS). Pie slice
+    // colours for NEED INFO (#555555) and ERRORS (#FFFFFF) intentionally left
+    // as-is (white = errors in the Gantt; red is reserved for IN QUEUE).
+    // Labels double as the count keys returned by classifySiteObj().
+    const SNAPSHOT_LABELS = ["VENDOR ON IT","VENDOR DP","HANDED OVER","DP-YES","IN PROGRESS","IN QUEUE","NEED INFO","NOT REQUESTED","ERRORS"];
+    const SNAPSHOT_COLORS = ["#ff8c00","#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
     const SNAPSHOT_AREAS  = ["East","Central","West","Thermal"];
 
     function snapshotEmptyCounts(){
@@ -3036,6 +3050,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const sourceBars = lastFilteredBars2; // respects current sidebar filters
 
         const isLightMode = document.body.classList.contains("light-mode");
+
+        // ADDED 2026-09-24: running sum of every checked year's counts,
+        // used for the TOTAL pie rendered after the year blocks.
+        const grandTotalCounts = snapshotEmptyCounts();
 
         checkedYears.forEach(year => {
             const yearBars = sourceBars.filter(b => String(b.year) === String(year));
@@ -3167,7 +3185,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 datalabels: {
                                     color: (ctx) => {
                                         const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
+                                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#ff8c00"]; // #ff8c00 added 2026-09-24 (Vendor On It)
                                         return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                                     },
                                     font:{weight:"bold",size:22.5},
@@ -3202,6 +3220,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 SNAPSHOT_LABELS.forEach(l => combined[l] += countsByArea[a][l]);
             });
             const combinedTotal = SNAPSHOT_LABELS.reduce((s,l) => s + combined[l], 0);
+            SNAPSHOT_LABELS.forEach(l => grandTotalCounts[l] += combined[l]);
 
             // CHANGED 2026-09-14: Snapshot table header ("title") font sizes
             // set to 2.5x their previous size (0.75rem->1.875rem) per spec;
@@ -3249,7 +3268,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             <thead>
                 <tr>
                     <th ${thStyle("transparent","white")}>YEAR</th>
-                    <th ${thStyle("#4caf50","#020202")}>FINAL</th>
+                    <th ${thStyle("#ff8c00","#020202")}>VENDOR ON IT</th>
+                    <th ${thStyle("#4caf50","#020202")}>VENDOR DP</th>
                     <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
                     <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
                     <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
@@ -3263,14 +3283,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             <tbody>
                 <tr>
                     <td ${tdStyle}>${year}</td>
-                    <td ${tdStyle}>${combined["FINAL"]}</td>
-                    <td ${tdStyle}>${combined["EXEC"]}</td>
-                    <td ${tdStyle}>${combined["DP-YES"]}</td>
-                    <td ${tdStyle}>${combined["IN-PROGRESS"]}</td>
-                    <td ${tdStyle}>${combined["IN-QUEUE"]}</td>
-                    <td ${tdStyle}>${combined["PRELIM-IR"]}</td>
-                    <td ${tdStyle}>${combined["NOT-REQ"]}</td>
-                    <td ${tdStyle}>${combined["OTHER"]}</td>
+                    ${SNAPSHOT_LABELS.map(l => `<td ${tdStyle}>${combined[l]}</td>`).join('')}
                     <td ${tdStyle}><b>${combinedTotal}</b></td>
                 </tr>
             </tbody>`;
@@ -3278,6 +3291,55 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
             container.appendChild(yearBlock);
         });
+
+        // ADDED 2026-09-24: TOTAL pie under the Snapshot table(s), replacing
+        // the removed This Year / Next Year pies under the Gantt. Sums all
+        // checked years (East/Central/West/Thermal + Unassigned), so it
+        // follows the year tick-boxes and the sidebar filters. Uses the same
+        // column + canvas classes/sizes and styling as the area pies above.
+        // Shown in both Pie and Stacked Bars modes.
+        const grandTotal = SNAPSHOT_LABELS.reduce((s,l) => s + grandTotalCounts[l], 0);
+        const totalRow = document.createElement('div');
+        totalRow.className = 'snapshot-pie-row';
+        const totalCol = document.createElement('div');
+        totalCol.className = 'snapshot-pie-col';
+        totalCol.style.cssText = 'flex:1 1 0;min-width:320px;max-width:520px;';
+        const totalCanvas = document.createElement('canvas');
+        totalCanvas.className = 'snapshot-pie-chart';
+        totalCol.appendChild(totalCanvas);
+        totalRow.appendChild(totalCol);
+        container.appendChild(totalRow);
+
+        const yearsText = checkedYears.length === 1 ? checkedYears[0] : checkedYears.join(', ');
+        snapshotChartInstances2.push(new Chart(totalCanvas.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: SNAPSHOT_LABELS,
+                datasets: [{
+                    data: SNAPSHOT_LABELS.map(l => grandTotalCounts[l]),
+                    backgroundColor: SNAPSHOT_COLORS,
+                    borderColor: '#333',
+                    borderWidth: 1
+                }]
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                layout: { padding: 0 },
+                plugins: {
+                    title: { display:true, text:`TOTAL (${yearsText}): ${grandTotal} Wells`, color: anChartColor(), font:{size:30,weight:"normal"} },
+                    legend: { display:false },
+                    datalabels: {
+                        color: (ctx) => {
+                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#ff8c00"];
+                            return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
+                        },
+                        font:{weight:"bold",size:22.5},
+                        formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
+                    }
+                }
+            }
+        }));
     }
 
     function ganttApplyAndRender2(){
@@ -3355,11 +3417,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const glowFlags  = [];
             const colorOfBorder = "#000000";
             const colorCounts = {
+                // orange* keys ADDED 2026-09-24 (Vendor On It) — kept out of the
+                // first 8-key block's positional logic by being appended last.
                 blue:0, red:0, green:0, yellow:0, purple:0, white:0, black:0, silver:0,
                 blueThisYear:0, redThisYear:0, greenThisYear:0, yellowThisYear:0,
                 purpleThisYear:0, whiteThisYear:0, blackThisYear:0, silverThisYear:0,
                 blueNextYear:0, redNextYear:0, greenNextYear:0, yellowNextYear:0,
                 purpleNextYear:0, whiteNextYear:0, blackNextYear:0, silverNextYear:0,
+                orange:0, orangeThisYear:0, orangeNextYear:0,
             };
 
             bars.forEach(siteObj => {
@@ -3417,12 +3482,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 switch(true){
                     // FINAL jobs that have been requested from the DP company but
                     // not yet received back — flagged orange, still counted in the
-                    // same "FINAL/green" bucket for the summary table + pie charts.
+                    // "VENDOR ON IT" bucket (see 2026-09-24 note).
                     case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
+                        // CHANGED 2026-09-24: counted as its own "VENDOR ON IT"
+                        // bucket (was added to green/FINAL).
                         colors.push("#ff8c00");
-                        if(countable) colorCounts.green++;
-                        if(countableForThisYear) colorCounts.greenThisYear++;
-                        if(countableForNextYear) colorCounts.greenNextYear++;
+                        if(countable) colorCounts.orange++;
+                        if(countableForThisYear) colorCounts.orangeThisYear++;
+                        if(countableForNextYear) colorCounts.orangeNextYear++;
                         break;
                     case type === "FINAL":
                         colors.push("#4caf50");
@@ -3769,142 +3836,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             chartInstances2.push(chart);
 
 
-            // ── Summary table + pie charts below the Gantt ───────────────────────
-            const totalBarsThisYear = Object.values(colorCounts)
-                .filter((_, i) => Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) >= 8 && Object.keys(colorCounts).indexOf(Object.keys(colorCounts)[i]) < 16)
-                .reduce((a, b) => a + b, 0);
-
-            const tyKeys = ["greenThisYear","purpleThisYear","blueThisYear","yellowThisYear","redThisYear","blackThisYear","silverThisYear","whiteThisYear"];
-            const nyKeys = ["greenNextYear","purpleNextYear","blueNextYear","yellowNextYear","redNextYear","blackNextYear","silverNextYear","whiteNextYear"];
-            const totalBarsThisYearCalc = tyKeys.reduce((s, k) => s + colorCounts[k], 0);
-            const totalBarsNextYear     = nyKeys.reduce((s, k) => s + colorCounts[k], 0);
-
-            const isLightMode = document.body.classList.contains("light-mode");
-            const thStyle = (bg, fg) => {
-                let useBg = bg, useFg = fg;
-                if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
-                return `style="text-align:center;background-color:${useBg};color:${useFg};font-size:0.75rem;padding:4px 6px;"`;
-            };
-            const tdStyle = isLightMode
-                ? 'style="text-align:center;font-size:0.8rem;padding:3px 6px;color:#212529;"'
-                : 'style="text-align:center;font-size:0.8rem;padding:3px 6px;"';
-            const totalHdr = isLightMode
-                ? 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
-                : 'style="text-align:center;font-size:0.75rem;font-weight:bold;padding:4px 6px;"';
-
-            const summaryTable = document.createElement("table");
-            summaryTable.className = "table table-dark table-sm table-bordered table-hover mt-2";
-            summaryTable.id = "summaryTable2";
-            summaryTable.innerHTML = `
-            <thead>
-                <tr>
-                    <th ${thStyle("transparent","white")}>TIME RANGE</th>
-                    <th ${thStyle("#4caf50","#020202")}>FINAL</th>
-                    <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
-                    <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
-                    <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
-                    <th ${thStyle("#ff4c4c","#ffffff")}>IN QUEUE</th>
-                    <th ${thStyle("#37474f","#ffffff")}>NEED INFO</th>
-                    <th ${thStyle("#C0C0C0","#020202")}>NOT REQUESTED</th>
-                    <th ${thStyle("#c0392b","#ffffff")}>ERRORS</th>
-                    <th ${totalHdr}>TOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td ${tdStyle}>This Year</td>
-                    <td ${tdStyle}>${colorCounts.greenThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.purpleThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.blueThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.yellowThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.redThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.blackThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.silverThisYear}</td>
-                    <td ${tdStyle}>${colorCounts.whiteThisYear}</td>
-                    <td ${tdStyle}><b>${totalBarsThisYearCalc}</b></td>
-                </tr>
-                <tr>
-                    <td ${tdStyle}>Next Year (Budget)</td>
-                    <td ${tdStyle}>${colorCounts.greenNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.purpleNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.blueNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.yellowNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.redNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.blackNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.silverNextYear}</td>
-                    <td ${tdStyle}>${colorCounts.whiteNextYear}</td>
-                    <td ${tdStyle}><b>${totalBarsNextYear}</b></td>
-                </tr>
-            </tbody>`;
-            chartDiv.appendChild(summaryTable);
-
-            // Pie charts
-            const pieRow = document.createElement("div");
-            pieRow.className = "pie-row";
-
-            const pieCanvas = document.createElement("canvas");
-            pieCanvas.className = "pie-chart";
-            const pieCanvas3 = document.createElement("canvas");
-            pieCanvas3.className = "pie-chart";
-            pieRow.appendChild(pieCanvas);
-            pieRow.appendChild(pieCanvas3);
-            chartDiv.appendChild(pieRow);
-
-            new Chart(pieCanvas.getContext("2d"), {
-                type: "pie",
-                data: {
-                    labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
-                    datasets: [{ data: [
-                        colorCounts.greenThisYear, colorCounts.purpleThisYear,
-                        colorCounts.blueThisYear,  colorCounts.yellowThisYear,
-                        colorCounts.redThisYear,   colorCounts.blackThisYear,
-                        colorCounts.silverThisYear, colorCounts.whiteThisYear,
-                    ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
-                       borderColor: "#333", borderWidth: 1 }]
-                },
-                plugins: [ChartDataLabels],
-                options: { layout: { padding: 0 }, plugins: {
-                    title: { display:true, text:`This Year: ${totalBarsThisYearCalc} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
-                    legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
-                    datalabels: {
-                        color: (ctx) => {
-                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
-                            return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
-                        },
-                        font:{weight:"bold",size:10},
-                        formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
-                    }
-                }}
-            });
-
-            new Chart(pieCanvas3.getContext("2d"), {
-                type: "pie",
-                data: {
-                    labels: ["FINAL","EXEC","DP-YES","IN-PROGRESS","IN-QUEUE","PRELIM-IR","NOT-REQ","OTHER"],
-                    datasets: [{ data: [
-                        colorCounts.greenNextYear, colorCounts.purpleNextYear,
-                        colorCounts.blueNextYear,  colorCounts.yellowNextYear,
-                        colorCounts.redNextYear,   colorCounts.blackNextYear,
-                        colorCounts.silverNextYear, colorCounts.whiteNextYear,
-                    ], backgroundColor: ["#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"],
-                       borderColor: "#333", borderWidth: 1 }]
-                },
-                plugins: [ChartDataLabels],
-                options: { layout: { padding: 0 }, plugins: {
-                    title: { display:true, text:`Next Year (Budget): ${totalBarsNextYear} Wells`, color: anChartColor(), font:{size:14,weight:"normal"} },
-                    legend: { position:"left", labels:{ color: anChartColor(), font:{ size:9 }, boxWidth:12, padding:6 } },
-                    datalabels: {
-                        color: (ctx) => {
-                            const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff"];
-                            return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
-                        },
-                        font:{weight:"bold",size:10},
-                        formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
-                    }
-                }}
-            });
+            // REMOVED 2026-09-24: the status summary table (summaryTable2) and
+            // the This Year / Next Year pies that sat under the Gantt were
+            // removed per user. Totals are now shown by the "TOTAL" pie in the
+            // Snapshot section (renderSnapshotSection), which follows the
+            // selected year tick-boxes. colorCounts is still computed above
+            // (Gantt bar colours use the same switch) but no longer rendered.
 
             // Accumulate into compiledRows for the all-VP summary at the bottom
             // Note: compiledRows is accumulated globally across all filter renders
