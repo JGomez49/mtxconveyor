@@ -2333,6 +2333,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <button class="gantt-reset-btn" id="ganttResetBtn2">Reset Filters</button>
                 </div>
                 <div class="gantt-plot-wrap">
+                    <!-- ADDED 2026-09-25: exports the currently filtered Gantt bars
+                         (lastFilteredBars2) to .xlsx — see ganttExportExcel2(). -->
+                    <div class="m-2" style="display:flex;justify-content:flex-end;">
+                        <button type="button" class="gantt-reset-btn" id="ganttExportExcelBtn2" style="width:auto;padding:4px 12px;">&#11015; Download Excel</button>
+                    </div>
                     <div id="chartDiv2" class="m-2"></div>
 
                     <!-- ADDED 2026-09-14: "Snapshot" section — per-year, per-Main-Area
@@ -2920,13 +2925,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const isForcedInSetupQueue    = isInSetupQueueTable === true;
         const isForcedInDesignQueue   = isInDesignQueueTable === true;
         const isForcedInBlackOpsQueue = isInBlackOpsQueueTable === true;
+        // ADDED 2026-09-25: same "fully approved" test that draws the green
+        // upper-corner triangle on Gantt bars (isFullyApproved in
+        // ganttRenderChart2): Drill OK = "YES-Drill" AND Geo OK = "YES-Geo".
+        const isFullyApproved =
+            String(siteObj.drillok).trim().toUpperCase() === "YES-DRILL" &&
+            String(siteObj.geook).trim().toUpperCase() === "YES-GEO";
 
         switch(true){
             // CHANGED 2026-09-24: orange case now its own bucket (was "FINAL").
             case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
                 return "VENDOR ON IT";
             case type === "FINAL":
-                return "VENDOR DP";
+                // CHANGED 2026-09-25: approved green -> "FINAL DP".
+                return isFullyApproved ? "FINAL DP" : "VENDOR DP";
             case isForcedInProgress:
                 return "IN PROGRESS";
             case isForcedInSetupQueue:
@@ -2940,7 +2952,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             case type === "EXEC":
                 return "HANDED OVER";
             case dpYes:
-                return "DP-YES";
+                // CHANGED 2026-09-25: approved blue -> "APPROVED DP".
+                return isFullyApproved ? "APPROVED DP" : "DP-YES";
             case dpReq === "" || dpReq === " ":
                 return "NOT REQUESTED";
             default:
@@ -3016,13 +3029,126 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // colours for NEED INFO (#555555) and ERRORS (#FFFFFF) intentionally left
     // as-is (white = errors in the Gantt; red is reserved for IN QUEUE).
     // Labels double as the count keys returned by classifySiteObj().
-    const SNAPSHOT_LABELS = ["VENDOR ON IT","VENDOR DP","HANDED OVER","DP-YES","IN PROGRESS","IN QUEUE","NEED INFO","NOT REQUESTED","ERRORS"];
-    const SNAPSHOT_COLORS = ["#ff8c00","#4caf50","#B11FDF","#0084c7","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
+    // CHANGED 2026-09-25: added "FINAL DP" (#1b5e20, approved VENDOR DP) and
+    // "APPROVED DP" (#004d80, approved DP-YES) — "approved" = the green
+    // corner rule (Drill OK YES-Drill AND Geo OK YES-Geo). Pie/bar order puts
+    // each right after its parent; the table uses SNAPSHOT_TABLE_ORDER
+    // below (user-specified column order). Approved jobs are no longer
+    // counted in their parent bucket, so totals are unchanged.
+    const SNAPSHOT_LABELS = ["VENDOR ON IT","VENDOR DP","FINAL DP","HANDED OVER","DP-YES","APPROVED DP","IN PROGRESS","IN QUEUE","NEED INFO","NOT REQUESTED","ERRORS"];
+    const SNAPSHOT_COLORS = ["#ff8c00","#4caf50","#1b5e20","#B11FDF","#0084c7","#004d80","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
+    // Table columns: [label, header bg, header fg, green approved corner?]
+    const SNAPSHOT_TABLE_ORDER = [
+        ["FINAL DP",      "#1b5e20", "#ffffff", true ],
+        ["VENDOR ON IT",  "#ff8c00", "#020202", false],
+        ["VENDOR DP",     "#4caf50", "#020202", false],
+        ["HANDED OVER",   "#B11FDF", "#ffffff", false],
+        ["APPROVED DP",   "#004d80", "#ffffff", true ],
+        ["DP-YES",        "#0084c7", "#020202", false],
+        ["IN PROGRESS",   "#ffff00", "#020202", false],
+        ["IN QUEUE",      "#ff4c4c", "#ffffff", false],
+        ["NEED INFO",     "#37474f", "#ffffff", false],
+        ["NOT REQUESTED", "#C0C0C0", "#020202", false],
+        ["ERRORS",        "#c0392b", "#ffffff", false],
+    ];
+    // Same green (#39ff14) triangle as anCornerTrianglePlugin on the Gantt.
+    const SNAPSHOT_CORNER_HTML = '<span style="position:absolute;top:0;right:0;width:0;height:0;border-top:14px solid #39ff14;border-left:14px solid transparent;"></span>';
     const SNAPSHOT_AREAS  = ["East","Central","West","Thermal"];
 
     function snapshotEmptyCounts(){
         const o = {}; SNAPSHOT_LABELS.forEach(l => o[l] = 0); return o;
     }
+
+    // ADDED 2026-09-25: "Download Excel" for the New Schedule Gantt. Exports
+    // exactly the bars the Gantt is drawing: lastFilteredBars2 (sidebar
+    // filters applied) with a valid start date, incl. Batch Days pre-bars
+    // (flagged). Status = classifySiteObj() bucket (same as the Snapshot
+    // pies/table), cell filled with that bucket's SNAPSHOT_COLORS colour.
+    // "Approved (Drill+Geo)" = same rule as the green Gantt corner.
+    // ExcelJS 4.4.0 is lazy-loaded from jsDelivr on first click so that
+    // partials/footer.ejs (where the other CDN scripts live) is untouched.
+    function ganttLoadExcelJS2(){
+        if(typeof ExcelJS !== 'undefined') return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            sc.onload = () => resolve();
+            sc.onerror = () => reject(new Error('Could not load ExcelJS from cdn.jsdelivr.net'));
+            document.head.appendChild(sc);
+        });
+    }
+    function ganttExportMsg2(msg){ console.warn('[ganttExportExcel2] ' + msg); try{ alert(msg); }catch(e){} }
+
+    async function ganttExportExcel2(){
+        const bars = (lastFilteredBars2 || []).filter(b => b.start && !isNaN(b.start));
+        if(!bars.length){ ganttExportMsg2('No Gantt rows to export with the current filters.'); return; }
+        await ganttLoadExcelJS2();
+
+        const fmtDate = d => {
+            if(!d || isNaN(d)) return '';
+            const x = new Date(d);
+            return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+        };
+        const colorOf = label => {
+            const i = SNAPSHOT_LABELS.indexOf(label);
+            return i >= 0 ? SNAPSHOT_COLORS[i] : '#FFFFFF';
+        };
+        const darkText = ['#ff8c00','#4caf50','#0084c7','#ffff00','#c0c0c0','#ffffff'];
+
+        const cols = [
+            ['Status',16],['Approved (Drill+Geo)',12],['Batch Days bar',10],
+            ['Rig',16],['Site',20],['Well',20],['ETS',12],['VP',14],['Group',8],['Year',8],
+            ['Exploration Mgr',18],['Type',14],['Start',12],['End',12],['Duration (days)',10],
+            ['DP',12],['DP Company',16],['DP Requested',12],['DP Received',12],
+            ['Drill OK',12],['Geo OK',12],['Geo',14],['Version',10],['Primary Zone',16],
+            ['D.E',14],['Surface Lat',12],['Surface Lon',12],
+        ];
+
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Gantt');
+        ws.columns = cols.map(([header,width]) => ({ header, width }));
+        ws.getRow(1).font = { bold: true };
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+        ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+
+        bars.slice().sort((a,b) => String(a.rig||'').localeCompare(String(b.rig||'')) || (a.start - b.start)).forEach(b => {
+            const siteKey = String(b.site || '').slice(0,14);
+            const status = classifySiteObj(b,
+                inProgressSites.has(siteKey), inSetupQueueSites.has(siteKey),
+                inDesignQueueSites.has(siteKey), inBlackOpsQueueSites.has(siteKey));
+            const approved = String(b.drillok).trim().toUpperCase() === 'YES-DRILL' &&
+                             String(b.geook).trim().toUpperCase() === 'YES-GEO';
+            const end = new Date(b.start.getTime() + (Number(b.duration)||0) * 86400000);
+            const row = ws.addRow([
+                status, approved ? 'Yes' : 'No', b.isBatchDaysBar ? 'Yes' : 'No',
+                b.rig, b.site, b.well, b.ETS, b.vp, b.group, b.year,
+                b.explMgr, b.type, fmtDate(b.start), fmtDate(end), Number(b.duration)||0,
+                b.dp, b.dpCompany, b.dpReq, b.dpReceivedDate,
+                b.drillok, b.geook, b.geo, b.version, b.primaryZone,
+                b.de || (ganttNotesMap[siteKey] || {}).de || '',
+                (b.surfaceLat ?? ''), (b.surfaceLon ?? ''),
+            ]);
+            const hex = colorOf(status);
+            const c = row.getCell(1);
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + hex.replace('#','').toUpperCase() } };
+            c.font = { bold: true, color: { argb: darkText.includes(hex.toLowerCase()) ? 'FF000000' : 'FFFFFFFF' } };
+            if(approved){
+                row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF39FF14' } };
+            }
+        });
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Gantt_filtered_' + fmtDate(new Date()) + '.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('ganttExportExcelBtn2');
+        if(btn) btn.addEventListener('click', () => { ganttExportExcel2().catch(e => ganttExportMsg2('Export failed: ' + e.message)); });
+    });
 
     function renderSnapshotSection(){
         // ADDED 2026-09-14: read the module-scoped toggle state at the top of
@@ -3268,22 +3394,16 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             <thead>
                 <tr>
                     <th ${thStyle("transparent","white")}>YEAR</th>
-                    <th ${thStyle("#ff8c00","#020202")}>VENDOR ON IT</th>
-                    <th ${thStyle("#4caf50","#020202")}>VENDOR DP</th>
-                    <th ${thStyle("#B11FDF","#ffffff")}>HANDED OVER</th>
-                    <th ${thStyle("#0084c7","#020202")}>DP-YES</th>
-                    <th ${thStyle("#ffff00","#020202")}>IN PROGRESS</th>
-                    <th ${thStyle("#ff4c4c","#ffffff")}>IN QUEUE</th>
-                    <th ${thStyle("#37474f","#ffffff")}>NEED INFO</th>
-                    <th ${thStyle("#C0C0C0","#020202")}>NOT REQUESTED</th>
-                    <th ${thStyle("#c0392b","#ffffff")}>ERRORS</th>
+                    ${SNAPSHOT_TABLE_ORDER.map(([l,bg,fg,corner]) => corner
+                        ? `<th ${thStyle(bg,fg).replace('style="','style="position:relative;')}>${l}${SNAPSHOT_CORNER_HTML}</th>`
+                        : `<th ${thStyle(bg,fg)}>${l}</th>`).join('')}
                     <th ${totalHdr}>TOTAL</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td ${tdStyle}>${year}</td>
-                    ${SNAPSHOT_LABELS.map(l => `<td ${tdStyle}>${combined[l]}</td>`).join('')}
+                    ${SNAPSHOT_TABLE_ORDER.map(([l]) => `<td ${tdStyle}>${combined[l]}</td>`).join('')}
                     <td ${tdStyle}><b>${combinedTotal}</b></td>
                 </tr>
             </tbody>`;
@@ -3762,6 +3882,20 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         label: { enabled: true, content: "+4 Months", position: "start", color: "#000000", font: { weight: "bold" } },
                                     },
                                 } : {}),
+                                // ADDED 2026-09-25: +9 months line, per user — green,
+                                // dashed, glowing. Same date arithmetic as the
+                                // +3/+4 month lines above. Glow uses the annotation
+                                // plugin's own line options borderShadowColor +
+                                // shadowBlur (chartjs-plugin-annotation 3.1.0, loaded
+                                // in this file). Shown to all roles.
+                                nineMonthLine: {
+                                    type: "line",
+                                    xMin: new Date(today.getFullYear(), today.getMonth() + 9, today.getDate()),
+                                    xMax: new Date(today.getFullYear(), today.getMonth() + 9, today.getDate()),
+                                    borderColor: "#39ff14", borderWidth: 3, borderDash: [8, 6],
+                                    borderShadowColor: "#39ff14", shadowBlur: 12, shadowOffsetX: 0, shadowOffsetY: 0,
+                                    label: { enabled: true, content: "+9 Months", position: "start", color: "#39ff14", font: { weight: "bold" } },
+                                },
                                 // Jan 1 lines — one per year from this year to absoluteMax year
                                 ...Object.fromEntries(
                                     Array.from({ length: 3 }, (_, i) => {
