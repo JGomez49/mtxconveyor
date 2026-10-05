@@ -325,6 +325,9 @@ canvas {
 .table th[style*="background-color:#C0C0C0"],
 .table th[style*="background-color:#c0C0C0"] { background-color:#C0C0C0 !important; color:#020202 !important; }
 .table th[style*="background-color:#c0392b"] { background-color:#c0392b !important; color:#ffffff !important; }
+/* ADDED 2026-10-05: Vendor On It now cyan #00FFFF w/ black text; ERRORS header now white w/ black text (boss email). */
+.table th[style*="background-color:#00FFFF"] { background-color:#00FFFF !important; color:#020202 !important; }
+.table th[style*="background-color:#FFFFFF"] { background-color:#FFFFFF !important; color:#020202 !important; }
 /* Need Info - also handle old #000000 just in case */
 .table th[style*="background-color:#000000"],
 .table th[style*="background-color: #000000"] { background-color:#37474f !important; color:#ffffff !important; }
@@ -2544,7 +2547,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const cols = [
             // CHANGED 2026-09-24: Vendor On It column added, FINAL -> VENDOR DP.
             // NOTE: renderCompiledSummary() is not called anywhere in this file today.
-            { key: 'orangeThisYear', label: 'VENDOR ON IT',     bg: '#ff8c00', fg: '#020202' },
+            { key: 'orangeThisYear', label: 'VENDOR ON IT',     bg: '#00FFFF', fg: '#020202' }, // CHANGED 2026-10-05: orange -> cyan
             { key: 'greenThisYear',  label: 'VENDOR DP',        bg: '#4caf50', fg: '#020202' },
             { key: 'purpleThisYear', label: 'HANDED OVER',      bg: '#B11FDF', fg: '#ffffff' },
             { key: 'blueThisYear',   label: 'DP-YES',           bg: '#0084c7', fg: '#020202' },
@@ -3035,21 +3038,29 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // each right after its parent; the table uses SNAPSHOT_TABLE_ORDER
     // below (user-specified column order). Approved jobs are no longer
     // counted in their parent bucket, so totals are unchanged.
-    const SNAPSHOT_LABELS = ["VENDOR ON IT","VENDOR DP","FINAL DP","HANDED OVER","DP-YES","APPROVED DP","IN PROGRESS","IN QUEUE","NEED INFO","NOT REQUESTED","ERRORS"];
-    const SNAPSHOT_COLORS = ["#ff8c00","#4caf50","#1b5e20","#B11FDF","#0084c7","#004d80","#ffff00","#ff4c4c","#555555","#C0C0C0","#FFFFFF"];
+    // CHANGED 2026-10-05 (boss email): pie slices/legends now follow the same
+    // order as the Snapshot table (Errors -> ... -> Final DP), and Vendor On It
+    // changed from orange #ff8c00 to cyan #00FFFF (black text). Bucket keys are
+    // looked up by label everywhere, so reordering doesn't change any counts.
+    const SNAPSHOT_LABELS = ["ERRORS","NOT REQUESTED","NEED INFO","IN QUEUE","IN PROGRESS","DP-YES","APPROVED DP","HANDED OVER","VENDOR ON IT","VENDOR DP","FINAL DP"];
+    const SNAPSHOT_COLORS = ["#FFFFFF","#C0C0C0","#555555","#ff4c4c","#ffff00","#0084c7","#004d80","#B11FDF","#00FFFF","#4caf50","#1b5e20"];
     // Table columns: [label, header bg, header fg, green approved corner?]
+    // CHANGED 2026-10-05 (boss email): new column order Year, Errors, Not Requested,
+    // Need Info, In Queue, In Progress, DP-Yes, Approved DP, Handed Over,
+    // Vendor On It, Vendor DP, Final DP (Total stays last). Vendor On It ->
+    // cyan #00FFFF/black; ERRORS header -> white #FFFFFF/black (was #c0392b/white).
     const SNAPSHOT_TABLE_ORDER = [
-        ["FINAL DP",      "#1b5e20", "#ffffff", true ],
-        ["VENDOR ON IT",  "#ff8c00", "#020202", false],
-        ["VENDOR DP",     "#4caf50", "#020202", false],
-        ["HANDED OVER",   "#B11FDF", "#ffffff", false],
-        ["APPROVED DP",   "#004d80", "#ffffff", true ],
-        ["DP-YES",        "#0084c7", "#020202", false],
-        ["IN PROGRESS",   "#ffff00", "#020202", false],
-        ["IN QUEUE",      "#ff4c4c", "#ffffff", false],
-        ["NEED INFO",     "#37474f", "#ffffff", false],
+        ["ERRORS",        "#FFFFFF", "#020202", false],
         ["NOT REQUESTED", "#C0C0C0", "#020202", false],
-        ["ERRORS",        "#c0392b", "#ffffff", false],
+        ["NEED INFO",     "#37474f", "#ffffff", false],
+        ["IN QUEUE",      "#ff4c4c", "#ffffff", false],
+        ["IN PROGRESS",   "#ffff00", "#020202", false],
+        ["DP-YES",        "#0084c7", "#020202", false],
+        ["APPROVED DP",   "#004d80", "#ffffff", true ],
+        ["HANDED OVER",   "#B11FDF", "#ffffff", false],
+        ["VENDOR ON IT",  "#00FFFF", "#020202", false],
+        ["VENDOR DP",     "#4caf50", "#020202", false],
+        ["FINAL DP",      "#1b5e20", "#ffffff", true ],
     ];
     // Same green (#39ff14) triangle as anCornerTrianglePlugin on the Gantt.
     const SNAPSHOT_CORNER_HTML = '<span style="position:absolute;top:0;right:0;width:0;height:0;border-top:14px solid #39ff14;border-left:14px solid transparent;"></span>';
@@ -3093,7 +3104,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const i = SNAPSHOT_LABELS.indexOf(label);
             return i >= 0 ? SNAPSHOT_COLORS[i] : '#FFFFFF';
         };
-        const darkText = ['#ff8c00','#4caf50','#0084c7','#ffff00','#c0c0c0','#ffffff'];
+        const darkText = ['#00ffff', /* 2026-10-05: was #ff8c00 */'#4caf50','#0084c7','#ffff00','#c0c0c0','#ffffff'];
 
         const cols = [
             ['Status',16],['Approved (Drill+Geo)',12],['Batch Days bar',10],
@@ -3311,7 +3322,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                 datalabels: {
                                     color: (ctx) => {
                                         const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#ff8c00"]; // #ff8c00 added 2026-09-24 (Vendor On It)
+                                        const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#00FFFF"]; // Vendor On It: #ff8c00 (2026-09-24) -> #00FFFF (2026-10-05)
                                         return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                                     },
                                     font:{weight:"bold",size:22.5},
@@ -3382,18 +3393,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const thStyle = (bg, fg) => {
                 let useFg = fg;
                 if(isLightMode && (bg==="transparent"||bg==="#transparent")) useFg = "#212529";
-                return `style="text-align:center;background-color:${bg};color:${useFg};font-size:1.875rem !important;padding:4px 6px;"`;
+                // CHANGED 2026-10-05: color now !important. The global rule
+                // `.table th { color: var(--an-text-dim) !important; }` was beating the
+                // plain inline color, so headers without their own per-colour CSS
+                // override (YEAR, APPROVED DP #004d80, FINAL DP #1b5e20, TOTAL) showed
+                // dim grey text instead of their intended white. Inline !important wins.
+                return `style="text-align:center;background-color:${bg};color:${useFg} !important;font-size:1.875rem !important;padding:4px 6px;"`;
             };
             const totalHdr = isLightMode
-                ? 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529;"'
-                : 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;"';
+                ? 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529 !important;"'
+                : 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;color:#ffffff !important;"'; // 2026-10-05: white TOTAL text (was dim grey)
 
             const table = document.createElement('table');
             table.className = 'table table-dark table-sm table-bordered table-hover mt-2';
             table.innerHTML = `
             <thead>
                 <tr>
-                    <th ${thStyle("transparent","white")}>YEAR</th>
+                    <th style="text-align:center;background:#000000 !important;color:#ffffff !important;font-size:1.875rem !important;padding:4px 6px;">YEAR</th><!-- CHANGED 2026-10-05: YEAR header bg black in both themes. Uses "background:" not "background-color:" on purpose: the CSS rules th[style*="background-color:#000000"] repaint #000000 as #37474f. --><!-- CHANGED 2026-10-05: YEAR header bg is always dark grey, so text is always white in both themes (was thStyle("transparent","white"), which switched to #212529 in light mode) -->
                     ${SNAPSHOT_TABLE_ORDER.map(([l,bg,fg,corner]) => corner
                         ? `<th ${thStyle(bg,fg).replace('style="','style="position:relative;')}>${l}${SNAPSHOT_CORNER_HTML}</th>`
                         : `<th ${thStyle(bg,fg)}>${l}</th>`).join('')}
@@ -3451,7 +3467,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     datalabels: {
                         color: (ctx) => {
                             const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#ff8c00"];
+                            const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#00FFFF"]; // 2026-10-05: Vendor On It orange -> cyan
                             return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                         },
                         font:{weight:"bold",size:22.5},
@@ -3606,7 +3622,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     case (type === "FINAL" && !nsIsEmptyDateField(dpReq) && nsIsEmptyDateField(siteObj.dpReceivedDate)):
                         // CHANGED 2026-09-24: counted as its own "VENDOR ON IT"
                         // bucket (was added to green/FINAL).
-                        colors.push("#ff8c00");
+                        colors.push("#00FFFF"); // CHANGED 2026-10-05: Vendor On It orange #ff8c00 -> cyan #00FFFF
                         if(countable) colorCounts.orange++;
                         if(countableForThisYear) colorCounts.orangeThisYear++;
                         if(countableForNextYear) colorCounts.orangeNextYear++;
@@ -3844,7 +3860,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         datalabels: {
                             color: (ctx) => {
                                 const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
-                                const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#c0c0c0"];
+                                const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#c0c0c0","#00FFFF"]; // 2026-10-05: black label on cyan Vendor On It bars
                                 return lightBgs.some(c => bg.toLowerCase() === c.toLowerCase()) ? "#000000" : "#ffffff";
                             },
                             font: { size: 10, weight: "bold" },
