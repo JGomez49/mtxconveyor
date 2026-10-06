@@ -3050,9 +3050,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // Vendor On It, Vendor DP, Final DP (Total stays last). Vendor On It ->
     // cyan #00FFFF/black; ERRORS header -> white #FFFFFF/black (was #c0392b/white).
     const SNAPSHOT_TABLE_ORDER = [
-        ["ERRORS",        "#FFFFFF", "#020202", false],
+        ["ERRORS",        "#FFFFFF", "#ff0000", false], // 2026-10-06: red text on white (boss)
         ["NOT REQUESTED", "#C0C0C0", "#020202", false],
-        ["NEED INFO",     "#37474f", "#ffffff", false],
+        ["NEED INFO",     "#000000", "#ffffff", false], // 2026-10-06: black bg (was #37474f), white text (boss)
         ["IN QUEUE",      "#ff4c4c", "#ffffff", false],
         ["IN PROGRESS",   "#ffff00", "#020202", false],
         ["DP-YES",        "#0084c7", "#020202", false],
@@ -3398,18 +3398,24 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 // plain inline color, so headers without their own per-colour CSS
                 // override (YEAR, APPROVED DP #004d80, FINAL DP #1b5e20, TOTAL) showed
                 // dim grey text instead of their intended white. Inline !important wins.
-                return `style="text-align:center;background-color:${bg};color:${useFg} !important;font-size:1.875rem !important;padding:4px 6px;"`;
+                // CHANGED 2026-10-06: "background:" + !important instead of "background-color:".
+                // The stylesheet's th[style*="background-color:#..."] rules force their own
+                // colours (e.g. #000000 -> #37474f, #FFFFFF -> black text), which blocked the
+                // boss's requested header colours (NEED INFO black, ERRORS red text). Using
+                // "background:" means those selectors no longer match this table, so the
+                // values in SNAPSHOT_TABLE_ORDER are exactly what renders in both themes.
+                return `style="text-align:center;background:${bg} !important;color:${useFg} !important;font-size:1.875rem !important;padding:4px 6px;"`;
             };
             const totalHdr = isLightMode
-                ? 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#e9ecef;color:#212529 !important;"'
-                : 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;color:#ffffff !important;"'; // 2026-10-05: white TOTAL text (was dim grey)
+                ? 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#ffffff !important;color:#000000 !important;"'
+                : 'style="text-align:center;font-size:1.875rem !important;font-weight:bold;padding:4px 6px;background:#ffffff !important;color:#000000 !important;"'; // CHANGED 2026-10-06: TOTAL white bg / black text in both themes (boss)
 
             const table = document.createElement('table');
             table.className = 'table table-dark table-sm table-bordered table-hover mt-2';
             table.innerHTML = `
             <thead>
                 <tr>
-                    <th style="text-align:center;background:#000000 !important;color:#ffffff !important;font-size:1.875rem !important;padding:4px 6px;">YEAR</th><!-- CHANGED 2026-10-05: YEAR header bg black in both themes. Uses "background:" not "background-color:" on purpose: the CSS rules th[style*="background-color:#000000"] repaint #000000 as #37474f. --><!-- CHANGED 2026-10-05: YEAR header bg is always dark grey, so text is always white in both themes (was thStyle("transparent","white"), which switched to #212529 in light mode) -->
+                    <th style="text-align:center;background:#ffffff !important;color:#000000 !important;font-size:1.875rem !important;padding:4px 6px;">YEAR</th><!-- CHANGED 2026-10-06: YEAR white bg / black text in both themes (boss; was black/white) --><!-- CHANGED 2026-10-05: YEAR header bg black in both themes. Uses "background:" not "background-color:" on purpose: the CSS rules th[style*="background-color:#000000"] repaint #000000 as #37474f. --><!-- CHANGED 2026-10-05: YEAR header bg is always dark grey, so text is always white in both themes (was thStyle("transparent","white"), which switched to #212529 in light mode) -->
                     ${SNAPSHOT_TABLE_ORDER.map(([l,bg,fg,corner]) => corner
                         ? `<th ${thStyle(bg,fg).replace('style="','style="position:relative;')}>${l}${SNAPSHOT_CORNER_HTML}</th>`
                         : `<th ${thStyle(bg,fg)}>${l}</th>`).join('')}
@@ -3747,7 +3753,10 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
             // ── Gantt chart ──────────────────────────────────────────────────────
             const minDate     = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
-            const defaultMax  = new Date(today.getFullYear(), today.getMonth() + 5, today.getDate()); // default visible window
+            // CHANGED 2026-10-06: default visible window now ends 1 year from today
+            // (was today + 5 months). Start (today - 7 days) and the 2-year pan/zoom
+            // limit (absoluteMax) are unchanged.
+            const defaultMax  = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()); // default visible window
             const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
 
             const canvasH = Math.max(200, rigSet.length * 40);

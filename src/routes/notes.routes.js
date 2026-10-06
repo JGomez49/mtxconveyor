@@ -49,6 +49,7 @@ const {
     renderUploadCasingDesign,
     renderBanner,
     saveBanner,
+    uploadBanner,
     deleteLogEntry,
     saveBatchDays,
     renderUploadNewSchedule,
@@ -246,6 +247,7 @@ router.post('/notes/batchDays/:noteId',  isAuthenticated, saveBatchDays);
 router.get('/notes/uploadNewSchedule',  isAuthenticated, renderUploadNewSchedule);
 router.post('/notes/uploadNewSchedule', isAuthenticated, uploadNewSchedule);
 router.post('/notes/banner',            isAuthenticated, saveBanner);
+router.post('/notes/banner/upload',     isAuthenticated, uploadBanner); // ADDED 2026-10-06: one-button banner upload (Cloudinary + MongoDB)
 
 //Wellbore 3D Trajectory (per job/note)
 router.post('/notes/wellboreTrajectory/upload/:id', isAuthenticated, uploadWellboreTrajectory);

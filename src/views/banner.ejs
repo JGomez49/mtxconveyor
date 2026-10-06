@@ -20,7 +20,23 @@
         </div>
     </div>
 
-    <!-- URL input -->
+    <!-- ADDED 2026-10-06: one-button upload. The file goes to POST /notes/banner/upload,
+         which uploads it to Cloudinary and saves the URL in MongoDB (SiteConfig).
+         No more manual Cloudinary step. The URL box below is kept as a fallback. -->
+    <div class="mb-4">
+        <label class="form-label" style="font-size:12px;font-family:monospace;">Upload New Banner</label>
+        <input id="bannerFileInput" type="file" accept="image/*" style="display:none;">
+        <div class="d-flex gap-2 align-items-center">
+            <button id="uploadBtn" class="btn btn-sm btn-primary">⬆ Upload Banner Image</button>
+            <span id="uploadFileName" style="font-size:11px;color:#5a7080;font-family:monospace;"></span>
+        </div>
+        <div style="font-size:10px;color:#5a7080;margin-top:4px;">
+            Pick an image and it is uploaded and set as the Sign In banner right away.
+            The previous uploaded banner is removed from Cloudinary.
+        </div>
+    </div>
+
+    <!-- URL input (fallback) -->
     <div class="mb-3">
         <label class="form-label" style="font-size:12px;font-family:monospace;">Banner Image URL</label>
         <input id="bannerUrlInput" type="url" class="form-control form-control-sm"
@@ -47,6 +63,41 @@
 const urlInput  = document.getElementById('bannerUrlInput');
 const preview   = document.getElementById('bannerPreview');
 const statusMsg = document.getElementById('statusMsg');
+
+// ADDED 2026-10-06: one-button upload -> Cloudinary + MongoDB (backend does all of it).
+const fileInput  = document.getElementById('bannerFileInput');
+const uploadBtn  = document.getElementById('uploadBtn');
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { statusMsg.textContent = '⚠ Please choose an image file.'; return; }
+    document.getElementById('uploadFileName').textContent = file.name;
+    // Show the picked image immediately while it uploads.
+    const localUrl = URL.createObjectURL(file);
+    preview.src = localUrl; preview.style.display = '';
+    uploadBtn.disabled = true;
+    statusMsg.textContent = 'Uploading…';
+    try {
+        const fd = new FormData();
+        fd.append('image', file);   // field name must be "image" (global multer in server.js)
+        const res  = await fetch('/notes/banner/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (res.ok) {
+            preview.src = data.bannerUrl;
+            URL.revokeObjectURL(localUrl);
+            urlInput.value = data.bannerUrl;
+            statusMsg.textContent = '✅ Banner uploaded and saved. It will appear on the Sign In page immediately.';
+        } else {
+            statusMsg.textContent = '❌ Upload failed: ' + (data.error || res.statusText);
+        }
+    } catch (e) {
+        statusMsg.textContent = '❌ Error: ' + e.message;
+    } finally {
+        uploadBtn.disabled = false;
+        fileInput.value = '';
+    }
+});
 
 document.getElementById('previewBtn').addEventListener('click', () => {
     const url = urlInput.value.trim();

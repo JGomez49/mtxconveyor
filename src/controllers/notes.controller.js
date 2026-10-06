@@ -1774,17 +1774,60 @@ notesCrtl.renderBanner = async (req, res) => {
 };
 
 notesCrtl.saveBanner = async (req, res) => {
+    // Manual-URL path (kept as a fallback). CHANGED 2026-10-06: if the previous
+    // banner was one we uploaded to Cloudinary (bannerPublicId set), delete it
+    // there and clear bannerPublicId, so Cloudinary doesn't collect orphans.
     try {
         const { bannerUrl } = req.body;
-        await SiteConfig.findOneAndUpdate(
-            { key: 'bannerUrl' },
-            { key: 'bannerUrl', value: bannerUrl || '', updatedBy: req.user._id, updatedAt: new Date() },
-            { upsert: true, new: true }
-        );
+        await destroyStoredBannerImage();
+        await setSiteConfig('bannerPublicId', '', req.user._id);
+        await setSiteConfig('bannerUrl', bannerUrl || '', req.user._id);
         res.json({ success: true });
     } catch(e) {
         console.error('saveBanner:', e);
         res.status(500).json({ error: e.message });
+    }
+};
+
+// ADDED 2026-10-06: one-button banner upload. Before this, the user had to
+// upload the picture to Cloudinary by hand and paste its URL here. Now the
+// browser POSTs the file (multipart field "image", picked up by the global
+// multer middleware in server.js, same as job.ejs uploadImage), the backend
+// uploads it to Cloudinary, stores URL + public_id in SiteConfig (MongoDB),
+// deletes the previous uploaded banner from Cloudinary, and removes the temp
+// file from public/img/uploads.
+async function setSiteConfig(key, value, userId) {
+    return SiteConfig.findOneAndUpdate(
+        { key },
+        { key, value: value || '', updatedBy: userId, updatedAt: new Date() },
+        { upsert: true, new: true }
+    );
+}
+async function destroyStoredBannerImage() {
+    const cfg = await SiteConfig.findOne({ key: 'bannerPublicId' }).lean();
+    if (cfg && cfg.value) {
+        try { await cloudinary.v2.uploader.destroy(cfg.value); }
+        catch (e) { console.error('destroyStoredBannerImage (non-fatal):', e.message); }
+    }
+}
+
+notesCrtl.uploadBanner = async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No image file received.' });
+    try {
+        if (!/^image\//.test(req.file.mimetype || '')) {
+            return res.status(400).json({ error: 'File must be an image (PNG, JPG, GIF, WEBP...).' });
+        }
+        const result = await cloudinary.v2.uploader.upload(req.file.path, { folder: 'mtx-banner' });
+        // Only remove the old banner after the new one uploaded successfully.
+        await destroyStoredBannerImage();
+        await setSiteConfig('bannerUrl', result.secure_url, req.user._id);
+        await setSiteConfig('bannerPublicId', result.public_id, req.user._id);
+        res.json({ success: true, bannerUrl: result.secure_url });
+    } catch (e) {
+        console.error('uploadBanner:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        try { await unlink(req.file.path); } catch (_) { /* temp file already gone */ }
     }
 };
 
