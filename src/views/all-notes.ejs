@@ -2340,6 +2340,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                          (lastFilteredBars2) to .xlsx — see ganttExportExcel2(). -->
                     <div class="m-2" style="display:flex;justify-content:flex-end;">
                         <button type="button" class="gantt-reset-btn" id="ganttExportExcelBtn2" style="width:auto;padding:4px 12px;">&#11015; Download Excel</button>
+                        <!-- ADDED 2026-10-06: one slide per area (East/Central/West/Thermal) — see ganttExportPptx2(). -->
+                        <button type="button" class="gantt-reset-btn" id="ganttExportPptxBtn2" style="width:auto;padding:4px 12px;margin-left:6px;">&#11015; Download PowerPoint</button>
                     </div>
                     <div id="chartDiv2" class="m-2"></div>
 
@@ -3161,6 +3163,194 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         if(btn) btn.addEventListener('click', () => { ganttExportExcel2().catch(e => ganttExportMsg2('Export failed: ' + e.message)); });
     });
 
+    // ── PowerPoint export ───────────────────────────────────────────────────
+    // ADDED 2026-10-06: "Download PowerPoint" button. Builds a .pptx in the
+    // browser (PptxGenJS 3.12.0 from cdn.jsdelivr.net, loaded on first click,
+    // same pattern as ganttLoadExcelJS2) with ONE SLIDE PER AREA (East,
+    // Central, West, Thermal — areas with no wells and "Unassigned" skipped).
+    // Each slide: title / years / report date / group (from the page's Year
+    // tick-boxes and Group filter), the "Targeted Times per Phase" box, an area
+    // banner, the Gantt for that area's rigs (rendered off-screen by
+    // ganttRenderChart2(bars, {targetDiv, width}) over the same default window
+    // as the screen: today-7d .. today+1yr, inserted as a picture), a native
+    // (editable) pie of that area's totals, and a native (editable) status
+    // table, one row per year, same column order / header colours / green
+    // approved corners as the on-screen Snapshot table. Data source is
+    // lastFilteredBars2, i.e. it respects the current sidebar filters, and
+    // buckets come from classifySiteObj(), same as the Snapshot section.
+    function ganttLoadPptx2(){
+        if(typeof PptxGenJS !== 'undefined') return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+            sc.onload = () => resolve();
+            sc.onerror = () => reject(new Error('Could not load PptxGenJS from cdn.jsdelivr.net'));
+            document.head.appendChild(sc);
+        });
+    }
+
+    async function ganttExportPptx2(){
+        await ganttLoadPptx2();
+        const hex = c => String(c || '#000000').replace('#','').toUpperCase();
+        const vpAreaMap = window.vpAreaMap || {};
+        const allBars = (lastFilteredBars2 || []).filter(b => b && b.site);
+
+        // CHANGED 2026-10-06 (user): table rows, pie and title always cover THIS
+        // year and NEXT year (e.g. 2026 & 2027), regardless of the Snapshot
+        // year tick-boxes (previously used those tick-boxes).
+        const thisYear = new Date().getFullYear();
+        const years = [String(thisYear), String(thisYear + 1)];
+        const groups = ganttGetChecked2('group').filter(g => g && g !== 'Blank');
+
+        const bucketOf = siteObj => {
+            const k = siteObj.site.slice(0, 14);
+            return classifySiteObj(siteObj, inProgressSites.has(k), inSetupQueueSites.has(k),
+                                   inDesignQueueSites.has(k), inBlackOpsQueueSites.has(k));
+        };
+
+        const pptx = new PptxGenJS();
+        pptx.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 in
+        const W = 13.33;
+        const navy = '1F3864';
+        const reportDate = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+        // Off-screen host for the per-area Gantt renders (must be in the DOM).
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;left:-20000px;top:0;width:2000px;';
+        document.body.appendChild(host);
+
+        let slidesMade = 0;
+        try {
+            for(const area of SNAPSHOT_AREAS){
+                const areaBars = allBars.filter(b => vpAreaMap[b.vp] === area);
+                if(!areaBars.length) continue;
+
+                // Counts per year (same rules as renderSnapshotSection).
+                const perYear = {};
+                years.forEach(y => perYear[y] = snapshotEmptyCounts());
+                areaBars.forEach(b => {
+                    const y = String(b.year);
+                    if(perYear[y]) perYear[y][bucketOf(b)]++;
+                });
+                const totalCounts = snapshotEmptyCounts();
+                years.forEach(y => SNAPSHOT_LABELS.forEach(l => totalCounts[l] += perYear[y][l]));
+                const totalWells = SNAPSHOT_LABELS.reduce((s,l) => s + totalCounts[l], 0);
+
+                const slide = pptx.addSlide();
+                slide.background = { color: 'FFFFFF' };
+
+                // Header
+                slide.addText('Directional Planning Readiness', { x:0.25, y:0.12, w:7, h:0.4, fontSize:22, bold:true, color:navy, fontFace:'Arial' });
+                slide.addText(years.join(' & '), { x:0.25, y:0.52, w:7, h:0.35, fontSize:16, bold:true, color:navy, fontFace:'Arial' });
+                slide.addText([
+                    { text:'Report date:   ', options:{ bold:true, color:navy } },
+                    { text: reportDate + '          ', options:{ bold:true, color:navy } },
+                    { text:'Exploration Custom Group: ' + (groups.length ? groups.join(' & ') : '—'), options:{ bold:true, color:navy } },
+                ], { x:0.25, y:0.9, w:7.6, h:0.28, fontSize:9, fontFace:'Arial' });
+
+                // Targeted Times per Phase (static reference box, per user's report).
+                const ph = (a,b,c,fill) => [
+                    { text:a, options:{ italic:true, bold:true, fill:{color:fill} } },
+                    { text:b, options:{ align:'center', fill:{color:fill} } },
+                    { text:c, options:{ fill:{color:fill} } },
+                ];
+                slide.addTable([
+                    [{ text:'Targeted Times per Phase', options:{ bold:true, colspan:2 } }, { text:'Objective', options:{ bold:true } }],
+                    ph('Execution','3 months','DP from vendor approved (Drilling&Geo) ready to drill','FCE4E4'),
+                    ph('Handover','1 month','Send in-house DP to vendor for copy and paste','FFF9E6'),
+                    ph('Prelim Approved','1 month','In-house DP approved for execution (Drilling&Geo)','FFF9E6'),
+                    ph('DP Refinement','4 months','Iterative process of DP by all internal stakeholders','FFFFFF'),
+                    ph('DP Set Up & Creation','more than 9 months','DP requested and folders populated by Geology','FFFFFF'),
+                ], { x:8.0, y:0.1, w:5.1, colW:[1.35,1.05,2.7], fontSize:7, fontFace:'Arial', color:'000000', rowH:0.17, margin:0.02 });
+
+                // Area banner
+                slide.addShape(pptx.ShapeType.rect, { x:0, y:1.25, w:W, h:0.3, fill:{ color:'A6A6A6' }, line:{ color:'A6A6A6' } });
+                slide.addText(area.toUpperCase(), { x:0, y:1.25, w:W, h:0.3, align:'center', valign:'middle', fontSize:13, bold:true, color:'FFFFFF', fontFace:'Arial' });
+
+                // Gantt (picture) — fit inside the box, keep aspect ratio.
+                host.innerHTML = '';
+                const ganttDiv = document.createElement('div');
+                host.appendChild(ganttDiv);
+                const chart = ganttRenderChart2(areaBars, { targetDiv: ganttDiv, width: 1900 });
+                if(chart){
+                    const img = chart.toBase64Image('image/png', 1);
+                    const pxW = chart.width, pxH = chart.height;
+                    const boxX = 0.2, boxY = 1.6, boxW = W - 0.4, boxH = 3.55;
+                    let gw = boxW, gh = boxW * pxH / pxW;
+                    if(gh > boxH){ gh = boxH; gw = boxH * pxW / pxH; }
+                    slide.addImage({ data: img, x: boxX + (boxW - gw) / 2, y: boxY, w: gw, h: gh });
+                    chart.destroy();
+                }
+
+                // Pie (native chart) — zero buckets left out so labels don't pile up.
+                const pieLabels = SNAPSHOT_LABELS.filter(l => totalCounts[l] > 0);
+                if(pieLabels.length){
+                    slide.addChart(pptx.ChartType.pie, [{
+                        name: 'Wells',
+                        labels: pieLabels,
+                        values: pieLabels.map(l => totalCounts[l]),
+                    }], {
+                        x:0.2, y:5.2, w:2.9, h:2.25,
+                        chartColors: pieLabels.map(l => hex(SNAPSHOT_COLORS[SNAPSHOT_LABELS.indexOf(l)])),
+                        showTitle:true, title:`TOTAL (${years.join(', ')}): ${totalWells} Wells`, titleFontSize:10, titleColor:'404040',
+                        showLegend:false, showPercent:true, showValue:false,
+                        dataLabelPosition:'outEnd', dataLabelColor:'000000', dataLabelFontSize:8,
+                        dataBorder:{ pt:0.75, color:'404040' },
+                    });
+                }
+
+                // Status table (native) — same order/colours as SNAPSHOT_TABLE_ORDER.
+                const hdrCell = (text, fill, color) => ({ text, options:{ fill:{ color:fill }, color, bold:true, align:'center', valign:'bottom' } });
+                const header = [
+                    hdrCell('YEAR', 'FFFFFF', '000000'),
+                    ...SNAPSHOT_TABLE_ORDER.map(([l,bg,fg]) => hdrCell(l, hex(bg), hex(fg))),
+                    hdrCell('TOTAL', 'FFFFFF', '000000'),
+                ];
+                const body = years.map(y => {
+                    const c = perYear[y];
+                    const tot = SNAPSHOT_LABELS.reduce((s,l) => s + c[l], 0);
+                    return [
+                        { text:String(y), options:{ align:'center' } },
+                        ...SNAPSHOT_TABLE_ORDER.map(([l]) => ({ text:String(c[l]), options:{ align:'center' } })),
+                        { text:String(tot), options:{ align:'center', bold:true } },
+                    ];
+                });
+                const tX = 3.4, tY = 5.35, yearW = 0.6, totW = 0.65, colW = 0.78;
+                const colWs = [yearW, ...SNAPSHOT_TABLE_ORDER.map(() => colW), totW];
+                slide.addTable([header, ...body], {
+                    x:tX, y:tY, colW:colWs, fontSize:8, fontFace:'Arial', color:'000000',
+                    border:{ type:'solid', pt:0.75, color:'000000' }, rowH:[0.45, ...body.map(() => 0.25)], margin:0.03,
+                });
+                // Green approved corners (same #39ff14 as the Gantt / screen table).
+                let cx = tX + yearW;
+                SNAPSHOT_TABLE_ORDER.forEach(([, , , corner]) => {
+                    cx += colW;
+                    if(corner) slide.addShape(pptx.ShapeType.rtTriangle, {
+                        x: cx - 0.12, y: tY, w: 0.12, h: 0.12, flipH: true, flipV: true,
+                        fill:{ color:'39FF14' }, line:{ color:'39FF14', width:0 },
+                    });
+                });
+
+                slidesMade++;
+            }
+        } finally {
+            host.remove();
+        }
+
+        if(!slidesMade){ ganttExportMsg2('No wells in East, Central, West or Thermal for the current filters.'); return; }
+        await pptx.writeFile({ fileName: 'DP_Readiness_' + new Date().toISOString().slice(0,10) + '.pptx' });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('ganttExportPptxBtn2');
+        if(btn) btn.addEventListener('click', async () => {
+            const old = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = 'Building PowerPoint…';
+            try { await ganttExportPptx2(); }
+            catch(e){ ganttExportMsg2('PowerPoint export failed: ' + e.message); }
+            finally { btn.disabled = false; btn.innerHTML = old; }
+        });
+    });
+
     function renderSnapshotSection(){
         // ADDED 2026-09-14: read the module-scoped toggle state at the top of
         // the render, per spec, so the branch below picks pies vs. one
@@ -3525,20 +3715,32 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         if(snapshotTicksBuilt) renderSnapshotSection();
     }
 
-        function ganttRenderChart2(bars){
-            const chartDiv = document.getElementById("chartDiv2");
+        // CHANGED 2026-10-06: optional `opts` added for the PowerPoint export
+        // (ganttExportPptx2). With opts.targetDiv set, the chart is drawn into
+        // that (off-screen) div instead of #chartDiv2, at opts.width px, always
+        // with the light look (white bg / dark text, for slides), no animation,
+        // 2x pixel ratio, NOT tracked in chartInstances2 (so the on-screen chart
+        // is untouched), and the Chart instance is returned. Called with one
+        // argument (all existing callers) it behaves exactly as before.
+        function ganttRenderChart2(bars, opts){
+            opts = opts || {};
+            const isExport  = !!opts.targetDiv;
+            const lightLook = isExport || anIsLight();
+            const chartDiv = opts.targetDiv || document.getElementById("chartDiv2");
             console.log('[newSchedGantt] ganttRenderChart2() called with', bars.length, 'bars. chartDiv2 found:', !!chartDiv);
             if(!chartDiv) return;
             chartDiv.innerHTML = "";
 
             // Clear previous Chart.js instances
-            chartInstances2.forEach(ch => { try{ ch.destroy(); }catch(e){} });
-            chartInstances2 = [];
+            if(!isExport){
+                chartInstances2.forEach(ch => { try{ ch.destroy(); }catch(e){} });
+                chartInstances2 = [];
+            }
 
             if(!bars.length){
                 console.warn('[newSchedGantt] 0 bars passed filters — showing "No data matches" message.');
                 chartDiv.innerHTML = '<p style="color:var(--an-text-dim,#5a7080);padding:20px;">No data matches the selected filters.</p>';
-                return;
+                return null;
             }
 
             const today = new Date();
@@ -3760,7 +3962,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
 
             const canvasH = Math.max(200, rigSet.length * 40);
-            const canvasW = chartDiv.parentElement
+            const canvasW = opts.width ? opts.width : chartDiv.parentElement
                 ? Math.max(600, chartDiv.parentElement.clientWidth - 20)
                 : 1200;
 
@@ -3799,6 +4001,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     }]
                 },
                 options: {
+                    ...(isExport ? { animation: false, devicePixelRatio: 2 } : {}),
                     indexAxis: "y",
                     responsive: false,
                     maintainAspectRatio: false,
@@ -3818,14 +4021,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             type: "time",
                             time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
                             min: minDate, max: defaultMax,
-                            ticks: { color: anChartColor() },
-                            grid:  { color: anGridColor() }
+                            ticks: { color: (lightLook ? '#333' : '#fff') },
+                            grid:  { color: (lightLook ? '#ccc' : '#333') }
                         },
                         y: {
                             type: "category",
                             labels: rigSet,
-                            ticks: { color: anChartColor(), font: { weight: "bold" } },
-                            grid:  { color: anGridColor() }
+                            ticks: { color: (lightLook ? '#333' : '#fff'), font: { weight: "bold" } },
+                            grid:  { color: (lightLook ? '#ccc' : '#333') }
                         }
                     },
                     plugins: {
@@ -3958,7 +4161,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 plugins: [ChartDataLabels, {
                     id: "anChartBgPlugin",
                     beforeDraw: (chart) => {
-                        if(!anIsLight()) return;
+                        if(!lightLook) return;
                         const ctx2 = chart.canvas.getContext("2d");
                         ctx2.save();
                         ctx2.globalCompositeOperation = "destination-over";
@@ -3992,7 +4195,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 }]
             });
 
-            chartInstances2.push(chart);
+            if(!isExport) chartInstances2.push(chart);
 
 
             // REMOVED 2026-09-24: the status summary table (summaryTable2) and
@@ -4008,6 +4211,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             // by re-running renderChartsFromTable on every filter change.
             // compiledRows is reset in renderChartsFromTable above.
 
+            return chart;
         }
 
 
