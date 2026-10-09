@@ -3338,6 +3338,10 @@ body.light-mode #statusTextbox {
         //   LP         -> Landing Point (fallback if no ICP)
         //   START TANG -> Start of tangent section
         //   END TANG   -> End of tangent section
+        //   START STEAMFLOOD TANG / END STEAMFLOOD TANG -> optional pump
+        //       ("Steamflood") tangent, added 2026-10-09. These do NOT match the
+        //       'START TANG'/'END TANG' patterns above (the word STEAMFLOOD sits
+        //       in between), so the two tangents never get confused.
         // Fallbacks when comments absent:
         //   KOP  -> first station where Incl > 0
         //   ICP  -> first Incl == 90, else first Incl >= 88, else TD
@@ -3431,6 +3435,14 @@ body.light-mode #statusTextbox {
             // Surface Casing — look for "SurfaceCasing" in comment
             const sc = wbtFindByComment(survey, ['SURFACECASING']);
 
+            // ADDED 2026-10-09: Surface KickOff flag — true when ANY station from
+            // surface down to (and including) the "SurfaceCasing" comment station
+            // has Dogleg > 0, i.e. steering happened in the surface hole.
+            // null when there is no SurfaceCasing comment (can't tell -> shown "—").
+            const surfaceKickoff = sc
+                ? survey.some(r => num(r.md) <= num(sc.md) && num(r.dogleg) > 0)
+                : null;
+
             // KOP — look for "KickOff" in comment, fallback to first incl > 0
             let kop = wbtFindByComment(survey, ['KICKOFF']);
             if(!kop) kop = survey.find(r => num(r.incl) > 0);
@@ -3491,6 +3503,28 @@ body.light-mode #statusTextbox {
                 tangent.length = tangent.mdEnd - tangent.mdStart;
                 // delta TVD from End Tangent to ICP
                 tangent.deltaTVDtoICP = num(icp.tvd) - tangent.tvdEnd;
+            }
+
+            // ADDED 2026-10-09: optional Steamflood (pump) tangent, marked in the
+            // survey comments as "Start Steamflood Tang" / "End Steamflood Tang".
+            // Same fields and same arithmetic as the regular tangent above;
+            // null when neither comment is present (card then shows nothing).
+            const sfStart = wbtFindByComment(survey, ['START STEAMFLOOD TANG']);
+            const sfEnd   = wbtFindByComment(survey, ['END STEAMFLOOD TANG']);
+            let steamfloodTangent = null;
+            if(sfStart || sfEnd){
+                const sS = sfStart || sfEnd;
+                const sE = sfEnd   || sfStart;
+                steamfloodTangent = {
+                    mdStart : num(sS.md),
+                    mdEnd   : num(sE.md),
+                    tvdStart: num(sS.tvd),
+                    tvdEnd  : num(sE.tvd),
+                    inclFirst: num(sS.incl),
+                    inclLast : num(sE.incl),
+                };
+                steamfloodTangent.length = steamfloodTangent.mdEnd - steamfloodTangent.mdStart;
+                steamfloodTangent.deltaTVDtoICP = num(icp.tvd) - steamfloodTangent.tvdEnd;
             }
 
             // Max DLS in build (KOP→ICP) and lateral (ICP→TD)
@@ -3570,6 +3604,7 @@ body.light-mode #statusTextbox {
             return {
                 wellName,
                 sc      : sc ? {md: num(sc.md), tvd: num(sc.tvd)} : null,
+                surfaceKickoff,
                 kopMD   : num(kop.md),
                 icpMD   : num(icp.md),
                 icpTVD  : num(icp.tvd),
@@ -3590,6 +3625,7 @@ body.light-mode #statusTextbox {
                 finalIncl: num(last.incl),
                 finalAzim: num(last.azim),
                 tangent,
+                steamfloodTangent,
                 ddi,
                 steerIndex,
             };
@@ -3714,18 +3750,46 @@ body.light-mode #statusTextbox {
                     v.className = 'wbt-metric-value' + (full ? ' wbt-metric-full' : '');
                     v.textContent = val;
                     grid.appendChild(l); grid.appendChild(v);
+                    return [l, v]; // 2026-10-09: returned so a row can be highlighted
+                }
+                // ADDED 2026-10-09: highlight a tangent's "Incl" row — green when
+                // start and end inclination are the same, red when they differ
+                // (black text either way). Compared at the 0.1° shown on the card,
+                // so what the user reads matches the colour.
+                function tangInclHighlight(cells, incl1, incl2){
+                    if(!cells || !isFinite(incl1) || !isFinite(incl2)) return;
+                    const same = wbtFmt(incl1, 1) === wbtFmt(incl2, 1);
+                    cells.forEach(c => {
+                        c.style.setProperty('background-color', same ? '#4caf50' : '#ff4c4c', 'important');
+                        c.style.setProperty('color', '#000000', 'important');
+                    });
                 }
 
+                // ADDED 2026-10-09: dogleg > 0 between surface and SurfaceCasing
+                m('Surface KickOff', metrics.surfaceKickoff === null ? '— (no SurfaceCasing)' : (metrics.surfaceKickoff ? 'Yes' : 'No'));
                 m('KOP (MD)', wbtFmt(metrics.kopMD) + ' m');
                 m('Landing basis', metrics.icpSource);
 
                 if(metrics.tangent){
                     m('Tangent MD', wbtFmt(metrics.tangent.mdStart) + ' – ' + wbtFmt(metrics.tangent.mdEnd) + ' m');
                     m('Tangent Length', wbtFmt(metrics.tangent.length) + ' m');
-                    m('Tangent Incl', wbtFmt(metrics.tangent.inclFirst,1) + ' – ' + wbtFmt(metrics.tangent.inclLast,1) + '°');
+                    tangInclHighlight(
+                        m('Tangent Incl', wbtFmt(metrics.tangent.inclFirst,1) + ' – ' + wbtFmt(metrics.tangent.inclLast,1) + '°'),
+                        metrics.tangent.inclFirst, metrics.tangent.inclLast);
                     m('ΔTvD End Tang→ICP', wbtFmt(metrics.tangent.deltaTVDtoICP,2) + ' m');
                 } else {
                     m('Tangent Section', 'NO', true);
+                }
+
+                // ADDED 2026-10-09: Steamflood (pump) tangent — only shown when present.
+                if(metrics.steamfloodTangent){
+                    const sf = metrics.steamfloodTangent;
+                    m('Steamflood Tang MD', wbtFmt(sf.mdStart) + ' – ' + wbtFmt(sf.mdEnd) + ' m');
+                    m('Steamflood Tang Length', wbtFmt(sf.length) + ' m');
+                    tangInclHighlight(
+                        m('Steamflood Tang Incl', wbtFmt(sf.inclFirst,1) + ' – ' + wbtFmt(sf.inclLast,1) + '°'),
+                        sf.inclFirst, sf.inclLast);
+                    m('ΔTvD End SF Tang→ICP', wbtFmt(sf.deltaTVDtoICP,2) + ' m');
                 }
 
                 m('Lateral Length', wbtFmt(metrics.lateralLength) + ' m');
@@ -3788,6 +3852,7 @@ body.light-mode #statusTextbox {
                     ['── KEY POINTS ──', ''],
                     ['SC (MD)',              m.sc ? m.sc.md : 'Not found'],
                     ['SC (TVD)',             m.sc ? m.sc.tvd : 'Not found'],
+                    ['Surface KickOff',      m.surfaceKickoff === null ? '—' : (m.surfaceKickoff ? 'Yes' : 'No')], // 2026-10-09
                     ['KOP (MD)',             m.kopMD],
                     ['ICP — IntermediateCasing (MD)',  m.icRaw ? m.icRaw.md : 'Not found'],
                     ['ICP — IntermediateCasing (TVD)', m.icRaw ? m.icRaw.tvd : 'Not found'],
@@ -3825,6 +3890,13 @@ body.light-mode #statusTextbox {
                     ['Tangent Incl Start (deg)', m.tangent ? m.tangent.inclFirst : 'NO'],
                     ['Tangent Incl End (deg)', m.tangent ? m.tangent.inclLast : 'NO'],
                     ['ΔTvD End Tang → ICP (m)', m.tangent ? m.tangent.deltaTVDtoICP : 'NO'],
+                    // ADDED 2026-10-09: Steamflood (pump) tangent
+                    ['Steamflood Tang MD Start (m)', m.steamfloodTangent ? m.steamfloodTangent.mdStart : 'NO'],
+                    ['Steamflood Tang MD End (m)', m.steamfloodTangent ? m.steamfloodTangent.mdEnd : 'NO'],
+                    ['Steamflood Tang Length (m)', m.steamfloodTangent ? m.steamfloodTangent.length : 'NO'],
+                    ['Steamflood Tang Incl Start (deg)', m.steamfloodTangent ? m.steamfloodTangent.inclFirst : 'NO'],
+                    ['Steamflood Tang Incl End (deg)', m.steamfloodTangent ? m.steamfloodTangent.inclLast : 'NO'],
+                    ['ΔTvD End SF Tang → ICP (m)', m.steamfloodTangent ? m.steamfloodTangent.deltaTVDtoICP : 'NO'],
                     [''],
                     ['── DIFFICULTY INDICES ──', ''],
                     ['DDI (Oag & Williams)', m.ddi !== null ? m.ddi : '-'],
@@ -3852,6 +3924,7 @@ body.light-mode #statusTextbox {
                 ['Metric', ...metrics.map(m => m.wellName || 'Well')],
                 ['SC MD', ...metrics.map(m => m.sc ? m.sc.md : '')],
                 ['SC TVD', ...metrics.map(m => m.sc ? m.sc.tvd : '')],
+                ['Surface KickOff', ...metrics.map(m => m.surfaceKickoff === null ? '—' : (m.surfaceKickoff ? 'Yes' : 'No'))], // 2026-10-09
                 ['KOP MD', ...metrics.map(m => m.kopMD)],
                 ['ICP (IntermediateCasing) MD', ...metrics.map(m => m.icRaw ? m.icRaw.md : '')],
                 ['ICP (IntermediateCasing) TVD', ...metrics.map(m => m.icRaw ? m.icRaw.tvd : '')],
@@ -3873,6 +3946,11 @@ body.light-mode #statusTextbox {
                 ['Tangent MD End (m)', ...metrics.map(m => m.tangent ? m.tangent.mdEnd : 'NO')],
                 ['Tangent Length (m)', ...metrics.map(m => m.tangent ? m.tangent.length : 'NO')],
                 ['ΔTvD End Tang → ICP (m)', ...metrics.map(m => m.tangent ? m.tangent.deltaTVDtoICP : 'NO')],
+                // ADDED 2026-10-09: Steamflood (pump) tangent
+                ['Steamflood Tang MD Start (m)', ...metrics.map(m => m.steamfloodTangent ? m.steamfloodTangent.mdStart : 'NO')],
+                ['Steamflood Tang MD End (m)', ...metrics.map(m => m.steamfloodTangent ? m.steamfloodTangent.mdEnd : 'NO')],
+                ['Steamflood Tang Length (m)', ...metrics.map(m => m.steamfloodTangent ? m.steamfloodTangent.length : 'NO')],
+                ['ΔTvD End SF Tang → ICP (m)', ...metrics.map(m => m.steamfloodTangent ? m.steamfloodTangent.deltaTVDtoICP : 'NO')],
                 ['DDI (Oag & Williams)', ...metrics.map(m => m.ddi !== null ? m.ddi : '')],
                 ['Steer Index', ...metrics.map(m => m.steerIndex !== null ? m.steerIndex : '')],
             ];

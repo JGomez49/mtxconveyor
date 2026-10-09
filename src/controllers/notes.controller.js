@@ -225,11 +225,22 @@ notesCrtl.renderQueryNotes = async (req,res)=>{
 
 
 
+// ADDED 2026-10-09: escape regex metacharacters in user-typed search text.
+// Bug: searching "Pad)))" sent an invalid regex to MongoDB ("unmatched closing
+// parenthesis", code 51091); the rejected await had no try/catch, so the
+// unhandled error crashed the whole Node process. Now the text is matched
+// literally (same as the user expects from a search box) and errors are caught.
+function escapeRegex(str){
+    return String(str == null ? '' : str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 notesCrtl.renderQueryNotesPartial = async (req,res)=>{
+  try {
     let user = {}
     user.id = req.params.guest
     let donde = req.query.where
     let buscar = req.query.search
+    const buscarSafe = escapeRegex(buscar); // 2026-10-09: literal match, see escapeRegex()
     user.id = req.session.passport.user
     let usuario = await User.findById(user.id);
         user.name = usuario.name
@@ -241,29 +252,34 @@ notesCrtl.renderQueryNotesPartial = async (req,res)=>{
     console.log("Partial...");
 
     const notes = await Note.find({ "$or": [
-        { "title": { $regex: buscar, $options: "i" } },
-        { "description": { $regex: buscar, $options: "i" } },
-        { "mtxJobId": { $regex: buscar, $options: "i" } },
-        { "responsible": { $regex: buscar, $options: "i" } },
-        { "customer": { $regex: buscar, $options: "i" } },
-        { "customerJobNumber": { $regex: buscar, $options: "i" } },
-        { "operator": { $regex: buscar, $options: "i" } },
-        { "priority": { $regex: buscar, $options: "i" } },
-        { "invoice": { $regex: buscar, $options: "i" } },
-        { "user": { $regex: buscar, $options: "i" } },
-        { "status": { $regex: buscar, $options: "i" } },
-        { "dueDate": { $regex: buscar, $options: "i" } },
-        { "rig": { $regex: buscar, $options: "i" } },
-        { "project": { $regex: buscar, $options: "i" } },
-        { "poc": { $regex: buscar, $options: "i" } },
-        { "geologist": { $regex: buscar, $options: "i" } },
-        { "wells": { $regex: buscar, $options: "i" } },
-        { "area": { $regex: buscar, $options: "i" } },
-        { "budget": { $regex: buscar, $options: "i" } },
-        { "created": { $regex: buscar, $options: "i" } },
+        { "title": { $regex: buscarSafe, $options: "i" } },
+        { "description": { $regex: buscarSafe, $options: "i" } },
+        { "mtxJobId": { $regex: buscarSafe, $options: "i" } },
+        { "responsible": { $regex: buscarSafe, $options: "i" } },
+        { "customer": { $regex: buscarSafe, $options: "i" } },
+        { "customerJobNumber": { $regex: buscarSafe, $options: "i" } },
+        { "operator": { $regex: buscarSafe, $options: "i" } },
+        { "priority": { $regex: buscarSafe, $options: "i" } },
+        { "invoice": { $regex: buscarSafe, $options: "i" } },
+        { "user": { $regex: buscarSafe, $options: "i" } },
+        { "status": { $regex: buscarSafe, $options: "i" } },
+        { "dueDate": { $regex: buscarSafe, $options: "i" } },
+        { "rig": { $regex: buscarSafe, $options: "i" } },
+        { "project": { $regex: buscarSafe, $options: "i" } },
+        { "poc": { $regex: buscarSafe, $options: "i" } },
+        { "geologist": { $regex: buscarSafe, $options: "i" } },
+        { "wells": { $regex: buscarSafe, $options: "i" } },
+        { "area": { $regex: buscarSafe, $options: "i" } },
+        { "budget": { $regex: buscarSafe, $options: "i" } },
+        { "created": { $regex: buscarSafe, $options: "i" } },
     ]});
     console.log(notes);
     res.render('queryPartial.ejs', {notes, user, donde, buscar});
+  } catch (e) {
+    // 2026-10-09: never let a bad search take the server down.
+    console.error('renderQueryNotesPartial:', e);
+    res.status(500).send('Search failed: ' + e.message);
+  }
 };
 
 
@@ -623,7 +639,7 @@ notesCrtl.findSite = async (req, res) => {
 
     // 🔎 Match any project that STARTS WITH the given site
     const project = await Note.findOne({
-      project: { $regex: `^${site}`, $options: "i" }
+      project: { $regex: `^${escapeRegex(site)}`, $options: "i" } // 2026-10-09: escaped, same crash risk as search
     });
 
     if (!project) {
