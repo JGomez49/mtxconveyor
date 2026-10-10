@@ -78,6 +78,10 @@ const {
     addPolyline,
     updatePolyline,
     deletePolyline,
+    listIPlanScenarios,
+    addIPlanScenario,
+    updateIPlanScenario,
+    deleteIPlanScenario,
     savePadStats,
     saveWbtColorMode,
     renderVPAreas,
@@ -270,6 +274,11 @@ router.get('/notes/polyline/list/:noteId', isAuthenticated, listPolylines);
 router.post('/notes/polyline/:noteId', isAuthenticated, addPolyline);
 router.put('/notes/polyline/:polylineId', isAuthenticated, updatePolyline);
 router.delete('/notes/polyline/:polylineId', isAuthenticated, deletePolyline);
+//iPlan scenario trajectories (2026-10-10) — job-level CRUD, same pattern as Polylines
+router.get('/notes/iplan/list/:noteId', isAuthenticated, listIPlanScenarios);
+router.post('/notes/iplan/:noteId', isAuthenticated, blockViewerFromSaving, addIPlanScenario);
+router.put('/notes/iplan/:scenarioId', isAuthenticated, blockViewerFromSaving, updateIPlanScenario);
+router.delete('/notes/iplan/:scenarioId', isAuthenticated, blockViewerFromSaving, deleteIPlanScenario); // viewer role: read-only
 router.patch('/notes/padStats/:id', isAuthenticated, savePadStats);
 router.patch('/notes/wbtColorMode/:id', isAuthenticated, saveWbtColorMode);
 

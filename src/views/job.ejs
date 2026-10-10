@@ -249,6 +249,7 @@ body.light-mode #statusTextbox {
 <script src="/js/wbtTree.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="/js/iplanCore.js"></script><!-- 2026-10-10: shared QuickPlan/iPlan planning math -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -776,6 +777,62 @@ body.light-mode #statusTextbox {
 
                     </div>
 
+
+                    <!-- ── iPlan: scenario trajectories (ADDED 2026-10-10, step 1) ─────────
+                         Users draw their own "scenario" wellbores with the same section
+                         types/math as QuickPlan (/js/iplanCore.js), starting from a planned
+                         well's surface (editable) or tied on at an MD of a planned well.
+                         Drawn in green in this 3D view, recalculated live. NOT part of the
+                         score cards or the Trajectories accordion. Step 1 = in-browser only
+                         (scenarios are lost on reload); saving per job = later step. -->
+                    <style>
+                        .ipl-root{ border:1px solid var(--wbt-border); border-radius:4px; margin-bottom:10px; background:var(--wbt-panel); }
+                        .ipl-head{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; cursor:pointer; user-select:none; }
+                        .ipl-head .ipl-title{ font-family:var(--wbt-cond); font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#00e676; font-size:13px; }
+                        .ipl-body{ display:none; padding:10px; border-top:1px solid var(--wbt-border); font-size:12px; }
+                        .ipl-root.open .ipl-body{ display:flex; gap:12px; flex-wrap:wrap; }
+                        .ipl-col-list{ width:240px; min-width:220px; }
+                        .ipl-col-edit{ flex:1; min-width:520px; }
+                        .ipl-root input[type=number], .ipl-root input[type=text], .ipl-root select{
+                            background:var(--wbt-panel2); color:var(--wbt-text); border:1px solid var(--wbt-border);
+                            border-radius:3px; padding:2px 5px; font-size:12px; font-family:var(--wbt-mono);
+                        }
+                        .ipl-root input[type=number]{ width:90px; }
+                        .ipl-scn{ display:flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--wbt-border); border-radius:3px; margin-bottom:4px; cursor:pointer; }
+                        .ipl-scn.sel{ border-color:#00e676; box-shadow:0 0 0 1px #00e676 inset; }
+                        .ipl-scn .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+                        .ipl-grid{ display:grid; grid-template-columns:repeat(4, auto); gap:4px 10px; align-items:center; justify-content:start; margin:6px 0; }
+                        .ipl-grid label{ color:var(--wbt-text-dim); font-size:11px; }
+                        .ipl-sec{ border:1px solid var(--wbt-border); border-radius:3px; padding:5px 6px; margin-bottom:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+                        .ipl-sec .idx{ color:#00e676; font-weight:700; width:22px; }
+                        .ipl-sec .fld{ display:flex; align-items:center; gap:3px; }
+                        .ipl-sec .fld span{ color:var(--wbt-text-dim); font-size:11px; }
+                        .ipl-res{ flex-basis:100%; font-family:var(--wbt-mono); font-size:11px; color:var(--wbt-text-dim); padding-left:28px; }
+                        .ipl-res.bad{ color:#ff4c4c; }
+                        .ipl-h{ font-family:var(--wbt-cond); font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--wbt-text-dim); margin:8px 0 4px; }
+                        .ipl-sum{ font-family:var(--wbt-mono); font-size:11px; margin-top:6px; }
+                        body.light-mode .ipl-root{ background:#ffffff; }
+                        body.light-mode .ipl-root input, body.light-mode .ipl-root select{ background:#f1f3f5 !important; color:#000 !important; border-color:#ced4da !important; }
+                        body.light-mode .ipl-head .ipl-title{ color:#00873c; }
+                    </style>
+                    <div class="ipl-root" id="iplRoot">
+                        <div class="ipl-head" id="iplHead">
+                            <span class="ipl-title">&#9679; iPlan &mdash; Scenario Trajectories</span>
+                            <span style="font-size:11px;color:var(--wbt-text-dim);" id="iplHeadInfo">click to open</span>
+                        </div>
+                        <div class="ipl-body">
+                            <div class="ipl-col-list">
+                                <button type="button" class="wbt-btn" id="iplNewBtn" style="width:100%;margin-bottom:6px;">+ New Scenario</button>
+                                <div id="iplList"></div>
+                                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:6px;">
+                                    Scenarios are drawn in green. Tick to show them in 3D and in the Anti-collision Plots. Saved automatically for everyone on this job; all start unticked when the page loads.
+                                </div>
+                            </div>
+                            <div class="ipl-col-edit" id="iplEditor">
+                                <div style="color:var(--wbt-text-dim);">Create or select a scenario.</div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- ── FracPlane Controller Panel (accordion) ──────────────────
                          FIX 2026-09-13: this whole panel (including the read-only
@@ -5205,6 +5262,17 @@ body.light-mode #statusTextbox {
             });
         }
 
+        // ADDED 2026-10-10: minimal handle for the iPlan script (below) to draw
+        // its green scenario tubes in this same scene, with the same tube
+        // builder and line-thickness factor as the planned wells. iPlan never
+        // touches wellsData/WELLBORES, so score cards and tables are unaffected.
+        window.wbtSceneApi = {
+            WELLBORES,
+            getGroup: () => group,
+            buildWellLine,
+            getThickness: () => parseFloat((document.getElementById('wbtLineThickness') || {}).value) || 1
+        };
+
         initScene();
 
         window.addEventListener('mtxThemeChange', function(e){
@@ -5213,6 +5281,620 @@ body.light-mode #statusTextbox {
     })();
     </script>
     <!-- ================= END WELLBORE 3D TRAJECTORY SCRIPT ================= -->
+    <!-- ================= iPLAN SCRIPT (ADDED 2026-10-10, step 1) =================
+         Scenario trajectories built with the shared QuickPlan math (/js/iplanCore.js),
+         drawn in green in the Wellbore 3D viewer through window.wbtSceneApi (exposed
+         by the 3D script above). Kept OUT of WELLBORES on purpose, so score cards,
+         pad stats and the Trajectories accordion never see scenarios.
+         Published as window.IPLAN_SCENARIOS + 'iplanScenariosChanged' event so the
+         Anti-collision Plots can pick them up in a later step. -->
+    <script>
+    (function(){
+        const C = window.IPlanCore;
+        const api = window.wbtSceneApi;
+        if(!C || !api){ console.warn('[iPlan] IPlanCore or wbtSceneApi missing — iPlan disabled'); return; }
+
+        const WELLS = (api.WELLBORES || []).filter(w => w.survey && w.survey.length >= 2);
+        const STEP = 10;                 // m between computed stations (same as QuickPlan)
+        const GREEN = 0x00e676;
+        const n = v => { const x = parseFloat(v); return isNaN(x) ? 0 : x; };
+        const f = (v, d) => (v === null || v === undefined || !isFinite(v)) ? '—' : Number(v).toFixed(d);
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        let scenarios = [];   // {id, name, visible, startMode:'surface'|'tieon', wellId, tieMd, start:{md,tvd,n,e,inc,az,rkb}, sections:[], _calc, _mesh}
+        let selId = null, seq = 0;
+        window.IPLAN_SCENARIOS = scenarios;
+
+        // ---------- Persistence (STEP 4, ADDED 2026-10-10) ----------
+        // Saved per job in MongoDB (model IPlanScenario, routes /notes/iplan/*).
+        // Only the design is stored; stations are recomputed here on load.
+        // Visibility is NOT stored: every saved scenario loads inactive (unticked).
+        // Edits autosave ~1 s after the last change (last save wins if two people
+        // edit the same scenario at once).
+        const NOTE_ID = '<%- note._id %>';
+        const DESIGN_KEYS = ['name','startMode','wellId','tieMd','start','sections','targets','toolcode'];
+        function designOf(sc){ const o = {}; DESIGN_KEYS.forEach(k => { o[k] = sc[k]; }); return o; }
+        function setSaveStatus(sc, txt, bad){
+            sc._saveStatus = txt; sc._saveBad = !!bad;
+            const el = document.getElementById('iplSave');
+            if(el && sc.id === selId){ el.textContent = txt; el.style.color = bad ? '#ff4c4c' : 'var(--wbt-text-dim)'; }
+        }
+        async function apiJson(url, method, body){
+            const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            let data = null; try { data = await r.json(); } catch(e){}
+            if(!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+            return data;
+        }
+        function markDirty(sc){
+            clearTimeout(sc._saveTimer);
+            setSaveStatus(sc, 'Unsaved changes…');
+            sc._saveTimer = setTimeout(async () => {
+                setSaveStatus(sc, 'Saving…');
+                try {
+                    const doc = await apiJson('/notes/iplan/' + sc.id, 'PUT', designOf(sc));
+                    sc.updatedByName = doc.updatedByName; sc.updatedAt = doc.updatedAt;
+                    setSaveStatus(sc, 'Saved ✓');
+                    const meta = document.getElementById('iplMeta'); if(meta && sc.id === selId) meta.innerHTML = metaText(sc);
+                } catch(err){ setSaveStatus(sc, 'Not saved: ' + err.message, true); }
+            }, 1000);
+        }
+        function metaText(sc){
+            const d = v => v ? new Date(v).toLocaleString() : '—';
+            return `Created by <b>${esc(sc.createdByName || '—')}</b> ${d(sc.createdAt)} &middot; last edited by <b>${esc(sc.updatedByName || '—')}</b> ${d(sc.updatedAt)}`;
+        }
+        function fromDoc(doc){
+            return {
+                id: String(doc._id), name: doc.name || 'Scenario', visible: false,
+                startMode: doc.startMode || 'surface', wellId: doc.wellId, tieMd: doc.tieMd || 0,
+                start: Object.assign({ md:0, tvd:0, n:0, e:0, inc:0, az:0, rkb:0 }, doc.start || {}),
+                sections: doc.sections || [], targets: doc.targets || [], toolcode: doc.toolcode || null,
+                createdByName: doc.createdByName, createdAt: doc.createdAt, updatedByName: doc.updatedByName, updatedAt: doc.updatedAt,
+                _calc: null, _mesh: null, _tMeshes: []
+            };
+        }
+
+        function wellById(id){ return WELLS.find(w => String(w._id) === String(id)) || null; }
+        function sortedSurvey(w){ return (w.survey || []).slice().sort((a,b) => n(a.md) - n(b.md)); }
+
+        // RKB elevation of a planned well = TVD + Sub-Sea at any station
+        // (Sub-Sea is stored as RKB elevation minus TVD in the survey tables).
+        function wellRkb(w){
+            const s = sortedSurvey(w).find(r => r.subSea !== undefined && r.subSea !== null && r.subSea !== '');
+            return s ? n(s.tvd) + n(s.subSea) : 0;
+        }
+        // Option 1: same surface point as the selected planned well (its first station).
+        function surfaceStartFromWell(w){
+            const s = sortedSurvey(w)[0];
+            return { md:n(s.md), tvd:n(s.tvd), n:n(s.northing), e:n(s.easting), inc:n(s.incl), az:n(s.azim), rkb:wellRkb(w) };
+        }
+
+        // ---------- Targets (STEP 2, ADDED 2026-10-10) ----------
+        // Pad target catalogue: the commented stations of every planned well
+        // (same comment patterns the score cards use: SurfaceCasing, KickOff,
+        // IntermediateCasing, Landing) plus TD = last station. Read-only here;
+        // the user copies them into a scenario's own (editable) target list.
+        const TARGET_TYPES = [['SurfaceCasing','SURFACECASING'],['KickOff','KICKOFF'],['IntermediateCasing','INTERMEDIATECASING'],['Landing','LANDING']];
+        const PAD_TARGETS = [];
+        WELLS.forEach(w => {
+            const sv = sortedSurvey(w);
+            const rkb = wellRkb(w);
+            const push = (type, r) => PAD_TARGETS.push({
+                key: PAD_TARGETS.length, well: w.wellName, type,
+                md: n(r.md), n: n(r.northing), e: n(r.easting), tvd: n(r.tvd), rkb
+            });
+            TARGET_TYPES.forEach(([type, pat]) => {
+                const r = sv.find(x => String(x.comments || '').toUpperCase().includes(pat));
+                if(r) push(type, r);
+            });
+            push('TD', sv[sv.length - 1]);
+        });
+
+        // CHANGED 2026-10-10 (user): scenario targets are stored and edited in
+        // SUB-SEA (elevation, m; Sub-Sea = RKB - TVD, same convention as the
+        // survey tables), so they are datum-independent. Wherever a TVD is needed
+        // (feedback, 3D, wizards, "TVD from target") it is derived with the
+        // scenario's own RKB: TVD = RKB_scenario - SubSea.
+        function tvdOf(sc, t){ return scenarioRkb(sc) - n(t.ss); }
+        function scenarioRkb(sc){
+            if(sc.startMode === 'tieon'){ const w = wellById(sc.wellId); return w ? wellRkb(w) : 0; }
+            return n(sc.start.rkb);
+        }
+
+        // Live feedback — same rule as QuickPlan renderTargetFeedback(): closest
+        // 3D distance from any computed station (every 10 m) to the target,
+        // "within radius" if that distance <= R; plus distance from the end.
+        function targetFeedback(sc, t){
+            const st = sc._calc && sc._calc.stations;
+            if(!st || !st.length) return null;
+            let best = Infinity, bestMd = null;
+            st.forEach(p => {
+                const d = Math.sqrt((p.n - t.n) ** 2 + (p.e - t.e) ** 2 + (p.tvd - tvdOf(sc, t)) ** 2);
+                if(d < best){ best = d; bestMd = p.md; }
+            });
+            const L = st[st.length - 1];
+            const fin = Math.sqrt((L.n - t.n) ** 2 + (L.e - t.e) ** 2 + (L.tvd - tvdOf(sc, t)) ** 2);
+            return { best, bestMd, fin, hit: best <= t.r };
+        }
+
+        // Resolve the scenario's actual start state.
+        function resolveStart(sc){
+            const w = wellById(sc.wellId);
+            if(sc.startMode === 'tieon'){
+                if(!w) return { error:'Select a planned well to tie on to.' };
+                const p = C.interpolateSurveyAtMD(w.survey, n(sc.tieMd));
+                if(!p){
+                    const sv = sortedSurvey(w);
+                    return { error:'Tie-on MD must be between ' + f(n(sv[0].md),1) + ' and ' + f(n(sv[sv.length-1].md),1) + ' m.' };
+                }
+                return Object.assign(p, { rkb: wellRkb(w) });
+            }
+            return Object.assign({}, sc.start);
+        }
+
+        function compute(sc){
+            const st = resolveStart(sc);
+            if(st.error){ sc._calc = { error: st.error }; return; }
+            const res = C.computeStations({ md:st.md, tvd:st.tvd, n:st.n, e:st.e, inc:st.inc, az:st.az }, sc.sections, STEP);
+            res.stations.forEach(s => { s.subSea = st.rkb - s.tvd; });
+            sc._calc = { start: st, stations: res.stations, sections: res.sections };
+        }
+
+        // ---------- 3D ----------
+        function removeMesh(sc){
+            if(sc._mesh){ api.getGroup().remove(sc._mesh); sc._mesh.geometry.dispose(); sc._mesh.material.dispose(); sc._mesh = null; }
+        }
+        function draw(sc){
+            removeMesh(sc);
+            const c = sc._calc;
+            if(!sc.visible || !c || c.error || c.stations.length < 2) return;
+            // Same scene axes as planned wells: X = Easting, Y = -TVD, Z = -Northing
+            const pts = c.stations.map(s => new THREE.Vector3(s.e, -s.tvd, -s.n));
+            const mesh = api.buildWellLine(pts, GREEN);
+            const k = api.getThickness();
+            const ud = mesh.userData;
+            mesh.geometry.dispose();
+            mesh.geometry = new THREE.TubeGeometry(ud.curve, ud.tubularSegments, ud.baseRadius * k, 6, false);
+            mesh.userData.iplan = sc.id;
+            api.getGroup().add(mesh);
+            sc._mesh = mesh;
+        }
+        // Scenario targets in 3D: translucent green sphere of radius R at (E, -TVD, -N).
+        function removeTargetMeshes(sc){
+            (sc._tMeshes || []).forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); });
+            sc._tMeshes = [];
+        }
+        function drawTargets(sc){
+            removeTargetMeshes(sc);
+            if(!sc.visible) return;
+            (sc.targets || []).forEach(t => {
+                const g = new THREE.SphereGeometry(Math.max(0.5, n(t.r)), 16, 12);
+                const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.25, wireframe: true }));
+                m.position.set(n(t.e), -tvdOf(sc, t), -n(t.n));
+                api.getGroup().add(m);
+                sc._tMeshes.push(m);
+            });
+        }
+        function refresh(sc){
+            compute(sc); draw(sc); drawTargets(sc);
+            markDirty(sc);   // step 4: every design change autosaves
+            window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } }));
+        }
+        const thick = document.getElementById('wbtLineThickness');
+        if(thick) thick.addEventListener('input', () => scenarios.forEach(draw));
+
+        // ---------- UI: list ----------
+        function renderList(){
+            const box = document.getElementById('iplList');
+            box.innerHTML = '';
+            if(!scenarios.length){ box.innerHTML = '<div style="color:var(--wbt-text-dim);">No scenarios yet.</div>'; }
+            scenarios.forEach(sc => {
+                const row = document.createElement('div');
+                row.className = 'ipl-scn' + (sc.id === selId ? ' sel' : '');
+                row.title = 'Created by ' + (sc.createdByName || '—') + (sc.createdAt ? ' on ' + new Date(sc.createdAt).toLocaleDateString() : '');
+                row.innerHTML = `<input type="checkbox" ${sc.visible ? 'checked' : ''} title="Show in 3D">
+                    <span style="width:10px;height:10px;border-radius:2px;background:#00e676;display:inline-block;"></span>
+                    <span class="nm">${esc(sc.name)}</span>
+                    <button type="button" class="wbt-btn" style="padding:1px 6px;" title="Delete">&times;</button>`;
+                const [cb] = row.getElementsByTagName('input');
+                const del = row.querySelector('button');
+                cb.addEventListener('click', e => {
+                    e.stopPropagation(); sc.visible = cb.checked; draw(sc); drawTargets(sc);
+                    // 2026-10-10: hidden scenarios also leave the Anti-collision Plots
+                    window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } }));
+                });
+                del.addEventListener('click', async e => {
+                    e.stopPropagation();
+                    if(!confirm('Delete scenario "' + sc.name + '" for everyone on this job?')) return;
+                    try { await apiJson('/notes/iplan/' + sc.id, 'DELETE'); }
+                    catch(err){ alert('Could not delete: ' + err.message); return; }
+                    clearTimeout(sc._saveTimer);
+                    removeMesh(sc); removeTargetMeshes(sc);
+                    scenarios.splice(scenarios.indexOf(sc), 1);
+                    if(selId === sc.id) selId = scenarios.length ? scenarios[0].id : null;
+                    window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id, deleted: true } }));
+                    renderList(); renderEditor();
+                });
+                row.addEventListener('click', () => { selId = sc.id; renderList(); renderEditor(); });
+                box.appendChild(row);
+            });
+            document.getElementById('iplHeadInfo').textContent = scenarios.length + ' scenario(s)';
+        }
+
+        // ---------- UI: editor ----------
+        function wellOptions(selected){
+            return WELLS.map(w => `<option value="${esc(w._id)}" ${String(w._id) === String(selected) ? 'selected' : ''}>${esc(w.wellName)}</option>`).join('');
+        }
+        function numInput(id, val, step){ return `<input type="number" id="${id}" step="${step || 0.1}" value="${val}">`; }
+
+        function renderEditor(){
+            const ed = document.getElementById('iplEditor');
+            const sc = scenarios.find(s => s.id === selId);
+            if(!sc){ ed.innerHTML = '<div style="color:var(--wbt-text-dim);">Create or select a scenario.</div>'; return; }
+            const s0 = sc.start;
+            ed.innerHTML = `
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <label style="color:var(--wbt-text-dim);">Name</label>
+                    <input type="text" id="iplName" value="${esc(sc.name)}" style="width:220px;">
+                    <button type="button" class="wbt-btn" id="iplCsv">&#11015; Download CSV</button>
+                    <span id="iplSave" style="font-size:11px;color:${sc._saveBad ? '#ff4c4c' : 'var(--wbt-text-dim)'};">${esc(sc._saveStatus || '')}</span>
+                </div>
+                <div id="iplMeta" style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">${metaText(sc)}</div>
+                <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <label style="color:var(--wbt-text-dim);">AC toolcode</label>
+                    <select id="iplToolcode">${toolcodeOptions(sc)}</select>
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">Used in Anti-collision Plots (green dotted). Visible scenarios are offsets for every reference well and can be picked as the reference well there.</span>
+                </div>
+                <div class="ipl-h">Start point</div>
+                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                    <label><input type="radio" name="iplMode" value="surface" ${sc.startMode === 'surface' ? 'checked' : ''}> Surface of planned well (editable)</label>
+                    <label><input type="radio" name="iplMode" value="tieon" ${sc.startMode === 'tieon' ? 'checked' : ''}> Tie-on at MD of planned well</label>
+                </div>
+                <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <label style="color:var(--wbt-text-dim);">Planned well</label>
+                    <select id="iplWell" style="max-width:320px;">${wellOptions(sc.wellId)}</select>
+                    ${sc.startMode === 'surface'
+                        ? '<button type="button" class="wbt-btn" id="iplReload" title="Copy the surface of the selected planned well again">&#8634; Reload from well</button>'
+                        : `<label style="color:var(--wbt-text-dim);">Tie-on MD (m)</label>${numInput('iplTieMd', sc.tieMd, 1)}`}
+                </div>
+                ${sc.startMode === 'surface' ? `
+                <div class="ipl-grid">
+                    <label>Northing</label>${numInput('iplN', s0.n, 0.01)}
+                    <label>Easting</label>${numInput('iplE', s0.e, 0.01)}
+                    <label>RKB elev. (m)</label>${numInput('iplRkb', s0.rkb, 0.01)}
+                    <label>MD (m)</label>${numInput('iplMd', s0.md, 0.1)}
+                    <label>TVD (m)</label>${numInput('iplTvd', s0.tvd, 0.1)}
+                    <label>Inc (°)</label>${numInput('iplInc', s0.inc, 0.1)}
+                    <label>Az (°)</label>${numInput('iplAz', s0.az, 0.1)}
+                </div>` : `<div class="ipl-sum" id="iplTieInfo"></div>`}
+                <div class="ipl-h">Targets</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">
+                    <select id="iplPadTarget" style="max-width:420px;">
+                        <option value="">Add target from pad wells…</option>
+                        ${padTargetOptions()}
+                    </select>
+                    <button type="button" class="wbt-btn" id="iplBlankTarget">+ Blank target</button>
+                </div>
+                <div id="iplTargets"></div>
+                <div class="ipl-h">Sections</div>
+                <div id="iplSections"></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="wbt-btn" id="iplAddSec">+ Add Section</button>
+                    <button type="button" class="wbt-btn" data-wiz="bh">&#127919; Build &amp; Hold to Target</button>
+                    <button type="button" class="wbt-btn" data-wiz="hbhbh">&#127919; Build-Hold-Build-Hold to Target</button>
+                    <button type="button" class="wbt-btn" data-wiz="chc">&#127919; Curve-Hold-Curve to Target</button>
+                </div>
+                <div id="iplWiz"></div>
+                <div class="ipl-sum" id="iplSummary"></div>`;
+
+            document.getElementById('iplName').addEventListener('input', e => { sc.name = e.target.value; renderListNamesOnly(); markDirty(sc); window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } })); });
+            document.getElementById('iplToolcode').addEventListener('change', e => {
+                sc.toolcode = e.target.value || null;   // '' = inherit from the planned well
+                markDirty(sc);
+                window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } }));
+            });
+            ed.querySelectorAll('input[name=iplMode]').forEach(r => r.addEventListener('change', e => {
+                sc.startMode = e.target.value;
+                if(sc.startMode === 'tieon' && !(sc.tieMd > 0)){
+                    const w = wellById(sc.wellId); const sv = w ? sortedSurvey(w) : [];
+                    if(sv.length) sc.tieMd = Math.round(n(sv[Math.floor(sv.length / 2)].md));
+                }
+                refresh(sc); renderEditor();
+            }));
+            document.getElementById('iplWell').addEventListener('change', e => {
+                sc.wellId = e.target.value;
+                if(sc.startMode === 'surface'){ const w = wellById(sc.wellId); if(w) sc.start = surfaceStartFromWell(w); }
+                refresh(sc); renderEditor();
+            });
+            if(sc.startMode === 'surface'){
+                document.getElementById('iplReload').addEventListener('click', () => {
+                    const w = wellById(sc.wellId); if(w) sc.start = surfaceStartFromWell(w);
+                    refresh(sc); renderEditor();
+                });
+                [['iplN','n'],['iplE','e'],['iplRkb','rkb'],['iplMd','md'],['iplTvd','tvd'],['iplInc','inc'],['iplAz','az']].forEach(([id, key]) => {
+                    document.getElementById(id).addEventListener('input', e => { sc.start[key] = n(e.target.value); refresh(sc); updateResults(sc); });
+                });
+            } else {
+                document.getElementById('iplTieMd').addEventListener('input', e => { sc.tieMd = n(e.target.value); refresh(sc); updateResults(sc); });
+            }
+            document.getElementById('iplAddSec').addEventListener('click', () => {
+                sc.sections.push(defaultSection(sc.sections.length ? 'hold' : 'dlstf'));
+                refresh(sc); renderSections(sc); updateResults(sc);
+            });
+            document.getElementById('iplCsv').addEventListener('click', () => downloadCsv(sc));
+            document.getElementById('iplPadTarget').addEventListener('change', e => {
+                const pt = PAD_TARGETS[parseInt(e.target.value, 10)];
+                if(!pt) return;
+                sc.targets.push({ name: pt.well + ' ' + pt.type, n: pt.n, e: pt.e, ss: Math.round((pt.rkb - pt.tvd) * 100) / 100, r: 15 });
+                e.target.value = '';
+                refresh(sc); renderTargets(sc); renderSections(sc); updateResults(sc);
+            });
+            document.getElementById('iplBlankTarget').addEventListener('click', () => {
+                const st = sc._calc && sc._calc.stations; const L = st && st.length ? st[st.length - 1] : sc.start;
+                sc.targets.push({ name: 'Target ' + (sc.targets.length + 1), n: n(L.n), e: n(L.e), ss: Math.round((scenarioRkb(sc) - n(L.tvd)) * 100) / 100, r: 15 });
+                refresh(sc); renderTargets(sc); renderSections(sc); updateResults(sc);
+            });
+            ed.querySelectorAll('[data-wiz]').forEach(b => b.addEventListener('click', () => openWizard(sc, b.dataset.wiz)));
+            renderTargets(sc);
+            renderSections(sc);
+            updateResults(sc);
+        }
+
+        function padTargetOptions(){
+            const byWell = {};
+            PAD_TARGETS.forEach(t => { (byWell[t.well] = byWell[t.well] || []).push(t); });
+            return Object.keys(byWell).map(wn => `<optgroup label="${esc(wn)}">` +
+                byWell[wn].map(t => `<option value="${t.key}">${esc(t.type)} — MD ${f(t.md,1)} · Sub-Sea ${f(t.rkb - t.tvd,1)} · N ${f(t.n,1)} · E ${f(t.e,1)}</option>`).join('') +
+                '</optgroup>').join('');
+        }
+
+        // Editable scenario targets: name, N, E, TVD (scenario RKB), radius.
+        function renderTargets(sc){
+            const box = document.getElementById('iplTargets');
+            box.innerHTML = '';
+            if(!sc.targets.length){ box.innerHTML = '<div style="color:var(--wbt-text-dim);margin-bottom:4px;">No targets.</div>'; return; }
+            sc.targets.forEach((t, i) => {
+                const row = document.createElement('div');
+                row.className = 'ipl-sec';
+                row.innerHTML = `<span class="idx">T${i + 1}</span>
+                    <input type="text" data-k="name" value="${esc(t.name)}" style="width:200px;">
+                    <span class="fld"><span>N</span><input type="number" step="0.01" data-k="n" value="${t.n}" style="width:110px;"></span>
+                    <span class="fld"><span>E</span><input type="number" step="0.01" data-k="e" value="${t.e}" style="width:100px;"></span>
+                    <span class="fld"><span>Sub-Sea</span><input type="number" step="0.1" data-k="ss" value="${t.ss}"></span>
+                    <span class="fld"><span data-role="ttvd" style="font-family:var(--wbt-mono);">(TVD ${f(tvdOf(sc, t),1)})</span></span>
+                    <span class="fld"><span>R (m)</span><input type="number" step="1" data-k="r" value="${t.r}" style="width:60px;"></span>
+                    <button type="button" class="wbt-btn" data-role="del" style="padding:1px 6px;" title="Delete">&times;</button>
+                    <div class="ipl-res" data-role="tres"></div>`;
+                row.querySelectorAll('[data-k]').forEach(inp => inp.addEventListener('input', e => {
+                    const k = e.target.dataset.k;
+                    t[k] = (k === 'name') ? e.target.value : n(e.target.value);
+                    if(k === 'name') renderSections(sc);
+                    refresh(sc); updateResults(sc);
+                }));
+                row.querySelector('[data-role=del]').addEventListener('click', () => {
+                    sc.targets.splice(i, 1); refresh(sc); renderTargets(sc); renderSections(sc); updateResults(sc);
+                });
+                box.appendChild(row);
+            });
+        }
+
+        // ---------- Target-design wizards (ADDED 2026-10-10) ----------
+        // Same three wizards as QuickPlan, same solvers (IPlanCore.planBuildHold /
+        // planHbhbh / planCurveHoldCurve wrap the verbatim-moved QuickPlan solvers).
+        // They append sections to the END of the scenario, starting from its last
+        // computed station; targets are converted Sub-Sea -> TVD with the scenario RKB.
+        const WIZ = {
+            bh: { title:'Build &amp; Hold to Target', note:'Check exactly 2 KNOWNS; the other 2 are solved. Requires the scenario to be vertical (Inc = 0°) where this design starts.',
+                  fields:[['dls','Build DLS (°/30m)',3,true],['D1','1st Hold Len (m)',200,false],['theta','Max Angle (Inc, °)',45,true],['L2','2nd Hold Len (m)',200,false]] },
+            hbhbh: { title:'Build-Hold-Build-Hold to Target', note:'Check exactly 2 UNKNOWNS to solve; the other 5 are used as entered. Requires Inc = 0° where this design starts.',
+                  fields:[['D1','1st Hold Len (m)',200,false],['dls1','1st Build (DLS, °/30m)',3,false],['thetaMax','Max Angle (Inc, °)',60,true],['D2','2nd Hold Len (m)',200,false],['dls2','2nd Build (DLS, °/30m)',2,false],['thetaFinal','Final Inc (°)',35,true],['L3','Final Hold (m)',300,false]] },
+            chc: { title:'Curve-Hold-Curve to Target', note:'Fully 3D: Curve (DLS1) → Hold → Curve (DLS2) landing on the target at the Inc/Az you enter. Works from any inclination.',
+                  fields:[['incT','Target Inc (°)',60],['azT','Target Az (°)',0],['dls1','1st Curve DLS (°/30m)',3],['dls2','2nd Curve DLS (°/30m)',3]] }
+        };
+        function openWizard(sc, kind){
+            const box = document.getElementById('iplWiz');
+            if(!sc.targets.length){ box.innerHTML = '<div class="ipl-res bad" style="padding-left:0;">Add at least one target first.</div>'; return; }
+            const W = WIZ[kind], chk = kind !== 'chc';
+            box.innerHTML = `<div class="ipl-sec" style="display:block;margin-top:6px;">
+                <div style="font-weight:700;color:#00e676;margin-bottom:4px;">${W.title}</div>
+                <div style="font-size:11px;color:var(--wbt-text-dim);margin-bottom:6px;">${W.note}</div>
+                <div style="margin-bottom:6px;"><span style="color:var(--wbt-text-dim);">Target </span>
+                    <select data-role="t">${sc.targets.map((t, i) => `<option value="${i}">T${i + 1} ${esc(t.name)} (Sub-Sea ${f(n(t.ss),1)} · TVD ${f(tvdOf(sc, t),1)})</option>`).join('')}</select></div>
+                ${W.fields.map(([k, lbl, def, on]) => `<div class="fld" style="margin:3px 0;">
+                    ${chk ? `<input type="checkbox" data-c="${k}" ${on ? 'checked' : ''}>` : ''}
+                    <span style="display:inline-block;width:170px;">${lbl}</span><input type="number" step="0.1" data-v="${k}" value="${def}"></div>`).join('')}
+                <div class="ipl-res bad" data-role="err" style="padding-left:0;"></div>
+                <button type="button" class="wbt-btn" data-role="go">Solve &amp; Insert</button>
+                <button type="button" class="wbt-btn" data-role="x">Cancel</button></div>`;
+            box.querySelector('[data-role=x]').addEventListener('click', () => { box.innerHTML = ''; });
+            box.querySelector('[data-role=go]').addEventListener('click', () => {
+                const errEl = box.querySelector('[data-role=err]');
+                const c = sc._calc;
+                if(!c || c.error || !c.stations){ errEl.textContent = (c && c.error) || 'Scenario has no start point.'; return; }
+                const L = c.stations[c.stations.length - 1];
+                const end = { md:L.md, inc:L.inc, az:L.az, tvd:L.tvd, n:L.n, e:L.e };
+                const t0 = sc.targets[parseInt(box.querySelector('[data-role=t]').value, 10)];
+                const t = { n:n(t0.n), e:n(t0.e), tvd:tvdOf(sc, t0) };
+                const val = k => n(box.querySelector(`[data-v="${k}"]`).value);
+                const checked = k => box.querySelector(`[data-c="${k}"]`).checked;
+                let r;
+                if(kind === 'bh'){
+                    const knowns = {}; W.fields.forEach(([k]) => { if(checked(k)) knowns[k] = val(k); });
+                    r = C.planBuildHold(end, t, knowns);
+                } else if(kind === 'hbhbh'){
+                    const values = {}; W.fields.forEach(([k]) => { values[k] = val(k); });
+                    r = C.planHbhbh(end, t, values, W.fields.map(([k]) => k).filter(checked));
+                } else {
+                    r = C.planCurveHoldCurve(end, t, val('incT'), val('azT'), val('dls1'), val('dls2'));
+                }
+                if(r.error){ errEl.textContent = r.error; return; }
+                r.sections.forEach(x => sc.sections.push(x));
+                box.innerHTML = '';
+                refresh(sc); renderSections(sc); updateResults(sc);
+            });
+        }
+
+        // ---------- AC toolcode (STEP 3, 2026-10-10) ----------
+        // Same MWD/EMS/DIPMETER (no GYRO) list the Anti-collision Plots offer,
+        // read from the same /data/iscwsaToolcodes.json. '' = inherit from the
+        // selected planned well (its saved toolcode, else MWD+LRGM default).
+        let TOOLCODE_NAMES = null;
+        fetch('/data/iscwsaToolcodes.json').then(r => r.json()).then(data => {
+            TOOLCODE_NAMES = Object.keys(data).filter(nm => (nm.indexOf('MWD') === 0 || nm.indexOf('EMS') === 0 || nm.indexOf('DIPMETER') === 0) && nm.indexOf('GYRO') === -1).sort();
+            const sel = document.getElementById('iplToolcode');
+            const sc = scenarios.find(x => x.id === selId);
+            if(sel && sc) sel.innerHTML = toolcodeOptions(sc);
+        }).catch(err => console.warn('[iPlan] toolcode list not loaded', err));
+        function toolcodeOptions(sc){
+            const w = wellById(sc.wellId);
+            const inh = (w && w.toolcode) ? w.toolcode : 'MWD+LRGM';
+            const names = TOOLCODE_NAMES || (sc.toolcode ? [sc.toolcode] : []);
+            return `<option value="" ${!sc.toolcode ? 'selected' : ''}>Inherit from planned well (${esc(inh)})</option>` +
+                names.map(nm => `<option value="${esc(nm)}" ${nm === sc.toolcode ? 'selected' : ''}>${esc(nm)}</option>`).join('');
+        }
+        // AC toolcode dropdown changed while a scenario was the reference well
+        window.addEventListener('iplanToolcodeChangedFromAC', e => {
+            const sel = document.getElementById('iplToolcode');
+            const sc = scenarios.find(x => x.id === selId);
+            if(sel && sc && e.detail && e.detail.id === sc.id) sel.innerHTML = toolcodeOptions(sc);
+            const changed = scenarios.find(x => e.detail && x.id === e.detail.id);
+            if(changed) markDirty(changed);
+        });
+
+        function renderListNamesOnly(){
+            const rows = document.querySelectorAll('#iplList .ipl-scn .nm');
+            scenarios.forEach((sc, i) => { if(rows[i]) rows[i].textContent = sc.name; });
+        }
+
+        function defaultSection(kind, from){
+            const s = { kind };
+            (C.KIND_FIELDS[kind] || []).forEach(([k, , def]) => { s[k] = (from && from[k] !== undefined) ? from[k] : def; });
+            return s;
+        }
+
+        function renderSections(sc){
+            const box = document.getElementById('iplSections');
+            box.innerHTML = '';
+            if(!sc.sections.length){ box.innerHTML = '<div style="color:var(--wbt-text-dim);margin-bottom:4px;">No sections yet.</div>'; }
+            sc.sections.forEach((s, i) => {
+                const row = document.createElement('div');
+                row.className = 'ipl-sec';
+                const kindOpts = Object.keys(C.KIND_LABEL).map(k => `<option value="${k}" ${k === s.kind ? 'selected' : ''}>${C.KIND_LABEL[k]}</option>`).join('');
+                const flds = (C.KIND_FIELDS[s.kind] || []).map(([k, lbl]) =>
+                    `<span class="fld"><span>${lbl}</span><input type="number" step="0.1" data-k="${k}" value="${s[k]}"></span>`).join('');
+                row.innerHTML = `<span class="idx">#${i + 1}</span>
+                    <select data-role="kind">${kindOpts}</select>${flds}
+                    ${(s.targetTvd !== undefined && sc.targets.length) ? `<select data-role="fromT" title="Set Target TVD from a scenario target"><option value="">TVD from target…</option>${sc.targets.map((t, ti) => `<option value="${ti}">T${ti + 1} ${esc(t.name)} (TVD ${f(tvdOf(sc, t),1)})</option>`).join('')}</select>` : ''}
+                    <button type="button" class="wbt-btn" data-role="up" style="padding:1px 6px;" title="Move up">&uarr;</button>
+                    <button type="button" class="wbt-btn" data-role="del" style="padding:1px 6px;" title="Delete">&times;</button>
+                    <div class="ipl-res" data-role="res"></div>`;
+                row.querySelector('[data-role=kind]').addEventListener('change', e => {
+                    sc.sections[i] = defaultSection(e.target.value, s);
+                    refresh(sc); renderSections(sc); updateResults(sc);
+                });
+                row.querySelectorAll('input[data-k]').forEach(inp => inp.addEventListener('input', e => {
+                    s[e.target.dataset.k] = n(e.target.value); refresh(sc); updateResults(sc);
+                }));
+                const fromT = row.querySelector('[data-role=fromT]');
+                if(fromT) fromT.addEventListener('change', e => {
+                    const t = sc.targets[parseInt(e.target.value, 10)];
+                    if(!t) return;
+                    s.targetTvd = Math.round(tvdOf(sc, t) * 100) / 100; // Sub-Sea -> TVD with scenario RKB
+                    refresh(sc); renderSections(sc); updateResults(sc);
+                });
+                row.querySelector('[data-role=del]').addEventListener('click', () => {
+                    sc.sections.splice(i, 1); refresh(sc); renderSections(sc); updateResults(sc);
+                });
+                row.querySelector('[data-role=up]').addEventListener('click', () => {
+                    if(i === 0) return;
+                    [sc.sections[i - 1], sc.sections[i]] = [sc.sections[i], sc.sections[i - 1]];
+                    refresh(sc); renderSections(sc); updateResults(sc);
+                });
+                box.appendChild(row);
+            });
+        }
+
+        // Updates only result text (keeps input focus while typing).
+        function updateResults(sc){
+            const c = sc._calc || {};
+            const tie = document.getElementById('iplTieInfo');
+            if(tie){
+                tie.innerHTML = c.error ? `<span style="color:#ff4c4c;">${esc(c.error)}</span>`
+                    : `Tie-on point: MD ${f(c.start.md,1)} &middot; Inc ${f(c.start.inc,2)}° &middot; Az ${f(c.start.az,2)}° &middot; TVD ${f(c.start.tvd,2)} &middot; N ${f(c.start.n,2)} &middot; E ${f(c.start.e,2)} &middot; RKB ${f(c.start.rkb,2)}`;
+            }
+            const rows = document.querySelectorAll('#iplSections .ipl-sec');
+            rows.forEach((row, i) => {
+                const el = row.querySelector('[data-role=res]');
+                const r = c.sections && c.sections[i];
+                if(c.error || !r){ el.textContent = ''; el.className = 'ipl-res'; return; }
+                el.className = 'ipl-res' + (r.warning ? ' bad' : '');
+                el.innerHTML = r.warning ? esc(r.warning)
+                    : `&rarr; MD ${f(r.startMd + r.cl,1)} &middot; Inc ${f(r.endInc,2)}° &middot; Az ${f(r.endAz,2)}° &middot; TVD ${f(r.startTvd + r.dTvd,2)} &middot; CL ${f(r.cl,1)} m` +
+                      (r.tf !== undefined ? ` &middot; TF (auto) ${f(r.tf,1)}°` : '');
+            });
+            document.querySelectorAll('#iplTargets .ipl-sec').forEach((row, i) => {
+                const el = row.querySelector('[data-role=tres]');
+                const t = sc.targets[i];
+                const fb = (!c.error && t) ? targetFeedback(sc, t) : null;
+                if(!fb){ el.textContent = ''; el.className = 'ipl-res'; return; }
+                el.className = 'ipl-res' + (fb.hit ? '' : ' bad');
+                const tt = row.querySelector('[data-role=ttvd]'); if(tt) tt.textContent = '(TVD ' + f(tvdOf(sc, t),1) + ')';
+                el.innerHTML = `${fb.hit ? '&#10004; WITHIN RADIUS' : '&#10008; MISSED'} &middot; closest approach ${f(fb.best,1)} m at MD ${f(fb.bestMd,1)} &middot; from trajectory end ${f(fb.fin,1)} m`;
+                if(fb.hit) el.style.color = '#00e676'; else el.style.color = '';
+            });
+            const sum = document.getElementById('iplSummary');
+            if(sum){
+                if(c.error || !c.stations){ sum.textContent = ''; return; }
+                const last = c.stations[c.stations.length - 1];
+                sum.innerHTML = `End: MD ${f(last.md,1)} &middot; Inc ${f(last.inc,2)}° &middot; Az ${f(last.az,2)}° &middot; TVD ${f(last.tvd,2)} &middot; N ${f(last.n,2)} &middot; E ${f(last.e,2)} &middot; ${c.stations.length} stations`;
+            }
+        }
+
+        function downloadCsv(sc){
+            const c = sc._calc;
+            if(!c || c.error || !c.stations){ alert('Nothing to export: ' + ((c && c.error) || 'no stations')); return; }
+            const head = ['MD (m)','Incl (deg)','Azim (deg)','TVD (m)','Sub-Sea (m)','Northing','Easting','DLS (deg/30m)','Section'];
+            const lines = [head.join(',')].concat(c.stations.map(s => [
+                s.md.toFixed(2), s.inc.toFixed(3), s.az.toFixed(3), s.tvd.toFixed(2), s.subSea.toFixed(2),
+                s.n.toFixed(3), s.e.toFixed(3), s.dls30.toFixed(2), s.section ? '#' + s.section : 'Start'
+            ].join(',')));
+            const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (sc.name || 'scenario').replace(/[^\w\- ]+/g, '_') + '.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        // ---------- new scenario ----------
+        document.getElementById('iplNewBtn').addEventListener('click', async () => {
+            if(!WELLS.length){ alert('No planned wellbores with survey data on this job.'); return; }
+            const w = WELLS[0];
+            const design = {
+                name: 'Scenario ' + (scenarios.length + 1), startMode: 'surface', wellId: String(w._id), tieMd: 0,
+                start: surfaceStartFromWell(w), sections: [], targets: [], toolcode: null
+            };
+            let doc;
+            try { doc = await apiJson('/notes/iplan/' + NOTE_ID, 'POST', design); }
+            catch(err){ alert('Could not create scenario: ' + err.message); return; }
+            const sc = fromDoc(doc);
+            sc.visible = true;                       // the one you just created is shown
+            scenarios.push(sc); selId = sc.id;
+            compute(sc); draw(sc); drawTargets(sc);  // no autosave needed: just created
+            window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } }));
+            setSaveStatus(sc, 'Saved ✓');
+            renderList(); renderEditor();
+        });
+        document.getElementById('iplHead').addEventListener('click', () => document.getElementById('iplRoot').classList.toggle('open'));
+        renderList();
+        // Load the job's saved scenarios (all inactive/unticked by default).
+        apiJson('/notes/iplan/list/' + NOTE_ID, 'GET').then(list => {
+            (list || []).forEach(doc => { const sc = fromDoc(doc); compute(sc); scenarios.push(sc); });
+            if(scenarios.length && !selId) selId = scenarios[0].id;
+            renderList(); renderEditor();
+        }).catch(err => console.warn('[iPlan] could not load saved scenarios:', err));
+    })();
+    </script>
+    <!-- ================= END iPLAN SCRIPT ================= -->
     <% } %>
 
 <!-- ================= PAD AC SCRIPT ================= -->
@@ -6076,6 +6758,62 @@ body.light-mode #statusTextbox {
 
     function num(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
+    // ── iPlan scenarios in Anti-collision (ADDED 2026-10-10, iPlan step 3) ──
+    // Visible iPlan scenarios (window.IPLAN_SCENARIOS, built in the Wellbore
+    // 3D accordion) are appended to WELLS as pseudo-wells, so they can be the
+    // Reference well (dropdown) AND are included as offsets for any other
+    // reference. Drawn green dotted. BASE_WELLS = the real planned wells only.
+    //  - survey: for a TIE-ON scenario the parent well's stations ABOVE the
+    //    tie-on MD are prepended, so the ISCWSA covariance accumulates along the
+    //    parent's path first (as a real sidetrack's uncertainty does), instead
+    //    of restarting from zero at the tie-on point. geomFromMd limits the
+    //    C2C/TCV geometry to the scenario's own part (from the tie-on MD down),
+    //    so the shared parent section doesn't show as a 0 m "collision".
+    //  - toolcode: scenario override if set, else inherited from the parent
+    //    planned well, else DEFAULT_TOOLCODE (same fallback as any well).
+    //  - lat/long for the WMM magnetics: the parent well's surface station.
+    //  - Sub-Sea: scenario stations carry subSea = RKB - TVD (iPlan), the same
+    //    vertical basis this module already uses for every cross-well distance.
+    var BASE_WELLS = WELLS.slice();
+    var IPLAN_PREFIX = 'iPlan \u25B8 ';
+    function buildScenarioWells(){
+        var list = (window.IPLAN_SCENARIOS || []).filter(function(sc){
+            return sc.visible && sc._calc && !sc._calc.error && sc._calc.stations && sc._calc.stations.length >= 2;
+        });
+        var used = {};
+        return list.map(function(sc){
+            var parent = BASE_WELLS.find(function(w){ return String(w._id) === String(sc.wellId); }) || null;
+            var pSurvey = parent ? parent.survey.slice().sort(function(a,b){ return num(a.md)-num(b.md); }) : [];
+            var lat = pSurvey.length ? pSurvey[0].latitude : undefined, lon = pSurvey.length ? pSurvey[0].longitude : undefined;
+            var st = sc._calc.stations;
+            var startMd = st[0].md;
+            var prefix = (sc.startMode === 'tieon') ? pSurvey.filter(function(r){ return num(r.md) < startMd - 1e-6; }) : [];
+            var own = st.map(function(p){
+                return { md: p.md, incl: p.inc, azim: p.az, tvd: p.tvd, northing: p.n, easting: p.e, subSea: p.subSea,
+                         dogleg: p.dls30, latitude: lat, longitude: lon, comments: '' };
+            });
+            var name = IPLAN_PREFIX + (sc.name || sc.id);
+            if(used[name]) name += ' (' + sc.id + ')';
+            used[name] = true;
+            return {
+                wellName: name, isScenario: true, scenarioId: sc.id, geomFromMd: startMd,
+                toolcode: sc.toolcode || (parent && parent.toolcode) || undefined,
+                survey: prefix.concat(own)
+            };
+        });
+    }
+    function syncScenarioWells(){
+        WELLS = BASE_WELLS.concat(buildScenarioWells());
+        // scenario geometry/toolcode may have changed: drop their cached results
+        if(typeof WELL_COVARIANCE !== 'undefined') Object.keys(WELL_COVARIANCE).forEach(function(k){ if(k.indexOf(IPLAN_PREFIX) === 0) delete WELL_COVARIANCE[k]; });
+        if(typeof WELL_MAGNETICS !== 'undefined') Object.keys(WELL_MAGNETICS).forEach(function(k){ if(k.indexOf(IPLAN_PREFIX) === 0) delete WELL_MAGNETICS[k]; });
+    }
+    var IPLAN_GREEN = '#00e676';
+    function scenarioStyle(w, ds){
+        if(w && w.isScenario){ ds.borderColor = IPLAN_GREEN; ds.backgroundColor = IPLAN_GREEN; ds.borderDash = [6, 4]; ds.borderWidth = 2; }
+        return ds;
+    }
+
     // 3D points for a wellbore, in a consistent local frame (x=Easting,
     // y=Northing, z=-TVDss). Uses Sub-Sea (TVDss), NOT raw TVD, for the
     // vertical axis: TVD is referenced to each well's own RKB/KB elevation,
@@ -6086,7 +6824,10 @@ body.light-mode #statusTextbox {
     // spatial comparison — confirmed against this job's own data: two
     // wells 5 m apart in Sub-Sea read only ~0.5 m apart in raw TVD.
     function wellPoints(well){
-        return (well.survey || []).map(function(s){
+        return (well.survey || []).filter(function(s){
+            // iPlan tie-on scenarios: geometry starts at the tie-on MD (see BASE_WELLS note)
+            return well.geomFromMd == null || num(s.md) >= well.geomFromMd - 1e-6;
+        }).map(function(s){
             return { md: num(s.md), x: num(s.easting), y: num(s.northing), z: -num(s.subSea), tvd: num(s.tvd),
                      incl: num(s.incl), azim: num(s.azim) };
         }).sort(function(a,b){ return a.md - b.md; });
@@ -7520,7 +8261,7 @@ body.light-mode #statusTextbox {
             if(!segments.length) return; // never crosses any swept plane within radius -> no trace for this well
 
             segments.forEach(function(seg, segIdx){
-                datasets.push({
+                datasets.push(scenarioStyle(entry.well, {
                     label: entry.well.wellName,
                     data: seg,
                     showLine: true,
@@ -7530,7 +8271,7 @@ body.light-mode #statusTextbox {
                     pointRadius: 3,
                     pointHoverRadius: 5,
                     _tcvIsExtraSegment: segIdx > 0 // dedupe legend below — same well, later segment
-                });
+                }));
             });
         });
 
@@ -7804,7 +8545,7 @@ body.light-mode #statusTextbox {
             var offCov = computeWellCov(w, wellToolcode(w));
             if(refCov && offCov) usedRealModelCount++; else missingMagCount++;
             var profile = computeC2CProfile(refPts, offPts, refCov, offCov);
-            return {
+            return scenarioStyle(w, {
                 label: w.wellName,
                 data: profile.map(function(p){ return { x: p.md, y: p.c2c, offMd: p.offMd, sf: p.sf }; }),
                 borderColor: palette[i % palette.length],
@@ -7813,7 +8554,7 @@ body.light-mode #statusTextbox {
                 pointRadius: 0,
                 pointHoverRadius: 5,
                 showLine: true
-            };
+            });
         });
 
         // SF datasets, same colors/well mapping, own chart. SF values are
@@ -7829,9 +8570,10 @@ body.light-mode #statusTextbox {
             return {
                 label: ds.label,
                 data: ds.data.map(function(p){ return { x: p.x, y: Math.min(p.sf, SF_CAP), offMd: p.offMd, sfRaw: p.sf, c2c: p.y }; }),
-                borderColor: palette[i % palette.length],
+                borderColor: ds.borderColor,            // 2026-10-10: same as the C2C dataset (keeps iPlan green)
+                borderDash: ds.borderDash,              // iPlan scenarios: dotted
                 backgroundColor: 'transparent',
-                borderWidth: 1.5,
+                borderWidth: ds.borderWidth,
                 pointRadius: 0,
                 pointHoverRadius: 5,
                 showLine: true
@@ -7994,6 +8736,13 @@ body.light-mode #statusTextbox {
     async function saveWellToolcode(well, toolcodeName){
         well.toolcode = toolcodeName;
         WELL_COVARIANCE = {}; // invalidate cache — this well's covariance is now stale
+        if(well.isScenario){
+            // 2026-10-10: iPlan scenario — store the override on the scenario
+            // itself (no server call; scenarios are not WellboreTrajectory docs).
+            var sc = (window.IPLAN_SCENARIOS || []).find(function(x){ return x.id === well.scenarioId; });
+            if(sc){ sc.toolcode = toolcodeName; window.dispatchEvent(new CustomEvent('iplanToolcodeChangedFromAC', { detail: { id: sc.id } })); }
+            return;
+        }
         if(!well._id) return;
         try {
             await fetch('/notes/wellboreTrajectory/' + well._id + '/toolcode', {
@@ -8093,12 +8842,18 @@ body.light-mode #statusTextbox {
         }
         emptyEl.style.display = 'none';
         chartWrap.style.display = 'flex';
-        refSelect.innerHTML = '';
-        WELLS.forEach(function(w){
-            var opt = document.createElement('option');
-            opt.value = w.wellName; opt.textContent = w.wellName;
-            refSelect.appendChild(opt);
-        });
+        function fillRefOptions(){
+            var prev = refSelect.value;
+            refSelect.innerHTML = '';
+            WELLS.forEach(function(w){
+                var opt = document.createElement('option');
+                opt.value = w.wellName; opt.textContent = w.wellName;
+                if(w.isScenario) opt.style.color = IPLAN_GREEN;
+                refSelect.appendChild(opt);
+            });
+            if(prev && WELLS.some(function(w){ return w.wellName === prev; })) refSelect.value = prev;
+        }
+        fillRefOptions();
         function populateErrEllipseOffsetSelect(){
             var sel = document.getElementById('acpErrEllipseOffsetWell');
             if(!sel) return;
@@ -8153,10 +8908,28 @@ body.light-mode #statusTextbox {
         resetTcvRefMd();
         renderPlot();
         loadToolcodes().then(function(){ renderPlot(); }); // re-render once real toolcode list/data is in (async)
+
+        // 2026-10-10: iPlan scenarios changed -> rebuild pseudo-wells, refresh
+        // the dropdowns and re-plot (debounced: iPlan fires on every keystroke).
+        acpOnScenariosChanged = function(){
+            var prevRef = refSelect.value;
+            fillRefOptions();
+            populateErrEllipseOffsetSelect();
+            if(refSelect.value !== prevRef) resetTcvRefMd();
+            renderPlot();
+        };
     }
+    var acpOnScenariosChanged = null, acpScnTimer = null;
+    window.addEventListener('iplanScenariosChanged', function(){
+        clearTimeout(acpScnTimer);
+        acpScnTimer = setTimeout(function(){
+            syncScenarioWells();
+            if(acpOnScenariosChanged) acpOnScenariosChanged();
+        }, 500);
+    });
 
     let acpInitDone = false;
-    function initOnce(){ if(acpInitDone) return; acpInitDone = true; init(); }
+    function initOnce(){ if(acpInitDone) return; acpInitDone = true; syncScenarioWells(); init(); }
     const collapseEl = document.getElementById('collapseAcPlots');
     if(collapseEl){
         collapseEl.addEventListener('shown.bs.collapse', initOnce);

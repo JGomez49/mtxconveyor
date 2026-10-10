@@ -25,6 +25,8 @@ const SiteConfig    = require("../models/SiteConfig");
 // ADDED 2026-09-14: VP -> Main Area mapping, backing renderVPAreas/saveVPAreas
 // below and the vpAreaList fed into all-notes.ejs's Snapshot section.
 const VPArea        = require("../models/VPArea");
+// ADDED 2026-10-10: iPlan scenario trajectories (job-level, see model comment)
+const IPlanScenario = require("../models/IPlanScenario");
 
 
 
@@ -2336,6 +2338,56 @@ notesCrtl.deletePolyline = async (req, res) => {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
+};
+
+// ── iPlan scenarios (ADDED 2026-10-10, iPlan step 4) ─────────────────────────
+// Job-level CRUD, same pattern as the Polyline routes above. Any signed-in
+// user can read/create/edit/delete (scenarios are shared on the job, like
+// Polylines). Only whitelisted design fields are accepted from the client.
+const IPLAN_FIELDS = ['name', 'startMode', 'wellId', 'tieMd', 'start', 'sections', 'targets', 'toolcode'];
+function iplanPick(body){
+  const out = {};
+  IPLAN_FIELDS.forEach(k => { if(body && body[k] !== undefined) out[k] = body[k]; });
+  if(out.sections && !Array.isArray(out.sections)) delete out.sections;
+  if(out.targets && !Array.isArray(out.targets)) delete out.targets;
+  return out;
+}
+function iplanUserName(req){ return (req.user && (req.user.name || req.user.email)) || ''; }
+
+notesCrtl.listIPlanScenarios = async (req, res) => {
+  try {
+    const list = await IPlanScenario.find({ noteId: req.params.noteId }).sort({ createdAt: 1 }).lean();
+    res.json(list);
+  } catch(error){ console.error('listIPlanScenarios:', error); res.status(500).json({ error: error.message }); }
+};
+
+notesCrtl.addIPlanScenario = async (req, res) => {
+  try {
+    const doc = await IPlanScenario.create(Object.assign(iplanPick(req.body), {
+      noteId: req.params.noteId,
+      createdBy: req.user && req.user._id, createdByName: iplanUserName(req),
+      updatedBy: req.user && req.user._id, updatedByName: iplanUserName(req),
+    }));
+    res.json(doc);
+  } catch(error){ console.error('addIPlanScenario:', error); res.status(500).json({ error: error.message }); }
+};
+
+notesCrtl.updateIPlanScenario = async (req, res) => {
+  try {
+    const doc = await IPlanScenario.findByIdAndUpdate(req.params.scenarioId,
+      Object.assign(iplanPick(req.body), { updatedBy: req.user && req.user._id, updatedByName: iplanUserName(req) }),
+      { new: true });
+    if(!doc) return res.status(404).json({ error: 'Scenario not found' });
+    res.json(doc);
+  } catch(error){ console.error('updateIPlanScenario:', error); res.status(500).json({ error: error.message }); }
+};
+
+notesCrtl.deleteIPlanScenario = async (req, res) => {
+  try {
+    const r = await IPlanScenario.deleteOne({ _id: req.params.scenarioId });
+    if(!r.deletedCount) return res.status(404).json({ error: 'Scenario not found' });
+    res.json({ success: true });
+  } catch(error){ console.error('deleteIPlanScenario:', error); res.status(500).json({ error: error.message }); }
 };
 
 // PATCH /notes/padStats/:id — save trajectory pad summary stats to the note
