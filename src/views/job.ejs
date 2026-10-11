@@ -356,13 +356,14 @@ body.light-mode #statusTextbox {
                 <div class="accordion mb-2" id="accordionWbt">
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button"
+                            <!-- CHANGED 2026-10-11: open by default (was collapsed) -->
+                            <button class="accordion-button" type="button"
                                     data-bs-toggle="collapse" data-bs-target="#collapseWbt"
-                                    aria-expanded="false">
+                                    aria-expanded="true">
                                 🧭 Wellbore 3D Trajectory
                             </button>
                         </h2>
-                        <div id="collapseWbt" class="accordion-collapse collapse">
+                        <div id="collapseWbt" class="accordion-collapse collapse show">
                             <div class="accordion-body p-2">
                 <style>
                     .wbt-root {
@@ -747,7 +748,21 @@ body.light-mode #statusTextbox {
                             </div>
                             <div class="wbt-section">
                                 <h6>Line Thickness</h6>
+                                <!-- CHANGED 2026-10-11: separate sliders per group + per-trajectory override.
+                                     id wbtLineThickness kept (now = Subjects) so existing listeners still work. -->
+                                <div style="font-size:10px;">Subjects <span id="wbtLtSubjVal"></span></div>
                                 <input type="range" id="wbtLineThickness" min="0.1" max="5" step="0.1" value="0.5">
+                                <div style="font-size:10px;margin-top:4px;">Offsets <span id="wbtLtOffVal"></span></div>
+                                <input type="range" id="wbtLineThicknessOffset" min="0.1" max="5" step="0.1" value="0.5">
+                                <div style="font-size:10px;margin-top:4px;">Scenarios (iPlan) <span id="wbtLtScnVal"></span></div>
+                                <input type="range" id="wbtLineThicknessScenario" min="0.1" max="5" step="0.1" value="0.5">
+                                <div style="font-size:10px;margin-top:8px;">Individual trajectory</div>
+                                <select id="wbtLtIndivSel" style="margin:3px 0;"><option value="">— select —</option></select>
+                                <input type="range" id="wbtLtIndiv" min="0.1" max="5" step="0.1" value="0.5" disabled>
+                                <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;">
+                                    <span id="wbtLtIndivVal"></span>
+                                    <button type="button" class="wbt-btn" id="wbtLtIndivReset" style="padding:2px 8px;" disabled title="Back to its group's thickness">Reset</button>
+                                </div>
                             </div>
                             <div class="wbt-section">
                                 <h6>Marker Size</h6>
@@ -1220,6 +1235,13 @@ body.light-mode #statusTextbox {
                                         <input class="form-check-input" type="checkbox" id="acpShowLegend">
                                         <label class="form-check-label" for="acpShowLegend" style="font-size:11px;color:var(--an-text,#c8d8e8);">Show Legend</label>
                                     </div>
+                                    <!-- ADDED 2026-10-11: color scheme. Standard = Subjects blue, Offsets red, iPlan scenarios green dotted.
+                                         Multi-Color = previous behavior (one palette color per wellbore; scenarios still green dotted). -->
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Colors:</label>
+                                    <select id="acpColorMode" class="form-select form-select-sm" style="max-width:130px;">
+                                        <option value="standard" selected>Standard</option>
+                                        <option value="multi">Multi-Color</option>
+                                    </select>
                                     <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Toolcode:</label>
                                     <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
                                         <option value="">— Simplified (approximate) —</option>
@@ -3164,6 +3186,7 @@ body.light-mode #statusTextbox {
 
             buildWbtWellList();
             applyWbtLineThickness();
+            wbtFillIndivSelect();
             fitCameraToObject(allPoints);
             applyWbtVisibility();
 
@@ -3228,14 +3251,61 @@ body.light-mode #statusTextbox {
         }
 
         // ---------------- Line thickness ----------------
+        // CHANGED 2026-10-11: thickness factor per group (Subjects / Offsets /
+        // Scenarios sliders) with an optional per-trajectory override
+        // (WBT_LT_OVERRIDE, session only). Keys: 'w:<wellbore _id>' for planned
+        // wells, 's:<scenario id>' for iPlan scenarios.
+        const WBT_LT_OVERRIDE = {};
+        function wbtSliderVal(id){ const el = document.getElementById(id); return el ? (parseFloat(el.value) || 0.5) : 0.5; }
+        function wbtThicknessForWell(w){
+            const k = 'w:' + w._id;
+            if(WBT_LT_OVERRIDE[k] != null) return WBT_LT_OVERRIDE[k];
+            return wbtWellIsSubjectByCategory(w) ? wbtSliderVal('wbtLineThickness') : wbtSliderVal('wbtLineThicknessOffset');
+        }
+        function wbtThicknessForScenario(id){
+            const k = 's:' + id;
+            return WBT_LT_OVERRIDE[k] != null ? WBT_LT_OVERRIDE[k] : wbtSliderVal('wbtLineThicknessScenario');
+        }
         function applyWbtLineThickness(){
-            const factor = parseFloat(document.getElementById('wbtLineThickness').value);
             wellsData.forEach(w => {
+                const factor = wbtThicknessForWell(w);
                 const mesh = w.mesh;
                 const {curve, baseRadius, tubularSegments} = mesh.userData;
                 mesh.geometry.dispose();
                 mesh.geometry = new THREE.TubeGeometry(curve, tubularSegments, baseRadius * factor, 6, false);
             });
+            [['wbtLtSubjVal','wbtLineThickness'],['wbtLtOffVal','wbtLineThicknessOffset'],['wbtLtScnVal','wbtLineThicknessScenario']].forEach(([lbl, id]) => {
+                const el = document.getElementById(lbl); if(el) el.textContent = '× ' + wbtSliderVal(id).toFixed(1);
+            });
+            // iPlan redraws its scenario tubes on this event (see iPlan script)
+            window.dispatchEvent(new CustomEvent('wbtThicknessChanged'));
+        }
+        // Individual-trajectory picker: planned wells + current iPlan scenarios.
+        function wbtFillIndivSelect(){
+            const sel = document.getElementById('wbtLtIndivSel'); if(!sel) return;
+            const prev = sel.value;
+            let html = '<option value="">— select —</option><optgroup label="Planned wells">' +
+                wellsData.map(w => `<option value="w:${w._id}">${(w.wellName || '').replace(/</g,'&lt;')}</option>`).join('') + '</optgroup>';
+            const scn = (window.IPLAN_SCENARIOS || []);
+            if(scn.length) html += '<optgroup label="iPlan scenarios">' + scn.map(sc => `<option value="s:${sc.id}">${String(sc.name || sc.id).replace(/</g,'&lt;')}</option>`).join('') + '</optgroup>';
+            sel.innerHTML = html;
+            if(prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+            wbtSyncIndivSlider();
+        }
+        function wbtCurrentFactor(key){
+            if(!key) return 0.5;
+            if(key.indexOf('s:') === 0) return wbtThicknessForScenario(key.slice(2));
+            const w = wellsData.find(x => 'w:' + x._id === key);
+            return w ? wbtThicknessForWell(w) : 0.5;
+        }
+        function wbtSyncIndivSlider(){
+            const sel = document.getElementById('wbtLtIndivSel'), sl = document.getElementById('wbtLtIndiv');
+            const rs = document.getElementById('wbtLtIndivReset'), lb = document.getElementById('wbtLtIndivVal');
+            if(!sel || !sl) return;
+            const key = sel.value;
+            sl.disabled = !key; rs.disabled = !key || WBT_LT_OVERRIDE[key] == null;
+            if(key) sl.value = wbtCurrentFactor(key);
+            lb.textContent = key ? ('× ' + wbtCurrentFactor(key).toFixed(1) + (WBT_LT_OVERRIDE[key] != null ? ' (custom)' : ' (group)')) : '';
         }
 
         // ---------------- Visibility toggles ----------------
@@ -3298,7 +3368,26 @@ body.light-mode #statusTextbox {
                 document.getElementById(id).addEventListener('change', applyWbtVisibility);
             });
 
-            document.getElementById('wbtLineThickness').addEventListener('input', applyWbtLineThickness);
+            document.getElementById('wbtLineThickness').addEventListener('input', () => { applyWbtLineThickness(); wbtSyncIndivSlider(); });
+            ['wbtLineThicknessOffset','wbtLineThicknessScenario'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.addEventListener('input', () => { applyWbtLineThickness(); wbtSyncIndivSlider(); });
+            });
+            const ltSel = document.getElementById('wbtLtIndivSel');
+            if(ltSel){
+                ltSel.addEventListener('focus', wbtFillIndivSelect);   // pick up newly created scenarios
+                ltSel.addEventListener('change', wbtSyncIndivSlider);
+                document.getElementById('wbtLtIndiv').addEventListener('input', e => {
+                    if(!ltSel.value) return;
+                    WBT_LT_OVERRIDE[ltSel.value] = parseFloat(e.target.value);
+                    applyWbtLineThickness(); wbtSyncIndivSlider();
+                });
+                document.getElementById('wbtLtIndivReset').addEventListener('click', () => {
+                    delete WBT_LT_OVERRIDE[ltSel.value];
+                    applyWbtLineThickness(); wbtSyncIndivSlider();
+                });
+                window.addEventListener('iplanScenariosChanged', wbtFillIndivSelect);
+            }
 
             document.getElementById('wbtMarkerSize').addEventListener('input', (e) => {
                 wbtMarkerScale = parseFloat(e.target.value);
@@ -5270,7 +5359,8 @@ body.light-mode #statusTextbox {
             WELLBORES,
             getGroup: () => group,
             buildWellLine,
-            getThickness: () => parseFloat((document.getElementById('wbtLineThickness') || {}).value) || 1
+            // CHANGED 2026-10-11: scenario thickness = Scenarios slider, or that scenario's individual override
+            getThickness: (scenarioId) => wbtThicknessForScenario(scenarioId)
         };
 
         initScene();
@@ -5450,7 +5540,7 @@ body.light-mode #statusTextbox {
             // Same scene axes as planned wells: X = Easting, Y = -TVD, Z = -Northing
             const pts = c.stations.map(s => new THREE.Vector3(s.e, -s.tvd, -s.n));
             const mesh = api.buildWellLine(pts, GREEN);
-            const k = api.getThickness();
+            const k = api.getThickness(sc.id);
             const ud = mesh.userData;
             mesh.geometry.dispose();
             mesh.geometry = new THREE.TubeGeometry(ud.curve, ud.tubularSegments, ud.baseRadius * k, 6, false);
@@ -5479,8 +5569,8 @@ body.light-mode #statusTextbox {
             markDirty(sc);   // step 4: every design change autosaves
             window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } }));
         }
-        const thick = document.getElementById('wbtLineThickness');
-        if(thick) thick.addEventListener('input', () => scenarios.forEach(draw));
+        // 2026-10-11: redraw on any thickness change (group sliders or individual override)
+        window.addEventListener('wbtThicknessChanged', () => scenarios.forEach(draw));
 
         // ---------- UI: list ----------
         function renderList(){
@@ -5582,6 +5672,8 @@ body.light-mode #statusTextbox {
                     <button type="button" class="wbt-btn" data-wiz="bh">&#127919; Build &amp; Hold to Target</button>
                     <button type="button" class="wbt-btn" data-wiz="hbhbh">&#127919; Build-Hold-Build-Hold to Target</button>
                     <button type="button" class="wbt-btn" data-wiz="chc">&#127919; Curve-Hold-Curve to Target</button>
+                    <button type="button" class="wbt-btn" id="iplTanBtn">&#128207; Insert Tangent</button>
+                    ${(sc._undo && sc._undo.length) ? '<button type="button" class="wbt-btn" id="iplUndo" title="Undo the last wizard on this scenario (this session only)">&#8630; Undo last wizard</button>' : ''}
                 </div>
                 <div id="iplWiz"></div>
                 <div class="ipl-sum" id="iplSummary"></div>`;
@@ -5634,6 +5726,12 @@ body.light-mode #statusTextbox {
                 refresh(sc); renderTargets(sc); renderSections(sc); updateResults(sc);
             });
             ed.querySelectorAll('[data-wiz]').forEach(b => b.addEventListener('click', () => openWizard(sc, b.dataset.wiz)));
+            document.getElementById('iplTanBtn').addEventListener('click', () => openTangentWizard(sc));
+            const undoBtn = document.getElementById('iplUndo');
+            if(undoBtn) undoBtn.addEventListener('click', () => {
+                const prev = sc._undo.pop(); if(!prev) return;
+                sc.sections = prev; refresh(sc); renderEditor();
+            });
             renderTargets(sc);
             renderSections(sc);
             updateResults(sc);
@@ -5727,10 +5825,144 @@ body.light-mode #statusTextbox {
                     r = C.planCurveHoldCurve(end, t, val('incT'), val('azT'), val('dls1'), val('dls2'));
                 }
                 if(r.error){ errEl.textContent = r.error; return; }
+                (sc._undo = sc._undo || []).push(JSON.parse(JSON.stringify(sc.sections)));
                 r.sections.forEach(x => sc.sections.push(x));
                 box.innerHTML = '';
-                refresh(sc); renderSections(sc); updateResults(sc);
+                refresh(sc); renderEditor();
             });
+        }
+
+        // ---------- Insert Tangent wizard (ADDED 2026-10-11) ----------
+        // Uses IPlanCore.insertTangent (see the long comment in iplanCore.js).
+        // Live preview: yellow ghost line in 3D + before/after table; nothing is
+        // changed until Apply. Result sections are explicit Inc/Az/CL arcs.
+        let tanGhost = null;
+        function clearGhost(){ if(tanGhost){ api.getGroup().remove(tanGhost); tanGhost.geometry.dispose(); tanGhost.material.dispose(); tanGhost = null; } }
+        function openTangentWizard(sc){
+            const box = document.getElementById('iplWiz');
+            const c = sc._calc;
+            if(!c || c.error || !sc.sections.length){ box.innerHTML = '<div class="ipl-res bad" style="padding-left:0;">The scenario needs a start point and at least one section.</div>'; return; }
+            const start = { md:c.start.md, tvd:c.start.tvd, n:c.start.n, e:c.start.e, inc:c.start.inc, az:c.start.az };
+            const arcs = C.toArcs(start, sc.sections);
+            const st = C.chainArcs(start, arcs);
+            const isCurve = i => C.impliedBetaDeg(st[i].inc, st[i].az, arcs[i].inc1, arcs[i].az1) > 1e-6;
+            const dlsOf = i => isCurve(i) ? C.impliedBetaDeg(st[i].inc, st[i].az, arcs[i].inc1, arcs[i].az1) / arcs[i].cl * 30 : 0;
+            const firstCurveDls = (arcs.map((a, i) => dlsOf(i)).find(d => d > 0) || 3);
+            box.innerHTML = `<div class="ipl-sec" style="display:block;margin-top:6px;">
+                <div style="font-weight:700;color:#00e676;margin-bottom:4px;">&#128207; Insert Tangent</div>
+                <div style="font-size:11px;color:var(--wbt-text-dim);margin-bottom:6px;">Adds a hold of the given length at an MD, TVD or inclination of this scenario, and optionally keeps a point below it (e.g. the landing) where it was. Preview below; nothing changes until Apply.</div>
+                <div class="fld" style="margin:3px 0;flex-wrap:wrap;gap:6px;">
+                    <span>Anchor</span><select data-t="type"><option value="inc">INC (°)</option><option value="md">MD (m)</option><option value="tvd">TVD (m, RKB)</option></select>
+                    <input type="number" step="0.1" data-t="value" value="60">
+                    <select data-t="at"><option value="start">tangent STARTS here</option><option value="end">tangent ENDS here</option></select>
+                    <span>Length (m)</span><input type="number" step="1" data-t="L" value="30">
+                </div>
+                <div class="fld" style="margin:6px 0 3px;"><span style="width:110px;display:inline-block;">Keep fixed</span><select data-t="fix" style="max-width:520px;"></select></div>
+                <div data-t="modeBox" style="margin:4px 0 4px 0;">
+                    <label><input type="radio" name="iplTanMode" value="solve" checked> Adjust:</label>
+                    <label style="margin-left:6px;"><input type="checkbox" data-f="dlsBefore" checked> DLS before</label>
+                    <label style="margin-left:6px;"><input type="checkbox" data-f="dlsAfter" checked> DLS after</label>
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">(both = one shared DLS)</span>
+                    <label style="margin-left:6px;"><input type="checkbox" data-f="holdBefore" checked> Hold before the curve (move curve start)</label>
+                    <label style="margin-left:6px;"><input type="checkbox" data-f="holdAfter"> Hold after the tangent</label>
+                    <label style="margin-left:6px;"><input type="checkbox" data-f="azAfter" checked> Allow small azimuth change at end of curve</label>
+                    <br><label><input type="radio" name="iplTanMode" value="chc"> Re-solve below the tangent with Curve-Hold-Curve to the fixed point &mdash; DLS1</label>
+                    <input type="number" step="0.1" data-t="dls1" value="${f(firstCurveDls,2)}"> DLS2 <input type="number" step="0.1" data-t="dls2" value="${f(firstCurveDls,2)}"> °/30m
+                </div>
+                <div class="fld" style="margin:3px 0;"><span>Max allowed DLS (°/30m)</span><input type="number" step="0.1" data-t="maxDls" value="${f(Math.max(firstCurveDls * 1.5, firstCurveDls + 2),1)}"></div>
+                <div data-t="out" style="font-family:var(--wbt-mono);font-size:11px;margin:6px 0;"></div>
+                <button type="button" class="wbt-btn" data-t="apply">Apply</button>
+                <button type="button" class="wbt-btn" data-t="copy">Apply to a copy</button>
+                <button type="button" class="wbt-btn" data-t="x">Cancel</button></div>`;
+            const q = k => box.querySelector(`[data-t="${k}"]`);
+            // fixed-point choices: end of each arc (index); default = first curve end at/after the anchor
+            function fillFix(){
+                const anchor = { type: q('type').value, value: n(q('value').value), at: q('at').value };
+                const loc = C.findAnchor(start, arcs, anchor, n(q('L').value));
+                const prev = q('fix').value;
+                let html = '<option value="">Nothing &mdash; everything below the tangent just shifts</option>', def = '';
+                arcs.forEach((a, i) => {
+                    if(loc && i < loc.k) return;
+                    const e = st[i + 1];
+                    const lbl = (isCurve(i) ? 'End of curve' : 'End of hold') + ` (arc ${i + 1}) — MD ${f(e.md,1)} · TVD ${f(e.tvd,1)} · Inc ${f(e.inc,1)}° · Az ${f(e.az,1)}°` + (i === arcs.length - 1 ? ' (TD)' : '');
+                    if(def === '' && isCurve(i)) def = String(i);
+                    html += `<option value="${i}">${lbl}</option>`;
+                });
+                q('fix').innerHTML = html;
+                q('fix').value = (prev !== undefined && [...q('fix').options].some(o => o.value === prev) && prev !== '') ? prev : def;
+            }
+            let last = null, timer = null;
+            function run(){
+                const anchor = { type: q('type').value, value: n(q('value').value), at: q('at').value };
+                q('at').disabled = anchor.type === 'inc';
+                const fixV = q('fix').value;
+                const mode = fixV === '' ? 'none' : box.querySelector('input[name=iplTanMode]:checked').value;
+                const free = {}; box.querySelectorAll('[data-f]').forEach(cb => { free[cb.dataset.f] = cb.checked; });
+                q('modeBox').style.opacity = fixV === '' ? 0.4 : 1;
+                const r = C.insertTangent(start, sc.sections, { anchor, L: n(q('L').value), fixIdx: fixV === '' ? null : parseInt(fixV, 10), mode, free, chc: { dls1: n(q('dls1').value), dls2: n(q('dls2').value) } });
+                last = r;
+                clearGhost();
+                if(r.error){ q('out').innerHTML = `<span style="color:#ff4c4c;">${esc(r.error)}</span>`; return; }
+                // preview stations + ghost
+                const pv = C.computeStations(start, r.sections, STEP).stations;
+                if(sc.visible && pv.length > 1){
+                    tanGhost = api.buildWellLine(pv.map(p => new THREE.Vector3(p.e, -p.tvd, -p.n)), 0xffd060);
+                    api.getGroup().add(tanGhost);
+                }
+                const i = r.info, maxD = n(q('maxDls').value);
+                const lastO = st[st.length - 1], lastN = pv[pv.length - 1];
+                const row = (lbl, a, b) => `<tr><td style="padding:1px 8px 1px 0;color:var(--wbt-text-dim);">${lbl}</td><td style="padding:1px 8px;">${a}</td><td style="padding:1px 8px;">${b}</td></tr>`;
+                const P = x => x ? `MD ${f(x.md,1)} · TVD ${f(x.tvd,2)} · N ${f(x.n,2)} · E ${f(x.e,2)} · Inc ${f(x.inc,2)}° · Az ${f(x.az,2)}°` : '—';
+                let html = '<table>' + row('', '<b>before</b>', '<b>after</b>');
+                if(i.fixOrig) html += row('Fixed point', P(i.fixOrig), P(i.fixNew));
+                html += row('TD', P(lastO), P({ md:lastN.md, tvd:lastN.tvd, n:lastN.n, e:lastN.e, inc:lastN.inc, az:lastN.az }));
+                html += '</table>';
+                if(i.miss != null) html += `<div style="color:${i.miss > 0.01 ? '#ff4c4c' : '#00e676'};">Fixed point miss: ${f(i.miss,3)} m${i.miss > 0.01 ? ' — not enough free values ticked to hold it exactly; tick more (e.g. Hold before) or use Curve-Hold-Curve.' : ' ✔'}</div>`;
+                const pr = i.params || {};
+                const ch = [];
+                if(pr.dA != null && pr.dS == null) ch.push(`DLS before ${f(i.d0A,2)} → ${f(pr.dA,2)}`);
+                if(pr.dB != null && pr.dS == null) ch.push(`DLS after ${f(i.d0B,2)} → ${f(pr.dB,2)}`);
+                if(pr.dS != null) ch.push(`shared DLS ${f(i.d0A || i.d0B,2)} → ${f(pr.dS,2)}`);
+                if(pr.dHb) ch.push(`hold before curve ${pr.dHb > 0 ? '+' : ''}${f(pr.dHb,2)} m (curve starts ${pr.dHb > 0 ? 'deeper' : 'shallower'})`);
+                if(pr.dHa) ch.push(`hold after tangent ${pr.dHa > 0 ? '+' : ''}${f(pr.dHa,2)} m`);
+                if(pr.dAz) ch.push(`azimuth at end of curve ${pr.dAz > 0 ? '+' : ''}${f(pr.dAz,3)}°`);
+                if(i.solved && i.solved.L != null) ch.push(`CHC: curve to Inc ${f(i.solved.inc1,2)}° / Az ${f(i.solved.az1,2)}°, hold ${f(i.solved.L,1)} m`);
+                if(ch.length) html += '<div>Changes: ' + ch.join(' · ') + '</div>';
+                html += `<div style="color:${i.maxDls > maxD + 1e-9 ? '#ff4c4c' : 'inherit'};">Max DLS: ${f(i.maxDls,2)} °/30m${i.maxDls > maxD + 1e-9 ? ' — EXCEEDS the max allowed ' + f(maxD,1) : ''}</div>`;
+                if(pr.dAz && Math.abs(pr.dAz) > 2) html += `<div style="color:#ff4c4c;">Azimuth change at end of curve is larger than 2°.</div>`;
+                if(i.warn) html += `<div style="color:#ffd060;">${esc(i.warn)}</div>`;
+                q('out').innerHTML = html;
+            }
+            const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 250); };
+            box.querySelectorAll('input,select').forEach(el => el.addEventListener('input', () => {
+                if(['type','value','at','L'].includes(el.dataset.t)) fillFix();
+                schedule();
+            }));
+            box.querySelectorAll('input[type=radio],input[type=checkbox],select').forEach(el => el.addEventListener('change', schedule));
+            q('type').addEventListener('change', () => { q('value').value = q('type').value === 'inc' ? 60 : f(st[Math.floor(st.length / 2)][q('type').value], 1); fillFix(); schedule(); });
+            q('x').addEventListener('click', () => { clearGhost(); box.innerHTML = ''; });
+            q('apply').addEventListener('click', () => {
+                if(!last || last.error) return;
+                if(last.info.maxDls > n(q('maxDls').value) + 1e-9 && !confirm('Max DLS ' + f(last.info.maxDls,2) + ' exceeds the allowed ' + q('maxDls').value + '. Apply anyway?')) return;
+                (sc._undo = sc._undo || []).push(JSON.parse(JSON.stringify(sc.sections)));
+                sc.sections = last.sections;
+                clearGhost(); box.innerHTML = '';
+                refresh(sc); renderEditor();
+            });
+            q('copy').addEventListener('click', async () => {
+                if(!last || last.error) return;
+                const design = designOf(sc); design.sections = last.sections; design.name = sc.name + ' + tangent';
+                let doc;
+                try { doc = await apiJson('/notes/iplan/' + NOTE_ID, 'POST', design); }
+                catch(err){ alert('Could not create the copy: ' + err.message); return; }
+                const nsc = fromDoc(doc); nsc.visible = true;
+                scenarios.push(nsc); selId = nsc.id;
+                clearGhost(); box.innerHTML = '';
+                compute(nsc); draw(nsc); drawTargets(nsc);
+                window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: nsc.id } }));
+                setSaveStatus(nsc, 'Saved ✓'); renderList(); renderEditor();
+            });
+            fillFix(); run();
         }
 
         // ---------- AC toolcode (STEP 3, 2026-10-10) ----------
@@ -6809,6 +7041,24 @@ body.light-mode #statusTextbox {
         if(typeof WELL_MAGNETICS !== 'undefined') Object.keys(WELL_MAGNETICS).forEach(function(k){ if(k.indexOf(IPLAN_PREFIX) === 0) delete WELL_MAGNETICS[k]; });
     }
     var IPLAN_GREEN = '#00e676';
+    // ADDED 2026-10-11: color scheme selector (#acpColorMode).
+    //  'standard': Subjects blue, Offsets red (same blues/red as the 3D viewer's
+    //              Single mode: navy in light theme, electric blue in dark theme),
+    //  'multi'   : one palette color per wellbore (the previous behavior).
+    // iPlan scenarios are green dotted in both (scenarioStyle, applied after).
+    // Subject/Offset rule = the 3D viewer's: wellCategory tag, else the [NN]..._LNN name pattern.
+    function acpIsSubject(w){
+        var wn = (w.wellName || '').trim();
+        if(w.wellCategory === 'subject') return true;
+        if(w.wellCategory === 'offset') return false;
+        return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn);
+    }
+    function acpWellColor(w, i){
+        var modeEl = document.getElementById('acpColorMode');
+        if(modeEl && modeEl.value === 'multi') return palette[i % palette.length];
+        if(acpIsSubject(w)) return document.body.classList.contains('light-mode') ? '#1a3fa0' : '#0066ff';
+        return '#ff0000';
+    }
     function scenarioStyle(w, ds){
         if(w && w.isScenario){ ds.borderColor = IPLAN_GREEN; ds.backgroundColor = IPLAN_GREEN; ds.borderDash = [6, 4]; ds.borderWidth = 2; }
         return ds;
@@ -8265,8 +8515,8 @@ body.light-mode #statusTextbox {
                     label: entry.well.wellName,
                     data: seg,
                     showLine: true,
-                    borderColor: palette[i % palette.length],
-                    backgroundColor: palette[i % palette.length],
+                    borderColor: acpWellColor(entry.well, i),
+                    backgroundColor: acpWellColor(entry.well, i),
                     borderWidth: 2,
                     pointRadius: 3,
                     pointHoverRadius: 5,
@@ -8548,7 +8798,7 @@ body.light-mode #statusTextbox {
             return scenarioStyle(w, {
                 label: w.wellName,
                 data: profile.map(function(p){ return { x: p.md, y: p.c2c, offMd: p.offMd, sf: p.sf }; }),
-                borderColor: palette[i % palette.length],
+                borderColor: acpWellColor(w, i),
                 backgroundColor: 'transparent',
                 borderWidth: 1.5,
                 pointRadius: 0,
@@ -8879,6 +9129,8 @@ body.light-mode #statusTextbox {
         var tcvResetMdBtn = document.getElementById('acpTcvResetMdBtn');
         if(tcvResetMdBtn) tcvResetMdBtn.addEventListener('click', function(){ resetTcvRefMd(); renderTravelingCylinder(); });
         document.getElementById('acpShowLegend').addEventListener('change', renderPlot);
+        var colorModeEl = document.getElementById('acpColorMode');
+        if(colorModeEl) colorModeEl.addEventListener('change', renderPlot);
         var kInputEl = document.getElementById('acpKSF');
         if(kInputEl) kInputEl.addEventListener('change', function(){ renderPlot(); evaluateAtMd(); });
         ['acpC2cXMin','acpC2cXMax','acpC2cYMin','acpC2cYMax','acpSfXMin','acpSfXMax','acpSfYMin','acpSfYMax'].forEach(function(id){

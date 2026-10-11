@@ -802,6 +802,312 @@ function interpolateSurveyAtMD(survey, md){
   return null;
 }
 
+
+/* ============================================================
+   INSERT TANGENT (iPlan wizard, ADDED 2026-10-11)
+   No new physics: every curve is a constant-DLS minimum-curvature arc
+   (Eqs. 8.33-8.37), orientations along an arc come from the toolface
+   relation (Eqs. 8.41-8.49, applyToolfaceBeta), and the "re-solve after"
+   option is the existing Curve-Hold-Curve solver. What is new is only
+   the bookkeeping + a small least-squares solve:
+     1. The scenario is converted to explicit arcs {inc1, az1, cl} (exact).
+     2. A hold of length L is inserted at the anchor (MD / TVD / INC,
+        starting or ending there). If the anchor is inside a curve, that
+        curve is split into arc A (same toolface plane, ends at the anchor)
+        + tangent + arc B (from the anchor orientation back to the curve's
+        original end orientation).
+     3. Optionally a "fixed point" (end of a chosen arc, e.g. the landing)
+        is kept at its original N/E/TVD by solving for the user-selected
+        free variables (DLS before, DLS after — one shared DLS if both —,
+        length of the hold before the curve, length of the hold after the
+        tangent, small azimuth change at the end of the curve after the
+        tangent) with damped Gauss-Newton (numeric Jacobian). The anchor
+        condition is re-applied exactly on every iteration.
+     4. Or mode 'chc': everything between the tangent end and the fixed
+        point is replaced by a Curve-Hold-Curve that lands on the fixed
+        point's original position AND orientation (exact, fully 3D).
+   ============================================================ */
+const EPS_BETA = 1e-6;
+
+// Toolface (deg, high-side ref) that turns (inc0,az0) into (inc1,az1):
+// exact inverse of applyToolfaceBeta (verified to 0 deg error, 2000 random cases).
+function toolfaceBetween(inc0, az0, inc1, az1){
+  const beta = impliedBetaDeg(inc0, az0, inc1, az1);
+  if (beta < EPS_BETA) return { beta: 0, tf: 0 };
+  if (inc0 < 1e-7) return { beta, tf: (((az1 - az0) % 360) + 360) % 360 };
+  const i = inc0*D2R, a = az0*D2R, t0 = attitudeVector(inc0, az0), t1 = attitudeVector(inc1, az1), cb = Math.cos(beta*D2R);
+  const d = [t1[0]-cb*t0[0], t1[1]-cb*t0[1], t1[2]-cb*t0[2]];
+  const h = [Math.cos(i)*Math.cos(a), Math.cos(i)*Math.sin(a), -Math.sin(i)], r = [-Math.sin(a), Math.cos(a), 0];
+  return { beta, tf: Math.atan2(d[0]*r[0]+d[1]*r[1]+d[2]*r[2], d[0]*h[0]+d[1]*h[1]+d[2]*h[2]) * R2D };
+}
+
+// Scenario -> explicit arcs (exact reproduction of computeStations' path).
+function toArcs(start, sections){
+  const arcs = [];
+  let inc = start.inc, az = start.az, md = start.md, tvd = start.tvd;
+  (sections || []).forEach(s => {
+    const r = resolveSectionEndpoint(inc, az, tvd, md, s);
+    if (r.cl > 0){ arcs.push({ inc1: r.endInc, az1: r.endAz, cl: r.cl }); md += r.cl; tvd += r.dTvd; }
+    inc = r.endInc; az = r.endAz;
+  });
+  return arcs;
+}
+function arcsToSections(arcs){
+  return arcs.filter(a => a.cl > 1e-6).map(a => ({ kind:'direct', inc: a.inc1, az: a.az1, cl: a.cl }));
+}
+// States at the start of every arc and the end of the last one.
+function chainArcs(start, arcs){
+  const st = [{ md:start.md, tvd:start.tvd, n:start.n, e:start.e, inc:start.inc, az:start.az }];
+  arcs.forEach(a => {
+    const p = st[st.length-1];
+    const mc = a.cl > 0 ? minimumCurvature(p.inc, p.az, a.inc1, a.az1, a.cl) : { dN:0, dE:0, dTVD:0, dls30:0 };
+    st.push({ md:p.md + a.cl, tvd:p.tvd + mc.dTVD, n:p.n + mc.dN, e:p.e + mc.dE, inc:a.inc1, az:a.az1, dls30: mc.dls30 || 0 });
+  });
+  return st;
+}
+// State at distance s along arc k (attitude slerp + Eqs. 8.33-8.37).
+function pointOnArc(st0, arc, s){
+  if (s <= 0) return Object.assign({}, st0);
+  const beta = impliedBetaDeg(st0.inc, st0.az, arc.inc1, arc.az1);
+  let inc, az;
+  if (beta < EPS_BETA){ inc = st0.inc; az = st0.az; }
+  else {
+    const t = s / arc.cl, b = beta*D2R, A = attitudeVector(st0.inc, st0.az), B = attitudeVector(arc.inc1, arc.az1);
+    const f1 = Math.sin((1-t)*b)/Math.sin(b), f2 = Math.sin(t*b)/Math.sin(b);
+    const v = [A[0]*f1+B[0]*f2, A[1]*f1+B[1]*f2, A[2]*f1+B[2]*f2], nn = Math.hypot(v[0], v[1], v[2]) || 1;
+    inc = Math.acos(Math.max(-1, Math.min(1, v[2]/nn)))*R2D; az = Math.atan2(v[1]/nn, v[0]/nn)*R2D; if (az < 0) az += 360;
+  }
+  const mc = minimumCurvature(st0.inc, st0.az, inc, az, s);
+  return { md: st0.md + s, tvd: st0.tvd + mc.dTVD, n: st0.n + mc.dN, e: st0.e + mc.dE, inc, az };
+}
+
+// Locate the anchor on the ORIGINAL path: arc index k + distance s into it.
+//  anchor: {type:'md'|'tvd'|'inc', value, at:'start'|'end'}, L = tangent length.
+//  The tangent orientation is the path orientation at that point, so for
+//  "ends at TVD" we solve tvd(s) + L*cos(inc(s)) = value; "ends at MD" uses MD = value - L.
+function findAnchor(start, arcs, anchor, L){
+  const st = chainArcs(start, arcs);
+  const f = (k, s) => {
+    const p = pointOnArc(st[k], arcs[k], s);
+    if (anchor.type === 'md')  return p.md - (anchor.at === 'end' ? anchor.value - L : anchor.value);
+    if (anchor.type === 'tvd') return (anchor.at === 'end' ? p.tvd + L*Math.cos(p.inc*D2R) : p.tvd) - anchor.value;
+    return p.inc - anchor.value;
+  };
+  for (let k = 0; k < arcs.length; k++){
+    const N = Math.max(4, Math.ceil(arcs[k].cl / 2));
+    let s0 = 0, f0 = f(k, 0);
+    if (Math.abs(f0) < 1e-9) return { k, s: 0 };
+    for (let j = 1; j <= N; j++){
+      const s1 = arcs[k].cl * j / N, f1 = f(k, s1);
+      if ((f0 <= 0 && f1 >= 0) || (f0 >= 0 && f1 <= 0)){
+        let lo = s0, hi = s1, flo = f0;
+        for (let it = 0; it < 60; it++){ const m = (lo+hi)/2, fm = f(k, m); if ((flo <= 0 && fm >= 0) || (flo >= 0 && fm <= 0)) hi = m; else { lo = m; flo = fm; } }
+        return { k, s: (lo+hi)/2 };
+      }
+      s0 = s1; f0 = f1;
+    }
+  }
+  return null;
+}
+
+// Build the candidate arc list for given parameter values.
+// base: {start, arcs, k, s, anchor, L, cb, ca, hb, ha, fixIdx}; p: {dA, dB, dHb, dHa, dAz}
+function buildTangentCandidate(base, p){
+  const arcs = base.arcs.map(a => Object.assign({}, a));
+  const st0 = chainArcs(base.start, base.arcs);
+  if (base.hb != null && p.dHb) arcs[base.hb].cl = Math.max(0, arcs[base.hb].cl + p.dHb);
+  if (base.ha != null && p.dHa) arcs[base.ha].cl = Math.max(0, arcs[base.ha].cl + p.dHa);
+  const k = base.k, A = base.arcs[k], o0 = st0[k];
+  const beta_k = impliedBetaDeg(o0.inc, o0.az, A.inc1, A.az1);
+  let out = [], warn = null;
+  if (beta_k >= EPS_BETA){
+    // Anchor inside a curve: split into A (toolface plane of the original curve) + tangent + B.
+    const tf = toolfaceBetween(o0.inc, o0.az, A.inc1, A.az1).tf;
+    const dA = (p.dA != null) ? p.dA : beta_k / A.cl * 30;
+    const dB = (p.dB != null) ? p.dB : beta_k / A.cl * 30;
+    const pre = chainArcs(base.start, arcs.slice(0, k));
+    const s0 = pre[pre.length-1];                       // start of the curve (after any hold change)
+    const at = (cl) => { const b = dA*cl/30, o = applyToolfaceBeta(s0.inc, s0.az, b, tf);
+      const mc = minimumCurvature(s0.inc, s0.az, o.incN, o.azN, cl); return { inc:o.incN, az:o.azN, tvd:s0.tvd + mc.dTVD, md:s0.md + cl }; };
+    let clA;
+    const an = base.anchor, L = base.L;
+    if (an.type === 'inc'){
+      const b = betaForTargetInc(s0.inc, tf, an.value);
+      if (b === null || !(dA > 0)) return { error: 'Anchor inclination not reachable on this curve' };
+      clA = b / dA * 30;
+    } else if (an.type === 'md'){
+      clA = (an.at === 'end' ? an.value - L : an.value) - s0.md;
+    } else {
+      const g = cl => { const q = at(cl); return (an.at === 'end' ? q.tvd + L*Math.cos(q.inc*D2R) : q.tvd) - an.value; };
+      const maxCl = 180 / Math.max(dA, 1e-6) * 30; let lo = 0, glo = g(0), hi = null;
+      for (let j = 1; j <= 400; j++){ const c = maxCl*j/400, gc = g(c); if ((glo <= 0 && gc >= 0) || (glo >= 0 && gc <= 0)){ hi = c; break; } lo = c; glo = gc; }
+      if (hi === null) return { error: 'Anchor TVD not reachable on this curve' };
+      for (let it = 0; it < 60; it++){ const m = (lo+hi)/2, gm = g(m); if ((glo <= 0 && gm >= 0) || (glo >= 0 && gm <= 0)) hi = m; else { lo = m; glo = gm; } }
+      clA = (lo+hi)/2;
+    }
+    if (!(clA >= -1e-6)) return { error: 'Anchor falls above the start of the curve (would need a negative curve length)' };
+    clA = Math.max(0, clA);
+    const oa = at(clA);
+    if (dA * clA / 30 > beta_k + 1e-6) warn = 'Tangent sits beyond the original end of the curve';
+    const endAz = A.az1 + (p.dAz || 0);
+    const betaB = impliedBetaDeg(oa.inc, oa.az, A.inc1, endAz);
+    if (!(dB > 0)) return { error: 'DLS after must be > 0' };
+    const clB = betaB / dB * 30;
+    out = arcs.slice(0, k).concat([
+      { inc1: oa.inc, az1: oa.az, cl: clA, _role:'A' },
+      { inc1: oa.inc, az1: oa.az, cl: L, _role:'T' },
+      { inc1: A.inc1, az1: ((endAz % 360) + 360) % 360, cl: clB, _role:'B' }
+    ]).concat(arcs.slice(k+1));
+    // map fixed-arc index from original to candidate (+2 for the split)
+    return { arcs: out, fixIdx: base.fixIdx == null ? null : (base.fixIdx >= k ? base.fixIdx + 2 : base.fixIdx), tangentIdx: k+1, warn };
+  }
+  // Anchor inside a hold: the hold simply gets L longer; DLS changes act on the
+  // nearest curve before (cb) / after (ca), keeping their end orientations.
+  [['dA', base.cb], ['dB', base.ca]].forEach(([key, idx]) => {
+    if (idx == null || p[key] == null) return;
+    const s = chainArcs(base.start, arcs.slice(0, idx)); const q = s[s.length-1];
+    const b = impliedBetaDeg(q.inc, q.az, arcs[idx].inc1, arcs[idx].az1);
+    arcs[idx].cl = b / p[key] * 30;
+  });
+  if (p.dAz && base.ca != null) arcs[base.ca].az1 = (((arcs[base.ca].az1 + p.dAz) % 360) + 360) % 360;
+  arcs[k].cl += base.L;
+  return { arcs, fixIdx: base.fixIdx, tangentIdx: k, warn };
+}
+
+// Main entry. opts = {
+//   anchor:{type,value,at}, L,
+//   fixIdx: index of the ORIGINAL arc whose END must stay put (null = nothing fixed),
+//   mode: 'none' | 'solve' | 'chc',
+//   free: {dlsBefore, dlsAfter, holdBefore, holdAfter, azAfter}   (mode 'solve'; both DLS ticked = one shared DLS)
+//   chc: {dls1, dls2}                                              (mode 'chc')
+// } -> { sections, info } or { error }
+function insertTangent(start, sections, opts){
+  const arcs = toArcs(start, sections);
+  if (!arcs.length) return { error: 'Scenario has no sections' };
+  const L = +opts.L;
+  if (!(L > 0)) return { error: 'Tangent length must be > 0' };
+  const loc = findAnchor(start, arcs, opts.anchor, L);
+  if (!loc) return { error: 'The anchor ' + opts.anchor.type.toUpperCase() + ' ' + opts.anchor.value + ' is not found on this scenario' };
+  const st = chainArcs(start, arcs);
+  const isCurve = i => impliedBetaDeg(st[i].inc, st[i].az, arcs[i].inc1, arcs[i].az1) >= EPS_BETA;
+  // split exactly at the anchor so the curve/hold containing it starts there
+  const k0 = loc.k;
+  let cb = null, ca = null, hb = null, ha = null;
+  for (let i = k0 - (isCurve(k0) ? 0 : 1); i >= 0; i--) if (isCurve(i)){ cb = i; break; }
+  for (let i = k0 + (isCurve(k0) ? 0 : 1); i < arcs.length; i++) if (isCurve(i)){ ca = i; break; }
+  if (cb != null) for (let i = cb - 1; i >= 0; i--) if (!isCurve(i)){ hb = i; break; }
+  const fixIdx = (opts.mode === 'none' || opts.fixIdx == null) ? null : opts.fixIdx;
+  if (fixIdx != null && fixIdx < k0) return { error: 'The fixed point must be below the tangent' };
+  for (let i = (isCurve(k0) ? k0 + 1 : k0 + 1); fixIdx != null && i <= fixIdx; i++) if (!isCurve(i)){ ha = i; break; }
+  const base = { start, arcs, k: k0, s: loc.s, anchor: opts.anchor, L, cb, ca, hb, ha, fixIdx };
+  const fixOrig = fixIdx != null ? st[fixIdx + 1] : null;
+
+  const finish = (cand, extra) => {
+    const sec = arcsToSections(cand.arcs);
+    const st2 = chainArcs(start, cand.arcs.filter(a => a.cl > 1e-6));
+    const end = (cand.fixIdx != null) ? chainArcs(start, cand.arcs)[cand.fixIdx + 1] : null;
+    let maxDls = 0; st2.forEach(x => { if (x.dls30 > maxDls) maxDls = x.dls30; });
+    return { sections: sec, info: Object.assign({ fixOrig, fixNew: end, miss: (end && fixOrig) ? Math.hypot(end.n-fixOrig.n, end.e-fixOrig.e, end.tvd-fixOrig.tvd) : null,
+      maxDls, warn: cand.warn || null }, extra || {}) };
+  };
+
+  if (opts.mode === 'chc'){
+    if (fixIdx == null) return { error: 'Choose the fixed point to land on' };
+    // keep everything down to the tangent end (no compensation), then CHC to the fixed point
+    const c0 = buildTangentCandidate(base, {});
+    if (c0.error) return c0;
+    const upto = c0.arcs.slice(0, c0.tangentIdx + 1);
+    const e = chainArcs(start, upto); const endT = e[e.length-1];
+    const r = planCurveHoldCurve(endT, { n: fixOrig.n, e: fixOrig.e, tvd: fixOrig.tvd }, fixOrig.inc, fixOrig.az, +opts.chc.dls1, +opts.chc.dls2);
+    if (r.error){
+      // Not reachable at these DLS values: report the smallest equal DLS that works
+      // (scan upward in 0.25 deg/30m steps with the same solver) instead of a bare "no solution".
+      let need = null;
+      for (let d = Math.max(+opts.chc.dls1, +opts.chc.dls2) + 0.25; d <= 30; d += 0.25){
+        const t = planCurveHoldCurve(endT, { n: fixOrig.n, e: fixOrig.e, tvd: fixOrig.tvd }, fixOrig.inc, fixOrig.az, d, d);
+        if (!t.error){ need = d; break; }
+      }
+      return { error: 'Curve-Hold-Curve cannot land on the fixed point at DLS ' + opts.chc.dls1 + ' / ' + opts.chc.dls2 + ' °/30m' +
+        (need ? ' — the smallest equal DLS that works is about ' + need.toFixed(2) + ' °/30m.' : ' (no solution up to 30 °/30m).') };
+    }
+    const tail = base.arcs.slice(fixIdx + 1);
+    const mid = []; let cur = { inc: endT.inc, az: endT.az };
+    r.sections.forEach(x => { if (x.kind === 'hold') mid.push({ inc1: cur.inc, az1: cur.az, cl: x.cl }); else { mid.push({ inc1: x.inc, az1: x.az, cl: x.cl }); cur = { inc: x.inc, az: x.az }; } });
+    const cand = { arcs: upto.concat(mid, tail), fixIdx: upto.length + mid.length - 1, warn: c0.warn };
+    return finish(cand, { solved: r.solved });
+  }
+
+  const f = opts.free || {};
+  const curveK = isCurve(k0);
+  const d0A = cb != null ? (st[cb] && impliedBetaDeg(st[cb].inc, st[cb].az, arcs[cb].inc1, arcs[cb].az1) / arcs[cb].cl * 30) : null;
+  const d0B = curveK ? d0A : (ca != null ? impliedBetaDeg(st[ca].inc, st[ca].az, arcs[ca].inc1, arcs[ca].az1) / arcs[ca].cl * 30 : null);
+  const keys = [];
+  const shared = f.dlsBefore && f.dlsAfter;
+  if (fixIdx != null && opts.mode === 'solve'){
+    if (shared) keys.push('dS'); else { if (f.dlsBefore) keys.push('dA'); if (f.dlsAfter) keys.push('dB'); }
+    if (f.holdBefore){ if (hb == null) return { error: 'No hold section above the curve to lengthen/shorten ("trajectory before")' }; keys.push('dHb'); }
+    if (f.holdAfter){ if (ha == null) return { error: 'No hold section between the tangent and the fixed point ("trajectory after")' }; keys.push('dHa'); }
+    if (f.azAfter) keys.push('dAz');
+    if ((f.dlsBefore && d0A == null) || (f.dlsAfter && d0B == null)) return { error: 'No curve found on that side of the tangent' };
+  }
+  const toP = x => {
+    const p = {}; keys.forEach((kk, i) => { p[kk] = x[i]; });
+    if (p.dS != null){ p.dA = p.dS; p.dB = p.dS; }
+    return p;
+  };
+  const x0 = keys.map(kk => kk === 'dS' ? (d0A || d0B) : kk === 'dA' ? d0A : kk === 'dB' ? d0B : 0);
+  const evalX = x => {
+    const c = buildTangentCandidate(base, toP(x));
+    if (c.error) return { c, r: null };
+    if (c.fixIdx == null) return { c, r: [0,0,0] };
+    const e = chainArcs(start, c.arcs)[c.fixIdx + 1];
+    return { c, r: [e.n - fixOrig.n, e.e - fixOrig.e, e.tvd - fixOrig.tvd] };
+  };
+  let x = x0.slice(), cur = evalX(x);
+  if (cur.c.error) return { error: cur.c.error };
+  if (keys.length){
+    let lambda = 1e-3;
+    const norm = r => Math.hypot(r[0], r[1], r[2]);
+    for (let it = 0; it < 200 && norm(cur.r) > 1e-7; it++){
+      const J = [[],[],[]];
+      keys.forEach((kk, j) => {
+        const h = (kk === 'dAz') ? 1e-4 : (kk[0] === 'd' && kk !== 'dHb' && kk !== 'dHa') ? 1e-5 : 1e-4;
+        const xp = x.slice(); xp[j] += h; const ep = evalX(xp);
+        for (let i = 0; i < 3; i++) J[i][j] = ep.r ? (ep.r[i] - cur.r[i]) / h : 0;
+      });
+      // (J^T J + lambda diag) dx = -J^T r
+      const m = keys.length, JTJ = [], JTr = [];
+      for (let a = 0; a < m; a++){ JTr[a] = 0; JTJ[a] = []; for (let b = 0; b < m; b++){ let sum = 0; for (let i = 0; i < 3; i++) sum += J[i][a]*J[i][b]; JTJ[a][b] = sum; } for (let i = 0; i < 3; i++) JTr[a] += J[i][a]*cur.r[i]; }
+      let accepted = false;
+      for (let tries = 0; tries < 12 && !accepted; tries++){
+        const M = JTJ.map((row, a) => row.map((v, b) => v + (a === b ? lambda*(v || 1) : 0)));
+        const dx = solveLinear(M, JTr.map(v => -v));
+        if (!dx){ lambda *= 10; continue; }
+        const xn = x.map((v, i) => v + dx[i]);
+        keys.forEach((kk, i) => { if (kk === 'dA' || kk === 'dB' || kk === 'dS') xn[i] = Math.max(0.05, xn[i]); });
+        const en = evalX(xn);
+        if (en.r && norm(en.r) < norm(cur.r)){ x = xn; cur = en; lambda = Math.max(1e-9, lambda/10); accepted = true; }
+        else lambda *= 10;
+      }
+      if (!accepted) break;
+    }
+  }
+  const p = toP(x);
+  return finish(cur.c, { params: p, keys, d0A, d0B, residual: cur.r ? Math.hypot(cur.r[0], cur.r[1], cur.r[2]) : null });
+}
+function solveLinear(A, b){
+  const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
+  for (let i = 0; i < n; i++){
+    let piv = i; for (let k = i+1; k < n; k++) if (Math.abs(M[k][i]) > Math.abs(M[piv][i])) piv = k;
+    if (Math.abs(M[piv][i]) < 1e-14) return null;
+    [M[i], M[piv]] = [M[piv], M[i]];
+    for (let k = i+1; k < n; k++){ const fct = M[k][i]/M[i][i]; for (let c = i; c <= n; c++) M[k][c] -= fct*M[i][c]; }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n-1; i >= 0; i--){ let s = M[i][n]; for (let c = i+1; c < n; c++) s -= M[i][c]*x[c]; x[i] = s/M[i][i]; }
+  return x;
+}
+
 root.IPlanCore = {
   D2R, R2D,
   minimumCurvature, applyToolfaceBeta, applyToolfaceSection,
@@ -812,6 +1118,7 @@ root.IPlanCore = {
   solveBuildHoldToTarget, r1FromDls, dlsFromR1,
   HBHBH_KEYS, HBHBH_ANGLE_KEYS, hbhbhTotals, hbhbhResidual, hbhbhClamp, hbhbhNewton, hbhbhInitGuesses, solveHBHBHToTarget,
   chcCurveCL, chcForward, chcResidual, chcSolve3x3, chcNewton, solveCurveHoldCurve,
-  planBuildHold, planHbhbh, planCurveHoldCurve
+  planBuildHold, planHbhbh, planCurveHoldCurve,
+  toolfaceBetween, toArcs, arcsToSections, chainArcs, pointOnArc, findAnchor, insertTangent
 };
 })(typeof window !== 'undefined' ? window : globalThis);
