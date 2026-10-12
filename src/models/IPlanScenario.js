@@ -26,6 +26,8 @@ const IPlanScenarioSchema = new Schema(
     // Scenario targets: {name, n, e, ss (Sub-Sea, m), r}
     targets:   { type: [Schema.Types.Mixed], default: [] },
     toolcode:  { type: String, default: null },  // null = inherit from the planned well
+    // ADDED 2026-10-12 (iPad): pad-planner batch this scenario belongs to ('' = single iPlan scenario)
+    group:     { type: String, default: "" },
     createdBy:     { type: Schema.Types.ObjectId, ref: "User" },
     createdByName: { type: String, default: "" },
     updatedBy:     { type: Schema.Types.ObjectId, ref: "User" },

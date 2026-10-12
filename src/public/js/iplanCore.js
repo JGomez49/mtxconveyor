@@ -1108,6 +1108,204 @@ function solveLinear(A, b){
   return x;
 }
 
+
+/* ============================================================
+   iPad — pad template solver (ADDED 2026-10-12)
+   Template (vertical -> KOP -> curve 1 -> tangent -> curve 2 -> land -> lateral):
+     hold KOP | arc from vertical to (incT, azT) at DLS1 | hold Lt at (incT, azT)
+     | arc (incT, azT) -> (landing Inc, landing Az) at DLS2 | hold lateral.
+   Every arc is a constant-DLS minimum-curvature arc (Eqs. 8.33-8.37);
+   from vertical any azimuth is reachable, so curve 1 builds AND turns
+   toward the landing (azT is free). Landing must be hit in N, E and TVD:
+   3 equations -> exactly 3 unknowns per mode (azT always + 2 more):
+     'kop_dls_len' : KOP fixed           -> solve shared DLS, tangent length
+     'kop_dls12'   : KOP & tangent fixed -> solve DLS1, DLS2
+     'dls_kop_len' : DLS fixed (shared)  -> solve KOP, tangent length
+   Solved with damped Gauss-Newton (numeric Jacobian) from several starts;
+   a well is "ok" only if the landing miss < 1 mm and all lengths/DLS are
+   physical (KOP >= 0, tangent >= 0, DLS > 0).
+   ============================================================ */
+function padSections(p, land, lateral){
+  const b2 = impliedBetaDeg(p.incT, p.azT, land.inc, land.az);
+  const s = [];
+  if (p.kop > 1e-6) s.push({ kind:'hold', cl: p.kop });
+  s.push({ kind:'direct', inc: p.incT, az: p.azT, cl: p.incT * 30 / p.dls1 });
+  if (p.lt > 1e-6) s.push({ kind:'direct', inc: p.incT, az: p.azT, cl: p.lt });
+  if (b2 > 1e-9) s.push({ kind:'direct', inc: land.inc, az: land.az, cl: b2 * 30 / p.dls2 });
+  if (lateral > 1e-6) s.push({ kind:'direct', inc: land.inc, az: land.az, cl: lateral });
+  return s;
+}
+// landing state for parameter set p (surface at md 0, tvd 0, vertical)
+function padLanding(surf, p, land){
+  const arcs = padSections(p, land, 0).map(x => ({ inc1: x.inc === undefined ? 0 : x.inc, az1: x.az === undefined ? 0 : x.az, cl: x.cl }));
+  const st = chainArcs({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, arcs);
+  return st[st.length - 1];
+}
+
+/* ============================================================
+   iPad template "turn early" (ADDED 2026-10-12, after John's first pad test)
+   WHY: the first template's curve 1 is a single planar arc from vertical, so
+   the tangent points wherever that plane points and curve 2 must build to 90°
+   AND swing back to the lateral azimuth near horizontal — where turning is
+   most expensive. On John's pad (S01..S03 -> T01..T03, Az 181.56) that needed
+   DLS 13 / 18.8 / 37.3 °/30m, while his hand-designed wells do it under 10.
+   FIX (matches how he designs): KOP -> curve A (build in its own direction
+   azA to incA) -> curve B (build AND turn onto the lateral azimuth, ending at
+   the first tangent inclination) -> tangents [inc_k, L_k] all ON the lateral
+   azimuth, joined by pure-build curves -> (curve to landing Inc if needed) ->
+   landing / ICP -> lateral. Same DLS on every curve. Solved: incA, azA, DLS
+   (3 unknowns for the 3 landing equations N/E/TVD); when several exact
+   solutions exist the one with the smallest DLS is kept.
+   Same verified pieces as everything else (min curvature Eqs. 8.33-8.37).
+   Result on John's W01..W03: DLS 8.18 / 8.30 / 8.26, landing miss < 1e-9 m.
+   ============================================================ */
+function padTurnSections(kop, incA, azA, dls, tangents, land, lateral){
+  const s = [];
+  if (kop > 1e-6) s.push({ kind:'direct', inc:0, az:0, cl:kop });
+  s.push({ kind:'direct', inc:incA, az:azA, cl: incA * 30 / dls });
+  let cur = { inc:incA, az:azA };
+  (tangents || []).forEach(t => {
+    const b = impliedBetaDeg(cur.inc, cur.az, t.inc, land.az);
+    if (b > 1e-9) s.push({ kind:'direct', inc:t.inc, az:land.az, cl: b * 30 / dls });
+    if (t.L > 1e-6) s.push({ kind:'direct', inc:t.inc, az:land.az, cl: t.L });
+    cur = { inc:t.inc, az:land.az };
+  });
+  const bl = impliedBetaDeg(cur.inc, cur.az, land.inc, land.az);
+  if (bl > 1e-9) s.push({ kind:'direct', inc:land.inc, az:land.az, cl: bl * 30 / dls });
+  if (lateral > 1e-6) s.push({ kind:'direct', inc:land.inc, az:land.az, cl: lateral });
+  return s;
+}
+function padTurnEnd(surf, kop, incA, azA, dls, tangents, land){
+  const a = padTurnSections(kop, incA, azA, dls, tangents, land, 0).map(x => ({ inc1:x.inc, az1:x.az, cl:x.cl }));
+  const st = chainArcs({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, a);
+  return st[st.length - 1];
+}
+function padSolveTurn(surf, land, tpl){
+  const tangents = (tpl.tangents && tpl.tangents.length) ? tpl.tangents : [{ inc: tpl.incT || 83, L: tpl.lt || 30 }];
+  const incMax = tangents[0].inc;
+  const kop = tpl.kop;
+  const r = x => {
+    if (!(x[2] > 0.3) || !(x[0] > 0.5) || x[0] > incMax) return null;
+    const e = padTurnEnd(surf, kop, x[0], x[1], x[2], tangents, land);
+    return [e.n - land.n, e.e - land.e, e.tvd - land.tvd];
+  };
+  const norm = v => Math.hypot(v[0], v[1], v[2]);
+  const brg = (((Math.atan2(land.e - surf.e, land.n - surf.n) * R2D) % 360) + 360) % 360;
+  let best = null, closest = null;
+  for (const i0 of [10, 20, 35, 50, 65]) for (const da of [-90, -60, -30, 0, 30, 60, 90]) for (const d0 of [3, 5, 7, 9]){
+    let x = [Math.min(i0, incMax - 1), brg + da, d0], f = r(x); if (!f) continue;
+    let lam = 1e-3;
+    for (let it = 0; it < 200 && norm(f) > 1e-9; it++){
+      const J = [[],[],[]]; let bad = false;
+      for (let j = 0; j < 3; j++){ const xp = x.slice(); xp[j] += 1e-6; const fp = r(xp); if (!fp){ bad = true; break; } for (let i = 0; i < 3; i++) J[i][j] = (fp[i] - f[i]) / 1e-6; }
+      if (bad) break;
+      const JTJ = [0,1,2].map(a => [0,1,2].map(b => J[0][a]*J[0][b] + J[1][a]*J[1][b] + J[2][a]*J[2][b]));
+      const JTr = [0,1,2].map(a => J[0][a]*f[0] + J[1][a]*f[1] + J[2][a]*f[2]);
+      let ok = false;
+      for (let t = 0; t < 10 && !ok; t++){
+        const M = JTJ.map((row, a) => row.map((v, b) => v + (a === b ? lam * (v || 1) : 0)));
+        const dx = solveLinear(M, JTr.map(v => -v)); if (!dx){ lam *= 10; continue; }
+        const xn = x.map((v, i) => v + dx[i]), fn = r(xn);
+        if (fn && norm(fn) < norm(f)){ x = xn; f = fn; lam = Math.max(1e-12, lam / 10); ok = true; } else lam *= 10;
+      }
+      if (!ok) break;
+    }
+    const m = norm(f);
+    if (!closest || m < closest.m) closest = { m, x };
+    if (m < 1e-6 && (!best || x[2] < best.x[2])) best = { m, x };
+  }
+  const pick = best || closest;
+  if (!pick) return { ok:false, error:'No solution' };
+  const [incA, azA0, dls] = pick.x, azA = ((azA0 % 360) + 360) % 360;
+  const sections = padTurnSections(kop, incA, azA, dls, tangents, land, tpl.lateral || 0);
+  return { ok: !!best, miss: pick.m, sections, maxDls: dls,
+           params: { kop, incA, azA, dls1: dls, dls2: dls, incT: tangents[0].inc, lt: tangents[0].L, azT: land.az, tangents },
+           error: best ? null : 'Landing not reachable with this KOP / tangents (closest miss ' + pick.m.toFixed(2) + ' m) — try a shallower KOP or shorter tangents' };
+}
+
+function padSolveWell(surf, land, tpl){
+  if ((tpl.mode || 'turn') === 'turn') return padSolveTurn(surf, land, tpl);   // 2026-10-12: new default template
+  // surf {n,e,rkb}; land {n,e,tvd,inc,az}; tpl {mode, kop, dls, incT, lt, lateral}
+  const mode = tpl.mode;
+  const keys = { kop_dls_len: ['azT','dls','lt'], kop_dls12: ['azT','dls1','dls2'], dls_kop_len: ['azT','kop','lt'] }[mode];
+  if (!keys) return { error: 'Unknown mode' };
+  const bearing = (((Math.atan2(land.e - surf.e, land.n - surf.n) * R2D) % 360) + 360) % 360;
+  const toP = x => {
+    const p = { kop: tpl.kop, incT: tpl.incT, lt: tpl.lt, dls1: tpl.dls, dls2: tpl.dls, azT: bearing };
+    keys.forEach((k, i) => { if (k === 'dls'){ p.dls1 = x[i]; p.dls2 = x[i]; } else p[k] = x[i]; });
+    return p;
+  };
+  const resid = x => {
+    const p = toP(x);
+    if (!(p.dls1 > 0.05) || !(p.dls2 > 0.05)) return null;
+    const e = padLanding(surf, p, land);
+    return [e.n - land.n, e.e - land.e, e.tvd - land.tvd];
+  };
+  const norm = r => Math.hypot(r[0], r[1], r[2]);
+  const starts = [];
+  const dlsG = [tpl.dls || 6, 3, 8, 12], ltG = [tpl.lt || 30, 0, 100, 300], kopG = [tpl.kop || 150, 50, 300, 500];
+  [0, -20, 20, -45, 45].forEach(da => dlsG.forEach((dg, i) => {
+    starts.push(keys.map(k => k === 'azT' ? bearing + da : (k === 'dls' || k === 'dls1' || k === 'dls2') ? dg : k === 'lt' ? ltG[i] : kopG[i]));
+  }));
+  let best = null;
+  for (const x0 of starts){
+    let x = x0.slice(), r = resid(x); if (!r) continue;
+    let lambda = 1e-3;
+    for (let it = 0; it < 150 && norm(r) > 1e-9; it++){
+      const J = [[],[],[]];
+      let bad = false;
+      keys.forEach((k, j) => {
+        const h = k === 'azT' ? 1e-5 : 1e-5 * Math.max(1, Math.abs(x[j]));
+        const xp = x.slice(); xp[j] += h; const rp = resid(xp);
+        if (!rp){ bad = true; return; }
+        for (let i = 0; i < 3; i++) J[i][j] = (rp[i] - r[i]) / h;
+      });
+      if (bad) break;
+      const JTJ = [0,1,2].map(a => [0,1,2].map(b => J[0][a]*J[0][b] + J[1][a]*J[1][b] + J[2][a]*J[2][b]));
+      const JTr = [0,1,2].map(a => J[0][a]*r[0] + J[1][a]*r[1] + J[2][a]*r[2]);
+      let ok = false;
+      for (let t = 0; t < 10 && !ok; t++){
+        const M = JTJ.map((row, a) => row.map((v, b) => v + (a === b ? lambda * (v || 1) : 0)));
+        const dx = solveLinear(M, JTr.map(v => -v));
+        if (!dx){ lambda *= 10; continue; }
+        const xn = x.map((v, i) => v + dx[i]);
+        const rn = resid(xn);
+        if (rn && norm(rn) < norm(r)){ x = xn; r = rn; lambda = Math.max(1e-10, lambda / 10); ok = true; } else lambda *= 10;
+      }
+      if (!ok) break;
+    }
+    const p = toP(x);
+    const physical = p.kop >= -1e-6 && p.lt >= -1e-6 && p.dls1 > 0 && p.dls2 > 0;
+    const miss = norm(r);
+    const score = miss + (physical ? 0 : 1e6);
+    if (!best || score < best.score) best = { score, p, miss, physical };
+    if (miss < 1e-6 && physical) break;
+  }
+  if (!best) return { error: 'No solution' };
+  const p = best.p; p.azT = ((p.azT % 360) + 360) % 360; p.kop = Math.max(0, p.kop); p.lt = Math.max(0, p.lt);
+  const ok = best.miss < 1e-3 && best.physical;
+  const sections = padSections(p, land, tpl.lateral || 0);
+  return { ok, miss: best.miss, params: p, sections, maxDls: Math.max(p.dls1, p.dls2),
+           error: ok ? null : (!best.physical ? 'Only a non-physical solution (negative KOP or tangent length) — try another mode or values' : 'Landing not reachable with these fixed values (closest miss ' + best.miss.toFixed(2) + ' m)') };
+}
+
+// Slot pattern: rows x slotsPerRow, numbered row by row. Row direction = rowAz;
+// row k is offset rowSpacing to the RIGHT of row 1 (rowAz + 90°).
+function padSlotPattern(o){
+  const out = [], a = o.rowAz * D2R, b = (o.rowAz + 90) * D2R;
+  for (let r = 0; r < o.rows; r++) for (let c = 0; c < o.perRow; c++){
+    out.push({ n: o.n + c*o.spacing*Math.cos(a) + r*o.rowSpacing*Math.cos(b),
+               e: o.e + c*o.spacing*Math.sin(a) + r*o.rowSpacing*Math.sin(b) });
+  }
+  return out;
+}
+// Target pattern: count landings, spaced along spacingAz, all at the same Sub-Sea/Inc/Az.
+function padTargetPattern(o){
+  const out = [], a = o.spacingAz * D2R;
+  for (let i = 0; i < o.count; i++) out.push({ n: o.n + i*o.spacing*Math.cos(a), e: o.e + i*o.spacing*Math.sin(a), ss: o.ss, inc: o.inc, az: o.az });
+  return out;
+}
+
 root.IPlanCore = {
   D2R, R2D,
   minimumCurvature, applyToolfaceBeta, applyToolfaceSection,
@@ -1119,6 +1317,8 @@ root.IPlanCore = {
   HBHBH_KEYS, HBHBH_ANGLE_KEYS, hbhbhTotals, hbhbhResidual, hbhbhClamp, hbhbhNewton, hbhbhInitGuesses, solveHBHBHToTarget,
   chcCurveCL, chcForward, chcResidual, chcSolve3x3, chcNewton, solveCurveHoldCurve,
   planBuildHold, planHbhbh, planCurveHoldCurve,
-  toolfaceBetween, toArcs, arcsToSections, chainArcs, pointOnArc, findAnchor, insertTangent
+  toolfaceBetween, toArcs, arcsToSections, chainArcs, pointOnArc, findAnchor, insertTangent,
+  padSections, padLanding, padSolveWell, padSlotPattern, padTargetPattern,
+  padTurnSections, padSolveTurn
 };
 })(typeof window !== 'undefined' ? window : globalThis);

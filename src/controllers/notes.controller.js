@@ -2344,7 +2344,7 @@ notesCrtl.deletePolyline = async (req, res) => {
 // Job-level CRUD, same pattern as the Polyline routes above. Any signed-in
 // user can read/create/edit/delete (scenarios are shared on the job, like
 // Polylines). Only whitelisted design fields are accepted from the client.
-const IPLAN_FIELDS = ['name', 'startMode', 'wellId', 'tieMd', 'start', 'sections', 'targets', 'toolcode'];
+const IPLAN_FIELDS = ['name', 'startMode', 'wellId', 'tieMd', 'start', 'sections', 'targets', 'toolcode', 'group']; // 'group' added 2026-10-12 (iPad)
 function iplanPick(body){
   const out = {};
   IPLAN_FIELDS.forEach(k => { if(body && body[k] !== undefined) out[k] = body[k]; });
@@ -2370,6 +2370,18 @@ notesCrtl.addIPlanScenario = async (req, res) => {
     }));
     res.json(doc);
   } catch(error){ console.error('addIPlanScenario:', error); res.status(500).json({ error: error.message }); }
+};
+
+// ADDED 2026-10-12 (iPad): create many scenarios in one request (pad planner).
+notesCrtl.addIPlanScenariosBatch = async (req, res) => {
+  try {
+    const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+    if(!items.length) return res.status(400).json({ error: 'No scenarios to create' });
+    if(items.length > 200) return res.status(400).json({ error: 'Too many scenarios in one batch (max 200)' });
+    const who = { createdBy: req.user && req.user._id, createdByName: iplanUserName(req), updatedBy: req.user && req.user._id, updatedByName: iplanUserName(req) };
+    const docs = await IPlanScenario.insertMany(items.map(it => Object.assign(iplanPick(it), { noteId: req.params.noteId }, who)));
+    res.json(docs);
+  } catch(error){ console.error('addIPlanScenariosBatch:', error); res.status(500).json({ error: error.message }); }
 };
 
 notesCrtl.updateIPlanScenario = async (req, res) => {

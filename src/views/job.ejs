@@ -849,6 +849,22 @@ body.light-mode #statusTextbox {
                         </div>
                     </div>
 
+                    <% if (user.role === 'admin') { %><!-- CHANGED 2026-10-12: iPad visible to admins only (server also blocks /notes/iplan/batch for non-admins) -->
+                    <!-- ── iPad: pad planner (ADDED 2026-10-12, phase 1) ─────────────────────
+                         Plans many wells at once: surface slots + landing targets (pattern or
+                         pasted from Excel), assigned in order, one template solved per well
+                         (vertical → KOP → curve → tangent → curve to land → lateral). Every well
+                         it creates is an ordinary iPlan scenario tagged with a group, so 3D,
+                         Anti-collision, saving and the wizards all work on them unchanged. -->
+                    <div class="ipl-root" id="ipdRoot">
+                        <div class="ipl-head" id="ipdHead">
+                            <span class="ipl-title">&#9679; iPad &mdash; Pad Planner</span>
+                            <span style="font-size:11px;color:var(--wbt-text-dim);" id="ipdHeadInfo">click to open</span>
+                        </div>
+                        <div class="ipl-body" style="display:none;flex-direction:column;" id="ipdBody"></div>
+                    </div>
+
+                    <% } %>
                     <!-- ── FracPlane Controller Panel (accordion) ──────────────────
                          FIX 2026-09-13: this whole panel (including the read-only
                          list and the 3D rendering of existing Frac Planes) used to
@@ -5402,7 +5418,7 @@ body.light-mode #statusTextbox {
         // Edits autosave ~1 s after the last change (last save wins if two people
         // edit the same scenario at once).
         const NOTE_ID = '<%- note._id %>';
-        const DESIGN_KEYS = ['name','startMode','wellId','tieMd','start','sections','targets','toolcode'];
+        const DESIGN_KEYS = ['name','startMode','wellId','tieMd','start','sections','targets','toolcode','group']; // 'group' = iPad pad (2026-10-12)
         function designOf(sc){ const o = {}; DESIGN_KEYS.forEach(k => { o[k] = sc[k]; }); return o; }
         function setSaveStatus(sc, txt, bad){
             sc._saveStatus = txt; sc._saveBad = !!bad;
@@ -5437,7 +5453,7 @@ body.light-mode #statusTextbox {
                 id: String(doc._id), name: doc.name || 'Scenario', visible: false,
                 startMode: doc.startMode || 'surface', wellId: doc.wellId, tieMd: doc.tieMd || 0,
                 start: Object.assign({ md:0, tvd:0, n:0, e:0, inc:0, az:0, rkb:0 }, doc.start || {}),
-                sections: doc.sections || [], targets: doc.targets || [], toolcode: doc.toolcode || null,
+                sections: doc.sections || [], targets: doc.targets || [], toolcode: doc.toolcode || null, group: doc.group || '',
                 createdByName: doc.createdByName, createdAt: doc.createdAt, updatedByName: doc.updatedByName, updatedAt: doc.updatedAt,
                 _calc: null, _mesh: null, _tMeshes: []
             };
@@ -5583,7 +5599,7 @@ body.light-mode #statusTextbox {
                 row.title = 'Created by ' + (sc.createdByName || '—') + (sc.createdAt ? ' on ' + new Date(sc.createdAt).toLocaleDateString() : '');
                 row.innerHTML = `<input type="checkbox" ${sc.visible ? 'checked' : ''} title="Show in 3D">
                     <span style="width:10px;height:10px;border-radius:2px;background:#00e676;display:inline-block;"></span>
-                    <span class="nm">${esc(sc.name)}</span>
+                    <span class="nm">${esc(sc.name)}</span>${sc.group ? `<span style="font-size:9px;color:var(--wbt-text-dim);border:1px solid var(--wbt-border);border-radius:2px;padding:0 3px;" title="iPad pad group">${esc(sc.group)}</span>` : ''}
                     <button type="button" class="wbt-btn" style="padding:1px 6px;" title="Delete">&times;</button>`;
                 const [cb] = row.getElementsByTagName('input');
                 const del = row.querySelector('button');
@@ -6118,6 +6134,419 @@ body.light-mode #statusTextbox {
         });
         document.getElementById('iplHead').addEventListener('click', () => document.getElementById('iplRoot').classList.toggle('open'));
         renderList();
+
+        // ================= iPad — Pad Planner (ADDED 2026-10-12, phase 1) =================
+        // Surfaces (Name, N, E, Sub-Sea) + Targets (Name, N, E, Sub-Sea, Inc, Az) — from
+        // a pattern or pasted from Excel — assigned by order (surface i -> target i).
+        // Template solved per well with IPlanCore.padSolveWell (see its comment).
+        // Sub-Sea convention = the survey tables': Sub-Sea = RKB elevation - TVD, so a
+        // SURFACE's Sub-Sea is its RKB elevation, and target TVD = surface SS - target SS.
+        // Wells are created as normal iPlan scenarios with group = the pad name.
+        const ipd = {
+            surfaces: [], targets: [],
+            tpl: { mode:'turn', kop:150, kopStep:10, dls:6, incT:80, lt:30, lateral:800, maxDls:10, tangents:'83/30, 85/30, 90/30' }, // 2026-10-12: 'turn' default
+            name: 'Pad iPad', refWell: WELLS.length ? String(WELLS[0]._id) : '', preview: null, ghosts: [], showExisting: true
+        };
+        const ipdRoot = document.getElementById('ipdRoot');
+        function ipdClearGhosts(){ ipd.ghosts.forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); }); ipd.ghosts = []; }
+        function ipdParse(text, cols){
+            // tab / comma / semicolon separated; header row skipped if its numeric columns aren't numbers;
+            // Name column optional (rows with one fewer value get an automatic name).
+            const rows = [];
+            String(text || '').split(/\r?\n/).forEach(line => {
+                const c = line.split(/\t|;|,/).map(x => x.trim()).filter((x, i, a) => !(x === '' && i === a.length - 1));
+                if(!c.length || c.every(x => x === '')) return;
+                let name = null, nums = c;
+                if(c.length >= cols && isNaN(parseFloat(c[0]))){ name = c[0]; nums = c.slice(1); }
+                if(nums.length < cols - 1 || nums.slice(0, cols - 1).some(x => isNaN(parseFloat(x)))) return; // header / junk
+                rows.push({ name, v: nums.slice(0, cols - 1).map(Number) });
+            });
+            return rows;
+        }
+        function ipdTableHtml(kind){
+            const T = kind === 's' ? ipd.surfaces : ipd.targets;
+            const cols = kind === 's' ? [['name','Name','text'],['n','Northing'],['e','Easting'],['ss','Sub-Sea (RKB elev.)']]
+                                      : [['name','Name','text'],['n','Northing'],['e','Easting'],['ss','Sub-Sea'],['inc','Inc (°)'],['az','Az (°)']];
+            if(!T.length) return '<div style="color:var(--wbt-text-dim);">No rows yet.</div>';
+            return `<div style="max-height:220px;overflow:auto;"><table style="font-size:11px;"><tr><th>#</th>${cols.map(c => `<th style="padding:0 4px;">${c[1]}</th>`).join('')}<th></th></tr>` +
+                T.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k, , t]) => `<td><input type="${t || 'number'}" step="0.01" data-${kind}="${i}" data-k="${k}" value="${esc(r[k])}" style="width:${t ? '120px' : '100px'};"></td>`).join('')}
+                    <td><button type="button" class="wbt-btn" data-${kind}del="${i}" style="padding:0 6px;">&times;</button></td></tr>`).join('') + '</table></div>';
+        }
+        function ipdGroups(){
+            const g = {}; scenarios.forEach(sc => { if(sc.group) (g[sc.group] = g[sc.group] || []).push(sc); });
+            return g;
+        }
+        function ipdRender(){
+            const body = document.getElementById('ipdBody'); const t = ipd.tpl;
+            const groups = ipdGroups();
+            body.innerHTML = `
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                <label style="color:var(--wbt-text-dim);">Pad name</label><input type="text" id="ipdName" value="${esc(ipd.name)}" style="width:160px;">
+                <span style="font-size:10px;color:var(--wbt-text-dim);">wells → "${esc(ipd.name)} W01…"</span>
+                <label style="color:var(--wbt-text-dim);">Reference planned well (magnetics / AC toolcode)</label><select id="ipdRef" style="max-width:260px;">${wellOptions(ipd.refWell)}</select>
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">
+              <div style="flex:1;min-width:420px;">
+                <div class="ipl-h">1 · Surfaces (slots)</div>
+                <div class="ipl-sec" style="display:block;">
+                    <div style="font-size:11px;color:var(--wbt-text-dim);">Pattern — numbered row by row; row 2 is offset to the RIGHT of the row direction</div>
+                    <div class="ipl-grid" style="grid-template-columns:repeat(6,auto);">
+                        <label>1st slot N</label><input type="number" step="0.01" id="ipsN" value="${WELLS.length ? f(surfaceStartFromWell(WELLS[0]).n,2) : 0}">
+                        <label>1st slot E</label><input type="number" step="0.01" id="ipsE" value="${WELLS.length ? f(surfaceStartFromWell(WELLS[0]).e,2) : 0}">
+                        <label>RKB elev. (Sub-Sea)</label><input type="number" step="0.01" id="ipsSS" value="${WELLS.length ? f(wellRkb(WELLS[0]),2) : 0}">
+                        <label>Rows</label><input type="number" step="1" id="ipsRows" value="1">
+                        <label>Slots per row</label><input type="number" step="1" id="ipsPer" value="10">
+                        <label>Slot spacing (m)</label><input type="number" step="0.1" id="ipsSp" value="7">
+                        <label>Row spacing (m)</label><input type="number" step="0.1" id="ipsRSp" value="15">
+                        <label>Row azimuth (°)</label><input type="number" step="0.1" id="ipsAz" value="90">
+                    </div>
+                    <button type="button" class="wbt-btn" id="ipsGen">Generate surfaces</button>
+                    <details style="margin-top:4px;"><summary style="font-size:11px;cursor:pointer;">Paste from Excel (Name, N, E, Sub-Sea)</summary>
+                        <textarea id="ipsPaste" rows="4" style="width:100%;font-family:var(--wbt-mono);font-size:11px;background:var(--wbt-panel2);color:var(--wbt-text);"></textarea>
+                        <button type="button" class="wbt-btn" id="ipsLoad">Load pasted (replaces table)</button></details>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin-top:6px;">
+                        <div style="flex:1;min-width:300px;">
+                            <div id="ipsTable">${ipdTableHtml('s')}</div>
+                            <button type="button" class="wbt-btn" id="ipsAdd">+ row</button> <button type="button" class="wbt-btn" id="ipsClr">Clear</button>
+                        </div>
+                        <div><div id="ipsPlot"></div>
+                            <label style="font-size:10px;color:var(--wbt-text-dim);"><input type="checkbox" id="ipsPlotExisting" ${ipd.showExisting ? 'checked' : ''}> show existing planned wells' surfaces</label></div>
+                    </div>
+                </div>
+              </div>
+              <div style="flex:1;min-width:480px;">
+                <div class="ipl-h">2 · Targets (landing points)</div>
+                <div class="ipl-sec" style="display:block;">
+                    <div style="font-size:11px;color:var(--wbt-text-dim);">Pattern — landings spaced along a direction, same Sub-Sea / Inc / Az</div>
+                    <div class="ipl-grid" style="grid-template-columns:repeat(6,auto);">
+                        <label>1st landing N</label><input type="number" step="0.01" id="iptN" value="0">
+                        <label>1st landing E</label><input type="number" step="0.01" id="iptE" value="0">
+                        <label>Landing Sub-Sea</label><input type="number" step="0.01" id="iptSS" value="0">
+                        <label>Count</label><input type="number" step="1" id="iptCnt" value="10">
+                        <label>Spacing (m)</label><input type="number" step="0.1" id="iptSp" value="70">
+                        <label>Spacing az (°)</label><input type="number" step="0.1" id="iptSpAz" value="90">
+                        <label>Landing Inc (°)</label><input type="number" step="0.1" id="iptInc" value="90">
+                        <label>Lateral Az (°)</label><input type="number" step="0.1" id="iptAz" value="180">
+                    </div>
+                    <button type="button" class="wbt-btn" id="iptGen">Generate targets</button>
+                    <details style="margin-top:4px;"><summary style="font-size:11px;cursor:pointer;">Paste from Excel (Name, N, E, Sub-Sea, Inc, Az)</summary>
+                        <textarea id="iptPaste" rows="4" style="width:100%;font-family:var(--wbt-mono);font-size:11px;background:var(--wbt-panel2);color:var(--wbt-text);"></textarea>
+                        <button type="button" class="wbt-btn" id="iptLoad">Load pasted (replaces table)</button></details>
+                    <div id="iptTable" style="margin-top:6px;">${ipdTableHtml('t')}</div>
+                    <button type="button" class="wbt-btn" id="iptAdd">+ row</button> <button type="button" class="wbt-btn" id="iptClr">Clear</button>
+                </div>
+              </div>
+            </div>
+            <div class="ipl-h">3 · Template (assigned by order: surface 1 → target 1, …)</div>
+            <div class="ipl-sec" style="display:block;">
+                <div style="font-size:11px;color:var(--wbt-text-dim);margin-bottom:4px;">Vertical → KOP → curve 1 (builds &amp; turns) → tangent → curve 2 to landing Inc/Az → lateral. Landing N/E/TVD needs 3 solved values per well: the tangent azimuth + two more:</div>
+                <select id="ipdMode" style="max-width:520px;">
+                    <option value="turn" ${t.mode === 'turn' ? 'selected' : ''}>Build &amp; turn early (recommended): fixed KOP &amp; tangents → solve curve A Inc/Az + one DLS</option>
+                    <option value="kop_dls12" ${t.mode === 'kop_dls12' ? 'selected' : ''}>Fixed KOP &amp; tangent → solve DLS curve 1 + DLS curve 2</option>
+                    <option value="kop_dls_len" ${t.mode === 'kop_dls_len' ? 'selected' : ''}>Fixed KOP &amp; tangent Inc → solve one shared DLS + tangent length</option>
+                    <option value="dls_kop_len" ${t.mode === 'dls_kop_len' ? 'selected' : ''}>Fixed DLS (both curves) &amp; tangent Inc → solve KOP + tangent length</option>
+                </select>
+                <div class="ipl-grid" style="grid-template-columns:repeat(8,auto);">
+                    <label>KOP 1st well (m)</label><input type="number" step="1" data-tp="kop" value="${t.kop}">
+                    <label>KOP stagger / well (m)</label><input type="number" step="1" data-tp="kopStep" value="${t.kopStep}">
+                    <label>DLS (°/30m)</label><input type="number" step="0.1" data-tp="dls" value="${t.dls}">
+                    <label>Tangent Inc (°)</label><input type="number" step="0.1" data-tp="incT" value="${t.incT}">
+                    <label>Tangent length (m)</label><input type="number" step="1" data-tp="lt" value="${t.lt}">
+                    <label>Lateral length (m)</label><input type="number" step="1" data-tp="lateral" value="${t.lateral}">
+                    <label>Max DLS (°/30m)</label><input type="number" step="0.1" data-tp="maxDls" value="${t.maxDls}">
+                </div>
+                <div class="fld" style="margin:4px 0;"><span style="width:250px;display:inline-block;">Tangents (Inc/Length, on lateral azimuth)</span>
+                    <input type="text" id="ipdTangents" value="${esc(t.tangents)}" style="width:260px;" title="e.g. 83/30, 85/30, 90/30 — the last one ends at the landing / ICP">
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">"Build &amp; turn early" only — e.g. 83/30, 85/30, 90/30 (the last tangent ends at the landing / ICP)</span></div>
+                <div style="font-size:10px;color:var(--wbt-text-dim);">Fixed values are used as entered; the solved ones replace them per well. In "solve KOP" mode the KOP fields are only the starting guess.</div>
+                <button type="button" class="wbt-btn" id="ipdPreview" style="margin-top:6px;">&#128269; Preview</button>
+                <div id="ipdOut" style="margin-top:6px;"></div>
+            </div>
+            <div class="ipl-h">Pad groups on this job</div>
+            <div>${Object.keys(groups).length ? Object.keys(groups).map(g => `<div class="ipl-sec"><span style="flex:1;">${esc(g)} &middot; ${groups[g].length} well(s)</span>
+                <button type="button" class="wbt-btn" data-gshow="${esc(g)}">Show all</button>
+                <button type="button" class="wbt-btn" data-ghide="${esc(g)}">Hide all</button>
+                <button type="button" class="wbt-btn" data-gdel="${esc(g)}" style="color:#ff4c4c;">Delete group</button></div>`).join('') : '<div style="color:var(--wbt-text-dim);">None yet.</div>'}</div>`;
+            ipdWire();
+        }
+        function ipdNum(id){ return n(document.getElementById(id).value); }
+
+        // ADDED 2026-10-12: plan-view plot of the surface slots (true N/E, equal
+        // scale, East right / North up), redrawn live as the table changes.
+        // Optional grey dots = surfaces (first station) of the job's planned wells.
+        function ipdSlotPlot(){
+            const box = document.getElementById('ipsPlot'); if(!box) return;
+            const W = 300, H = 280, pad = 34;
+            const slots = ipd.surfaces.map(s => ({ n:n(s.n), e:n(s.e), name:s.name }));
+            const ex = ipd.showExisting ? WELLS.map(w => { const s0 = surfaceStartFromWell(w); return { n:s0.n, e:s0.e, name:w.wellName }; }) : [];
+            const all = slots.concat(ex);
+            const light = document.body.classList.contains('light-mode');
+            const bg = light ? '#ffffff' : '#000000', grid = light ? '#d0d7de' : '#3a3f44', txt = light ? '#000000' : '#ffffff';
+            if(!all.length){ box.innerHTML = `<svg width="${W}" height="${H}" style="background:${bg};border:1px solid var(--wbt-border);"><text x="${W/2}" y="${H/2}" fill="${txt}" font-size="11" text-anchor="middle">No slots yet</text></svg>`; return; }
+            let minE = Math.min(...all.map(p => p.e)), maxE = Math.max(...all.map(p => p.e));
+            let minN = Math.min(...all.map(p => p.n)), maxN = Math.max(...all.map(p => p.n));
+            const span = Math.max(maxE - minE, maxN - minN, 10) * 1.4;          // equal scale in both axes; margin for labels
+            const cE = (minE + maxE) / 2, cN = (minN + maxN) / 2;
+            minE = cE - span / 2; maxE = cE + span / 2; minN = cN - span / 2; maxN = cN + span / 2;
+            const sz = Math.min(W, H) - 2 * pad;
+            const X = e => pad + (e - minE) / span * sz, Y = nn => pad + (maxN - nn) / span * sz;
+            const raw = span / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 5, 10].map(k => k * mag).find(v => v >= raw);
+            let g = '';
+            for(let e = Math.ceil(minE / step) * step; e <= maxE; e += step) g += `<line x1="${X(e)}" y1="${pad}" x2="${X(e)}" y2="${pad + sz}" stroke="${grid}" stroke-width="0.6"/><text x="${X(e)}" y="${pad + sz + 11}" fill="${txt}" font-size="8" text-anchor="middle">${Math.round(e % 1000)}</text>`;
+            for(let nn = Math.ceil(minN / step) * step; nn <= maxN; nn += step) g += `<line x1="${pad}" y1="${Y(nn)}" x2="${pad + sz}" y2="${Y(nn)}" stroke="${grid}" stroke-width="0.6"/><text x="${pad - 3}" y="${Y(nn) + 3}" fill="${txt}" font-size="8" text-anchor="end">${Math.round(nn % 1000)}</text>`;
+            const exDots = ex.map(p => `<circle cx="${X(p.e)}" cy="${Y(p.n)}" r="2.5" fill="#888"><title>${esc(p.name)}</title></circle>`).join('');
+            const dots = slots.map(p => `<circle cx="${X(p.e)}" cy="${Y(p.n)}" r="4.5" fill="#ffffff" stroke="#00c8ff" stroke-width="2"><title>${esc(p.name)}: N ${f(p.n,2)} · E ${f(p.e,2)}</title></circle>
+                <text x="${X(p.e) + 7}" y="${Y(p.n) + 4}" fill="${txt}" font-size="10" font-weight="700">${esc(p.name)}</text>`).join('');
+            const north = `<g transform="translate(${pad + sz - 10},${pad + 14})"><path d="M0,-10 L5,4 L0,1 L-5,4 Z" fill="${txt}"/><text x="0" y="15" fill="${txt}" font-size="9" text-anchor="middle">N</text></g>`;
+            box.innerHTML = `<svg width="${W}" height="${H}" style="background:${bg};border:1px solid var(--wbt-border);" role="img" aria-label="Surface slot layout, plan view">
+                <rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>${g}<rect x="${pad}" y="${pad}" width="${sz}" height="${sz}" fill="none" stroke="${grid}"/>
+                ${exDots}${dots}${north}
+                <text x="${pad + sz / 2}" y="${H - 4}" fill="${txt}" font-size="9" text-anchor="middle">Easting (last 3 digits, m) · grid ${step} m</text>
+                <text x="10" y="${pad + sz / 2}" fill="${txt}" font-size="9" text-anchor="middle" transform="rotate(-90 10 ${pad + sz / 2})">Northing</text></svg>`;
+        }
+        function ipdWire(){
+            const g = id => document.getElementById(id);
+            g('ipdName').addEventListener('input', e => { ipd.name = e.target.value; });
+            g('ipdRef').addEventListener('change', e => { ipd.refWell = e.target.value; });
+            g('ipdMode').addEventListener('change', e => { ipd.tpl.mode = e.target.value; });
+            g('ipdTangents').addEventListener('input', e => { ipd.tpl.tangents = e.target.value; });
+            document.querySelectorAll('#ipdBody [data-tp]').forEach(el => el.addEventListener('input', e => { ipd.tpl[e.target.dataset.tp] = n(e.target.value); }));
+            g('ipsGen').addEventListener('click', () => {
+                const ss = ipdNum('ipsSS');
+                ipd.surfaces = C.padSlotPattern({ n:ipdNum('ipsN'), e:ipdNum('ipsE'), rows:Math.max(1, Math.round(ipdNum('ipsRows'))), perRow:Math.max(1, Math.round(ipdNum('ipsPer'))),
+                    spacing:ipdNum('ipsSp'), rowSpacing:ipdNum('ipsRSp'), rowAz:ipdNum('ipsAz') })
+                    .map((p, i) => ({ name:'S' + String(i + 1).padStart(2, '0'), n:+p.n.toFixed(3), e:+p.e.toFixed(3), ss }));
+                ipdRender();
+            });
+            g('iptGen').addEventListener('click', () => {
+                ipd.targets = C.padTargetPattern({ n:ipdNum('iptN'), e:ipdNum('iptE'), count:Math.max(1, Math.round(ipdNum('iptCnt'))), spacing:ipdNum('iptSp'),
+                    spacingAz:ipdNum('iptSpAz'), ss:ipdNum('iptSS'), inc:ipdNum('iptInc'), az:ipdNum('iptAz') })
+                    .map((p, i) => ({ name:'T' + String(i + 1).padStart(2, '0'), n:+p.n.toFixed(3), e:+p.e.toFixed(3), ss:p.ss, inc:p.inc, az:p.az }));
+                ipdRender();
+            });
+            g('ipsLoad').addEventListener('click', () => {
+                const r = ipdParse(g('ipsPaste').value, 4);
+                if(!r.length){ alert('No rows recognised. Expected: Name, N, E, Sub-Sea (Name optional).'); return; }
+                ipd.surfaces = r.map((x, i) => ({ name: x.name || ('S' + String(i + 1).padStart(2, '0')), n:x.v[0], e:x.v[1], ss:x.v[2] }));
+                ipdRender();
+            });
+            g('iptLoad').addEventListener('click', () => {
+                const r = ipdParse(g('iptPaste').value, 6);
+                if(!r.length){ alert('No rows recognised. Expected: Name, N, E, Sub-Sea, Inc, Az (Name optional).'); return; }
+                ipd.targets = r.map((x, i) => ({ name: x.name || ('T' + String(i + 1).padStart(2, '0')), n:x.v[0], e:x.v[1], ss:x.v[2], inc:x.v[3], az:x.v[4] }));
+                ipdRender();
+            });
+            g('ipsAdd').addEventListener('click', () => { const L = ipd.surfaces[ipd.surfaces.length - 1] || { n:0, e:0, ss:0 }; ipd.surfaces.push({ name:'S' + String(ipd.surfaces.length + 1).padStart(2, '0'), n:L.n, e:L.e, ss:L.ss }); ipdRender(); });
+            g('iptAdd').addEventListener('click', () => { const L = ipd.targets[ipd.targets.length - 1] || { n:0, e:0, ss:0, inc:90, az:0 }; ipd.targets.push(Object.assign({}, L, { name:'T' + String(ipd.targets.length + 1).padStart(2, '0') })); ipdRender(); });
+            g('ipsClr').addEventListener('click', () => { ipd.surfaces = []; ipdRender(); });
+            g('iptClr').addEventListener('click', () => { ipd.targets = []; ipdRender(); });
+            document.querySelectorAll('#ipdBody [data-s],#ipdBody [data-t]').forEach(el => el.addEventListener('input', e => {
+                const arr = e.target.dataset.s !== undefined ? ipd.surfaces : ipd.targets, i = +(e.target.dataset.s !== undefined ? e.target.dataset.s : e.target.dataset.t), k = e.target.dataset.k;
+                arr[i][k] = k === 'name' ? e.target.value : n(e.target.value);
+                if(arr === ipd.surfaces) ipdSlotPlot();   // live slot plot
+            }));
+            document.querySelectorAll('#ipdBody [data-sdel],#ipdBody [data-tdel]').forEach(b => b.addEventListener('click', () => {
+                if(b.dataset.sdel !== undefined) ipd.surfaces.splice(+b.dataset.sdel, 1); else ipd.targets.splice(+b.dataset.tdel, 1);
+                ipdRender();
+            }));
+            g('ipdPreview').addEventListener('click', ipdRunPreview);
+            g('ipsPlotExisting').addEventListener('change', e => { ipd.showExisting = e.target.checked; ipdSlotPlot(); });
+            ipdSlotPlot();
+            document.querySelectorAll('#ipdBody [data-gshow],#ipdBody [data-ghide]').forEach(b => b.addEventListener('click', () => {
+                const name = b.dataset.gshow || b.dataset.ghide, vis = !!b.dataset.gshow;
+                scenarios.filter(sc => sc.group === name).forEach(sc => { sc.visible = vis; if(!sc._calc) compute(sc); draw(sc); drawTargets(sc); });
+                window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { group: name } }));
+                renderList();
+            }));
+            document.querySelectorAll('#ipdBody [data-gdel]').forEach(b => b.addEventListener('click', async () => {
+                const name = b.dataset.gdel, list = scenarios.filter(sc => sc.group === name);
+                if(!confirm('Delete pad group "' + name + '" (' + list.length + ' scenarios) for everyone on this job?')) return;
+                for(const sc of list){
+                    try { await apiJson('/notes/iplan/' + sc.id, 'DELETE'); } catch(err){ alert('Could not delete ' + sc.name + ': ' + err.message); break; }
+                    clearTimeout(sc._saveTimer); removeMesh(sc); removeTargetMeshes(sc);
+                    scenarios.splice(scenarios.indexOf(sc), 1);
+                    if(selId === sc.id) selId = null;
+                }
+                if(!selId && scenarios.length) selId = scenarios[0].id;
+                window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { group: name, deleted: true } }));
+                renderList(); renderEditor(); ipdRender();
+            }));
+        }
+        function ipdRunPreview(){
+            ipdClearGhosts();
+            const out = document.getElementById('ipdOut'), t = ipd.tpl;
+            const N = Math.min(ipd.surfaces.length, ipd.targets.length);
+            if(!N){ out.innerHTML = '<span style="color:#ff4c4c;">Add surfaces and targets first.</span>'; return; }
+            const wells = [];
+            for(let i = 0; i < N; i++){
+                const s = ipd.surfaces[i], tg = ipd.targets[i];
+                const land = { n:n(tg.n), e:n(tg.e), tvd:n(s.ss) - n(tg.ss), inc:n(tg.inc), az:n(tg.az) };
+                const tangents = String(t.tangents || '').split(/[,;]/).map(x => x.split('/').map(Number)).filter(a => a.length === 2 && a.every(isFinite)).map(([inc, L]) => ({ inc, L }));
+                const r = C.padSolveWell({ n:n(s.n), e:n(s.e), rkb:n(s.ss) }, land, { mode:t.mode, kop:t.kop + i * t.kopStep, dls:t.dls, incT:t.incT, lt:t.lt, lateral:t.lateral, tangents });
+                const name = ipd.name + ' W' + String(i + 1).padStart(2, '0');
+                const st = r.sections ? C.computeStations({ md:0, tvd:0, n:n(s.n), e:n(s.e), inc:0, az:0 }, r.sections, STEP).stations : [];
+                const landMd = r.sections ? r.sections.slice(0, t.lateral > 0 ? -1 : undefined).reduce((a, x) => a + x.cl, 0) : null;
+                wells.push({ i, name, s, tg, land, r, st, landMd, tdMd: st.length ? st[st.length - 1].md : null, over: r.maxDls > t.maxDls + 1e-9 });
+                if(st.length > 1){
+                    const g = api.buildWellLine(st.map(p => new THREE.Vector3(p.e, -p.tvd, -p.n)), (r.ok && !(r.maxDls > t.maxDls + 1e-9)) ? 0xffd060 : 0xff4c4c);
+                    api.getGroup().add(g); ipd.ghosts.push(g);
+                }
+            }
+            ipd.preview = wells;
+            const good = wells.filter(w => w.r.ok && !w.over).length;
+            let warn = '';
+            if(ipd.surfaces.length !== ipd.targets.length) warn = `<div style="color:#ffd060;">${ipd.surfaces.length} surfaces vs ${ipd.targets.length} targets — only the first ${N} pairs are planned.</div>`;
+            out.innerHTML = warn + `<div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);">
+                <tr>${['Well','Surface','Target','Status','KOP','Curve A','DLS 1','DLS 2','Tangent(s)','Tan Az','Landing MD','TD MD','Max DLS'].map(h => `<th style="padding:0 6px;text-align:left;">${h}</th>`).join('')}</tr>` +
+                wells.map(w => { const p = w.r.params || {}, bad = !w.r.ok || w.over;
+                    return `<tr style="color:${bad ? '#ff4c4c' : 'inherit'};"><td style="padding:0 6px;">${esc(w.name)}</td><td>${esc(w.s.name)}</td><td>${esc(w.tg.name)}</td>
+                    <td title="${esc(w.r.error || '')}">${w.r.ok ? (w.over ? 'DLS > max' : 'OK') : esc(w.r.error || 'failed')}</td>
+                    <td>${f(p.kop,1)}</td><td>${p.incA != null ? f(p.incA,1) + '° / Az ' + f(p.azA,1) + '°' : '—'}</td><td>${f(p.dls1,2)}</td><td>${f(p.dls2,2)}</td>
+                    <td>${p.tangents ? p.tangents.map(x => f(x.inc,0) + '°/' + f(x.L,0)).join(', ') : f(p.lt,1) + ' m @ ' + f(p.incT,1) + '°'}</td><td>${f(p.azT,1)}°</td>
+                    <td>${f(w.landMd,1)}</td><td>${f(w.tdMd,1)}</td><td>${f(w.r.maxDls,2)}</td></tr>`; }).join('') +
+                `</table></div>
+                <div style="margin-top:6px;">${good} of ${N} wells OK (yellow ghost lines in 3D; failed / over-DLS wells in red).</div>
+                <button type="button" class="wbt-btn" id="ipdCreate" ${good ? '' : 'disabled'}>Create ${good} scenario(s) in group "${esc(ipd.name)}"</button>
+                <button type="button" class="wbt-btn" id="ipdClearPv">Clear preview</button>` + ipdSepBlock();
+            document.getElementById('ipdClearPv').addEventListener('click', () => { ipdClearGhosts(); out.innerHTML = ''; });
+            document.getElementById('ipdCreate').addEventListener('click', ipdCreate);
+            document.getElementById('ipdSepRun').addEventListener('click', () => { ipdRunSeparation().catch(err => { document.getElementById('ipdSepOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; }); });
+        }
+
+        // ---------- iPad phase 2: pad separation check (ADDED 2026-10-12) ----------
+        // Min SF per pair via window.acpPadApi (the Anti-collision module's own SF
+        // code — see its comment). New wells = this preview; each is checked from
+        // surface down to its ICP/landing (or full well) against the other new
+        // wells and the chosen existing groups (Planned/blue, Offset/red, Scenarios).
+        // Thresholds per John: red < 1.0, orange < 1.25.
+        let ipdRun = 0;
+        function ipdSepBlock(){
+            return `<div class="ipl-h" style="margin-top:10px;">Pad separation check (min SF)</div>
+            <div class="ipl-sec" style="display:block;">
+                <span>Check new wells against:</span>
+                <label style="margin-left:6px;"><input type="checkbox" id="ipdSepNew" checked> each other</label>
+                <label style="margin-left:6px;"><input type="checkbox" id="ipdSepPlanned" checked> <span style="color:#0066ff;">Planned</span></label>
+                <label style="margin-left:6px;"><input type="checkbox" id="ipdSepOffset" checked> <span style="color:#ff4c4c;">Offset</span></label>
+                <label style="margin-left:6px;"><input type="checkbox" id="ipdSepScn"> <span style="color:#00e676;">Scenarios</span></label>
+                <span style="margin-left:12px;">Depth</span> <select id="ipdSepDepth"><option value="icp" selected>Surface → ICP / landing</option><option value="full">Full well</option></select>
+                <span style="margin-left:12px;">Red &lt;</span> <input type="number" step="0.05" id="ipdSepRed" value="1.0" style="width:60px;">
+                <span>Orange &lt;</span> <input type="number" step="0.05" id="ipdSepOrange" value="1.25" style="width:60px;">
+                <button type="button" class="wbt-btn" id="ipdSepRun" style="margin-left:8px;">&#9888; Run check</button>
+                <span id="ipdSepProg" style="margin-left:8px;font-size:11px;color:var(--wbt-text-dim);"></span>
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Same SF as the Anti-collision Plots (ISCWSA, per-well toolcode, Confidence K from that panel). New wells use the reference planned well's toolcode and location for magnetics.</div>
+                <div id="ipdSepOut" style="margin-top:6px;"></div>
+            </div>`;
+        }
+        async function ipdRunSeparation(){
+            const A = window.acpPadApi, out = document.getElementById('ipdSepOut'), prog = document.getElementById('ipdSepProg');
+            if(!A){ out.innerHTML = '<span style="color:#ff4c4c;">Anti-collision module not available on this page.</span>'; return; }
+            const wells = (ipd.preview || []).filter(w => w.st && w.st.length > 1);
+            if(!wells.length){ out.innerHTML = '<span style="color:#ff4c4c;">Run Preview first.</span>'; return; }
+            const red = n(document.getElementById('ipdSepRed').value) || 1.0, orange = n(document.getElementById('ipdSepOrange').value) || 1.25;
+            const depth = document.getElementById('ipdSepDepth').value;
+            prog.textContent = 'Loading toolcodes…';
+            await A.ready();
+            const run = ++ipdRun, prefix = '__ipd' + run + '__ ';
+            const ref = A.surfaceLatLon(ipd.refWell);
+            // preview wells as AC pseudo-wells (Sub-Sea = surface RKB elev. - TVD, same as iPlan scenarios)
+            const news = wells.map(w => ({
+                label: w.name, maxMd: depth === 'icp' ? w.landMd : Infinity,
+                well: { wellName: prefix + w.name, toolcode: ref.toolcode,
+                        survey: w.st.map(p => ({ md:p.md, incl:p.inc, azim:p.az, tvd:p.tvd, northing:p.n, easting:p.e, subSea:n(w.s.ss) - p.tvd, latitude:ref.lat, longitude:ref.lon })) }
+            }));
+            const others = [];
+            const cats = { planned: document.getElementById('ipdSepPlanned').checked, offset: document.getElementById('ipdSepOffset').checked };
+            A.baseWells().forEach(x => { if(cats[x.cat]) others.push({ label: x.well.wellName, cat: x.cat, well: x.well }); });
+            if(document.getElementById('ipdSepScn').checked) A.scenarioWells().forEach(w => others.push({ label: w.wellName, cat: 'scenario', well: w }));
+            const vsNew = document.getElementById('ipdSepNew').checked;
+            const cols = (vsNew ? news.map(x => ({ label: x.label, cat: 'new', well: x.well, isNew: true })) : []).concat(others);
+            // pairs: new i vs new j (once, i<j, both directions take the min), new i vs others
+            const res = news.map(() => cols.map(() => null));
+            const jobs = [];
+            news.forEach((a, i) => cols.forEach((c, j) => {
+                if(c.isNew){ if(j > i) jobs.push([i, j]); } else jobs.push([i, j]);
+            }));
+            let done = 0;
+            for(const [i, j] of jobs){
+                if(run !== ipdRun) return;   // a newer run started
+                const c = cols[j];
+                let r = A.pairMinSF(news[i].well, c.well, news[i].maxMd);
+                if(c.isNew){
+                    const r2 = A.pairMinSF(news[j].well, news[i].well, news[j].maxMd);   // check from the other side too
+                    if(r2 && (!r || r2.sf < r.sf)) r = { sf:r2.sf, c2c:r2.c2c, refMd:r2.offMd, offMd:r2.refMd, real:r2.real };
+                    res[j][i] = r ? Object.assign({}, r, { refMd: r.offMd, offMd: r.refMd }) : null;   // mirror (row j, column i): swap MDs to row j's view
+                }
+                res[i][j] = r;
+                if(++done % 15 === 0){ prog.textContent = `Computing… ${done} / ${jobs.length} pairs`; await new Promise(rs => setTimeout(rs, 0)); }
+            }
+            A.forget(prefix);
+            prog.textContent = `${jobs.length} pairs checked.`;
+            const col = sf => sf == null ? 'inherit' : sf < red ? '#ff4c4c' : sf < orange ? '#ff9f1c' : '#00e676';
+            // per-well summary
+            const summ = news.map((a, i) => {
+                let b = null, bj = -1;
+                res[i].forEach((r, j) => { if(r && (!b || r.sf < b.sf)){ b = r; bj = j; } });
+                return { a, b, other: bj >= 0 ? cols[bj].label : '—' };
+            });
+            const nRed = summ.filter(x => x.b && x.b.sf < red).length, nOr = summ.filter(x => x.b && x.b.sf >= red && x.b.sf < orange).length;
+            let html = `<div style="margin-bottom:4px;">${nRed ? `<b style="color:#ff4c4c;">${nRed} well(s) below SF ${red}</b> · ` : ''}${nOr ? `<b style="color:#ff9f1c;">${nOr} well(s) below SF ${orange}</b> · ` : ''}${(!nRed && !nOr) ? '<b style="color:#00e676;">All new wells ≥ SF ' + orange + '</b>' : ''}</div>`;
+            html += `<table style="font-size:11px;font-family:var(--wbt-mono);"><tr>${['Well','Min SF','Against','C2C (m)','at MD','offset MD'].map(h => `<th style="padding:0 8px 0 0;text-align:left;">${h}</th>`).join('')}</tr>` +
+                summ.map(x => `<tr><td style="padding-right:8px;">${esc(x.a.label)}</td><td style="color:${col(x.b && x.b.sf)};font-weight:700;">${x.b ? f(Math.min(x.b.sf, 99), 2) : '—'}</td><td>${esc(x.other)}</td><td>${x.b ? f(x.b.c2c, 2) : '—'}</td><td>${x.b ? f(x.b.refMd, 1) : '—'}</td><td>${x.b ? f(x.b.offMd, 1) : '—'}</td></tr>`).join('') + '</table>';
+            // matrix
+            const cc = c => c.cat === 'planned' ? '#0066ff' : c.cat === 'offset' ? '#ff4c4c' : c.cat === 'scenario' ? '#00e676' : 'var(--wbt-text)';
+            html += `<details style="margin-top:6px;" open><summary style="cursor:pointer;">Matrix (rows = new wells, hover a cell for C2C / MDs)</summary><div style="max-height:360px;max-width:100%;overflow:auto;">
+                <table style="font-size:10px;font-family:var(--wbt-mono);border-collapse:collapse;"><tr><th></th>${cols.map(c => `<th style="writing-mode:vertical-rl;transform:rotate(180deg);padding:2px;color:${cc(c)};white-space:nowrap;">${esc(c.label)}</th>`).join('')}</tr>` +
+                news.map((a, i) => `<tr><th style="text-align:left;padding-right:6px;white-space:nowrap;">${esc(a.label)}</th>` + cols.map((c, j) => {
+                    const r = res[i][j];
+                    if(c.isNew && j === i) return '<td style="background:#222;"></td>';
+                    if(!r) return '<td style="padding:1px 3px;color:var(--wbt-text-dim);">—</td>';
+                    const bg = r.sf < red ? 'rgba(255,76,76,.35)' : r.sf < orange ? 'rgba(255,159,28,.35)' : 'rgba(0,230,118,.12)';
+                    return `<td title="${esc(a.label)} vs ${esc(c.label)}: SF ${f(r.sf,2)}, C2C ${f(r.c2c,2)} m at MD ${f(r.refMd,1)} (offset MD ${f(r.offMd,1)})${r.real ? '' : ' — simplified model (no toolcode/magnetics)'}" style="padding:1px 3px;text-align:center;background:${bg};">${f(Math.min(r.sf, 99), 2)}</td>`;
+                }).join('') + '</tr>').join('') + '</table></div></details>';
+            html += `<button type="button" class="wbt-btn" id="ipdSepXls" style="margin-top:6px;">&#11015; Download Excel</button>`;
+            out.innerHTML = html;
+            document.getElementById('ipdSepXls').addEventListener('click', () => {
+                if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
+                const wb = XLSX.utils.book_new();
+                const s1 = [['Well','Min SF','Against','C2C (m)','at MD (m)','Offset MD (m)']].concat(summ.map(x => [x.a.label, x.b ? +x.b.sf.toFixed(3) : '', x.other, x.b ? +x.b.c2c.toFixed(2) : '', x.b ? +x.b.refMd.toFixed(1) : '', x.b ? +x.b.offMd.toFixed(1) : '']));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s1), 'Summary');
+                const s2 = [[''].concat(cols.map(c => c.label))].concat(news.map((a, i) => [a.label].concat(cols.map((c, j) => res[i][j] ? +res[i][j].sf.toFixed(3) : ''))));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s2), 'Min SF matrix');
+                XLSX.writeFile(wb, (ipd.name || 'pad').replace(/[^\w\- ]+/g, '_') + '_separation.xlsx');
+            });
+        }
+
+        async function ipdCreate(){
+            const wells = (ipd.preview || []).filter(w => w.r.ok && !w.over);
+            if(!wells.length) return;
+            let group = ipd.name.trim() || 'Pad iPad';
+            if(scenarios.some(sc => sc.group === group) && !confirm('A pad group named "' + group + '" already exists. Add these wells to it?')) return;
+            const ref = WELLS.find(w => String(w._id) === String(ipd.refWell)) || WELLS[0];
+            const items = wells.map(w => ({
+                name: w.name, group, startMode: 'surface', wellId: ref ? String(ref._id) : '', tieMd: 0,
+                start: { md:0, tvd:0, n:n(w.s.n), e:n(w.s.e), inc:0, az:0, rkb:n(w.s.ss) },
+                sections: w.r.sections,
+                targets: [{ name: w.tg.name, n:n(w.tg.n), e:n(w.tg.e), ss:n(w.tg.ss), r:15 }],
+                toolcode: null
+            }));
+            let docs;
+            try { docs = await apiJson('/notes/iplan/batch/' + NOTE_ID, 'POST', { items }); }
+            catch(err){ alert('Could not create the pad: ' + err.message); return; }
+            ipdClearGhosts();
+            docs.forEach(doc => { const sc = fromDoc(doc); sc.visible = true; compute(sc); draw(sc); drawTargets(sc); scenarios.push(sc); });
+            selId = String(docs[0]._id);
+            window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { group } }));
+            renderList(); renderEditor(); ipdRender();
+            document.getElementById('ipdOut').innerHTML = `<span style="color:#00e676;">Created ${docs.length} scenario(s) in group "${esc(group)}".</span>`;
+        }
+        // 2026-10-12: panel only exists for admins (EJS role check) -> skip wiring otherwise
+        if(document.getElementById('ipdHead')) document.getElementById('ipdHead').addEventListener('click', () => {
+            const b = document.getElementById('ipdBody');
+            const open = b.style.display === 'none';
+            b.style.display = open ? 'flex' : 'none';
+            if(open) ipdRender();
+        });
+
         // Load the job's saved scenarios (all inactive/unticked by default).
         apiJson('/notes/iplan/list/' + NOTE_ID, 'GET').then(list => {
             (list || []).forEach(doc => { const sc = fromDoc(doc); compute(sc); scenarios.push(sc); });
@@ -7008,9 +7437,9 @@ body.light-mode #statusTextbox {
     //    vertical basis this module already uses for every cross-well distance.
     var BASE_WELLS = WELLS.slice();
     var IPLAN_PREFIX = 'iPlan \u25B8 ';
-    function buildScenarioWells(){
+    function buildScenarioWells(includeHidden){
         var list = (window.IPLAN_SCENARIOS || []).filter(function(sc){
-            return sc.visible && sc._calc && !sc._calc.error && sc._calc.stations && sc._calc.stations.length >= 2;
+            return (sc.visible || includeHidden) && sc._calc && !sc._calc.error && sc._calc.stations && sc._calc.stations.length >= 2;
         });
         var used = {};
         return list.map(function(sc){
@@ -9179,6 +9608,46 @@ body.light-mode #statusTextbox {
             if(acpOnScenariosChanged) acpOnScenariosChanged();
         }, 500);
     });
+
+    // ── iPad pad separation check API (ADDED 2026-10-12, iPad phase 2) ──
+    // Lets the iPad planner compute min SF / C2C between wells with EXACTLY
+    // this module's own code path (wellPoints -> computeWellCov(ISCWSA, per
+    // well toolcode) -> computeC2CProfile -> separationFactorReal / simplified
+    // fallback; same Confidence K from #acpKSF). No new formulas; the matrix
+    // and these plots therefore give the same SF for the same pair.
+    window.acpPadApi = {
+        ready: function(){ return TOOLCODES ? Promise.resolve(true) : loadToolcodes().then(function(d){ return !!d; }); },
+        // existing planned wells, tagged as 'planned' (subject, blue) or 'offset' (red) — same rule as Standard colors
+        baseWells: function(){ return BASE_WELLS.map(function(w){ return { well: w, cat: acpIsSubject(w) ? 'planned' : 'offset' }; }); },
+        scenarioWells: function(){ return buildScenarioWells(true); },
+        surfaceLatLon: function(wellId){
+            var w = BASE_WELLS.find(function(x){ return String(x._id) === String(wellId); }) || BASE_WELLS[0];
+            if(!w) return { lat: undefined, lon: undefined, toolcode: undefined };
+            var s0 = w.survey.slice().sort(function(a,b){ return num(a.md)-num(b.md); })[0];
+            return { lat: s0.latitude, lon: s0.longitude, toolcode: w.toolcode };
+        },
+        // Min SF of refWell (stations with md <= refMaxMd) against offWell (full).
+        pairMinSF: function(refWell, offWell, refMaxMd){
+            var kInput = document.getElementById('acpKSF');
+            var kVal = kInput ? parseFloat(kInput.value) : NaN;
+            K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
+            var refPts = wellPoints(refWell).filter(function(p){ return p.md <= refMaxMd + 1e-6; });
+            var offPts = wellPoints(offWell);
+            if(refPts.length < 1 || offPts.length < 2) return null;
+            var refCov = computeWellCov(refWell, wellToolcode(refWell));
+            var offCov = computeWellCov(offWell, wellToolcode(offWell));
+            var prof = computeC2CProfile(refPts, offPts, refCov, offCov);
+            var best = null;
+            prof.forEach(function(p){ if(p.sf != null && isFinite(p.sf) && (!best || p.sf < best.sf)) best = p; });
+            if(!best) prof.forEach(function(p){ if(!best || p.c2c < best.c2c) best = p; });
+            return best ? { sf: best.sf, c2c: best.c2c, refMd: best.md, offMd: best.offMd, real: !!(refCov && offCov) } : null;
+        },
+        // drop cached covariance/magnetics for temporary preview wells
+        forget: function(prefix){
+            Object.keys(WELL_COVARIANCE).forEach(function(k){ if(k.indexOf(prefix) === 0) delete WELL_COVARIANCE[k]; });
+            Object.keys(WELL_MAGNETICS).forEach(function(k){ if(k.indexOf(prefix) === 0) delete WELL_MAGNETICS[k]; });
+        }
+    };
 
     let acpInitDone = false;
     function initOnce(){ if(acpInitDone) return; acpInitDone = true; syncScenarioWells(); init(); }

@@ -82,6 +82,7 @@ const {
     addIPlanScenario,
     updateIPlanScenario,
     deleteIPlanScenario,
+    addIPlanScenariosBatch,
     savePadStats,
     saveWbtColorMode,
     renderVPAreas,
@@ -276,6 +277,12 @@ router.put('/notes/polyline/:polylineId', isAuthenticated, updatePolyline);
 router.delete('/notes/polyline/:polylineId', isAuthenticated, deletePolyline);
 //iPlan scenario trajectories (2026-10-10) — job-level CRUD, same pattern as Polylines
 router.get('/notes/iplan/list/:noteId', isAuthenticated, listIPlanScenarios);
+// CHANGED 2026-10-12: iPad is admin-only. JSON 403 (not the redirect of helpers.isAdmin) because this is called with fetch.
+function adminOnlyJson(req, res, next){
+    if(req.user && req.user.role === 'admin') return next();
+    return res.status(403).json({ ok:false, error:'Admin access required for the iPad pad planner.' });
+}
+router.post('/notes/iplan/batch/:noteId', isAuthenticated, adminOnlyJson, addIPlanScenariosBatch); // iPad (2026-10-12)
 router.post('/notes/iplan/:noteId', isAuthenticated, blockViewerFromSaving, addIPlanScenario);
 router.put('/notes/iplan/:scenarioId', isAuthenticated, blockViewerFromSaving, updateIPlanScenario);
 router.delete('/notes/iplan/:scenarioId', isAuthenticated, blockViewerFromSaving, deleteIPlanScenario); // viewer role: read-only
