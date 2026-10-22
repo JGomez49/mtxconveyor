@@ -2861,6 +2861,33 @@ body.light-mode #statusTextbox {
     <script>
     (function(){
         const WELLBORES = JSON.parse(document.getElementById('wbtData').textContent);
+
+        // ── Vertical axis = Sub-Sea elevation (CHANGED 2026-10-21) ─────────────
+        // BUG: the 3D scene used Y = -TVD. TVD is measured from each well's OWN
+        // RKB, so wells/pads with different RKB elevations were shifted against
+        // each other (seen on ID2411). The Anti-collision module already uses
+        // Sub-Sea for the same reason. Now every 3D object uses Y = Sub-Sea
+        // (elevation, m, positive up; same convention as the survey "Sub-Sea"
+        // column = RKB elevation - TVD). Up is still +Y, so orientations are
+        // unchanged. Each station gets r._ss once here; wells with no Sub-Sea
+        // data (legacy uploads) fall back to (median pad RKB - TVD) and are
+        // listed in a warning on the viewer.
+        const WBT_SS_FALLBACK = [];
+        (function(){
+            const ssNum = v => { const x = parseFloat(v); return isNaN(x) ? 0 : x; };
+            const has = w => (w.survey || []).some(r => Math.abs(ssNum(r.subSea)) > 0.01);
+            const rkbs = WELLBORES.filter(has).map(w => {
+                const r = w.survey.find(x => Math.abs(ssNum(x.subSea)) > 0.01);
+                return ssNum(r.tvd) + ssNum(r.subSea);
+            }).sort((a, b) => a - b);
+            const refRkb = rkbs.length ? rkbs[Math.floor(rkbs.length / 2)] : 0;
+            WELLBORES.forEach(w => {
+                const ok = has(w);
+                if(!ok && (w.survey || []).length) WBT_SS_FALLBACK.push(w.wellName);
+                (w.survey || []).forEach(r => { r._ss = ok ? ssNum(r.subSea) : refRkb - ssNum(r.tvd); });
+            });
+        })();
+        function wbtYOf(row){ return (row && row._ss != null) ? row._ss : -(parseFloat(row && row.tvd) || 0); }
         const fallbackColors = [0x00c8ff, 0xff6b35, 0x39ff14, 0xffd060, 0xc084fc, 0x2dd4bf, 0xff4060, 0x79c0ff];
 
         // Added 2026-08-25: Single-mode colors — every Subject well navy
@@ -3167,7 +3194,7 @@ body.light-mode #statusTextbox {
                 // when the data was uploaded.
                 const points = survey.map(p => new THREE.Vector3(
                     p.easting || 0,
-                    -(p.tvd || 0),
+                    wbtYOf(p),   // 2026-10-21: Sub-Sea elevation (was -(p.tvd))
                     -(p.northing || 0)
                 ));
 
@@ -3203,6 +3230,15 @@ body.light-mode #statusTextbox {
             buildWbtWellList();
             applyWbtLineThickness();
             wbtFillIndivSelect();
+            if(WBT_SS_FALLBACK.length){   // 2026-10-21: wells drawn without real Sub-Sea data
+                const wrap = document.getElementById('wbtViewer') && document.getElementById('wbtViewer').parentElement;
+                if(wrap){
+                    const d = document.createElement('div');
+                    d.style.cssText = 'position:absolute;left:8px;bottom:8px;max-width:60%;background:rgba(255,208,96,.12);border:1px solid #ffd060;color:#ffd060;font-size:10px;padding:4px 8px;border-radius:3px;z-index:3;';
+                    d.textContent = '⚠ No Sub-Sea data for: ' + WBT_SS_FALLBACK.join(', ') + ' — drawn using the pad RKB − TVD (approximate). Re-upload with a Sub-Sea column for exact elevation.';
+                    wrap.appendChild(d);
+                }
+            }
             fitCameraToObject(allPoints);
             applyWbtVisibility();
 
@@ -3425,7 +3461,7 @@ body.light-mode #statusTextbox {
                         const wasVisible = f.mesh.visible;
                         wbtFormationGroup.remove(f.mesh);
                         if(f.mesh.geometry) f.mesh.geometry.dispose();
-                        const newMesh = wbtBuildFormationMesh(f.tvd, wbtPadBBox);
+                        const newMesh = wbtBuildFormationMesh(f.y, wbtPadBBox);   // 2026-10-21: Sub-Sea
                         newMesh.visible = wasVisible;
                         wbtFormationGroup.add(newMesh);
                         f.mesh = newMesh;
@@ -4245,7 +4281,7 @@ body.light-mode #statusTextbox {
             function toResult(s){
                 const incl = num(s.incl||0)*D2R, azim = num(s.azim||0)*D2R;
                 return {
-                    center: { x: num(s.easting), y: -num(s.tvd), z: -num(s.northing) },
+                    center: { x: num(s.easting), y: wbtYOf(s), z: -num(s.northing) },   // 2026-10-21: Sub-Sea (was -tvd)
                     tangent: {
                         x:  Math.sin(incl)*Math.sin(azim),
                         y: -Math.cos(incl),
@@ -4265,12 +4301,12 @@ body.light-mode #statusTextbox {
                 if(n >= md0 && n <= md1){
                     const t = (md1-md0) === 0 ? 0 : (n-md0)/(md1-md0);
                     const east  = num(s0.easting)  + t*(num(s1.easting)  - num(s0.easting));
-                    const tvd   = num(s0.tvd)      + t*(num(s1.tvd)      - num(s0.tvd));
+                    const yEl   = wbtYOf(s0)       + t*(wbtYOf(s1)       - wbtYOf(s0));   // 2026-10-21: Sub-Sea
                     const north = num(s0.northing) + t*(num(s1.northing) - num(s0.northing));
                     const incl  = (num(s0.incl||0) + t*(num(s1.incl||0)-num(s0.incl||0)))*D2R;
                     const azim  = (num(s0.azim||0) + t*(num(s1.azim||0)-num(s0.azim||0)))*D2R;
                     return {
-                        center: { x: east, y: -tvd, z: -north },
+                        center: { x: east, y: yEl, z: -north },
                         tangent: {
                             x:  Math.sin(incl)*Math.sin(azim),
                             y: -Math.cos(incl),
@@ -4341,7 +4377,12 @@ body.light-mode #statusTextbox {
             wbtFPMeshes[trajectoryId] = [];
             if(!fracPlanes || fracPlanes.length === 0) return;
 
+            // 2026-10-21: recompute each centre from its MD with the Sub-Sea vertical
+            // axis (the server-saved centre of older frac planes used -TVD).
+            const fpWell = WELLBORES.find(w => String(w._id) === String(trajectoryId));
+            const fpSurvey = fpWell ? (fpWell.survey || []).slice().sort((a, b) => num(a.md) - num(b.md)) : null;
             fracPlanes.forEach(fp => {
+                if(fpSurvey && fpSurvey.length && fp.md != null) fp = Object.assign({}, fp, { center: wbtInterpolateAtMD(fpSurvey, fp.md).center });
                 if(!fp.center) return;
                 const mesh = (fp.geometry === 'cylinder')
                     ? wbtBuildCylinderMesh(fp, wellColor || 0xffd060)
@@ -4704,8 +4745,10 @@ body.light-mode #statusTextbox {
                 // extrusion, no side walls.
                 const group3d = new THREE.Group();
                 const mat = new THREE.LineBasicMaterial({ color: colorInt });
-                [poly.tvdFrom||0, poly.tvdTo||0].forEach(tvd => {
-                    const pts = poly.points.map(p => new THREE.Vector3(p.easting, -tvd, -p.northing));
+                // 2026-10-21: TVDss From/To are Sub-Sea ELEVATIONS (same convention as the
+                // survey Sub-Sea column, confirmed by John) -> Y = value (was -value).
+                [poly.tvdFrom||0, poly.tvdTo||0].forEach(ss => {
+                    const pts = poly.points.map(p => new THREE.Vector3(p.easting, ss, -p.northing));
                     const geo = new THREE.BufferGeometry().setFromPoints(pts);
                     group3d.add(new THREE.LineLoop(geo, mat));
                 });
@@ -4718,7 +4761,7 @@ body.light-mode #statusTextbox {
                 const edges = new THREE.EdgesGeometry(geo);
                 const mat = new THREE.LineBasicMaterial({ color: colorInt });
                 const mesh = new THREE.LineSegments(edges, mat);
-                mesh.position.set(0, -(poly.tvdFrom||0), 0);
+                mesh.position.set(0, Math.max(poly.tvdFrom||0, poly.tvdTo||0), 0);   // 2026-10-21: top = higher elevation, extrudes down
                 return mesh;
             }
 
@@ -4728,7 +4771,7 @@ body.light-mode #statusTextbox {
                 side: THREE.DoubleSide, depthWrite: false,
             });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(0, -(poly.tvdFrom||0), 0);
+            mesh.position.set(0, Math.max(poly.tvdFrom||0, poly.tvdTo||0), 0);   // 2026-10-21: top = higher elevation, extrudes down
             return mesh;
         }
 
@@ -5071,7 +5114,7 @@ body.light-mode #statusTextbox {
                 const east  = num(row.easting  || row.localE || 0);
                 const tvd   = num(row.tvd || 0);
                 const north = num(row.northing || row.localN || 0);
-                const wx = east, wy = -tvd, wz = -north;
+                const wx = east, wy = wbtYOf(row), wz = -north;   // 2026-10-21: Sub-Sea
                 const dx = wx - worldPos.x, dy = wy - worldPos.y, dz = wz - worldPos.z;
                 const d = dx*dx + dy*dy + dz*dz;
                 if(d < bestDist){ bestDist = d; best = row; }
@@ -5171,7 +5214,7 @@ body.light-mode #statusTextbox {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.rotation.x = -Math.PI / 2;
-            mesh.position.set(cx, -tvd, cz);
+            mesh.position.set(cx, tvd, cz);   // 2026-10-21: caller now passes the Sub-Sea elevation (Y) here
             group.add(mesh);
 
             // Compute TVDss: use subSea of closest survey station in first wellbore
@@ -5218,7 +5261,7 @@ body.light-mode #statusTextbox {
         function wbtBuildFormationMesh(tvd, bbox){
             const xMin = bbox.min.x, xMax = bbox.max.x;
             const zMin = bbox.min.z, zMax = bbox.max.z;
-            const y    = -tvd;
+            const y    = tvd;   // 2026-10-21: caller now passes the Sub-Sea elevation (Y)
 
             const xRange = xMax - xMin || 100;
             const zRange = zMax - zMin || 100;
@@ -5269,7 +5312,7 @@ body.light-mode #statusTextbox {
                 seen[key] = true;
                 const tvd = parseFloat(row[tvdKey]) || 0;
                 const isFormation = !wbtIsReservedComment(name);
-                result.push({ name, tvd, isFormation });
+                result.push({ name, tvd, y: wbtYOf(row), isFormation });   // 2026-10-21: y = Sub-Sea elevation for placement
             });
             return result;
         }
@@ -5311,12 +5354,12 @@ body.light-mode #statusTextbox {
                 }
 
                 if(entry.isFormation && bbox){
-                    mesh = wbtBuildFormationMesh(entry.tvd, bbox);
+                    mesh = wbtBuildFormationMesh(entry.y, bbox);
                     mesh.visible = defaultVisible;
                     wbtFormationGroup.add(mesh);
 
                     // Invisible plane for raycasting tooltip
-                    planeMesh = wbtBuildInvisiblePlane(entry.tvd, bbox, entry);
+                    planeMesh = wbtBuildInvisiblePlane(entry.y, bbox, entry);
                     wbtFormPlaneData.push({
                         mesh: planeMesh, name: entry.name, tvd: entry.tvd, subSea,
                         get visible(){ return mesh.visible; }
@@ -5554,7 +5597,7 @@ body.light-mode #statusTextbox {
             const c = sc._calc;
             if(!sc.visible || !c || c.error || c.stations.length < 2) return;
             // Same scene axes as planned wells: X = Easting, Y = -TVD, Z = -Northing
-            const pts = c.stations.map(s => new THREE.Vector3(s.e, -s.tvd, -s.n));
+            const pts = c.stations.map(s => new THREE.Vector3(s.e, s.subSea, -s.n));   // 2026-10-21: Sub-Sea elevation
             const mesh = api.buildWellLine(pts, GREEN);
             const k = api.getThickness(sc.id);
             const ud = mesh.userData;
@@ -5575,7 +5618,7 @@ body.light-mode #statusTextbox {
             (sc.targets || []).forEach(t => {
                 const g = new THREE.SphereGeometry(Math.max(0.5, n(t.r)), 16, 12);
                 const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.25, wireframe: true }));
-                m.position.set(n(t.e), -tvdOf(sc, t), -n(t.n));
+                m.position.set(n(t.e), n(t.ss), -n(t.n));   // 2026-10-21: target Sub-Sea = elevation
                 api.getGroup().add(m);
                 sc._tMeshes.push(m);
             });
@@ -5922,7 +5965,8 @@ body.light-mode #statusTextbox {
                 // preview stations + ghost
                 const pv = C.computeStations(start, r.sections, STEP).stations;
                 if(sc.visible && pv.length > 1){
-                    tanGhost = api.buildWellLine(pv.map(p => new THREE.Vector3(p.e, -p.tvd, -p.n)), 0xffd060);
+                    const rkbG = scenarioRkb(sc);
+                    tanGhost = api.buildWellLine(pv.map(p => new THREE.Vector3(p.e, rkbG - p.tvd, -p.n)), 0xffd060);   // 2026-10-21: Sub-Sea
                     api.getGroup().add(tanGhost);
                 }
                 const i = r.info, maxD = n(q('maxDls').value);
@@ -6388,7 +6432,7 @@ body.light-mode #statusTextbox {
                 const landMd = r.sections ? r.sections.slice(0, t.lateral > 0 ? -1 : undefined).reduce((a, x) => a + x.cl, 0) : null;
                 wells.push({ i, name, s, tg, land, r, st, landMd, tdMd: st.length ? st[st.length - 1].md : null, over: r.maxDls > t.maxDls + 1e-9 });
                 if(st.length > 1){
-                    const g = api.buildWellLine(st.map(p => new THREE.Vector3(p.e, -p.tvd, -p.n)), (r.ok && !(r.maxDls > t.maxDls + 1e-9)) ? 0xffd060 : 0xff4c4c);
+                    const g = api.buildWellLine(st.map(p => new THREE.Vector3(p.e, n(s.ss) - p.tvd, -p.n)), (r.ok && !(r.maxDls > t.maxDls + 1e-9)) ? 0xffd060 : 0xff4c4c);
                     api.getGroup().add(g); ipd.ghosts.push(g);
                 }
             }

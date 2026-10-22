@@ -2110,7 +2110,8 @@ function interpolateSurveyAtMD(survey, targetMD){
   function toResult(s){
     const incl = (s.incl || 0) * D2R, azim = (s.azim || 0) * D2R;
     return {
-      center: { x: s.easting, y: -s.tvd, z: -s.northing },
+      // 2026-10-21: 3D vertical axis is now Sub-Sea elevation (job.ejs also recomputes on render)
+      center: { x: s.easting, y: (s.subSea != null && s.subSea !== '') ? Number(s.subSea) : -s.tvd, z: -s.northing },
       tangent: {
         x:  Math.sin(incl) * Math.sin(azim),
         y: -Math.cos(incl),
@@ -2134,7 +2135,8 @@ function interpolateSurveyAtMD(survey, targetMD){
       const incl   = ((s0.incl || 0) + t * ((s1.incl || 0) - (s0.incl || 0))) * D2R;
       const azim   = ((s0.azim || 0) + t * ((s1.azim || 0) - (s0.azim || 0))) * D2R;
       return {
-        center: { x: east, y: -tvd, z: -north },
+        // 2026-10-21: Sub-Sea elevation when both stations carry it (job.ejs recomputes on render anyway)
+        center: { x: east, y: (s0.subSea != null && s1.subSea != null && s0.subSea !== '' && s1.subSea !== '') ? (Number(s0.subSea) + t * (Number(s1.subSea) - Number(s0.subSea))) : -tvd, z: -north },
         tangent: {
           x:  Math.sin(incl) * Math.sin(azim),
           y: -Math.cos(incl),
