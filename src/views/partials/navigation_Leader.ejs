@@ -85,6 +85,10 @@
                         <a class="dropdown-item" href="/notes/sixAxisData" target="_blank">🧲 6-axis Data</a>
                         <%# 2026-10-24: SAGcorrection — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
                         <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/sagCorrection" target="_blank">📐 SAGcorrection</a><% } %>
+                        <%# 2026-10-25: PipeStretch — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/pipeStretch" target="_blank">🌡 PipeStretch</a><% } %>
+                        <%# 2026-10-25: DSI (Drill String Interference) — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/dsi" target="_blank">🧲 DSI</a><% } %>
 
                         <% if (user.role == 'leader' || user.role == 'user') { %>
                                                         <a class="dropdown-item" href="/notes/uploadNewSchedule">New Schedule</a>

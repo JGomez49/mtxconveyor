@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSI — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="/js/wmmModel.js"></script>
+<script src="/js/dsiModel.js"></script>
+<style>
+  /*
+    DSI — Drill String Interference (added 2026-10-25, John). Standalone tool,
+    same layout/theme as pipeStretch.ejs / sagCorrection.ejs. Engine and
+    sources: public/js/dsiModel.js (pole model per SPE 7748 + B = P/4πr²,
+    eBook §5.2.2 pole strengths, azimuth error per SPE 9223 eq. 2; SNIPER v1-3
+    method as an optional legacy setting). The SPE 11382 "required NMDC
+    length" chart is deliberately NOT enabled: the eBook worked example
+    (24 m) could not be reproduced without the original paper.
+  */
+  :root{ --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c; --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c; --warn:#f5a623; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;font-weight:600;} header .sub{color:var(--muted);font-size:12px;}
+  .wrap{max-width:none;margin:0;padding:10px 12px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{border-bottom:1px solid var(--border);padding:4px 6px;text-align:right;white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel2);} td:first-child,th:first-child{text-align:left;}
+  input,select,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;}
+  input[type=number]{width:90px;} td input,td select{width:100%;min-width:60px;padding:3px 5px;} td select{min-width:95px;}
+  button{cursor:pointer;} button.primary{background:var(--accent);border-color:var(--accent);color:#061325;font-weight:600;} button:disabled{opacity:.5;cursor:not-allowed;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;}
+  .field{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;font-size:11px;color:var(--muted);white-space:nowrap;}
+  .muted{color:var(--muted);font-size:12px;} .ok{color:var(--good);} .bad{color:var(--bad);} .warn{color:var(--warn);}
+  .scroll{max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:6px;}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:6px 10px;font-size:12px;color:var(--muted);margin:6px 0;}
+  .note.warnbox{border-left-color:var(--warn);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;} @media(max-width:1000px){.grid2{grid-template-columns:1fr;}}
+  .plot{height:360px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:5px;font-weight:600;color:#061325;}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>🧲 DSI — Drill String Interference</h1><div class="sub">Axial magnetic interference from the BHA at the MWD sensor and the resulting azimuth error</div></div>
+  <div class="row" style="margin:0">
+    <select id="unitSel" onchange="setUnit(this.value)"><option value="metric">Lengths in m</option><option value="imperial">Lengths in ft</option></select>
+  </div>
+</header>
+<div class="wrap">
+
+  <div class="panel">
+    <h2>1 · Connect to an MTX job (optional)</h2>
+    <div class="row">
+      <div class="field"><span>MTX Job ID</span><input id="mtxId" placeholder="e.g. 2423" style="width:120px"></div>
+      <button onclick="loadJob()">Load job</button>
+      <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
+      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px"></select></div>
+      <button onclick="loadBhaFromTD()">⬇ Use saved T&amp;D BHA</button>
+      <button onclick="loadSurveyFromJob()">⬇ Use well survey</button>
+    </div>
+    <div id="jobStatus" class="muted"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>2 · BHA (bit first)</h2>
+      <div class="note">Material decides where the magnetic poles are. Rows loaded from T&amp;D are marked Non-mag when the name looks like one (NMDC, Monel, non-mag, NM…) — check before calculating.</div>
+      <div class="row">
+        <button onclick="addRow()">+ Component</button>
+        <button onclick="importExcel()">⬆ Import Excel</button>
+        <button onclick="downloadTemplate()">Template</button>
+        <div class="field"><span>Sensor distance from bit (<span class="uL">m</span>)</span><input type="number" id="sensor" value="15" step="0.01" oninput="invalidate()"></div>
+        <input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="readExcel(this.files[0])">
+      </div>
+      <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>OD (in)</th><th>ID (in)</th><th>Length (<span class="uL">m</span>)</th><th>Top from bit (<span class="uL">m</span>)</th><th>Material</th><th></th></tr></thead><tbody id="bhaBody"></tbody></table></div>
+    </div>
+
+    <div class="panel">
+      <h2>3 · Reference field &amp; method</h2>
+      <div class="row">
+        <div class="field"><span>BT (nT)</span><input type="number" id="bt" value="56778" step="any" oninput="invalidate()"></div>
+        <div class="field"><span>Dip (°)</span><input type="number" id="dip" value="76.12" step="any" oninput="invalidate()"></div>
+        <div class="field"><span>Declination (°)</span><input type="number" id="dec" value="11.82" step="any" oninput="invalidate()"></div>
+        <div class="field"><span>Survey azimuths are</span><select id="azRef" onchange="invalidate();$('convF').style.display=this.value==='grid'?'':'none'"><option value="true">True north</option><option value="grid">Grid north</option></select></div>
+        <div class="field" id="convF" style="display:none"><span>Grid convergence (°)</span><input type="number" id="conv" value="0" step="any" oninput="invalidate()"></div>
+      </div>
+      <div class="row">
+        <div class="field"><span>Lat / Lon (°)</span><div style="display:flex;gap:4px"><input type="number" id="lat" step="any" placeholder="lat"><input type="number" id="lon" step="any" placeholder="lon (E+)"></div></div>
+        <div class="field"><span>Height MSL (m) / Decimal year</span><div style="display:flex;gap:4px"><input type="number" id="hgt" value="0" step="any"><input type="number" id="yr" step="any"></div></div>
+        <button onclick="wmm()">WMM2025 → BT/Dip/Dec</button>
+      </div>
+      <div class="row">
+        <div class="field"><span>Method</span><select id="method" onchange="onMethod()"><option value="pole">Pole model (SPE 7748 / ISCWSA eBook) — default</option><option value="sniper">SNIPER v1-3 (legacy, no published source)</option></select></div>
+      </div>
+      <div id="poleOpts">
+        <div class="row">
+          <!-- 2026-10-25 (John): SPE 67616 presets added (Williamson 2000, "Accuracy Prediction for MWD",
+               table of RMS pole strengths, 1 s.d.; 400 µWb recommended for any steel component when nothing
+               better is known). RMS values are magnitudes; signs follow the eBook N-hemisphere convention
+               (upper +, lower −). Pin/box mapping (MTX convention, standard pin-down make-up): the pole
+               facing the NMDC is the PIN of the steel above and the BOX of the steel below. -->
+          <div class="field"><span>Steel above NMDC</span><select id="pUsel" onchange="onUpperPreset()">
+            <optgroup label="ISCWSA eBook §5.2.2 (guide, upper limit)"><option value="900" selected>Drill collars (+900 µWb)</option></optgroup>
+            <optgroup label="SPE 67616 — RMS, 1 s.d."><option value="505">Drill collar — Grindrod &amp; Wolff (+505)</option><option value="605">Drill collar pin — Lotsberg (+605)</option><option value="511">Drill collar — McElhinney (+511)</option><option value="400">Any steel component — recommended default (+400)</option></optgroup>
+            <option value="custom">Custom</option></select></div>
+          <div class="field"><span>Upper pole (µWb)</span><input type="number" id="pU" value="900" step="any" oninput="$('pUsel').value='custom';refreshPoles()"></div>
+          <div class="field"><span>Steel below NMDC</span><select id="pLsel" onchange="onLowerPreset()">
+            <optgroup label="ISCWSA eBook §5.2.2 (guide, upper limit)"><option value="-90">Stabilisers and bit (−90 µWb)</option><option value="-300">10 m drill collar (−300 µWb)</option><option value="-1000">Turbine / motor (−1000 µWb)</option></optgroup>
+            <optgroup label="SPE 67616 — RMS, 1 s.d."><option value="-177">Stabiliser — Grindrod &amp; Wolff (−177)</option><option value="-189">Stabiliser box — Lotsberg (−189)</option><option value="-408">Stabiliser box — McElhinney (−408)</option><option value="-419">Motor box — Lotsberg (−419)</option><option value="-435">Drill collar box — Lotsberg (−435)</option><option value="-400">Any steel component — recommended default (−400)</option></optgroup>
+            <option value="custom">Custom</option></select></div>
+          <div class="field"><span>Lower pole (µWb)</span><input type="number" id="pL" value="-90" step="any" oninput="$('pLsel').value='custom';refreshPoles()"></div>
+          <label class="field" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="bitDip" checked onchange="refreshPoles()" style="width:auto"> Steel below is a dipole (far end at bit, opposite sign)</label>
+        </div>
+        <div class="note">Pole strengths: ISCWSA eBook §5.2.2 (Shell field data, North Sea, N. hemisphere — "a guide and certainly not an upper limit"; reverse signs in the S. hemisphere). Every value below can be edited; poles at other steel/non-mag boundaries have no published default and start at 0.</div>
+        <div class="scroll" style="max-height:200px"><table><thead><tr><th>Pole</th><th>From bit (<span class="uL">m</span>)</th><th>To sensor (<span class="uL">m</span>)</th><th>Strength (µWb)</th><th>ΔBz at sensor (nT)</th></tr></thead><tbody id="poleBody"></tbody></table></div>
+      </div>
+      <div id="sniperOpts" style="display:none">
+        <div class="note warnbox">SNIPER v1-3 (port of Form1.vb Calcular_DSI): pole strength P = 300·OD/ID of the element next to each non-mag run, ΔBz = ΣP/Z² (Z in ft). <b>The 300·OD/ID rule has no known published source</b> — kept for comparison with SNIPER results only.</div>
+        <div class="scroll" style="max-height:200px"><table><thead><tr><th>Pole</th><th>Pole-Bit (ft)</th><th>Z (ft)</th><th>Bm</th><th>Rel. (OD/ID)</th><th>Ps</th></tr></thead><tbody id="sniperBody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>4 · Results</h2>
+    <div class="row">
+      <div class="field"><span>Inc (°)</span><input type="number" id="incOne" value="90" step="any" oninput="calcOne()"></div>
+      <div class="field"><span>Azimuth (°, survey reference)</span><input type="number" id="azOne" value="90" step="any" oninput="calcOne()"></div>
+      <button onclick="fetchWorst()" title="SNIPER Fetch: survey station with the largest |sin Inc| + |sin Az|">Fetch worst station</button>
+      <button class="primary" onclick="calculate()">Calculate</button>
+      <div class="field"><span>Azimuth error</span><span id="azErrBox" class="badge" style="background:#555;color:#ddd">—</span></div>
+      <div class="field"><span>Colour bands</span><select id="bands" onchange="calcOne();plotAll()"><option value="ebook">0.25° good-magnetic limit (ISCWSA eBook)</option><option value="sniper">0.5° / 1.0° (SNIPER)</option></select></div>
+      <label class="field" style="flex-direction:row;align-items:center;gap:6px" title="SPE 67616: constant 0.25° + direction-dependent 0.6°·sinI·sinAm, both 1 s.d., combined as root-sum-square"><input type="checkbox" id="allow" checked onchange="renderSurvey();plotAll()" style="width:auto"> ISCWSA interference allowance (SPE 67616)</label>
+    </div>
+    <div id="summary" class="muted"></div>
+    <div class="grid2" style="margin-top:8px">
+      <div id="plotMd" class="plot"></div>
+      <div id="plotHeat" class="plot"></div>
+    </div>
+    <div class="grid2" style="margin-top:8px">
+      <div id="plotPos" class="plot"></div>
+      <div class="panel" style="margin:0">
+        <h2>Survey</h2>
+        <div class="row"><button onclick="pasteSurvey()">Paste MD/Inc/Az</button><button onclick="exportResults()" id="btnExport" disabled>Export results (Excel)</button><span id="svyInfo" class="muted"></span></div>
+        <div class="scroll" style="max-height:290px"><table><thead><tr><th>MD (<span class="uL">m</span>)</th><th>Inc (°)</th><th>Az (°)</th><th>Mag. Az (°)</th><th>ΔA (°)</th><th title="SPE 67616, 1 s.d.">ISCWSA allowance (°)</th></tr></thead><tbody id="svyBody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>5 · Required NMDC length (SPE 11382) — not enabled</h2>
+    <div class="note warnbox">Pending the original SPE 11382 paper. With the confirmed pole formula the ISCWSA eBook worked example (900/90 µWb, 2 m steel below, 50 000 nT, Dip 72°, Inc 60°, Az 35°, 0.25°) gives the optimum sensor position ≈ 26–32 % from the NMDC bottom (eBook: 30 %) but a required length of ≈ 35–41 m instead of the eBook's 24 m, so the chart is withheld until the paper's Eq. 2 can be checked.
+      The ΔBz-vs-sensor-position plot above uses only the confirmed formulas.</div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// DSI page logic (2026-10-25). Lengths stored in METRES internally; the
+// unit selector only changes display. OD/ID only matter for SNIPER (ratio).
+// =====================================================================
+var UNIT = 'metric', FT = 0.3048, job = { wells: [], td: null }, survey = [], last = null;
+function $(id){ return document.getElementById(id); }
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function fmt(v, d){ return (v == null || !isFinite(v)) ? '' : (+v).toFixed(d); }
+function L(m){ return UNIT === 'metric' ? m : m / FT; }      // m -> display
+function Lm(v){ return UNIT === 'metric' ? v : v * FT; }     // display -> m
+function setUnit(u){
+  var rows = readBha(), s = Lm(+$('sensor').value);
+  UNIT = u; document.querySelectorAll('.uL').forEach(function(e){ e.textContent = u === 'metric' ? 'm' : 'ft'; });
+  $('sensor').value = +L(s).toFixed(3); $('bhaBody').innerHTML = ''; rows.forEach(addRow); renderSurvey(); invalidate();
+}
+var NM_RE = /non.?mag|nmdc|monel|\bnm\b|nm[ -]?(dc|pony|flex|collar)|n\.m\./i;
+function addRow(r){
+  r = r || { name: '', od: '', id: '', len: '', material: 'Steel' };
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td class="ix"></td><td><input value="' + esc(r.name || '') + '"></td><td><input type="number" step="any" value="' + (r.od === '' ? '' : r.od) + '"></td>' +
+    '<td><input type="number" step="any" value="' + (r.id === '' ? '' : r.id) + '"></td><td><input type="number" step="any" value="' + (r.len === '' ? '' : +L(+r.len).toFixed(3)) + '"></td><td class="top"></td>' +
+    '<td><select><option' + (r.material !== 'Non-mag' ? ' selected' : '') + '>Steel</option><option' + (r.material === 'Non-mag' ? ' selected' : '') + '>Non-mag</option></select></td>' +
+    '<td><button title="remove">✕</button></td>';
+  tr.querySelector('button').onclick = function(){ tr.remove(); renumber(); invalidate(); };
+  tr.querySelectorAll('input,select').forEach(function(e){ e.oninput = e.onchange = function(){ renumber(); invalidate(); }; });
+  $('bhaBody').appendChild(tr); renumber();
+}
+function readBha(){
+  return Array.prototype.map.call($('bhaBody').children, function(tr){
+    var i = tr.querySelectorAll('input'), s = tr.querySelector('select');
+    return { name: i[0].value, od: i[1].value === '' ? '' : +i[1].value, id: i[2].value === '' ? '' : +i[2].value, len: i[3].value === '' ? '' : Lm(+i[3].value), material: s.value };
+  });
+}
+function renumber(){ var x = 0; Array.prototype.forEach.call($('bhaBody').children, function(tr, k){ tr.querySelector('.ix').textContent = k + 1; x += Lm(+tr.querySelectorAll('input')[3].value || 0); tr.querySelector('.top').textContent = fmt(L(x), 2); }); }
+function invalidate(){ last = null; $('btnExport').disabled = true; refreshPoles(); }
+
+// ---- job connection (same endpoints as SAGcorrection / PipeStretch) ----
+async function loadJob(){
+  var id = $('mtxId').value.trim(); if(!id){ $('jobStatus').textContent = 'Enter a Job ID first.'; return; }
+  $('jobStatus').textContent = 'Loading…';
+  try{
+    var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id)), d = await r.json();
+    if(!r.ok) throw new Error(d.error || r.status);
+    job = { noteId: d.noteId, title: d.title, wells: d.subjectWells || [], td: null };
+    try{ job.td = await (await fetch('/notes/tdModel/' + d.noteId)).json(); }catch(e){ job.td = null; }
+    $('wellSel').innerHTML = job.wells.map(function(w, i){ return '<option value="' + i + '">' + esc(w.wellKey) + '</option>'; }).join('');
+    onWellChange();
+    $('jobStatus').innerHTML = '<span class="ok">✔ ' + esc(d.title) + '</span> · ' + job.wells.length + ' subject well(s)' + (job.td ? '' : ' · no saved T&D model') + (d.duplicateWarning ? ' <span class="warn">' + esc(d.duplicateWarning) + '</span>' : '');
+  }catch(err){ $('jobStatus').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; }
+}
+function onWellChange(){
+  var w = job.wells[+$('wellSel').value], td = job.td, opts = [];
+  if(td && td.scenarios && w) Object.keys(td.scenarios).forEach(function(s){ var rb = td.scenarios[s].resultsByWell || {}; if(rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length) opts.push(s); });
+  $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') : '<option value="">(no saved BHA for this well)</option>';
+}
+function loadBhaFromTD(){
+  var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
+  if(!w || !s){ alert('Load a job and pick a well with a saved T&D BHA first.'); return; }
+  var bha = job.td.scenarios[s].resultsByWell[w.wellKey].bha; // T&D getBHA(): {name, od_m, id_m, len (m), wt}, bit first
+  $('bhaBody').innerHTML = ''; var nNM = 0;
+  bha.forEach(function(c){ var nm = NM_RE.test(c.name || ''); if(nm) nNM++;
+    addRow({ name: c.name, od: +(c.od_m / 0.0254).toFixed(3), id: +(c.id_m / 0.0254).toFixed(3), len: +c.len, material: nm ? 'Non-mag' : 'Steel' }); });
+  invalidate();
+  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + esc(s) + '" (' + bha.length + ' components, ' + nNM + ' marked Non-mag by name — please check the Material column).';
+}
+function loadSurveyFromJob(){
+  var w = job.wells[+$('wellSel').value]; if(!w){ alert('Load a job first.'); return; }
+  survey = w.survey.map(function(s){ return { md: +s.md, inc: +s.inc, az: +s.az }; });
+  $('svyInfo').textContent = survey.length + ' stations from ' + w.wellKey; last = null; renderSurvey();
+}
+function pasteSurvey(){
+  var t = prompt('Paste MD, Inc, Az (one station per line, separated by tabs, commas or spaces; MD in ' + (UNIT === 'metric' ? 'm' : 'ft') + '):'); if(!t) return;
+  survey = t.split(/\r?\n/).map(function(l){ var p = l.trim().split(/[\t,; ]+/).map(Number); return p.length >= 3 && p.every(isFinite) ? { md: Lm(p[0]), inc: p[1], az: p[2] } : null; }).filter(Boolean);
+  $('svyInfo').textContent = survey.length + ' pasted stations'; last = null; renderSurvey();
+}
+
+// ---- Excel BHA import / template ----
+function importExcel(){ $('xlsFile').value = ''; $('xlsFile').click(); }
+function readExcel(f){
+  if(!f) return; var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(e.target.result, { type: 'array' }), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      if(!rows.length) throw new Error('Empty sheet.');
+      function col(r, re){ var k = Object.keys(r).find(function(k){ return re.test(k); }); return k ? r[k] : ''; }
+      $('bhaBody').innerHTML = '';
+      rows.forEach(function(r){ var len = +col(r, /^len/i), lu = /ft/i.test(Object.keys(r).find(function(k){ return /^len/i.test(k); }) || '');
+        var mat = String(col(r, /^mat/i) || ''), nm = /^non/i.test(mat) || (!mat && NM_RE.test(col(r, /^name|^comp/i)));
+        addRow({ name: col(r, /^name|^comp/i), od: col(r, /^od/i), id: col(r, /^id/i), len: lu ? len * FT : len, material: nm ? 'Non-mag' : 'Steel' }); });
+      invalidate();
+    }catch(err){ alert('Import failed: ' + err.message); }
+  };
+  rd.readAsArrayBuffer(f);
+}
+function downloadTemplate(){
+  var ws = XLSX.utils.json_to_sheet([
+    { Name: 'Bit', 'OD (in)': 8.75, 'ID (in)': 2.5, 'Length (m)': 0.3, Material: 'Steel' },
+    { Name: 'Motor', 'OD (in)': 6.75, 'ID (in)': 2.5, 'Length (m)': 8.5, Material: 'Steel' },
+    { Name: 'NMDC (MWD)', 'OD (in)': 6.75, 'ID (in)': 3.25, 'Length (m)': 9.4, Material: 'Non-mag' },
+    { Name: 'NMDC', 'OD (in)': 6.75, 'ID (in)': 3.25, 'Length (m)': 9.4, Material: 'Non-mag' },
+    { Name: 'Drill collar', 'OD (in)': 6.5, 'ID (in)': 2.81, 'Length (m)': 9.4, Material: 'Steel' } ]);
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BHA'); XLSX.writeFile(wb, 'DSI_BHA_template.xlsx');
+}
+
+// ---- reference field ----
+function wmm(){
+  var lat = +$('lat').value, lon = +$('lon').value, h = +$('hgt').value || 0, yr = +$('yr').value;
+  if($('lat').value === '' || $('lon').value === '' || !yr){ alert('Enter latitude, longitude and decimal year.'); return; }
+  if(!(yr >= 2025 && yr < 2030) && !confirm('WMM2025 is valid 2025.0–2030.0. Compute anyway?')) return;
+  var f = WMMModel.computeField(lat, lon, h / 1000, yr);
+  $('bt').value = f.totalIntensity_nT.toFixed(0); $('dip').value = f.inclination_deg.toFixed(3); $('dec').value = f.declination_deg.toFixed(3); invalidate();
+}
+// magnetic azimuth from the survey azimuth: true -> mag = Az − Dec; grid -> true = Az + convergence first
+function magAz(az){ var t = $('azRef').value === 'grid' ? az + (+$('conv').value || 0) : az; return t - (+$('dec').value || 0); }
+
+// ---- method / poles ----
+function onMethod(){ var p = $('method').value === 'pole'; $('poleOpts').style.display = p ? '' : 'none'; $('sniperOpts').style.display = p ? 'none' : ''; invalidate(); }
+function onUpperPreset(){ var v = $('pUsel').value; if(v !== 'custom') $('pU').value = v; refreshPoles(); }
+function onLowerPreset(){ var v = $('pLsel').value; if(v !== 'custom') $('pL').value = v; refreshPoles(); }
+var POLES = null, POLE_EDITS = {};
+function refreshPoles(){
+  var body = $('poleBody'); if(!body) return;
+  var rows = readBha().filter(function(r){ return r.len > 0; }), s = Lm(+$('sensor').value);
+  try{
+    var d = DsiModel.defaultPoles(rows, s, { pUpper: +$('pU').value, pLower: +$('pL').value, bitDipole: $('bitDip').checked });
+    d.poles.forEach(function(p){ var k = p.x.toFixed(4); if(p.noDefault && POLE_EDITS[k] != null) p.P = POLE_EDITS[k]; });
+    POLES = d;
+    body.innerHTML = d.poles.map(function(p, i){ var r = p.x - s, b = p.P ? (r > 0 ? 1 : -1) * p.P * 1000 / (4 * Math.PI * r * r) : 0;
+      return '<tr><td>' + esc(p.label) + '</td><td>' + fmt(L(p.x), 2) + '</td><td>' + fmt(L(r), 2) + '</td><td>' + (p.noDefault ? '<input type="number" step="any" data-k="' + p.x.toFixed(4) + '" value="' + p.P + '" style="width:90px">' : p.P) + '</td><td>' + fmt(b, 1) + '</td></tr>'; }).join('');
+    body.querySelectorAll('input').forEach(function(e){ e.onchange = function(){ POLE_EDITS[e.dataset.k] = +e.value; last = null; refreshPoles(); }; });
+  }catch(err){ POLES = null; body.innerHTML = '<tr><td colspan="5" class="bad">' + esc(err.message) + '</td></tr>'; }
+}
+
+// ---- calculation ----
+function bandColor(a){
+  a = Math.abs(a);
+  if($('bands').value === 'sniper') return a > 1 ? '#ff5c5c' : a > 0.5 ? '#f5a623' : '#2ecc71';
+  return a > 0.25 ? '#ff5c5c' : '#2ecc71';
+}
+function compute(){
+  var rows = readBha().filter(function(r){ return r.len > 0; }), s = Lm(+$('sensor').value);
+  var bt = +$('bt').value, dip = +$('dip').value;
+  if(!(bt > 0) || !isFinite(dip)) throw new Error('Enter the reference BT (nT) and Dip.');
+  if($('method').value === 'sniper'){
+    rows.forEach(function(r, i){ if(!(r.od > 0 && r.id > 0)) throw new Error('SNIPER needs OD and ID on every row (row ' + (i + 1) + ').'); });
+    var sn = DsiModel.sniper(rows, s);
+    $('sniperBody').innerHTML = sn.table.map(function(t, i){ return '<tr><td>' + (i + 1) + '</td><td>' + fmt(t.poleToBit, 2) + '</td><td>' + fmt(t.z, 2) + '</td><td>' + fmt(t.bm, 4) + '</td><td>' + fmt(t.rel, 2) + '</td><td>' + fmt(t.P, 2) + '</td></tr>'; }).join('');
+    return { method: 'sniper', dBz: sn.dBzNT, sn: sn, bt: bt, dip: dip, warnings: sn.warnings,
+      err: function(inc, az){ return DsiModel.sniperAzError(sn.bmSum, inc, magAz(az) + 0, 0, bt, dip); } };
+  }
+  if(!POLES) refreshPoles(); if(!POLES) throw new Error('Fix the BHA / sensor first (see the pole table).');
+  var dBz = DsiModel.fieldAt(POLES.poles, s);
+  return { method: 'pole', dBz: dBz, poles: POLES, bt: bt, dip: dip, warnings: [],
+    err: function(inc, az){ return DsiModel.azError(dBz, inc, magAz(az), bt, dip); } };
+}
+function calculate(){
+  try{ last = compute(); }catch(err){ last = null; $('summary').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; return; }
+  var run = last.method === 'pole' ? last.poles.run : null, s = Lm(+$('sensor').value), html = 'ΔBz at sensor: <b>' + fmt(last.dBz, 1) + ' nT</b> (' + (last.method === 'pole' ? 'pole model' : 'SNIPER') + ')';
+  if(run){ var o = DsiModel.optimum(last.poles.poles, run);
+    html += ' · NMDC run ' + fmt(L(run.bottom), 2) + '–' + fmt(L(run.top), 2) + ' (' + (UNIT === 'metric' ? 'm' : 'ft') + ' from bit) · sensor at ' + fmt(100 * (s - run.bottom) / (run.top - run.bottom), 1) +
+      ' % from NMDC bottom · lowest |ΔBz| in this run: ' + fmt(o.b, 1) + ' nT at ' + fmt(100 * (o.s - run.bottom) / (run.top - run.bottom), 1) + ' % from bottom'; }
+  if(last.warnings.length) html += '<br><span class="warn">' + last.warnings.map(esc).join('<br>') + '</span>';
+  var bh = last.bt * Math.cos(last.dip * Math.PI / 180);
+  html += '<br>Worst case (Inc 90°, magnetic E/W): ' + fmt(last.dBz * 180 / Math.PI / bh, 3) + '° · horizontal field ' + fmt(bh, 0) + ' nT. ' +
+    '<span class="muted">Sign: + when ΔBz points downhole (SPE 9223 eq. 2 convention); compare magnitudes against the limits.</span>';
+  if(survey.length){ var nx = survey.filter(function(sv){ return Math.abs(last.err(sv.inc, sv.az)) > allowance(sv.inc, sv.az); }).length;
+    html += '<br>Stations where the predicted error exceeds the ISCWSA interference allowance (SPE 67616, 1σ): <b' + (nx ? ' class="bad"' : ' class="ok"') + '>' + nx + ' of ' + survey.length + '</b>'; }
+  $('summary').innerHTML = html; $('btnExport').disabled = false;
+  calcOne(); renderSurvey(); plotAll();
+}
+function calcOne(){
+  var b = $('azErrBox'); if(!last){ b.textContent = '—'; b.style.background = '#555'; return; }
+  var e = last.err(+$('incOne').value, +$('azOne').value); b.textContent = fmt(e, 3) + '°'; b.style.background = bandColor(e);
+}
+// 2026-10-25 (John): ISCWSA axial-interference allowance in the standard MWD
+// error model — SPE 67616 (Williamson 2000): "a constant error of 0.25° and a
+// direction-dependent error of 0.6° sin I sin Am", both 1 s.d. and propagated
+// as systematic. The two independent terms are combined here by
+// root-sum-square for display: allow = sqrt(0.25² + (0.6·sinI·sinAm)²).
+function allowance(inc, az){ var d = Math.PI / 180, t = 0.6 * Math.sin(inc * d) * Math.sin(magAz(az) * d); return Math.sqrt(0.25 * 0.25 + t * t); }
+function fetchWorst(){ // SNIPER Fetch_Magnetics_DSI: max |sin Inc| + |sin Az| over the survey
+  if(!survey.length){ alert('Load or paste a survey first.'); return; }
+  var k = -1, w = null; survey.forEach(function(s){ var v = Math.abs(Math.sin(s.inc * Math.PI / 180)) + Math.abs(Math.sin(s.az * Math.PI / 180)); if(v > k){ k = v; w = s; } });
+  $('incOne').value = w.inc; $('azOne').value = w.az; calcOne();
+}
+function renderSurvey(){
+  $('svyBody').innerHTML = survey.map(function(s){ var e = last ? last.err(s.inc, s.az) : null;
+    return '<tr><td>' + fmt(L(s.md), 2) + '</td><td>' + fmt(s.inc, 2) + '</td><td>' + fmt(s.az, 2) + '</td><td>' + fmt(((magAz(s.az) % 360) + 360) % 360, 2) + '</td><td' + (e != null ? ' style="color:' + bandColor(e) + '"' : '') + '>' + fmt(e, 3) + '</td><td' + (e != null && Math.abs(e) > allowance(s.inc, s.az) ? ' class="bad" title="predicted error exceeds the ISCWSA allowance"' : '') + '>' + fmt(allowance(s.inc, s.az), 3) + '</td></tr>'; }).join('');
+}
+var LAY = { paper_bgcolor: '#1e232b', plot_bgcolor: '#1e232b', font: { color: '#e6e9ef', size: 10 }, margin: { l: 55, r: 15, t: 30, b: 40 }, legend: { orientation: 'h' } };
+function plotAll(){
+  if(!last) return;
+  var lim = $('bands').value === 'sniper' ? [0.5, 1] : [0.25], uL = UNIT === 'metric' ? 'm' : 'ft';
+  if(survey.length){
+    var md = survey.map(function(s){ return L(s.md); }), e = survey.map(function(s){ return last.err(s.inc, s.az); });
+    var tr = [{ x: md, y: e, type: 'scatter', mode: 'lines+markers', name: 'ΔA', marker: { size: 4, color: e.map(bandColor) }, line: { color: '#4da3ff', width: 1 } }];
+    if($('allow').checked){ var al = survey.map(function(s){ return allowance(s.inc, s.az); });
+      tr.push({ x: md, y: al, mode: 'lines', name: 'ISCWSA allowance ±1σ (SPE 67616)', line: { color: '#c77dff', width: 1.5 } });
+      tr.push({ x: md, y: al.map(function(v){ return -v; }), mode: 'lines', showlegend: false, line: { color: '#c77dff', width: 1.5 }, hoverinfo: 'skip' }); }
+    lim.forEach(function(v){ [v, -v].forEach(function(y){ tr.push({ x: [md[0], md[md.length - 1]], y: [y, y], mode: 'lines', line: { dash: 'dash', color: '#f5a623', width: 1 }, showlegend: false, hoverinfo: 'skip' }); }); });
+    Plotly.newPlot('plotMd', tr, Object.assign({}, LAY, { title: { text: 'Azimuth error along the survey', font: { size: 11 } }, xaxis: { title: 'MD (' + uL + ')' }, yaxis: { title: 'ΔA (°)' } }));
+  } else Plotly.newPlot('plotMd', [], Object.assign({}, LAY, { title: { text: 'Azimuth error along the survey — load or paste a survey', font: { size: 11 } } }));
+  var incs = [], azs = [], z = [];
+  for(var i = 0; i <= 90; i += 2) incs.push(i); for(var a = 0; a <= 360; a += 5) azs.push(a);
+  incs.forEach(function(inc){ z.push(azs.map(function(am){ return Math.abs(DsiModel.azError(last.dBz, inc, am, last.bt, last.dip)); })); });
+  Plotly.newPlot('plotHeat', [{ x: azs, y: incs, z: z, type: 'contour', colorscale: 'RdYlGn', reversescale: true, contours: { coloring: 'heatmap', showlabels: true, labelfont: { color: '#fff' } }, colorbar: { title: '|ΔA| °' } }],
+    Object.assign({}, LAY, { title: { text: '|ΔA| vs Inc and MAGNETIC azimuth (this BHA)', font: { size: 11 } }, xaxis: { title: 'Magnetic azimuth (°)', dtick: 45 }, yaxis: { title: 'Inc (°)' } }));
+  if(last.method === 'pole'){
+    var run = last.poles.run, prof = DsiModel.fieldProfile(last.poles.poles, run, 300), s = Lm(+$('sensor').value), o = DsiModel.optimum(last.poles.poles, run);
+    Plotly.newPlot('plotPos', [{ x: prof.map(function(p){ return L(p.s); }), y: prof.map(function(p){ return p.b; }), mode: 'lines', name: 'ΔBz', line: { color: '#4da3ff' } },
+      { x: [L(s)], y: [DsiModel.fieldAt(last.poles.poles, s)], mode: 'markers', name: 'Sensor', marker: { size: 10, color: '#f5a623' } },
+      { x: [L(o.s)], y: [o.b], mode: 'markers', name: 'Lowest |ΔBz|', marker: { size: 10, color: '#2ecc71', symbol: 'diamond' } }],
+      Object.assign({}, LAY, { title: { text: 'ΔBz vs sensor position inside the NMDC run (pole model)', font: { size: 11 } }, xaxis: { title: 'Distance from bit (' + uL + ')' }, yaxis: { title: 'ΔBz (nT)', range: (function(){ var y = Math.max(Math.abs(DsiModel.fieldAt(last.poles.poles, s)), Math.abs(o.b)) * 3; return [Math.min(0, -y * 0.05), y]; })() } })); // y clipped: the field → ∞ at the poles
+  } else Plotly.newPlot('plotPos', [], Object.assign({}, LAY, { title: { text: 'Sensor-position plot: pole model only', font: { size: 11 } } }));
+}
+function exportResults(){
+  if(!last) return;
+  var wb = XLSX.utils.book_new(), uL = UNIT === 'metric' ? 'm' : 'ft';
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(readBha().map(function(r, i){ var o = { '#': i + 1, Name: r.name, 'OD (in)': r.od, 'ID (in)': r.id }; o['Length (' + uL + ')'] = +L(r.len || 0).toFixed(3); o.Material = r.material; return o; })), 'BHA');
+  var info = [{ Item: 'Method', Value: last.method === 'pole' ? 'Pole model (SPE 7748, B=P/4πr², eBook §5.2.2, SPE 9223 eq.2)' : 'SNIPER v1-3 (legacy, no published source)' },
+    { Item: 'Sensor from bit (' + uL + ')', Value: +$('sensor').value }, { Item: 'BT (nT)', Value: last.bt }, { Item: 'Dip (deg)', Value: last.dip }, { Item: 'Declination (deg)', Value: +$('dec').value },
+    { Item: 'Survey azimuths', Value: $('azRef').value === 'grid' ? 'Grid (convergence ' + $('conv').value + '°)' : 'True' }, { Item: 'dBz at sensor (nT)', Value: +last.dBz.toFixed(2) }, { Item: 'Upper pole preset', Value: $('pUsel').options[$('pUsel').selectedIndex].text }, { Item: 'Lower pole preset', Value: $('pLsel').options[$('pLsel').selectedIndex].text }];
+  if(last.method === 'pole') last.poles.poles.forEach(function(p){ info.push({ Item: 'Pole ' + p.label + ' @ ' + fmt(L(p.x), 2) + ' ' + uL, Value: p.P + ' µWb' }); });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(info), 'Inputs');
+  if(survey.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(survey.map(function(s){ var o = {}; o['MD (' + uL + ')'] = +L(s.md).toFixed(3); o['Inc (deg)'] = s.inc; o['Az (deg)'] = s.az;
+    o['Magnetic Az (deg)'] = +(((magAz(s.az) % 360) + 360) % 360).toFixed(3); o['Azimuth error (deg)'] = +last.err(s.inc, s.az).toFixed(4); o['ISCWSA allowance 1sd (deg, SPE 67616)'] = +allowance(s.inc, s.az).toFixed(4); return o; })), 'Survey');
+  XLSX.writeFile(wb, 'DSI_results.xlsx');
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var t = new Date(); $('yr').value = (t.getFullYear() + (t - new Date(t.getFullYear(), 0, 1)) / 864e5 / 365.25).toFixed(3);
+  [{ name: 'Bit', od: 8.75, id: 2.5, len: 0.3, material: 'Steel' }, { name: 'Motor', od: 6.75, id: 2.5, len: 8.5, material: 'Steel' },
+   { name: 'NMDC (MWD)', od: 6.75, id: 3.25, len: 9.4, material: 'Non-mag' }, { name: 'NMDC', od: 6.75, id: 3.25, len: 9.4, material: 'Non-mag' },
+   { name: 'Drill collar', od: 6.5, id: 2.81, len: 9.4, material: 'Steel' }].forEach(addRow);
+  refreshPoles(); plotAll();
+});
+</script>
+</body>
+</html>

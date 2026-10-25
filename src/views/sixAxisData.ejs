@@ -11,6 +11,12 @@
      the autoTable plugin for the data tables). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Added 2026-10-25 (Short Collar accordion): SurQC short-collar engine +
+     WMM2025 (both already used/validated elsewhere in MTX; see file headers). -->
+<script src="/js/wmmModel.js"></script>
+<script src="/js/shortCollarModel.js"></script>
+<!-- 2026-10-25: MSA + trend Auto-QC engine (SurQC port; needs shortCollarModel.js first) -->
+<script src="/js/msaModel.js"></script>
 <style>
   /*
     Restyled 2026-08-22 to match MTX Conveyor's own standalone-tool look
@@ -34,7 +40,8 @@
   header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
   header h1{font-size:16px;margin:0;font-weight:600;}
   header .sub{color:var(--muted);font-size:12px;}
-  .wrap{max-width:1400px;margin:0 auto;padding:16px;}
+  /* 2026-10-25 (John): use the full page width - was max-width:1400px; padding:16px. */
+  .wrap{max-width:none;margin:0;padding:8px 10px;}
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
   .panel h2,.panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
   table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -308,15 +315,8 @@
     </div>
   </div>
 
-  <div class="panel">
-    <h3>MSA-Corrected (reserved)</h3>
-    <div style="overflow-x:auto;">
-      <table id="MSAresultTable">
-        <thead><tr><th>Station</th><th>Corrected Bx</th><th>Corrected By</th><th>Corrected Bz</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- 2026-10-25 (John): "MSA-Corrected (reserved)" placeholder panel removed — it never did
+       anything; MSA now lives in the Survey Correction accordion. -->
 
   <div class="panel">
     <h2>Multi-Station Import (QC across a full run)</h2>
@@ -329,6 +329,9 @@
     <div id="importedDataContainer"></div>
   </div>
 
+  <!-- 2026-10-25 (John): the "Multi-corrections" panel (Therm/Mech/SAG/MSA) was
+       added and then removed the same day — PipeStretch, SAG and MSA stay
+       separate modules for now. Server endpoints removed too. -->
 </div>
 
 <script>
@@ -597,6 +600,9 @@ if (saveCaseBtnEl) {
           name: name.trim(),
           rawRows: LAST_IMPORTED_ROWS || [],
           inputData: collectInputData(),
+          // Added 2026-10-25: Short Collar accordion settings (reference
+          // field, uncertainties, exclusions, MTX ID) — restored on load.
+          shortCollar: scCollectSettings(),
         }),
       });
       const json = await res.json();
@@ -618,6 +624,7 @@ document.getElementById("loadCaseBtn").addEventListener("click", async () => {
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Failed to load case.");
     applyInputData(json.case.inputData);
+    SC_PENDING_SETTINGS = json.case.shortCollar || null; // 2026-10-25: applied when the SC accordion mounts
     LAST_IMPORTED_ROWS = Array.isArray(json.case.rawRows) ? json.case.rawRows : null;
     if (LAST_IMPORTED_ROWS && LAST_IMPORTED_ROWS.length) {
       renderQuickSelectTable(LAST_IMPORTED_ROWS);
@@ -1061,11 +1068,15 @@ function rearrangeSensors(data) {
     const th = Math.sqrt(by ** 2 + bz ** 2);
 
     row[0] = md.toFixed(2);
+    // 2026-10-25 (John): azimuth shown 0-360 (atan2 gave -180..180 + refDec).
+    // Display/normalisation only - same direction, so the unit vectors and
+    // theoretical-field columns below (sin/cos of az) are unchanged.
+    const az360 = ((az % 360) + 360) % 360;
     row.push(
       dip.toFixed(5),
       toolFace.toFixed(5),
       inc.toFixed(2),
-      az.toFixed(2),
+      az360.toFixed(2),
       gt.toFixed(5),
       bt.toFixed(5),
       tg.toFixed(5),
@@ -1141,9 +1152,14 @@ function rearrangeSensors(data) {
     </table>
     </div>
     <br>
+    <!-- Added 2026-10-25: Short Collar Correction accordion sits between the
+         rearranged table and Show Plots, so the QC plots can overlay the
+         corrected points (see scMountPanel / scOverlay below). -->
+    <div id="scMount"></div>
     <button id="showPlotsBtn" class="secondary">Show Plots</button>
   `;
 
+  scMountPanel(reorderedData.slice(1));
   document.getElementById("showPlotsBtn").addEventListener("click", () => {
     generatePlots(reorderedData.slice(1));
   });
@@ -1403,6 +1419,10 @@ function generatePlots(data) {
     }], layout);
   });
 
+  // Added 2026-10-25: overlay Short Collar corrected points (if computed
+  // and the accordion's "Show corrected on QC plots" box is ticked).
+  scOverlay();
+
   optimizeBiasAndScaleWithTF();
 }
 
@@ -1506,6 +1526,460 @@ async function optimizeBiasAndScaleWithTF() {
   }));
 
   console.log("Corrected Observations (TensorFlow.js):", correctedObservations);
+}
+</script>
+<script>
+// =====================================================================
+// Short Collar / MSA Correction accordion
+// (Short Collar added 2026-10-25; MSA, trend exclusion and side-by-side
+//  comparison added 2026-10-25 per John — strictly one model at a time.)
+// ---------------------------------------------------------------------
+// Engines (SurQC ports, validated against the real SurQC classes compiled
+// headless — max diff 1e-13 deg; see claude/shortcollar-status.md):
+//   public/js/shortCollarModel.js  ShortCollar / ShortCollarAnalysis /
+//                                  AnalysisWithUncertainty / BasicQc
+//   public/js/msaModel.js          MultiStationAnalysis / MSAWithUncertainty /
+//                                  AutoQc (trend exclusion)
+//
+// FRAME NOTE (verified numerically 2026-10-25): SurQC's sensor frame is
+// the mirror image of this page's mapped frame — on identical numbers
+// SurQC's azimuth = -(this page's AZ formula). The page's mapped data are
+// therefore fed to SurQC with Gy and By negated (a Y-axis flip). Inc,
+// BT, dip and Bz are unaffected; the azimuth then matches the page's AZ
+// column on clean data to 1e-13 deg. For MSA the fitted Y bias is reported
+// back in the PAGE frame (sign flipped; scale factors are unaffected).
+//
+// Short Collar: each station gets its OWN Z-bias (SurQC); exclusions only
+// drop stations out of the AVERAGE (optionally applied to all instead).
+// MSA: one set of 6 magnetometer biases/scale factors fitted on the
+// non-excluded stations (and Gx=Gy=0 stations, SurQC rule), applied to ALL.
+// Units: MSA runs in nT (SurQC step sizes are nT) — µT data are converted.
+// Exclusion modes (2026-10-25, John): manual ticks always; automatic =
+// none / tolerance (SurQC BasicQc) / trend (SurQC AutoQc).
+// =====================================================================
+var SC_STATE = { rows: null, result: null, job: null };
+var SC_PENDING_SETTINGS = (typeof SC_PENDING_SETTINGS !== 'undefined') ? SC_PENDING_SETTINGS : null;
+var SC_TOOLCODES = null, SC_ORIG_CODE = '';
+var SC_MODEL_NAME = { sc: 'Short Collar', msa: 'MSA' };
+function scEl(id){ return document.getElementById(id); }
+function scNorm360(a){ return ((a % 360) + 360) % 360; } // all displayed azimuths 0-360
+function scFmt(v, d){ return (v == null || !isFinite(v)) ? '' : (+v).toFixed(d); }
+function scEsc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function scMountPanel(rows){
+  SC_STATE.rows = rows; SC_STATE.result = null;
+  var m = scEl('scMount'); if(!m) return;
+  var refBT = scEl('refBT').value, refDip = scEl('refDip').value, refDec = scEl('refDec').value;
+  var today = new Date(), dy = today.getFullYear() + (today - new Date(today.getFullYear(),0,1)) / 864e5 / 365.25;
+  m.innerHTML = `
+  <details class="panel" id="scDetails" open style="margin-top:12px;">
+    <summary style="cursor:pointer;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);">Survey Correction — Short Collar / MSA</summary>
+    <div class="grid-2" style="margin-top:10px;">
+      <div>
+        <table>
+          <tr><td>Model</td><td><select id="scModel"><option value="sc">Short Collar (SurQC)</option><option value="msa">MSA — Multi-Station Analysis (SurQC)</option></select></td></tr>
+          <tr><td>Reference field</td><td><select id="scRefSrc"><option value="manual">Manual</option><option value="wmm">WMM2025</option></select></td></tr>
+          <tr class="scWmm"><td>Latitude / Longitude (°)</td><td style="display:flex;gap:4px;"><input type="number" id="scLat" step="any" placeholder="lat"><input type="number" id="scLon" step="any" placeholder="lon (E+)"></td></tr>
+          <tr class="scWmm"><td>Height above MSL (m) / Decimal year</td><td style="display:flex;gap:4px;"><input type="number" id="scHgt" value="0" step="any"><input type="number" id="scYear" value="${dy.toFixed(3)}" step="any"></td></tr>
+          <tr class="scWmm"><td></td><td><button type="button" class="secondary" id="scWmmBtn">Compute WMM2025</button></td></tr>
+          <tr><td>Reference BT (&micro;T)</td><td><input type="number" id="scBT" value="${scEsc(refBT)}" step="any"></td></tr>
+          <tr><td>Reference Dip (°)</td><td><input type="number" id="scDip" value="${scEsc(refDip)}" step="any"></td></tr>
+          <tr><td>Declination (°)</td><td><input type="number" id="scDec" value="${scEsc(refDec)}" step="any"></td></tr>
+          <tr><td>Magnetometer unit of data</td><td><select id="scBUnit"><option value="auto">Auto-detect</option><option value="ut">&micro;T</option><option value="nt">nT</option></select></td></tr>
+          <tr><td>BT uncertainty &plusmn; (nT) / Dip uncertainty &plusmn; (°)</td><td style="display:flex;gap:4px;"><input type="number" id="scUBT" value="250" step="any"><input type="number" id="scUDip" value="0.15" step="any"></td></tr>
+          <tr id="scApplyRow"><td>Correction applied (Short Collar)</td><td><select id="scApply"><option value="station">Per-station Z-bias (SurQC)</option><option value="average">Average Z-bias (all stations)</option></select></td></tr>
+        </table>
+        <div class="note" id="scRefNote">Manual reference pre-filled from Input Data (Reference BT / DIP / DEC).</div>
+      </div>
+      <div>
+        <table>
+          <tr><td>Automatic exclusion</td><td><select id="scExMode"><option value="none">None (manual ticks only)</option><option value="tol" selected>Tolerance (SurQC BasicQc)</option><option value="trend">Trend (SurQC AutoQc)</option></select></td></tr>
+          <tr><td>BT tolerance (nT) / Dip tolerance (°)</td><td style="display:flex;gap:4px;"><input type="number" id="scTolBT" value="300" step="any"><input type="number" id="scTolDip" value="0.3" step="any"></td></tr>
+          <tr class="scTrendRow"><td>GT tolerance (G) / Bz-bias tolerance (nT)</td><td style="display:flex;gap:4px;"><input type="number" id="scTolGT" value="0.0015" step="any"><input type="number" id="scTolBz" value="300" step="any"></td></tr>
+          <tr><td>Highlight Az uncertainty above (°)</td><td><input type="number" id="scHiU" value="0.5" step="any"></td></tr>
+          <tr><td>Imported MD unit</td><td><select id="scMdUnit"><option value="m">m</option><option value="ft">ft</option></select></td></tr>
+          <tr><td>Compare Short Collar vs MSA</td><td style="text-align:left;"><label><input type="checkbox" id="scCompare" style="width:auto;"> show both side by side</label></td></tr>
+        </table>
+        <div class="note" id="scExNote"></div>
+      </div>
+    </div>
+    <button type="button" id="scRunBtn">Run</button>
+    <label style="font-size:12px;margin-left:10px;"><input type="checkbox" id="scShowOnPlots" style="width:auto;" checked> Show corrected on QC plots</label>
+    <div id="scSummary" class="note"></div>
+    <div id="scTableWrap" style="overflow-x:auto;max-height:420px;overflow-y:auto;"></div>
+    <div id="scCmpWrap" style="overflow-x:auto;max-height:420px;overflow-y:auto;margin-top:10px;"></div>
+    <div id="scActions" style="display:none;margin-top:8px;">
+      <button type="button" class="secondary" id="scExportBtn">Export corrected surveys (Excel)</button>
+      <div class="panel" style="margin-top:10px;background:var(--panel2);">
+        <h3>Save as new version in a job <span id="scSaveModel" style="text-transform:none;"></span></h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="scMtxId" placeholder="MTX ID" style="width:160px;">
+          <button type="button" class="secondary" id="scLoadJobBtn">Load job</button>
+          <select id="scWellSel" style="width:260px;"></select>
+          <span style="font-size:12px;">MD match tolerance (m)</span><input type="number" id="scMdTol" value="0.5" step="any" style="width:80px;">
+          <label style="font-size:12px;" title="Stations excluded (auto or manual) are copied unchanged into the new version instead of receiving their ΔAz."><input type="checkbox" id="scSkipExcl" style="width:auto;"> Skip excluded stations</label>
+          <button type="button" id="scSaveBtn" disabled>Save as new version…</button>
+        </div>
+        <div id="scJobStatus" class="note"></div>
+        <div id="scSavePanel" style="display:none;margin-top:8px;">
+          <div class="note">Original toolcode: <b id="scOrigCode"></b></div>
+          <div style="display:flex;gap:6px;align-items:center;"><span style="font-size:12px;">Toolcode for the new version</span><select id="scCode" style="width:280px;"></select>
+          <button type="button" id="scConfirmBtn">Confirm save</button><button type="button" class="secondary" id="scCancelBtn">Cancel</button></div>
+          <div id="scCodeWarn" class="note"></div>
+        </div>
+      </div>
+    </div>
+  </details>`;
+  scEl('scRefSrc').onchange = scRefSrcChange; scEl('scWmmBtn').onclick = scComputeWmm;
+  scEl('scModel').onchange = scModeChange; scEl('scExMode').onchange = scModeChange;
+  scEl('scRunBtn').onclick = scRun; scEl('scExportBtn').onclick = scExport;
+  scEl('scShowOnPlots').onchange = function(){ if(document.getElementById('qcPlotsPanel')) scOverlay(); };
+  scEl('scLoadJobBtn').onclick = scLoadJob; scEl('scWellSel').onchange = scMatchPreview; scEl('scMdTol').oninput = scMatchPreview;
+  scEl('scMdUnit').onchange = scMatchPreview; scEl('scSkipExcl').onchange = scMatchPreview;
+  scEl('scSaveBtn').onclick = scOpenSave; scEl('scConfirmBtn').onclick = scConfirmSave;
+  scEl('scCancelBtn').onclick = function(){ scEl('scSavePanel').style.display = 'none'; };
+  scEl('scCode').onchange = scCheckCode;
+  if(SC_PENDING_SETTINGS){ scApplySettings(SC_PENDING_SETTINGS); }
+  scRefSrcChange(); scModeChange();
+}
+function scModeChange(){
+  var msa = scEl('scModel').value === 'msa', mode = scEl('scExMode').value;
+  scEl('scApplyRow').style.display = msa ? 'none' : '';
+  Array.prototype.forEach.call(document.querySelectorAll('.scTrendRow'), function(r){ r.style.display = mode === 'trend' ? '' : 'none'; });
+  var t = msa ? 'MSA: excluded stations (and Gx=Gy=0 stations) are left out of the 6-term fit; the fitted biases/scale factors are applied to ALL stations. '
+              : 'Short Collar: excluded stations only drop out of the <b>average</b> Z-bias (SurQC); every station still gets its own correction unless "Average Z-bias" is chosen. ';
+  t += mode === 'tol' ? 'Tolerance = SurQC BasicQc on the measured data: |Dip − ref| &gt; tol, else |BT − ref| &gt; tol.'
+     : mode === 'trend' ? 'Trend = SurQC AutoQc: weighted quadratic trend vs MD of ΔBT, ΔDip, GT and short-collar Bz-bias; a station is flagged when it is off its trend by more than the tolerance (Bz-bias tolerance default 300 nT pending John\'s value).'
+     : 'Only the manual ticks are used.';
+  scEl('scExNote').innerHTML = t + ' Defaults: 300 nT / 0.3° (this page\'s QC bands), GT 0.0015 G (John).';
+}
+function scRefSrcChange(){
+  var w = scEl('scRefSrc').value === 'wmm';
+  Array.prototype.forEach.call(document.querySelectorAll('.scWmm'), function(r){ r.style.display = w ? '' : 'none'; });
+  scEl('scRefNote').textContent = w ? 'WMM2025 (NOAA/BGS, valid 2025.0–2030.0): press Compute; the BT/Dip/Dec fields are then filled and can still be edited.'
+    : 'Manual reference pre-filled from Input Data (Reference BT / DIP / DEC).';
+}
+function scComputeWmm(){
+  var lat = +scEl('scLat').value, lon = +scEl('scLon').value, h = +scEl('scHgt').value || 0, yr = +scEl('scYear').value;
+  if(!isFinite(lat) || !isFinite(lon) || scEl('scLat').value === '' || scEl('scLon').value === ''){ alert('Enter latitude and longitude.'); return; }
+  if(!(yr >= 2025 && yr < 2030)) { if(!confirm('WMM2025 is valid 2025.0–2030.0. Compute anyway?')) return; }
+  var f = WMMModel.computeField(lat, lon, h / 1000, yr);
+  scEl('scBT').value = (f.totalIntensity_nT / 1000).toFixed(4);
+  scEl('scDip').value = f.inclination_deg.toFixed(4);
+  scEl('scDec').value = f.declination_deg.toFixed(4);
+  scEl('scRefNote').textContent = 'WMM2025 at ' + lat + ', ' + lon + ', ' + h + ' m, ' + yr + ': BT ' + (f.totalIntensity_nT).toFixed(0) + ' nT, Dip ' + f.inclination_deg.toFixed(3) + '°, Dec ' + f.declination_deg.toFixed(3) + '°.';
+}
+var SC_SETTING_IDS = ['scModel','scRefSrc','scLat','scLon','scHgt','scYear','scBT','scDip','scDec','scBUnit','scUBT','scUDip','scApply','scExMode','scTolBT','scTolDip','scTolGT','scTolBz','scHiU','scMdUnit','scMtxId','scMdTol'];
+function scCollectSettings(){
+  if(!scEl('scDetails')) return SC_PENDING_SETTINGS || null;
+  var o = {}; SC_SETTING_IDS.forEach(function(k){ o[k] = scEl(k).value; });
+  o.scSkipExcl = scEl('scSkipExcl').checked; o.scCompare = scEl('scCompare').checked;
+  o.manualExcl = SC_STATE.result ? SC_STATE.result.manual.slice() : (SC_PENDING_SETTINGS && SC_PENDING_SETTINGS.manualExcl) || [];
+  return o;
+}
+function scApplySettings(o){
+  Object.keys(o).forEach(function(k){ var e = scEl(k); if(!e) return; if(k === 'scSkipExcl' || k === 'scCompare') e.checked = !!o[k]; else if(e.tagName) e.value = o[k]; });
+  if(o.scExMode == null && o.scAutoEx != null) scEl('scExMode').value = o.scAutoEx ? 'tol' : 'none'; // cases saved before 2026-10-25 MSA update
+  SC_STATE.pendingManual = Array.isArray(o.manualExcl) ? o.manualExcl : [];
+}
+
+// Unit handling: the page's BT column is µT; auto-detect nT if the median
+// measured |B| is > 1000 (no real geomagnetic field exceeds ~70 µT).
+function scBScale(rows){
+  var u = scEl('scBUnit').value;
+  if(u === 'ut') return 1; if(u === 'nt') return 1000;
+  var bt = rows.map(function(r){ return Math.hypot(+r[6], +r[5], +r[4]); }).sort(function(a, b){ return a - b; });
+  return bt[Math.floor(bt.length / 2)] > 1000 ? 1000 : 1;
+}
+function scRun(){
+  var rows = SC_STATE.rows; if(!rows || !rows.length){ alert('Rearrange sensors first.'); return; }
+  scEl('scSummary').textContent = 'Running…';
+  setTimeout(function(){ try{ scRunNow(); }catch(err){ scEl('scSummary').innerHTML = '<span style="color:var(--bad)">' + scEsc(err.message) + '</span>'; } }, 20);
+}
+function scRunNow(){
+  var rows = SC_STATE.rows;
+  var k = scBScale(rows);                         // data B-unit per µT (1 or 1000)
+  var refBT = +scEl('scBT').value * k, refDip = +scEl('scDip').value, dec = +scEl('scDec').value;
+  if(!(refBT > 0) || !isFinite(refDip)){ alert('Enter the reference BT and Dip.'); return; }
+  var uBT = (+scEl('scUBT').value || 0) / 1000 * k, uDip = +scEl('scUDip').value || 0;
+  // Y-axis flip into SurQC's frame (see FRAME NOTE above)
+  var st = rows.map(function(r){ return { md: +r[0], gx: +r[3], gy: -(+r[2]), gz: +r[1], bx: +r[6], by: -(+r[5]), bz: +r[4] }; });
+  var prevManual = SC_STATE.result ? SC_STATE.result.manual : (SC_STATE.pendingManual || []);
+  var manual = st.map(function(s){ return prevManual.indexOf(s.md) >= 0; });
+  var mode = scEl('scExMode').value, auto;
+  var tolBT = (+scEl('scTolBT').value) / 1000 * k, tolDip = +scEl('scTolDip').value;
+  if(mode === 'tol'){
+    auto = st.map(function(s){ var f = ShortCollarModel.basicQc(s, { bt: refBT, dip: refDip * Math.PI / 180 }, { bt: tolBT, dipRad: tolDip * Math.PI / 180 });
+      return f ? 'tol: ' + (f === 'dip' ? 'Dip' : 'BT') : null; });
+  } else if(mode === 'trend'){
+    // AutoQc runs in nT (its trend weighting thresholds are SurQC's nT/G/rad constants)
+    var f = 1000 / k, stN = st.map(function(s){ return { md: s.md, gx: s.gx, gy: s.gy, gz: s.gz, bx: s.bx * f, by: s.by * f, bz: s.bz * f }; });
+    var q = MsaModel.autoQc(stN, { bt: refBT * f, dipDeg: refDip }, { bt: +scEl('scTolBT').value, dipDeg: tolDip, gt: +scEl('scTolGT').value, bz: +scEl('scTolBz').value });
+    auto = q.rows.map(function(r){ return r.fail ? 'trend: ' + r.fail : null; });
+  } else auto = st.map(function(){ return null; });
+  scCompute(st, manual, auto, { k: k, refBT: refBT, refDip: refDip, dec: dec, uBT: uBT, uDip: uDip });
+}
+// Runs one model and returns rows in a common shape (B values in the DATA unit).
+function scRunModel(model, st, excl, p){
+  if(model === 'msa'){
+    var f = 1000 / p.k;   // -> nT
+    var stN = st.map(function(s){ return { md: s.md, gx: s.gx, gy: s.gy, gz: s.gz, bx: s.bx * f, by: s.by * f, bz: s.bz * f }; });
+    var r = MsaModel.run({ stations: stN, ref: { bt: p.refBT * f, dipDeg: p.refDip, decDeg: p.dec }, unc: { bt: p.uBT * f, dipDeg: p.uDip }, exclude: excl, wrapSafe: true });
+    r.rows.forEach(function(x, i){ x.bzCorr /= f; x.btMeas /= f; x.btCorr /= f; x.bzMeas = st[i].bz; });
+    return { model: 'msa', rows: r.rows, msa: r };
+  }
+  var res = ShortCollarModel.run({ stations: st, ref: { bt: p.refBT, dipDeg: p.refDip, decDeg: p.dec }, unc: { bt: p.uBT, dipDeg: p.uDip },
+    exclude: excl, apply: scEl('scApply').value, wrapSafe: true });
+  return { model: 'sc', rows: res.rows, sc: res };
+}
+function scCompute(st, manual, auto, p){
+  var excl = []; st.forEach(function(s, i){ if(manual[i] || auto[i]) excl.push(i); });
+  if(excl.length >= st.length){ alert('All stations are excluded. Untick some stations or relax the tolerances.'); return; }
+  var model = scEl('scModel').value, other = model === 'msa' ? 'sc' : 'msa';
+  var main = scRunModel(model, st, excl, p);
+  var cmp = scEl('scCompare').checked ? scRunModel(other, st, excl, p) : null;
+  var pageAz = SC_STATE.rows.map(function(r){ return +r[10]; });
+  SC_STATE.result = { st: st, main: main, cmp: cmp, res: main, p: p, auto: auto, manualFlags: manual, pageAz: pageAz,
+    manual: st.filter(function(s, i){ return manual[i]; }).map(function(s){ return s.md; }) };
+  scRender();
+  if(document.getElementById('qcPlotsPanel')) scOverlay();
+}
+function scCoefText(r, k){
+  // MSA coefficients: SurQC frame -> page frame (Y bias sign flips; see FRAME NOTE); biases shown in nT
+  var c = r.msa.corr;
+  return 'X: bias ' + scFmt(c.x.b, 0) + ' nT, SF ' + scFmt(c.x.sf, 4) + ' · Y: bias ' + scFmt(-c.y.b, 0) + ' nT, SF ' + scFmt(c.y.sf, 4) +
+    ' · Z: bias ' + scFmt(c.z.b, 0) + ' nT, SF ' + scFmt(c.z.sf, 4);
+}
+function scRender(){
+  var R = SC_STATE.result, M = R.main, rows = M.rows, k = R.p.k, hi = +scEl('scHiU').value || Infinity;
+  var u = k === 1 ? 'µT' : 'nT';
+  var nAuto = R.auto.filter(Boolean).length, nMan = R.manualFlags.filter(Boolean).length;
+  var nHi = rows.filter(function(r){ return r.azUnc > hi; }).length;
+  var html = '<b>' + SC_MODEL_NAME[M.model] + '</b> · ';
+  if(M.model === 'sc'){
+    var nClamp = rows.filter(function(r){ return r.sqrtClamped; }).length;
+    html += 'Average Z-bias (excl. flagged): <b>' + scFmt(M.sc.averageZBias / k * 1000, 1) + ' nT</b> from ' + M.sc.nUsed + ' of ' + rows.length + ' stations · ' +
+      (nClamp ? '<span style="color:var(--bad)">' + nClamp + ' station(s) with Bx²+By² &gt; BT² (Bz set to 0, SurQC rule)</span> · ' : '');
+  } else {
+    var r = M.msa;
+    html += 'Fitted (page frame): <b>' + scCoefText(M, k) + '</b><br>Fit on ' + r.nUsed + ' of ' + rows.length + ' stations · error sum² ' + scFmt(r.errBefore, 0) + ' → ' + scFmt(r.errAfter, 0) + ' nT² · ' +
+      r.rounds + ' refinement round(s)' + (r.capped ? ' <span style="color:var(--bad)">(stopped at SurQC\'s 1000-round cap)</span>' : '') +
+      ' · resolution 5 nT / 1e-4 (SurQC step sizes) · toolface spread of fitted stations ' + scFmt(r.tfSpread, 0) + '°' +
+      (r.tfSpread < 90 ? ' <span style="color:var(--bad)">— small toolface spread: X/Y biases and scale factors are poorly determined (MTX check, not SurQC)</span>' : '') + ' · ';
+  }
+  html += 'auto-excluded ' + nAuto + ', manually excluded ' + nMan + ' · Az uncertainty &gt; ' + hi + '°: <b>' + nHi + '</b> station(s)';
+  if(M.model === 'sc') html += '<br>Short-collar accuracy degrades as the along-hole field component → 0 (high Inc, near magnetic East/West) — see ISCWSA eBook App. D6; the Az-uncertainty column shows where.';
+  scEl('scSummary').innerHTML = html;
+
+  var hdr = ['Excl.', 'MD', 'Inc (°)', 'Az calc (°)', 'Az SurQC meas (°)', 'Bz meas (' + u + ')'];
+  if(M.model === 'sc') hdr.push('Z-bias (nT)');
+  hdr = hdr.concat(['Bz corr (' + u + ')', 'Az corr (°)', 'ΔAz (°)', 'Az unc ± (°)', 'BT meas (' + u + ')', 'BT corr (' + u + ')', 'Dip meas (°)', 'Dip corr (°)', 'Flag']);
+  scEl('scTableWrap').innerHTML = '<table id="scTable"><thead><tr>' + hdr.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    rows.map(function(r, i){
+      var flag = R.auto[i] || (R.manualFlags[i] ? 'manual' : '') || (r.gxgy0 ? 'Gx=Gy=0 (not fitted)' : '');
+      var style = r.azUnc > hi ? ' style="background:rgba(255,92,92,0.15)"' : (r.excluded ? ' style="opacity:.6"' : '');
+      return '<tr' + style + '><td><input type="checkbox" data-i="' + i + '" class="scEx" style="width:auto;"' + (R.manualFlags[i] ? ' checked' : '') + (R.auto[i] ? ' disabled title="auto-excluded"' : '') + '></td>' +
+        '<td>' + scFmt(r.md, 2) + '</td><td>' + scFmt(r.inc, 2) + '</td><td>' + scFmt(scNorm360(R.pageAz[i]), 2) + '</td><td>' + scFmt(r.azTrue, 3) + '</td>' +
+        '<td>' + scFmt(R.st[i].bz, 3) + '</td>' + (M.model === 'sc' ? '<td>' + scFmt(r.bzApplied / k * 1000, 1) + '</td>' : '') + '<td>' + scFmt(r.bzCorr, 3) + '</td>' +
+        '<td>' + scFmt(r.azTrueCorr, 3) + '</td><td>' + scFmt(r.dAz, 3) + '</td><td>' + scFmt(r.azUnc, 3) + '</td>' +
+        '<td>' + scFmt(r.btMeas, 3) + '</td><td>' + scFmt(r.btCorr, 3) + '</td><td>' + scFmt(r.dipMeas, 3) + '</td><td>' + scFmt(r.dipCorr, 3) + '</td><td>' + scEsc(flag) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  Array.prototype.forEach.call(document.querySelectorAll('.scEx'), function(cb){
+    cb.onchange = function(){ var R2 = SC_STATE.result, m = R2.manualFlags.slice(); m[+cb.dataset.i] = cb.checked; scEl('scSummary').textContent = 'Running…';
+      setTimeout(function(){ scCompute(R2.st, m, R2.auto, R2.p); }, 20); };
+  });
+  scRenderCompare();
+  scEl('scSaveModel').textContent = '(' + SC_MODEL_NAME[M.model] + ')';
+  scEl('scActions').style.display = '';
+  scMatchPreview();
+}
+// Side-by-side Short Collar vs MSA (2026-10-25, John). Same exclusions,
+// reference and uncertainties for both; the selected model stays the one
+// that is plotted first, exported first and saved.
+function scRenderCompare(){
+  var R = SC_STATE.result, w = scEl('scCmpWrap');
+  if(!R.cmp){ w.innerHTML = ''; return; }
+  var S = R.main.model === 'sc' ? R.main : R.cmp, A = R.main.model === 'msa' ? R.main : R.cmp, hi = +scEl('scHiU').value || Infinity;
+  function rms(rows){ var u = rows.filter(function(r){ return !r.excluded; }); return Math.sqrt(u.reduce(function(a, r){ return a + r.dAz * r.dAz; }, 0) / Math.max(1, u.length)); }
+  w.innerHTML = '<h3 style="margin:6px 0;">Short Collar vs MSA</h3><div class="note">MSA fit: ' + scCoefText(A, R.p.k) + ' · Short Collar average Z-bias ' + scFmt(S.sc.averageZBias / R.p.k * 1000, 1) +
+    ' nT · RMS ΔAz (non-excluded): SC ' + scFmt(rms(S.rows), 3) + '°, MSA ' + scFmt(rms(A.rows), 3) + '°</div>' +
+    '<table id="scCmpTable"><thead><tr>' + ['MD', 'Inc (°)', 'Az calc (°)', 'Az SC (°)', 'Az MSA (°)', 'ΔAz SC (°)', 'ΔAz MSA (°)', 'SC − MSA (°)', 'Unc SC ± (°)', 'Unc MSA ± (°)', 'BT SC', 'BT MSA', 'Dip SC (°)', 'Dip MSA (°)', 'Excl.']
+      .map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    S.rows.map(function(s, i){ var a = A.rows[i], d = ((s.azTrueCorr - a.azTrueCorr + 540) % 360) - 180;
+      return '<tr' + (s.excluded ? ' style="opacity:.6"' : '') + '><td>' + scFmt(s.md, 2) + '</td><td>' + scFmt(s.inc, 2) + '</td><td>' + scFmt(scNorm360(R.pageAz[i]), 2) + '</td>' +
+        '<td>' + scFmt(s.azTrueCorr, 3) + '</td><td>' + scFmt(a.azTrueCorr, 3) + '</td><td>' + scFmt(s.dAz, 3) + '</td><td>' + scFmt(a.dAz, 3) + '</td><td>' + scFmt(d, 3) + '</td>' +
+        '<td' + (s.azUnc > hi ? ' style="color:var(--bad)"' : '') + '>' + scFmt(s.azUnc, 3) + '</td><td' + (a.azUnc > hi ? ' style="color:var(--bad)"' : '') + '>' + scFmt(a.azUnc, 3) + '</td>' +
+        '<td>' + scFmt(s.btCorr, 3) + '</td><td>' + scFmt(a.btCorr, 3) + '</td><td>' + scFmt(s.dipCorr, 3) + '</td><td>' + scFmt(a.dipCorr, 3) + '</td><td>' + (s.excluded ? '✔' : '') + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+// Corrected values for the QC-plot overlay, in the PAGE's convention:
+// Bz is not flipped, Az = page AZ + ΔAz (0-360).
+function scOverlay(){
+  var R = SC_STATE.result; if(!R || !scEl('scShowOnPlots')) return;
+  var on = scEl('scShowOnPlots').checked, tf = SC_STATE.rows.map(function(r){ return +r[8]; });
+  var sets = [{ res: R.main, color: R.main.model === 'sc' ? '#ffb84d' : '#c77dff' }];
+  if(R.cmp) sets.push({ res: R.cmp, color: R.cmp.model === 'sc' ? '#ffb84d' : '#c77dff' });
+  var ids = ['plot6', 'plot8', 'plot11', 'plot18', 'plot21', 'plot22', 'plot24'];
+  ids.forEach(function(id){
+    var d = document.getElementById(id); if(!d || !d.data) return;
+    for(var t = d.data.length - 1; t >= 0; t--) if(/ corrected$/.test(d.data[t].name || '')) Plotly.deleteTraces(id, t);
+  });
+  if(!on) return;
+  var mode = (scEl('qcPlotLinesToggle') && scEl('qcPlotLinesToggle').checked) ? 'lines+markers' : 'markers';
+  sets.forEach(function(S){
+    var rows = S.res.rows, md = rows.map(function(r){ return r.md; });
+    var bz = rows.map(function(r){ return r.bzCorr; }), bt = rows.map(function(r){ return r.btCorr; }), dip = rows.map(function(r){ return r.dipCorr; });
+    var az = rows.map(function(r, i){ return scNorm360(R.pageAz[i] + r.dAz); });
+    var xy = { plot6: [md, bz], plot8: [md, bt], plot11: [md, dip], plot18: [tf, bz], plot21: [tf, dip], plot22: [tf, bt], plot24: [md, az] };
+    ids.forEach(function(id){
+      var d = document.getElementById(id); if(!d || !d.data) return;
+      Plotly.addTraces(id, { x: xy[id][0], y: xy[id][1], type: 'scatter', mode: mode, name: SC_MODEL_NAME[S.res.model] + ' corrected',
+        marker: { color: S.color, size: 5 }, line: { color: S.color, width: 1 } });
+    });
+  });
+}
+function scExportRows(S, R){
+  var k = R.p.k, u = k === 1 ? 'uT' : 'nT', mdU = scEl('scMdUnit').value;
+  return S.rows.map(function(r, i){ var o = {};
+    o['MD (' + mdU + ')'] = +r.md.toFixed(3); o['Inc (deg)'] = +r.inc.toFixed(4);
+    o['Az calc (deg)'] = +scNorm360(R.pageAz[i]).toFixed(4);
+    o['Az measured SurQC (deg)'] = +r.azTrue.toFixed(4); o['Az corrected (deg)'] = +r.azTrueCorr.toFixed(4); o['dAz (deg)'] = +r.dAz.toFixed(4);
+    o['Az uncertainty +/- (deg)'] = +r.azUnc.toFixed(4);
+    o['Bz measured (' + u + ')'] = R.st[i].bz;
+    if(S.model === 'sc'){ o['Z-bias applied (nT)'] = +(r.bzApplied / k * 1000).toFixed(2); o['Z-bias station (nT)'] = +(r.zBias / k * 1000).toFixed(2); }
+    o['Bz corrected (' + u + ')'] = +r.bzCorr.toFixed(5); o['BT measured (' + u + ')'] = +r.btMeas.toFixed(5); o['BT corrected (' + u + ')'] = +r.btCorr.toFixed(5);
+    o['Dip measured (deg)'] = +r.dipMeas.toFixed(4); o['Dip corrected (deg)'] = +r.dipCorr.toFixed(4);
+    o['Excluded'] = r.excluded ? (R.auto[i] || 'manual') : ''; return o; });
+}
+function scExport(){
+  var R = SC_STATE.result; if(!R) return;
+  var p = R.p, wb = XLSX.utils.book_new();
+  [R.main, R.cmp].filter(Boolean).forEach(function(S){
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(scExportRows(S, R)), SC_MODEL_NAME[S.model] + ' corrected');
+  });
+  var meta = [
+    { Item: 'Selected model', Value: SC_MODEL_NAME[R.main.model] + ' (SurQC port)' },
+    { Item: 'Reference source', Value: scEl('scRefSrc').value === 'wmm' ? 'WMM2025' : 'Manual' },
+    { Item: 'Reference BT (uT)', Value: p.refBT / p.k }, { Item: 'Reference Dip (deg)', Value: p.refDip }, { Item: 'Declination (deg)', Value: p.dec },
+    { Item: 'BT uncertainty (nT)', Value: +scEl('scUBT').value }, { Item: 'Dip uncertainty (deg)', Value: p.uDip },
+    { Item: 'Automatic exclusion', Value: scEl('scExMode').options[scEl('scExMode').selectedIndex].text } ];
+  [R.main, R.cmp].filter(Boolean).forEach(function(S){
+    if(S.model === 'sc'){ meta.push({ Item: 'Short Collar correction applied', Value: scEl('scApply').value === 'average' ? 'Average Z-bias' : 'Per-station Z-bias' });
+      meta.push({ Item: 'Short Collar average Z-bias (nT)', Value: +(S.sc.averageZBias / p.k * 1000).toFixed(2) }); }
+    else { var c = S.msa.corr; meta.push({ Item: 'MSA X bias (nT) / SF', Value: c.x.b + ' / ' + c.x.sf.toFixed(6) }, { Item: 'MSA Y bias (nT, page frame) / SF', Value: (-c.y.b) + ' / ' + c.y.sf.toFixed(6) },
+      { Item: 'MSA Z bias (nT) / SF', Value: c.z.b + ' / ' + c.z.sf.toFixed(6) }, { Item: 'MSA stations fitted', Value: S.msa.nUsed }); }
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meta), 'Settings');
+  XLSX.writeFile(wb, (R.main.model === 'msa' ? 'MSA' : 'ShortCollar') + '_corrected_survey.xlsx');
+}
+
+// ---- Save as new version (same pattern as SAGcorrection) -------------
+async function scLoadJob(){
+  var id = scEl('scMtxId').value.trim(); if(!id){ scEl('scJobStatus').textContent = 'Enter an MTX ID first.'; return; }
+  scEl('scJobStatus').textContent = 'Loading…';
+  try{
+    var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id)); var d = await r.json();
+    if(!r.ok) throw new Error(d.error || r.status);
+    SC_STATE.job = { noteId: d.noteId, title: d.title, wells: d.subjectWells || [] };
+    scEl('scWellSel').innerHTML = SC_STATE.job.wells.map(function(w, i){ return '<option value="' + i + '">' + scEsc(w.wellKey) + '</option>'; }).join('');
+    scEl('scJobStatus').innerHTML = '✔ ' + scEsc(d.title) + ' · ' + SC_STATE.job.wells.length + ' subject well(s)' + (d.duplicateWarning ? ' <span style="color:var(--bad)">' + scEsc(d.duplicateWarning) + '</span>' : '');
+    scMatchPreview();
+  }catch(err){ scEl('scJobStatus').innerHTML = '<span style="color:var(--bad)">' + scEsc(err.message) + '</span>'; SC_STATE.job = null; }
+}
+function scMdM(md){ return scEl('scMdUnit').value === 'ft' ? md * 0.3048 : md; }
+// Optional "Skip excluded stations": a job station whose nearest raw station
+// is excluded (auto or manual) is copied unchanged. Off = SurQC behaviour.
+function scMatches(){
+  var R = SC_STATE.result, J = SC_STATE.job; if(!R || !J || !J.wells.length) return null;
+  var w = J.wells[+scEl('scWellSel').value]; if(!w) return null;
+  var tol = +scEl('scMdTol').value || 0;
+  var skip = scEl('scSkipExcl') && scEl('scSkipExcl').checked;
+  var raw = R.main.rows.map(function(r){ return { md: scMdM(r.md), dAz: r.dAz, excluded: !!(skip && r.excluded) }; });
+  var n = 0, nSkip = 0;
+  w.survey.forEach(function(s){
+    var best = null; raw.forEach(function(c){ var d = Math.abs(c.md - s.md); if(d <= tol && (!best || d < best.d)) best = { d: d, c: c }; });
+    if(best){ n++; if(best.c.excluded) nSkip++; } });
+  return { well: w, raw: raw, tol: tol, matched: n, skipped: nSkip, skip: skip };
+}
+function scMatchPreview(){
+  var m = scMatches(), b = scEl('scSaveBtn'); if(!b) return;
+  if(!m){ b.disabled = true; return; }
+  b.disabled = (m.matched - m.skipped) === 0;
+  scEl('scJobStatus').innerHTML = scEl('scJobStatus').innerHTML.split('<br>')[0] + '<br>' + m.matched + ' of ' + m.well.survey.length +
+    ' station(s) of ' + scEsc(m.well.wellKey) + ' match a corrected station within ' + m.tol + ' m' +
+    (m.skip ? ' (' + m.skipped + ' of them excluded → copied unchanged, ' + (m.matched - m.skipped) + ' corrected)' : '') +
+    '. Corrected stations get Az += ΔAz (' + SC_MODEL_NAME[SC_STATE.result.main.model] + ', SurQC corrected − measured); unmatched stations are copied unchanged.';
+}
+// Toolcode suggestion: Short Collar -> "+AX", MSA -> "+MS" (same rule as
+// SAGcorrection's "+SAG": same tokens plus the suffix, respecting _Fl).
+// Expected differences, taken from the official ISCWSA Rev5 toolcode set in
+// iscwsaToolcodes.json and identical for every pair checked 2026-10-25:
+//  AX: standard sensor terms + AMIL removed; AX sensor terms (ABI*/ASI*/
+//      MBI*/MSI*) and MDI*/MFI* (dip/field-strength) added.
+//  MS: magnitudes of the magnetometer terms (MBXY-TI1S/2S, MBZ, MSXY-TI1S/2S/3S,
+//      MSZ) and AMIL change; nothing added or removed.
+// Any other difference (e.g. MWD+HRGM's XYM3/XYM4/SAG from Compass's .ipm) is
+// listed as a warning and the suggestion is not preselected.
+var SC_AX_REMOVED = ['ABXY-TI1S','ABXY-TI2S','ABZ','ASXY-TI1S','ASXY-TI2S','ASXY-TI3S','ASZ','MBXY-TI1S','MBXY-TI2S','MBZ','MSXY-TI1S','MSXY-TI2S','MSXY-TI3S','MSZ','AMIL'];
+var SC_MS_CHANGED = ['MBXY-TI1S','MBXY-TI2S','MBZ','MSXY-TI1S','MSXY-TI2S','MSXY-TI3S','MSZ','AMIL'];
+function scIsAxAdded(c){ return /^(ABIXY|ASIXY|MBIXY|MSIXY)-TI\dS$|^(ABIZ|ASIZ)$|^(MDI|MFI)(R|-)/.test(c); }
+function scHasTok(code, tok){ return new RegExp('(^|\\+)' + tok + '(\\+|_|$)').test(code); }
+function scTokens(code){ return { fl: /_Fl$/.test(code), set: code.replace(/_Fl$/, '').split('+').sort().join('+') }; }
+function scSuffix(){ return SC_STATE.result && SC_STATE.result.main.model === 'msa' ? 'MS' : 'AX'; }
+function scCounterpart(code, tok){
+  if(!code || scHasTok(code, tok)) return null;
+  var t = scTokens(code), want = code.replace(/_Fl$/, '').split('+').concat([tok]).sort().join('+');
+  return Object.keys(SC_TOOLCODES).find(function(k){ var u = scTokens(k); return u.fl === t.fl && u.set === want; }) || null;
+}
+function scOtherDiff(a, b, tok){
+  var A = {}, B = {}, out = [];
+  (SC_TOOLCODES[a] || []).forEach(function(t){ A[t.code] = JSON.stringify(t); });
+  (SC_TOOLCODES[b] || []).forEach(function(t){ B[t.code] = JSON.stringify(t); });
+  var adds = scHasTok(b, tok) && !scHasTok(a, tok);
+  Object.keys(Object.assign({}, A, B)).forEach(function(k){
+    if(!(k in B)){ if(!(adds && tok === 'AX' && SC_AX_REMOVED.indexOf(k) >= 0)) out.push(k + ' missing in ' + b); }
+    else if(!(k in A)){ if(!(adds && tok === 'AX' && scIsAxAdded(k))) out.push(k + ' only in ' + b); }
+    else if(A[k] !== B[k]){ if(!(adds && tok === 'MS' && SC_MS_CHANGED.indexOf(k) >= 0)) out.push(k + ' differs'); }
+  });
+  return out;
+}
+async function scOpenSave(){
+  var m = scMatches(); if(!m) return;
+  try{
+    if(!SC_TOOLCODES) SC_TOOLCODES = await (await fetch('/data/iscwsaToolcodes.json')).json();
+    var lst = await (await fetch('/notes/wellboreTrajectory/list/' + SC_STATE.job.noteId)).json();
+    var t = (lst.trajectories || []).find(function(x){ return x.wellName === m.well.wellKey; });
+    SC_ORIG_CODE = t ? (t.toolcode || '') : '';
+  }catch(err){ alert('Could not load toolcodes: ' + err.message); return; }
+  var tok = scSuffix(), base = SC_ORIG_CODE || 'MWD+SRGM', sug = scCounterpart(base, tok);
+  var pre = (sug && !scOtherDiff(base, sug, tok).length) ? sug : base;
+  scEl('scOrigCode').textContent = (SC_ORIG_CODE || '(default MWD+SRGM)') + (sug ? (pre === sug ? ' — suggested ' + sug : ' — suggested ' + sug + ' NOT preselected (differences beyond the ' + tok + ' change)')
+    : ' — no "+' + tok + '" counterpart of this toolcode in the ISCWSA set (original kept)');
+  scEl('scCode').innerHTML = Object.keys(SC_TOOLCODES).map(function(k){ return '<option' + (k === pre ? ' selected' : '') + '>' + scEsc(k) + '</option>'; }).join('');
+  scEl('scSavePanel').style.display = '';
+  scCheckCode();
+}
+function scCheckCode(){
+  var tok = scSuffix(), code = scEl('scCode').value, base = SC_ORIG_CODE || 'MWD+SRGM', html = '';
+  if(code !== base){
+    var d = scOtherDiff(base, code, tok);
+    if(d.length) html += '<div style="color:var(--bad)">⚠ ' + scEsc(code) + ' differs from ' + scEsc(base) + ' beyond the ' + tok + ' change: ' + scEsc(d.join(', ')) + '. Saving with it changes the AC ellipses beyond this correction.</div>';
+    else if(scHasTok(code, tok)) html += '<div>' + (tok === 'AX' ? 'AX swap only (ISCWSA Rev5.13 §6.2.1 short-collar-corrected sensor terms).' : 'MS change only (ISCWSA Rev5 multi-station-corrected magnetometer terms).') + '</div>';
+  }
+  if(/HRGM/.test(code) && scHasTok(code, tok))
+    html += '<div style="color:var(--bad)">⚠ ' + scEsc(code) + ' has not been checked against a Compass .ipm (only MWD+HRGM has).</div>';
+  scEl('scCodeWarn').innerHTML = html;
+}
+async function scConfirmSave(){
+  var m = scMatches(); if(!m) return;
+  try{
+    var r = await fetch('/notes/shortCollar/saveVersion', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteId: SC_STATE.job.noteId, wellKey: m.well.wellKey, toolcode: scEl('scCode').value, mdTol: m.tol,
+        model: SC_STATE.result.main.model, apply: scEl('scApply').value, skipExcluded: m.skip, corrections: m.raw }) });
+    var d = await r.json(); if(!d.ok) throw new Error(d.error);
+    scEl('scSavePanel').style.display = 'none';
+    alert('Saved as "' + d.wellName + '" with toolcode ' + d.toolcode + ' (' + d.matched + ' station(s) corrected' + (d.skipped ? ', ' + d.skipped + ' excluded station(s) copied unchanged' : '') + '). The original survey was not changed.');
+  }catch(err){ alert('Save failed: ' + err.message); }
 }
 </script>
 </body>

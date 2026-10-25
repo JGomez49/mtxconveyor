@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PipeStretch — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="/js/tdModel.js"></script>
+<script src="/js/stretchModel.js"></script>
+<style>
+  /*
+    PipeStretch (added 2026-10-25). Standalone tool, same layout/theme as
+    sagCorrection.ejs. MD correction for drill-pipe stretch: mechanical
+    (tension) + thermal (temperature), shown separately and as total.
+    Engine = public/js/stretchModel.js:
+      "SurQC" model = port of SurQC's stretch correction (core verified
+        element-by-element against the original C#, identical);
+      "T&D" model  = tension from MTX's Torque & Drag soft-string code
+        (public/js/tdModel.js) per survey station + thermal per ISCWSA eBook ch.15.
+  */
+  :root{ --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c; --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c; --warn:#f5a623; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;font-weight:600;} header .sub{color:var(--muted);font-size:12px;}
+  .wrap{max-width:1500px;margin:0 auto;padding:16px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{border-bottom:1px solid var(--border);padding:4px 6px;text-align:right;white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel2);} td:first-child,th:first-child{text-align:left;}
+  input,select,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;}
+  input[type=number]{width:90px;} td input{width:100%;min-width:60px;padding:3px 5px;}
+  button{cursor:pointer;} button.primary{background:var(--accent);border-color:var(--accent);color:#061325;font-weight:600;} button:disabled{opacity:.5;cursor:not-allowed;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;}
+  .field{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;font-size:11px;color:var(--muted);white-space:nowrap;}
+  .muted{color:var(--muted);font-size:12px;} .ok{color:var(--good);} .bad{color:var(--bad);} .warn{color:var(--warn);}
+  .scroll{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:6px;}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:6px 10px;font-size:12px;color:var(--muted);margin:6px 0;}
+  .note.warnbox{border-left-color:var(--warn);}
+  .plot{height:380px;}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>🌡 PipeStretch</h1><div class="sub">Measured-depth correction for drill-pipe stretch — mechanical + thermal</div></div>
+  <div class="row" style="margin:0">
+    <select id="unitSel" onchange="setUnit(this.value)"><option value="metric">Metric (m, kg/m³)</option><option value="imperial">Imperial (ft, ppg)</option></select>
+    <input id="caseName" placeholder="Case name" style="width:160px">
+    <button onclick="saveCase()" id="btnSaveCase">💾 Save case</button>
+    <select id="caseList" style="width:220px"><option value="">— saved cases —</option></select>
+    <button onclick="loadCase()">Load</button><button onclick="deleteCase()" id="btnDelCase">Delete</button>
+  </div>
+</header>
+<div class="wrap">
+
+  <div class="panel">
+    <h2>1 · Connect to an MTX job (optional)</h2>
+    <div class="row">
+      <div class="field"><span>MTX Job ID</span><input id="mtxId" placeholder="e.g. 2423" style="width:120px"></div>
+      <button onclick="loadJob()">Load job</button>
+      <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
+      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px"></select></div>
+      <button onclick="loadStringFromTD()">⬇ Use saved T&amp;D string + parameters</button>
+      <button onclick="loadSurveyFromJob()">⬇ Use well survey</button>
+    </div>
+    <div id="jobStatus" class="muted"></div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Drill string (bit first)</h2>
+    <div class="note">Same table format as the Torque &amp; Drag modeler. <b>SurQC model:</b> the consecutive rows from the bit that end within the BHA length are the BHA (steel, averaged
+      over its length); everything above is drill pipe with the single DP OD/ID below (as SurQC). <b>T&amp;D model:</b> the whole table is the string, exactly as the
+      T&amp;D modeler uses it (Wt column, beyond the last row its default 4½" DP), plus the casing program and friction factors loaded from the job.</div>
+    <div class="row">
+      <div class="field"><span>BHA length for SurQC (<span class="uL">m</span>)</span><input type="number" id="bhaLimit" value="60" step="1" oninput="refreshString()"></div>
+      <div class="field"><span>DP OD (mm) — SurQC</span><input type="number" id="dpOD" value="114.3" step="0.1"></div>
+      <div class="field"><span>DP ID (mm) — SurQC</span><input type="number" id="dpID" value="71.4" step="0.1"></div>
+      <button onclick="addRow()">+ Component</button>
+      <button onclick="exportString()">⬇ Export to Excel</button>
+      <label><button onclick="document.getElementById('strFile').click()">⬆ Import from Excel</button>
+        <input type="file" id="strFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importString(event)"></label>
+      <span id="strInfo" class="muted"></span>
+    </div>
+    <div class="scroll" style="max-height:300px"><table>
+      <thead><tr><th>Component</th><th>OD (mm)</th><th>ID (mm)</th><th>Length (<span class="uL">m</span>)</th><th>Wt (<span class="uW">kg/m</span>)</th><th>From bit (<span class="uL">m</span>)</th><th>SurQC role</th><th></th></tr></thead>
+      <tbody id="strBody"></tbody></table></div>
+    <div id="tdParamsInfo" class="muted" style="margin-top:6px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Stretch analysis</h2>
+    <div class="row">
+      <div class="field"><span>Model</span><select id="modelSel" onchange="onModelChange()" style="width:110px"><option value="SurQC">SurQC</option><option value="TD">T&amp;D</option></select></div>
+      <div class="field"><span>Load case</span><select id="loadCase" style="width:250px"></select></div>
+      <div class="field"><span>Mud weight (<span class="uM">kg/m³</span>)</span><input type="number" id="mud" value="1200" step="1"></div>
+      <div class="field"><span>Geothermal gradient (°C/km TVD)</span><input type="number" id="grad" value="25" step="0.1"></div>
+      <div class="field tdOnly"><span>Surface temp (°C)</span><input type="number" id="tSurf" value="10" step="0.5"></div>
+      <div class="field tdOnly"><span>Pipe calibration temp (°C)</span><input type="number" id="tCal" value="10" step="0.5"></div>
+      <div class="field tdOnly"><span>Thermal coeff (×10⁻⁶ /°C)</span><input type="number" id="alpha" value="12" step="0.1"></div>
+      <div class="field tdOnly"><span>Young's modulus (GPa)</span><input type="number" id="youngE" value="206.8" step="0.1"></div>
+      <div class="field tdOnly"><span>Sensor offset from bit (<span class="uL">m</span>)</span><input type="number" id="sensorOff" value="15" step="0.1"></div>
+    </div>
+    <div class="note" id="modelNote"></div>
+    <div class="row">
+      <button class="primary" onclick="runStretch()">Calculate stretch</button>
+      <span id="runStatus" class="muted"></span>
+    </div>
+    <div id="plot" class="plot"></div>
+  </div>
+
+  <div class="panel">
+    <h2>4 · Stretch-corrected survey</h2>
+    <div class="row">
+      <label><button onclick="document.getElementById('svyFile').click()">⬆ Import survey (MD, INC, AZ)</button>
+        <input type="file" id="svyFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importSurvey(event)"></label>
+      <button onclick="exportSurvey()">⬇ Export corrected survey</button>
+      <button onclick="saveVersion()" id="btnSaveVer" disabled title="Available when the survey came from an MTX job well">💾 Save as new version in job</button>
+      <span id="svyInfo" class="muted"></span>
+    </div>
+    <div class="note">Corrected MD = measured MD + total stretch of the pipe above that depth (mechanical + thermal). Inc and Az are unchanged; TVD/N/E are
+      recomputed by minimum curvature. "Save as new version" creates a new well (<i>&lt;well&gt; STRETCH &lt;date&gt;</i>, source PipeStretch) — the original is never modified.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>MD meas</th><th>Inc (°)</th><th>Az (°)</th><th>Mechanical</th><th>Thermal</th><th>Total ΔMD</th><th>MD corr</th><th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th></tr></thead>
+      <tbody id="svyBody"></tbody></table></div>
+    <div class="muted">*TVD relative to the first station.</div>
+  </div>
+</div>
+
+<script>
+var UNIT = 'metric', FT = 0.3048, PPG = 119.826427, KGM2LBFT = 0.671968975;
+var USER_ROLE = <%- JSON.stringify(user && user.role || '') %>;
+var job = { noteId:null, title:'', mtxJobId:'', wells:[], td:null };
+var tdSet = null;            // {casings, params} loaded from the job's saved T&D model
+var survey = [], surveySource = null, result = null;
+function $(id){ return document.getElementById(id); }
+function L(v){ return UNIT === 'metric' ? v : v / FT; }
+function Lm(v){ return UNIT === 'metric' ? v : v * FT; }
+function fmt(v, d){ return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }
+var uLen = function(){ return UNIT === 'metric' ? ' m' : ' ft'; };
+
+var LOAD_CASES = {
+  SurQC: [['pullOut','Pulling out (SurQC: drag added, μ 0.25)'], ['static','Static — no drag'], ['runIn','Running in (drag subtracted)']],
+  TD: [['static','Off bottom, no axial friction'], ['tripOut','Tripping out'], ['tripIn','Tripping in'], ['rotOB','Rotating on bottom (T&D WOB)'], ['slide','Slide drilling (T&D WOB)']]
+};
+var MODEL_NOTES = {
+  SurQC: '<b>SurQC</b> — port of SurQC\'s stretch correction (element core identical to the original C#): 1 m elements, inclination-only soft string, μ = 0.25, ' +
+    'E = 210 GPa, steel 7700 kg/m³, α = 12×10⁻⁶ /°C, thermal = α × gradient × TVD (pipe calibrated at surface temperature). As SurQC: one tension profile with the bit at the ' +
+    'last survey MD is used for every station, and the BHA bottom is placed at the last survey MD.',
+  TD: '<b>T&amp;D</b> — tension from MTX\'s Torque &amp; Drag soft-string model (Johancsik 1984; azimuth, casing/open-hole friction, the full string), solved for each survey ' +
+    'with the bit at station MD + sensor offset. Mechanical = ∫F/(EA) along the pipe above the station (effective tension, as the T&amp;D modeler). Thermal = α ∫(T − T<sub>cal</sub>) ' +
+    'with T = T<sub>surface</sub> + gradient × TVD (ISCWSA eBook ch.15).'
+};
+function onModelChange(){
+  var m = $('modelSel').value;
+  $('loadCase').innerHTML = LOAD_CASES[m].map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+  document.querySelectorAll('.tdOnly').forEach(function(e){ e.style.display = m === 'TD' ? '' : 'none'; });
+  $('modelNote').innerHTML = MODEL_NOTES[m];
+  refreshString();
+}
+function setUnit(u){
+  if(u === UNIT) return;
+  var rows = readString(), lim = Lm(+$('bhaLimit').value), off = Lm(+$('sensorOff').value);
+  var mud = UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG;
+  UNIT = u;
+  document.querySelectorAll('.uL').forEach(function(e){ e.textContent = u === 'metric' ? 'm' : 'ft'; });
+  document.querySelectorAll('.uW').forEach(function(e){ e.textContent = u === 'metric' ? 'kg/m' : 'lb/ft'; });
+  document.querySelectorAll('.uM').forEach(function(e){ e.textContent = u === 'metric' ? 'kg/m³' : 'ppg'; });
+  $('bhaLimit').value = +L(lim).toFixed(1); $('sensorOff').value = +L(off).toFixed(2);
+  $('mud').value = u === 'metric' ? +mud.toFixed(1) : +(mud / PPG).toFixed(3);
+  $('strBody').innerHTML = ''; rows.forEach(addRow); renderSurvey();
+}
+
+// ---------------- string table (SI internally)
+function addRow(r){
+  r = r || {name:'', od_mm:'', id_mm:'', len_m:'', wt_kgm:''};
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><input value="' + String(r.name || '').replace(/"/g, '&quot;') + '" style="min-width:150px"></td>' +
+    '<td><input type="number" step="0.01" value="' + r.od_mm + '" oninput="refreshString()"></td>' +
+    '<td><input type="number" step="0.01" value="' + r.id_mm + '" oninput="refreshString()"></td>' +
+    '<td><input type="number" step="0.001" value="' + (r.len_m === '' ? '' : +L(+r.len_m).toFixed(3)) + '" oninput="refreshString()"></td>' +
+    '<td><input type="number" step="0.001" value="' + (r.wt_kgm === '' || r.wt_kgm == null ? '' : +(UNIT === 'metric' ? +r.wt_kgm : +r.wt_kgm * KGM2LBFT).toFixed(3)) + '"></td>' +
+    '<td class="fromBit">—</td><td class="role muted">—</td><td><button onclick="this.closest(\'tr\').remove();refreshString()">✕</button></td>';
+  $('strBody').appendChild(tr); refreshString();
+}
+function readString(){
+  return Array.from(document.querySelectorAll('#strBody tr')).map(function(tr){
+    var ins = tr.querySelectorAll('input');
+    return { name: ins[0].value, od_mm: +ins[1].value, id_mm: +ins[2].value, len_m: Lm(+ins[3].value || 0),
+             wt_kgm: ins[4].value === '' ? '' : (UNIT === 'metric' ? +ins[4].value : +ins[4].value / KGM2LBFT) };
+  }).filter(function(r){ return r.od_mm > 0 && r.len_m > 0 && r.id_mm >= 0 && r.id_mm < r.od_mm; });
+}
+function refreshString(){
+  var cum = 0, lim = Lm(+$('bhaLimit').value || 0), bhaLen = 0;
+  document.querySelectorAll('#strBody tr').forEach(function(tr){
+    var ins = tr.querySelectorAll('input'), len = Lm(+ins[3].value || 0);
+    tr.querySelector('.fromBit').textContent = fmt(L(cum), 2);
+    // SurQC BHA = rows that END within the BHA length (a long DP row that merely
+    // starts inside it is drill pipe, not BHA)
+    var inBha = cum + len <= lim + 1e-9 && (bhaLen === cum); if(inBha) bhaLen += len;
+    tr.querySelector('.role').textContent = inBha ? 'BHA' : 'DP (uses DP OD/ID)';
+    cum += len;
+  });
+  $('strInfo').textContent = 'String rows total ' + fmt(L(cum), 1) + uLen() + ' · SurQC BHA = ' + fmt(L(bhaLen), 2) + uLen();
+}
+function exportString(){
+  var rows = readString(); if(!rows.length){ alert('Table is empty.'); return; }
+  var M = UNIT === 'metric';
+  var data = rows.map(function(r){ var o = {}; o['Component'] = r.name; o['OD (mm)'] = r.od_mm; o['ID (mm)'] = r.id_mm;
+    o[M ? 'Length (m)' : 'Length (ft)'] = +L(r.len_m).toFixed(3); o[M ? 'Wt (kg/m)' : 'Wt (lb/ft)'] = r.wt_kgm === '' ? '' : +(M ? r.wt_kgm : r.wt_kgm * KGM2LBFT).toFixed(3); return o; });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'String'); XLSX.writeFile(wb, 'PipeStretch_string.xlsx');
+}
+// Same loose header matching as the T&D modeler's BHA import.
+function importString(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''}); if(!rows.length){ alert('No rows found.'); return; }
+      var h = Object.keys(rows[0]); function col(re){ return h.filter(function(x){ return re.test(x); })[0]; }
+      var cN = col(/component|name/i), cOD = col(/^od\b|od\s*\(/i), cID = col(/^id\b|id\s*\(/i), cLen = col(/length|len\b/i), cWt = col(/wt|weight/i);
+      if(!cN || !cOD || !cID || !cLen){ alert('Could not find Component, OD, ID, Length columns.\nFound: ' + h.join(', ')); return; }
+      var lenFt = /\(ft\)/i.test(cLen), wtLb = cWt && /lb\s*\/\s*ft/i.test(cWt);
+      $('strBody').innerHTML = '';
+      rows.forEach(function(r){ addRow({ name:String(r[cN] || ''), od_mm:+r[cOD] || 0, id_mm:+r[cID] || 0, len_m:(+r[cLen] || 0) * (lenFt ? FT : 1),
+        wt_kgm: cWt && r[cWt] !== '' ? (+r[cWt] || 0) / (wtLb ? KGM2LBFT : 1) : '' }); });
+    }catch(err){ alert('Import failed: ' + err.message); }
+    evt.target.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ---------------- job connection (reuses the T&D modeler's routes)
+async function loadJob(){
+  var id = $('mtxId').value.trim(); if(!id){ $('jobStatus').textContent = 'Enter a Job ID first.'; return; }
+  $('jobStatus').textContent = 'Loading…';
+  try{
+    var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id)); var d = await r.json();
+    if(!r.ok) throw new Error(d.error || r.status);
+    job = { noteId: d.noteId, title: d.title, mtxJobId: id, wells: d.subjectWells || [], td: null };
+    job.td = await (await fetch('/notes/tdModel/' + d.noteId)).json();
+    $('wellSel').innerHTML = job.wells.map(function(w, i){ return '<option value="' + i + '">' + w.wellKey + '</option>'; }).join('');
+    onWellChange();
+    $('jobStatus').innerHTML = '<span class="ok">✔ ' + d.title + '</span> · ' + job.wells.length + ' subject well(s)' + (job.td ? '' : ' · no saved T&D model in this job') +
+      (d.duplicateWarning ? ' <span class="warn">' + d.duplicateWarning + '</span>' : '');
+  }catch(err){ $('jobStatus').innerHTML = '<span class="bad">' + err.message + '</span>'; }
+}
+function onWellChange(){
+  var w = job.wells[+$('wellSel').value], td = job.td, opts = [];
+  if(td && td.scenarios && w) Object.keys(td.scenarios).forEach(function(s){ var rb = td.scenarios[s].resultsByWell || {}; if(rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length) opts.push(s); });
+  $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') : '<option value="">(no saved T&D model for this well)</option>';
+}
+function loadStringFromTD(){
+  var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
+  if(!w || !s){ alert('Load a job and pick a well with a saved T&D model first.'); return; }
+  var rec = job.td.scenarios[s].resultsByWell[w.wellKey];
+  $('strBody').innerHTML = '';
+  rec.bha.forEach(function(c){ addRow({ name:c.name, od_mm:+(c.od_m * 1000).toFixed(2), id_mm:+(c.id_m * 1000).toFixed(2), len_m:+c.len, wt_kgm:c.wt == null ? '' : +c.wt }); });
+  tdSet = { casings: rec.casings || [], params: rec.params || {} };
+  if(tdSet.params.mudDens) $('mud').value = UNIT === 'metric' ? +(+tdSet.params.mudDens).toFixed(1) : +(tdSet.params.mudDens / PPG).toFixed(3);
+  // DP OD/ID for SurQC = first row beyond the BHA length, if any
+  var lim = Lm(+$('bhaLimit').value || 0), cum = 0, dp = null;
+  rec.bha.forEach(function(c){ if(!dp && cum + (+c.len) > lim + 1e-9) dp = c; cum += +c.len; });
+  if(dp){ $('dpOD').value = +(dp.od_m * 1000).toFixed(2); $('dpID').value = +(dp.id_m * 1000).toFixed(2); }
+  var p = tdSet.params;
+  $('tdParamsInfo').innerHTML = 'T&amp;D parameters loaded: ' + tdSet.casings.length + ' casing string(s) · FF cased ' + (p.ff1 != null ? p.ff1 : '—') + ' / ' + (p.ff2 != null ? p.ff2 : '—') +
+    ' · FF open hole ' + (p.ffOH != null ? p.ffOH : '—') + ' · open hole ' + fmt((p.ohDiam_m || 0) * 1000, 1) + ' mm from ' + fmt(L(p.ohTop || 0), 1) + uLen() +
+    ' · WOB rotating ' + fmt((p.wobRot || 0) / 1000, 1) + ' kN, sliding ' + fmt((p.wobSlid || 0) / 1000, 1) + ' kN';
+  $('jobStatus').innerHTML += '<br>Loaded T&D string "' + s + '" for ' + w.wellKey + ' (' + rec.bha.length + ' rows) and its casing/friction parameters.';
+}
+function loadSurveyFromJob(){
+  var w = job.wells[+$('wellSel').value]; if(!w){ alert('Load a job first.'); return; }
+  survey = w.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az}; }).sort(function(a, b){ return a.md - b.md; });
+  surveySource = { noteId: job.noteId, wellKey: w.wellKey }; result = null;
+  $('svyInfo').textContent = survey.length + ' stations from ' + w.wellKey; renderSurvey(); $('btnSaveVer').disabled = true;
+}
+function importSurvey(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+      var hdr = rows.find(function(r){ return r.some(function(c){ return /md|depth/i.test(String(c)); }); }) || [];
+      var mdFt = hdr.some(function(c){ return /md|depth/i.test(String(c)) && /ft|feet/i.test(String(c)); });
+      survey = rows.filter(function(r){ return r.length >= 3 && [0,1,2].every(function(i){ return r[i] !== '' && isFinite(+r[i]); }); })
+        .map(function(r){ return {md:+r[0] * (mdFt ? FT : 1), inc:+r[1], az:+r[2]}; }).sort(function(a, b){ return a.md - b.md; });
+      if(!survey.length) throw new Error('No numeric MD / INC / AZ rows found (columns A, B, C).');
+      surveySource = null; result = null; $('btnSaveVer').disabled = true;
+      $('svyInfo').textContent = survey.length + ' stations imported from ' + f.name + (mdFt ? ' (MD in ft, converted)' : ' (MD assumed m)'); renderSurvey();
+    }catch(err){ alert('Import failed: ' + err.message); }
+    evt.target.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ---------------- calculation
+function mudKgm3(){ return UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG; }
+function runStretch(){
+  if(survey.length < 2){ alert('Load or import a survey first (at least 2 stations).'); return; }
+  var rows = readString(); if(!rows.length){ alert('Enter the drill string first.'); return; }
+  var model = $('modelSel').value, lc = $('loadCase').value, t0 = Date.now(), G = +$('grad').value / 1000;
+  try{
+    var corr;
+    if(model === 'SurQC'){
+      var lim = Lm(+$('bhaLimit').value || 0), cum = 0, bha = [];
+      rows.forEach(function(r){ if(cum + r.len_m <= lim + 1e-9 && bha.length === rows.indexOf(r)) bha.push({od:r.od_mm / 1000, id:r.id_mm / 1000, len:r.len_m}); cum += r.len_m; });
+      var res = StretchModel.surqc({ survey: survey, dpOD: +$('dpOD').value / 1000, dpID: +$('dpID').value / 1000, bha: bha, mudDensity: mudKgm3(), gradient: G, loadCase: lc });
+      corr = survey.map(function(s){ return { md: s.md, mech: StretchModel.correctionAt(res.points, s.md, 'mech'), thermal: StretchModel.correctionAt(res.points, s.md, 'thermal') }; });
+      result = { model: model, loadCase: lc, profile: res.points };
+    } else {
+      var p = Object.assign({ mudDens: mudKgm3(), steelDens: 7700, blockW: 0, wobRot: 0, wobSlid: 0, ff1: 0.25, ff2: 0.25, ffOH: 0.3, ohDiam_m: rows[0].od_mm / 1000, ohTop: 0 },
+        tdSet ? tdSet.params : {}, { mudDens: mudKgm3() });
+      var bhaTD = rows.map(function(r){ var A = Math.PI / 4 * (Math.pow(r.od_mm / 1000, 2) - Math.pow(r.id_mm / 1000, 2));
+        return { name:r.name, od_m:r.od_mm / 1000, id_m:r.id_mm / 1000, len:r.len_m, wt: r.wt_kgm === '' ? 7700 * A : +r.wt_kgm }; });
+      var inp = { survey: survey, casings: tdSet ? tdSet.casings : [], bha: bhaTD, params: p, loadCase: lc, E: +$('youngE').value * 1e9,
+        alpha: +$('alpha').value * 1e-6, Tsurf: +$('tSurf').value, Tcal: +$('tCal').value, gradient: G, sensorOffset: Lm(+$('sensorOff').value) };
+      var st = StretchModel.tdStretch(inp);
+      corr = st.map(function(s){ return { md: s.md, mech: s.mech, thermal: s.thermal, surf: s.surfaceTension }; });
+      result = { model: model, loadCase: lc, profile: null };
+    }
+    var cs = StretchModel.correctSurvey(survey, corr.map(function(c){ return c.mech + c.thermal; }));
+    result.stations = cs.map(function(s, i){ return Object.assign({}, s, { mech: corr[i].mech, thermal: corr[i].thermal, total: corr[i].mech + corr[i].thermal }); });
+    renderSurvey(); plotResult();
+    var last = result.stations[result.stations.length - 1];
+    $('runStatus').innerHTML = model + ' · ' + $('loadCase').selectedOptions[0].text + ' · ' + ((Date.now() - t0) / 1000).toFixed(2) + ' s · at TD: mechanical ' +
+      fmt(L(last.mech), 3) + uLen() + ', thermal ' + fmt(L(last.thermal), 3) + uLen() + ', total ' + fmt(L(last.total), 3) + uLen() + ' · ΔTVD ' + fmt(L(last.dTvd), 3) + uLen();
+    $('btnSaveVer').disabled = !surveySource || USER_ROLE === 'viewer';
+  }catch(err){ $('runStatus').innerHTML = '<span class="bad">' + err.message + '</span>'; }
+}
+function plotResult(){
+  if(!result || typeof Plotly === 'undefined') return;
+  var x = result.stations.map(function(s){ return L(s.mdRaw); });
+  var tr = function(k, name, col){ return { x: x, y: result.stations.map(function(s){ return L(s[k]); }), name: name, mode: 'lines', line: { color: col } }; };
+  Plotly.newPlot('plot', [tr('mech', 'Mechanical', '#4da3ff'), tr('thermal', 'Thermal', '#f5a623'), tr('total', 'Total', '#2ecc71')],
+    { title: { text: 'Stretch (MD correction) at each survey station — ' + result.model, font: { size: 12 } }, margin: { l: 60, r: 10, t: 30, b: 40 },
+      paper_bgcolor: '#171b21', plot_bgcolor: '#171b21', font: { color: '#e6e9ef', size: 10 },
+      xaxis: { title: 'Measured depth' + uLen(), gridcolor: '#2a313c' }, yaxis: { title: 'Stretch' + uLen(), gridcolor: '#2a313c' } },
+    { displaylogo: false, responsive: true });
+}
+function renderSurvey(){
+  var st = result && result.stations;
+  $('svyBody').innerHTML = (st || survey.map(function(s){ return {mdRaw:s.md, inc:s.inc, az:s.az}; })).map(function(s){
+    var c = !!st;
+    return '<tr><td>' + fmt(L(s.mdRaw), 2) + '</td><td>' + fmt(s.inc, 3) + '</td><td>' + fmt(s.az, 3) + '</td>' +
+      '<td>' + (c ? fmt(L(s.mech), 3) : '') + '</td><td>' + (c ? fmt(L(s.thermal), 3) : '') + '</td><td>' + (c ? fmt(L(s.total), 3) : '') + '</td>' +
+      '<td>' + (c ? fmt(L(s.md), 2) : '') + '</td><td>' + (c ? fmt(L(s.tvdRaw), 2) : '') + '</td><td>' + (c ? fmt(L(s.tvd), 2) : '') + '</td>' +
+      '<td>' + (c ? fmt(L(s.dTvd), 3) : '') + '</td><td>' + (c ? fmt(L(s.dN), 3) : '') + '</td><td>' + (c ? fmt(L(s.dE), 3) : '') + '</td></tr>';
+  }).join('');
+}
+function exportSurvey(){
+  if(!result){ alert('Calculate the stretch first.'); return; }
+  var u = UNIT === 'metric' ? 'm' : 'ft';
+  var data = result.stations.map(function(s){ var o = {};
+    o['MD measured (' + u + ')'] = +L(s.mdRaw).toFixed(3); o['Inc (deg)'] = s.inc; o['Az (deg)'] = s.az;
+    o['Mechanical stretch (' + u + ')'] = +L(s.mech).toFixed(4); o['Thermal stretch (' + u + ')'] = +L(s.thermal).toFixed(4); o['Total stretch (' + u + ')'] = +L(s.total).toFixed(4);
+    o['MD corrected (' + u + ')'] = +L(s.md).toFixed(3); o['TVD measured (' + u + ')'] = +L(s.tvdRaw).toFixed(3); o['TVD corrected (' + u + ')'] = +L(s.tvd).toFixed(3);
+    o['dTVD (' + u + ')'] = +L(s.dTvd).toFixed(4); o['dN (' + u + ')'] = +L(s.dN).toFixed(4); o['dE (' + u + ')'] = +L(s.dE).toFixed(4); return o; });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Stretch corrected');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Model: result.model, 'Load case': result.loadCase, 'Mud (kg/m3)': mudKgm3(), 'Gradient (degC/km)': +$('grad').value,
+    'T surface (degC)': +$('tSurf').value, 'T calibration (degC)': +$('tCal').value, 'alpha (1e-6/degC)': +$('alpha').value, 'E (GPa)': +$('youngE').value }]), 'Inputs');
+  XLSX.writeFile(wb, 'PipeStretch_' + result.model + (surveySource ? '_' + surveySource.wellKey.replace(/[^a-z0-9\-_ ]/gi, '_') : '') + '.xlsx');
+}
+async function saveVersion(){
+  if(!surveySource || !result) return;
+  if(!confirm('Create a NEW well "' + surveySource.wellKey + ' STRETCH <today>" in this job with the stretch-corrected MDs?\nThe original survey is not changed.')) return;
+  try{
+    var r = await fetch('/notes/pipeStretch/saveVersion', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ noteId: surveySource.noteId, wellKey: surveySource.wellKey, model: result.model, loadCase: result.loadCase,
+        corrections: result.stations.map(function(s){ return { md: s.mdRaw, dMd: s.total }; }) }) });
+    var d = await r.json(); if(!d.ok) throw new Error(d.error);
+    alert('Saved as "' + d.wellName + '". The original survey was not changed.');
+  }catch(err){ alert('Save failed: ' + err.message); }
+}
+
+// ---------------- saved cases (same role matrix as SAGcorrection / 6-axis Data)
+function caseInput(){
+  return { unit: UNIT, rows: readString(), bhaLimit_m: Lm(+$('bhaLimit').value), dpOD: +$('dpOD').value, dpID: +$('dpID').value, model: $('modelSel').value,
+    loadCase: $('loadCase').value, mud_kgm3: mudKgm3(), grad: +$('grad').value, tSurf: +$('tSurf').value, tCal: +$('tCal').value, alpha: +$('alpha').value,
+    youngE: +$('youngE').value, sensorOff_m: Lm(+$('sensorOff').value), tdSet: tdSet, source: { mtxJobId: job.mtxJobId, surveySource: surveySource } };
+}
+async function refreshCases(){
+  try{ var d = await (await fetch('/notes/pipeStretch/cases')).json();
+    $('caseList').innerHTML = '<option value="">— saved cases —</option>' + d.cases.map(function(c){ return '<option value="' + c._id + '">' + c.name + ' · ' + c.createdByName + ' · ' + new Date(c.createdAt).toLocaleDateString() + '</option>'; }).join('');
+  }catch(e){}
+}
+async function saveCase(){
+  var name = $('caseName').value.trim(); if(!name){ alert('Enter a case name.'); return; }
+  var d = await (await fetch('/notes/pipeStretch/case', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name, inputData:caseInput(), survey:survey})})).json();
+  if(!d.ok){ alert(d.error); return; } refreshCases(); alert('Case saved.');
+}
+async function loadCase(){
+  var id = $('caseList').value; if(!id) return;
+  var d = await (await fetch('/notes/pipeStretch/case/' + id)).json(); if(!d.ok){ alert(d.error); return; }
+  var c = d.case.inputData || {};
+  $('unitSel').value = 'metric'; setUnit('metric');
+  $('bhaLimit').value = c.bhaLimit_m || 60; $('dpOD').value = c.dpOD || 114.3; $('dpID').value = c.dpID || 71.4;
+  $('modelSel').value = c.model === 'TD' ? 'TD' : 'SurQC'; onModelChange(); if(c.loadCase) $('loadCase').value = c.loadCase;
+  $('mud').value = c.mud_kgm3 || 1200; $('grad').value = c.grad != null ? c.grad : 25; $('tSurf').value = c.tSurf != null ? c.tSurf : 10; $('tCal').value = c.tCal != null ? c.tCal : 10;
+  $('alpha').value = c.alpha || 12; $('youngE').value = c.youngE || 206.8; $('sensorOff').value = c.sensorOff_m != null ? c.sensorOff_m : 15;
+  tdSet = c.tdSet || null; $('strBody').innerHTML = ''; (c.rows || []).forEach(addRow);
+  survey = d.case.survey || []; surveySource = (c.source && c.source.surveySource) || null; result = null; renderSurvey(); $('btnSaveVer').disabled = true;
+  $('caseName').value = d.case.name; if(c.unit === 'imperial'){ $('unitSel').value = 'imperial'; setUnit('imperial'); }
+  $('svyInfo').textContent = survey.length ? survey.length + ' stations (from case)' : '';
+}
+async function deleteCase(){
+  var id = $('caseList').value; if(!id || !confirm('Delete this case?')) return;
+  var d = await (await fetch('/notes/pipeStretch/case/' + id, {method:'DELETE'})).json(); if(!d.ok){ alert(d.error); return; } refreshCases();
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if(USER_ROLE === 'viewer'){ $('btnSaveCase').disabled = true; $('btnDelCase').disabled = true; }
+  // Default string = the T&D modeler's preloaded CNRL BHA section + 4-1/2" DP (same rows as SAGcorrection's default)
+  [['PDC Bit',158.75,50.8,0.20,310.044],['Mud Motor',137,63.5,10.05,103.933],['DC 127mm',127,64,4.60,109.841],['DC 121mm',121,68,9.29,109.841],
+   ['DC 120mm',120,76,1.60,109.841],['DC 122mm B',122,67,9.54,109.841],['DC 122mm A',122,67,9.42,109.841],['Sub 137mm',137.16,48.77,1.18,155.379],
+   ['Underreamer',130,58,1.38,70.866],['DP 114.3mm',114.3,71.4,3000,41.207]]
+   .forEach(function(a){ addRow({name:a[0], od_mm:a[1], id_mm:a[2], len_m:a[3], wt_kgm:a[4]}); });
+  onModelChange(); refreshCases();
+});
+</script>
+</body>
+</html>

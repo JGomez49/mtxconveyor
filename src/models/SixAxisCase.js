@@ -44,6 +44,9 @@ const SixAxisCaseSchema = new Schema({
         dipError:  { type: String, default: "" },
         azError:   { type: String, default: "" },
     },
+    // Added 2026-10-25: Short Collar accordion settings (reference source,
+    // WMM inputs, uncertainties, tolerances, manual exclusions by MD, MTX ID).
+    shortCollar: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
 module.exports = model("SixAxisCase", SixAxisCaseSchema);

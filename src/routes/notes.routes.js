@@ -72,6 +72,14 @@ const {
     listSagMaterials,
     saveSagMaterial,
     deleteSagMaterial,
+    renderPipeStretch,
+    renderDsi,
+    savePipeStretchCase,
+    listPipeStretchCases,
+    getPipeStretchCase,
+    deletePipeStretchCase,
+    savePipeStretchVersion,
+    saveShortCollarVersion,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     setWellboreTrajectoryToolcode,
@@ -356,5 +364,19 @@ router.post('/notes/sagCorrection/saveVersion', isAuthenticated, canUseModelersJ
 router.get('/notes/sagCorrection/materials', isAuthenticated, canUseModelersJson, listSagMaterials);
 router.post('/notes/sagCorrection/material', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSagMaterial);
 router.delete('/notes/sagCorrection/material/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deleteSagMaterial);
+
+//PipeStretch (added 2026-10-25) — drill-pipe stretch (mechanical + thermal)
+//MD-correction tool. Same access as SAGcorrection: Geo/GeoM blocked,
+//viewer read-only for cases / save-version.
+router.get('/notes/pipeStretch', isAuthenticated, canUseModelers, renderPipeStretch);
+// DSI — Drill String Interference (2026-10-25): standalone page, same guard as PipeStretch.
+router.get('/notes/dsi', isAuthenticated, canUseModelers, renderDsi);
+router.post('/notes/pipeStretch/case', isAuthenticated, canUseModelersJson, blockViewerFromSaving, savePipeStretchCase);
+router.get('/notes/pipeStretch/cases', isAuthenticated, canUseModelersJson, listPipeStretchCases);
+router.get('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, getPipeStretchCase);
+router.delete('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deletePipeStretchCase);
+router.post('/notes/pipeStretch/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, savePipeStretchVersion);
+// Short Collar (2026-10-25): save the 6-axis page's short-collar-corrected azimuths as a new WellboreTrajectory version.
+router.post('/notes/shortCollar/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveShortCollarVersion);
 
 module.exports = router;
