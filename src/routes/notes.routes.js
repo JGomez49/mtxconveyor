@@ -63,6 +63,15 @@ const {
     listSixAxisCases,
     getSixAxisCase,
     deleteSixAxisCase,
+    renderSagCorrection,
+    saveSagCase,
+    listSagCases,
+    getSagCase,
+    deleteSagCase,
+    saveSagVersion,
+    listSagMaterials,
+    saveSagMaterial,
+    deleteSagMaterial,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
     setWellboreTrajectoryToolcode,
@@ -324,5 +333,28 @@ router.get('/notes/sixAxisData/cases', isAuthenticated, listSixAxisCases);
 router.get('/notes/sixAxisData/case/:id', isAuthenticated, getSixAxisCase);
 router.delete('/notes/sixAxisData/case/:id', isAuthenticated, blockViewerFromSaving, deleteSixAxisCase);
 
+
+//SAGcorrection (added 2026-10-24) — standalone BHA sag-correction tool,
+//port of SurQC's sag solver. Geo/GeoM blocked at the route level
+//(canUseModelers), same as the engineering modelers. Saved cases follow
+//the 6-axis Data role matrix (viewer read-only). Job/BHA lookup reuses the
+//existing /notes/tdModel/lookupByMtxId and /notes/tdModel/:noteId routes.
+//JSON endpoints use canUseModelersJson so fetch() gets a 403, not a redirect.
+function canUseModelersJson(req, res, next){
+    if(req.user && ['Geo','GeoM'].includes(req.user.rank)){
+        return res.status(403).json({ok:false, error:'Your rank does not have access to this module.'});
+    }
+    next();
+}
+router.get('/notes/sagCorrection', isAuthenticated, canUseModelers, renderSagCorrection);
+router.post('/notes/sagCorrection/case', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSagCase);
+router.get('/notes/sagCorrection/cases', isAuthenticated, canUseModelersJson, listSagCases);
+router.get('/notes/sagCorrection/case/:id', isAuthenticated, canUseModelersJson, getSagCase);
+router.delete('/notes/sagCorrection/case/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deleteSagCase);
+router.post('/notes/sagCorrection/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSagVersion);
+//SAGcorrection materials (2026-10-24, improvement #5): shared, viewer read-only.
+router.get('/notes/sagCorrection/materials', isAuthenticated, canUseModelersJson, listSagMaterials);
+router.post('/notes/sagCorrection/material', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSagMaterial);
+router.delete('/notes/sagCorrection/material/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deleteSagMaterial);
 
 module.exports = router;

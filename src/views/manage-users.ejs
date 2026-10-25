@@ -129,6 +129,30 @@
     </table>
   </div>
 
+  <!-- ADDED 2026-10-23: Inactive users — non-admins with no activity (and account older) than N days -->
+  <div class="panel">
+    <h2><span class="dot"></span>Inactive Users <span id="inaCount" style="margin-left:6px;color:var(--text-dim);"></span>
+      <button class="btn btn-sm" id="inaRefresh" style="margin-left:auto;">↻ Refresh</button></h2>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;">
+      <label style="display:flex;align-items:center;gap:6px;margin:0;">Inactive after <input type="number" id="inaDays" min="1" max="3650" step="1" style="width:80px;"> days</label>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;"><input type="checkbox" id="inaAuto" style="width:auto;"> Auto-delete daily</label>
+      <button class="btn btn-sm btn-p" id="inaSave">Save settings</button>
+      <span class="status-msg" id="inaStatus" style="margin:0;"></span>
+    </div>
+    <div id="inaLastRun" style="font-size:11px;color:var(--text-dim);margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">
+      A non-admin account is inactive when its most recent activity (any page visit) <b>and</b> its creation date are both older than the limit. Admins are never listed or deleted. Deleting cannot be undone; names already saved on jobs, scenarios and logs are kept.
+    </div>
+    <table>
+      <thead><tr><th style="width:28px;"><input type="checkbox" id="inaAll" style="width:auto;"></th><th>Name</th><th>Email</th><th>Role</th><th>Last Active</th><th>Created</th><th>Days inactive</th></tr></thead>
+      <tbody id="inaBody"><tr><td colspan="7" style="color:var(--text-dim);">Loading…</td></tr></tbody>
+    </table>
+    <div style="margin-top:8px;display:flex;gap:8px;">
+      <button class="btn btn-sm btn-danger" id="inaDelSel">Delete selected</button>
+      <button class="btn btn-sm btn-danger" id="inaDelAll">Delete all inactive</button>
+    </div>
+  </div>
+
 </main>
 
 <div class="modal-overlay" id="pwModal">
@@ -352,6 +376,70 @@
             this.textContent = '🚨 Log Out All Users';
         }
     });
+
+    // ---------------- Inactive users (2026-10-23) ----------------
+    var INA = [];
+    function inaRender(data){
+        INA = data.users || [];
+        var s = data.settings || {};
+        document.getElementById('inaDays').value = s.days;
+        document.getElementById('inaAuto').checked = !!s.autoDelete;
+        document.getElementById('inaCount').textContent = '(' + INA.length + ')';
+        var lr = s.lastRun;
+        document.getElementById('inaLastRun').textContent = lr
+            ? ('Last cleanup: ' + fmtDate(lr.at) + ' — ' + lr.mode + ', limit ' + lr.days + ' days, deleted ' + (lr.deleted || []).length + (lr.deleted && lr.deleted.length ? ': ' + lr.deleted.join(', ') : ''))
+            : 'No cleanup has run yet.' + (s.autoDelete ? '' : ' Auto-delete is OFF.');
+        var body = document.getElementById('inaBody');
+        if(!INA.length){ body.innerHTML = '<tr><td colspan="7" style="color:var(--text-dim);">No inactive non-admin users.</td></tr>'; return; }
+        body.innerHTML = INA.map(function(u){
+            return '<tr><td><input type="checkbox" class="inaChk" data-id="' + u._id + '" style="width:auto;"></td>' +
+                '<td>' + esc(u.name) + '</td><td>' + esc(u.email) + '</td><td>' + esc(u.role) + '</td>' +
+                '<td>' + (u.lastActive ? fmtDate(u.lastActive) : 'never') + '</td><td>' + (u.createdAt ? fmtDate(u.createdAt) : '—') + '</td>' +
+                '<td>' + (u.daysInactive != null ? u.daysInactive : '—') + '</td></tr>';
+        }).join('');
+    }
+    async function inaLoad(){
+        try {
+            var res = await fetch('/users/manage/inactive');
+            var data = await res.json();
+            if(!res.ok) throw new Error(data.error || res.statusText);
+            inaRender(data);
+        } catch(err){ document.getElementById('inaBody').innerHTML = '<tr><td colspan="7" style="color:var(--red,#ff4c4c);">' + esc(err.message) + '</td></tr>'; }
+    }
+    async function inaDelete(ids){
+        if(!ids.length){ alert('No users selected.'); return; }
+        var names = INA.filter(function(u){ return ids.indexOf(u._id) >= 0; }).map(function(u){ return u.name; });
+        if(!confirm('Permanently delete ' + ids.length + ' account(s)?\n\n' + names.join('\n') + '\n\nThis cannot be undone.')) return;
+        try {
+            var res = await fetch('/users/manage/inactive/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids: ids }) });
+            var data = await res.json();
+            if(!res.ok) throw new Error(data.error || res.statusText);
+            alert('Deleted ' + data.deleted.length + ' account(s).' + (data.skipped ? ' ' + data.skipped + ' skipped (no longer inactive).' : ''));
+            window.location.reload();   // refresh the All Users table too
+        } catch(err){ alert('Error: ' + err.message); }
+    }
+    document.getElementById('inaRefresh').addEventListener('click', inaLoad);
+    document.getElementById('inaAll').addEventListener('change', function(){
+        var on = this.checked; document.querySelectorAll('.inaChk').forEach(function(c){ c.checked = on; });
+    });
+    document.getElementById('inaDelSel').addEventListener('click', function(){
+        inaDelete(Array.prototype.filter.call(document.querySelectorAll('.inaChk'), function(c){ return c.checked; }).map(function(c){ return c.dataset.id; }));
+    });
+    document.getElementById('inaDelAll').addEventListener('click', function(){ inaDelete(INA.map(function(u){ return u._id; })); });
+    document.getElementById('inaSave').addEventListener('click', async function(){
+        var st = document.getElementById('inaStatus');
+        var auto = document.getElementById('inaAuto').checked;
+        if(auto && !confirm('With auto-delete ON, the server will permanently delete every inactive non-admin account once a day, without asking. Continue?')) return;
+        try {
+            var res = await fetch('/users/manage/inactive/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ days: document.getElementById('inaDays').value, autoDelete: auto }) });
+            var data = await res.json();
+            if(!res.ok) throw new Error(data.error || res.statusText);
+            st.textContent = '✓ Saved'; st.style.color = '';
+            inaLoad();
+        } catch(err){ st.textContent = '✗ ' + err.message; st.style.color = '#ff4c4c'; }
+    });
+    inaLoad();
 
     // ---------------- Password reveal modal ----------------
     document.getElementById('pwCloseBtn').addEventListener('click', function(){

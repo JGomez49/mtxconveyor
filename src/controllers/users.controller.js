@@ -184,6 +184,39 @@ usersCtrl.deleteUser = async (req, res) => {
     }
 };
 
+// ── Inactive users (ADDED 2026-10-23) — see helpers/inactiveUsers.js for the rule ──
+const inactiveUsers = require('../helpers/inactiveUsers');
+usersCtrl.listInactiveUsers = async (req, res) => {
+    try {
+        const settings = await inactiveUsers.getSettings();
+        const users = await inactiveUsers.findInactiveUsers(settings.days);
+        res.json({ ok: true, settings, users });
+    } catch (err) {
+        console.error('[inactive users] list error:', err);
+        res.status(500).json({ error: 'Failed to load inactive users.' });
+    }
+};
+usersCtrl.saveInactiveSettings = async (req, res) => {
+    try {
+        const settings = await inactiveUsers.saveSettings({ days: req.body.days, autoDelete: !!req.body.autoDelete }, req.user._id);
+        res.json({ ok: true, settings });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Failed to save settings.' });
+    }
+};
+usersCtrl.deleteInactiveUsers = async (req, res) => {
+    try {
+        const settings = await inactiveUsers.getSettings();
+        const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+        if(!ids.length) return res.status(400).json({ error: 'No users selected.' });
+        const r = await inactiveUsers.deleteInactiveUsers(ids, settings.days, 'manual (' + (req.user.name || req.user.email) + ')', req.user._id);
+        res.json({ ok: true, deleted: r.deleted, skipped: r.skipped });
+    } catch (err) {
+        console.error('[inactive users] delete error:', err);
+        res.status(500).json({ error: 'Failed to delete inactive users.' });
+    }
+};
+
 // "Panic button" — force everyone logged out at once, including the admin
 // who clicks it. Sessions are stored server-side in Mongo (see server.js's
 // MongoDBStore, collection 'mySessions'), so wiping that collection

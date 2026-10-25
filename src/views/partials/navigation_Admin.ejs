@@ -79,6 +79,8 @@
                     <div class="dropdown-menu" aria-labelledby="navbarDropdownMember">
                         <a class="dropdown-item" href="/notes/quickPlan" target="_blank">🧭 Quick Plan</a>
                         <a class="dropdown-item" href="/notes/sixAxisData" target="_blank">🧲 6-axis Data</a>
+                        <%# 2026-10-24: SAGcorrection — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/sagCorrection" target="_blank">📐 SAGcorrection</a><% } %>
                                                 <a class="dropdown-item" href="/notes/uploadNewSchedule">New Schedule</a>
                                                 <a class="dropdown-item" href="/notes/uploadDPStats">DP Stats</a>
                         <a class="dropdown-item" href="/notes/uploadDPI">DPI</a>

@@ -22,6 +22,9 @@ const {
     resetUserPassword,
     deleteUser,
     forceLogoutAll,
+    listInactiveUsers,
+    saveInactiveSettings,
+    deleteInactiveUsers,
 } = require('../controllers/users.controller');
 
 // Self-registration is retired — all user creation now goes through the
@@ -57,6 +60,10 @@ router.put('/users/manage/:id', isAuthenticated, isAdmin, updateUser);
 router.post('/users/manage/:id/reset-password', isAuthenticated, isAdmin, resetUserPassword);
 router.delete('/users/manage/:id', isAuthenticated, isAdmin, deleteUser);
 router.post('/users/manage-force-logout-all', isAuthenticated, isAdmin, forceLogoutAll);
+// Inactive-user cleanup (2026-10-23) — admin only; JSON
+router.get('/users/manage/inactive', isAuthenticated, isAdmin, listInactiveUsers);
+router.post('/users/manage/inactive/settings', isAuthenticated, isAdmin, saveInactiveSettings);
+router.post('/users/manage/inactive/delete', isAuthenticated, isAdmin, deleteInactiveUsers);
 
 
 module.exports = router;

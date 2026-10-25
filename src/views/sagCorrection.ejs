@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAGcorrection — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="/js/sagModel.js"></script>
+<script src="/js/sagKinetic.js"></script>
+<style>
+  /*
+    SAGcorrection (added 2026-10-24). Standalone tool, same dark theme as
+    sixAxisData.ejs / quickPlan.ejs. Engine = public/js/sagModel.js, a
+    line-by-line port of SurQC's BHA sag solver (validated against the
+    original C# — see that file's header), run in public/js/sagWorker.js
+    so the page cannot freeze. Workflow follows the SurQC manual
+    ("Viewing the Sag Analysis" + "Corrections"): BHA -> Sag analysis
+    (Shear / Bending Moment / Sag / Drop at one Inc, correction table every
+    3 deg at the sensor) -> corrected survey (Inc + correction; MD, Az
+    unchanged; TVD/N/E by minimum curvature).
+  */
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c;
+    --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c; --warn:#f5a623;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:12px;}
+  .wrap{max-width:1500px;margin:0 auto;padding:16px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{border-bottom:1px solid var(--border);padding:4px 6px;text-align:right;white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel2);}
+  td:first-child,th:first-child{text-align:left;}
+  input,select,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;}
+  input[type=number]{width:90px;}
+  td input{width:100%;min-width:60px;padding:3px 5px;}
+  button{cursor:pointer;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#061325;font-weight:600;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  /* 2026-10-24: align-items:flex-end + nowrap labels fix the misaligned inputs (labels with units were wrapping to 2-3 lines). */
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;}
+  .field{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;font-size:11px;color:var(--muted);white-space:nowrap;}
+  .muted{color:var(--muted);font-size:12px;}
+  .ok{color:var(--good);} .bad{color:var(--bad);} .warn{color:var(--warn);}
+  .scroll{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:6px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:1000px){.grid2{grid-template-columns:1fr;}}
+  .plot{height:230px;}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:6px 10px;font-size:12px;color:var(--muted);margin:6px 0;}
+  .note.warnbox{border-left-color:var(--warn);}
+  #progress{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:200px;display:inline-block;vertical-align:middle;}
+  #progress div{height:100%;width:0;background:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>📐 SAGcorrection</h1>
+    <div class="sub">BHA sag inclination correction — port of SurQC's sag solver</div>
+  </div>
+  <div class="row" style="margin:0">
+    <select id="unitSel" onchange="setUnit(this.value)">
+      <option value="metric">Metric (m, kg/m³)</option>
+      <option value="imperial">Imperial (ft, ppg)</option>
+    </select>
+    <input id="caseName" placeholder="Case name" style="width:160px">
+    <button onclick="saveCase()" id="btnSaveCase">💾 Save case</button>
+    <select id="caseList" style="width:220px"><option value="">— saved cases —</option></select>
+    <button onclick="loadCase()">Load</button>
+    <button onclick="deleteCase()" id="btnDelCase">Delete</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 1. SOURCE ---------------------------------------------------------->
+  <div class="panel">
+    <h2>1 · Connect to an MTX job (optional)</h2>
+    <div class="row">
+      <div class="field"><span>MTX Job ID</span><input id="mtxId" placeholder="e.g. 2423" style="width:120px"></div>
+      <button onclick="loadJob()" style="align-self:flex-end">Load job</button>
+      <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
+      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px"></select></div>
+      <button onclick="loadBhaFromTD()" style="align-self:flex-end">⬇ Use saved T&amp;D BHA</button>
+      <button onclick="loadSurveyFromJob()" style="align-self:flex-end">⬇ Use well survey</button>
+    </div>
+    <div id="jobStatus" class="muted"></div>
+  </div>
+
+  <!-- 2. BHA -------------------------------------------------------------->
+  <div class="panel">
+    <h2>2 · BHA (bit first)</h2>
+    <div class="note">Same table format as the Torque &amp; Drag modeler, plus <b>Stiffness factor</b> and <b>Material</b>.
+      Enter stabilisers as their own rows (SurQC treats a row as a stabiliser when OD &gt; 0.9 × bit OD and length &lt; 1.2 m).
+      Hole size = bit OD. Beam computes weight from OD/ID and steel 7700 kg/m³ (as SurQC); Kinetic uses the Wt column when entered (else OD/ID × material density).
+      Only ticked rows are analysed; loading from T&amp;D ticks rows that start within the BHA length limit.</div>
+    <div class="row">
+      <div class="field"><span>BHA length limit (<span class="uL">m</span>)</span><input type="number" id="bhaLimit" value="60" step="1" oninput="refreshBha();invalidate()"></div>
+      <button onclick="applyLimit()" style="align-self:flex-end">Apply limit</button>
+      <button onclick="addRow()" style="align-self:flex-end">+ Component</button>
+      <button onclick="exportBha()" style="align-self:flex-end">⬇ Export to Excel</button>
+      <label style="align-self:flex-end"><button onclick="document.getElementById('bhaFile').click()">⬆ Import from Excel</button>
+        <input type="file" id="bhaFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importBha(event)"></label>
+      <span id="bhaInfo" class="muted" style="align-self:flex-end"></span>
+    </div>
+    <div id="limitWarn" class="note warnbox" style="display:none">
+    </div>
+    <details style="margin:6px 0"><summary class="muted" style="cursor:pointer">Materials (used by Kinetic)</summary>
+      <div class="note">Steel = 7700 kg/m³, 210 GPa (SurQC's values, built in). Add other materials with density and Young's modulus
+        <b>from your vendor spec sheet</b> and note the source. Built-in reference materials (non-mag 15-15LC Mod, Monel K-500,
+        Aluminium 2014-T6, Ti-6Al-4V) use published typical datasheet values — see the Source column; for a specific vendor grade add your own. Kinetic also uses the row's Wt (kg/m, air weight incl. tool joints)
+        for the sag load when entered (blank = from OD/ID × density). <b>Beam ignores material and Wt</b> (same as SurQC).</div>
+      <div class="row">
+        <input id="matName" placeholder="Name (e.g. NMDC 15-15LC)" style="width:200px">
+        <input type="number" id="matRho" placeholder="Density kg/m³" style="width:120px">
+        <input type="number" id="matE" placeholder="E (GPa)" style="width:100px">
+        <input id="matNotes" placeholder="Source (spec sheet / rev)" style="width:220px">
+        <button onclick="addMaterial()">+ Add material</button>
+      </div>
+      <table style="width:auto"><thead><tr><th>Material</th><th>Density (kg/m³)</th><th>E (GPa)</th><th>Source</th><th>By</th><th></th></tr></thead>
+        <tbody id="matBody"></tbody></table>
+    </details>
+    <div class="scroll" style="max-height:320px">
+      <table>
+        <thead><tr><th>Use</th><th>Component</th><th>OD (mm)</th><th>ID (mm)</th><th>Length (<span class="uL">m</span>)</th>
+          <th>Wt (<span class="uW">kg/m</span>)</th><th>Stiffness factor</th><th>Material</th><th>From bit (<span class="uL">m</span>)</th><th></th></tr></thead>
+        <tbody id="bhaBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. SAG ANALYSIS ------------------------------------------------------->
+  <div class="panel">
+    <h2>3 · Sag analysis</h2>
+    <div class="row">
+      <div class="field"><span>Model</span><select id="modelSel" onchange="onModelChange()" style="width:120px">
+        <option value="Beam">Beam</option><option value="Kinetic">Kinetic</option></select></div>
+      <div class="field"><span>Sensor position from bit (<span class="uL">m</span>)</span><input type="number" id="sensor" value="15" step="0.01"></div>
+      <div class="field"><span>Mud weight (<span class="uM">kg/m³</span>)</span><input type="number" id="mud" value="1200" step="1"></div>
+      <div class="field"><span>Distance to bend (<span class="uL">m</span>)</span><input type="number" id="bendDist" value="0" step="0.01"></div>
+      <div class="field"><span>Bend angle (°, + = high side)</span><input type="number" id="bendDeg" value="0" step="0.01"></div>
+      <div class="field"><span>Gravity (m/s²)</span><input type="number" id="grav" value="9.80665" step="0.00001"></div>
+      <div class="field"><span>Max iterations / Inc</span><input type="number" id="maxIter" value="2000000" step="100000"></div>
+    </div>
+    <div class="note" id="modelNote"></div>
+    <!-- 2026-10-24: Kinetic options #6-#8 (planar). Hidden for Beam. -->
+    <div id="kinOpts" class="panel" style="display:none;background:var(--panel2);margin:6px 0">
+      <div class="row">
+        <label class="muted"><input type="checkbox" id="kCurv" onchange="invalidate()"> Hole curvature from survey dogleg</label>
+        <div class="field"><span>Bend orientation</span><select id="kBendTF" onchange="invalidate()">
+          <option value="hs">High side (fixed, as Beam)</option><option value="survey">Survey toolface</option></select></div>
+        <label class="muted"><input type="checkbox" id="kAxial" onchange="invalidate();refreshKinOpts()"> Axial load (WOB + BHA weight)</label>
+        <div class="field"><span>WOB source</span><select id="kWobSrc" onchange="invalidate();refreshKinOpts()">
+          <option value="one">One value per run</option><option value="dm">Drilling Mechanics WOB (job)</option></select></div>
+        <div class="field" id="kWobField"><span>WOB (<span class="uF">kN</span>)</span><input type="number" id="kWob" value="0" step="1" oninput="invalidate()"></div>
+        <div class="field"><span>Correction</span><select id="kCorr"><option value="inc">Inc only</option>
+          <option value="incaz" disabled>Inc + Az (needs 3-D model — not yet available)</option></select></div>
+      </div>
+      <div class="note warnbox" style="margin:0">Planar model (high-side plane): only the build/drop part of the dogleg (DLS × cos TF) and of the bend
+        (bend × cos TF) is used; right/left components are ignored, so no azimuth correction yet. Toolface and dogleg come from each station and the
+        one before it (Bourgoyne Eqs. 8.45–8.49); for rotated intervals the survey toolface is the hole's, not necessarily the motor's at survey time.
+        Surveys are usually taken off bottom — WOB is then ~0. Curvature, survey toolface or Drilling-Mechanics WOB switch to per-station solving.</div>
+    </div>
+    <div class="note">Per the SurQC manual: the bend is assumed to face high side — when dropping angle enter a <b>negative</b> bend angle.
+      Gravity defaults to standard gravity 9.80665 m/s² (SurQC's own default value is not in the available source).</div>
+    <div class="row">
+      <div class="field"><span>Plot inclination (°)</span><input type="number" id="profInc" value="45" step="1" min="0" max="180"></div>
+      <button class="primary" onclick="runProfile()" style="align-self:flex-end">Show plots</button>
+      <button class="primary" onclick="runTable()" style="align-self:flex-end" id="btnTable">Correction table</button>
+      <span style="align-self:flex-end"><span id="progress"><div></div></span> <span id="runStatus" class="muted"></span></span>
+    </div>
+    <div id="profStatus" class="muted"></div>
+    <div class="grid2">
+      <div><div id="pShear" class="plot"></div><div id="pMoment" class="plot"></div></div>
+      <div><div id="pSag" class="plot"></div><div id="pDrop" class="plot"></div></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <b style="font-size:12px">Correction table at sensor position</b>
+      <button onclick="exportTable()">⬇ Export table</button>
+    </div>
+    <div id="tableWarn"></div>
+    <div class="scroll" style="max-height:300px"><table>
+      <thead><tr><th>Inc (°)</th><th>Correction (°)</th><th>Status</th><th>Iterations</th><th>Residual out of hole (mm)</th></tr></thead>
+      <tbody id="corrBody"></tbody></table></div>
+  </div>
+
+  <!-- 4. SURVEY ---------------------------------------------------------->
+  <div class="panel">
+    <h2>4 · Sag-corrected survey</h2>
+    <div class="row">
+      <label><button onclick="document.getElementById('svyFile').click()">⬆ Import survey (MD, INC, AZ)</button>
+        <input type="file" id="svyFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importSurvey(event)"></label>
+      <button class="primary" onclick="applyCorrection()">Apply sag correction</button>
+      <button onclick="exportSurvey()">⬇ Export corrected survey</button>
+      <button onclick="saveVersion()" id="btnSaveVer" disabled title="Available when the survey came from an MTX job well">💾 Save as new version in job</button>
+      <span id="svyInfo" class="muted"></span>
+    </div>
+    <div id="saveVerPanel" class="note" style="display:none">
+      <b>Save as new version</b> — ISCWSA toolcode for the corrected well (used by the Anti-collision plots):
+      <div class="row" style="margin-top:6px">
+        <span class="muted">Original: <b id="svOrig"></b></span>
+        <select id="svCode" style="width:240px" onchange="checkToolcode()"></select>
+        <button class="primary" onclick="confirmSaveVersion()">Save</button>
+        <button onclick="$('saveVerPanel').style.display='none'">Cancel</button>
+      </div>
+      <div id="svWarn"></div>
+    </div>
+    <div class="note">Corrected Inc = measured Inc + correction interpolated from the table (SurQC). MD and Az are not changed by sag.
+      TVD/N/E recomputed by minimum curvature from the first station (tie-on); *TVD columns are relative to the first station. Stations whose inclination falls on a
+      non-converged table row are left uncorrected and flagged. "Save as new version" creates a new well
+      (<i>&lt;well&gt; SAG &lt;date&gt;</i>, source SAGcorrection) in the job — the original survey is never modified.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>MD</th><th>Inc meas (°)</th><th>Sag corr (°)</th><th>Inc corr (°)</th><th>Az (°)</th>
+        <th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th><th>DLS (°/30m)</th><th>Survey TF (°)</th><th>WOB used</th></tr></thead>
+      <tbody id="svyBody"></tbody></table></div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// State
+// ===================================================================
+var UNIT = 'metric';
+var FT = 0.3048;                 // m per ft (exact)
+var PPG = 119.826427;            // kg/m3 per lb/US gal (= 0.45359237 kg / 3.785411784e-3 m3)
+var KGM2LBFT = 0.671968975;      // lb/ft per kg/m (same constant as the T&D modeler)
+var USER_ROLE = <%- JSON.stringify(user && user.role || '') %>;
+var job = { noteId:null, title:'', mtxJobId:'', wells:[], td:null };
+var survey = [];                 // [{md, inc, az}] metres/deg
+var surveySource = null;         // {noteId, wellKey} when loaded from a job
+var table = null;                // {rows, full}
+var lastInputSig = null;         // inputs used for `table`
+var corrected = [];
+var worker = null;
+var beamWarnHtml = '';
+
+function $(id){ return document.getElementById(id); }
+function L(v){ return UNIT === 'metric' ? v : v / FT; }      // m -> display
+function Lm(v){ return UNIT === 'metric' ? v : v * FT; }     // display -> m
+function fmt(v, d){ return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }
+
+function setUnit(u){
+  if(u === UNIT) return;
+  var rows = readBha(true);
+  var sensor = Lm(+$('sensor').value), bend = Lm(+$('bendDist').value), lim = Lm(+$('bhaLimit').value);
+  var mud = UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG;
+  UNIT = u;
+  document.querySelectorAll('.uL').forEach(function(e){ e.textContent = u === 'metric' ? 'm' : 'ft'; });
+  document.querySelectorAll('.uW').forEach(function(e){ e.textContent = u === 'metric' ? 'kg/m' : 'lb/ft'; });
+  document.querySelectorAll('.uM').forEach(function(e){ e.textContent = u === 'metric' ? 'kg/m³' : 'ppg'; });
+  document.querySelectorAll('.uF').forEach(function(e){ e.textContent = u === 'metric' ? 'kN' : 'klbf'; });
+  $('kWob').value = +(u === 'metric' ? +$('kWob').value * 4.4482216152605 : +$('kWob').value / 4.4482216152605).toFixed(2);
+  $('sensor').value = +L(sensor).toFixed(3); $('bendDist').value = +L(bend).toFixed(3); $('bhaLimit').value = +L(lim).toFixed(1);
+  $('mud').value = u === 'metric' ? +mud.toFixed(1) : +(mud / PPG).toFixed(3);
+  $('bhaBody').innerHTML = '';
+  rows.forEach(function(r){ addRow(r); });
+  renderSurvey();
+}
+
+// ===================================================================
+// BHA table (stored internally in SI; displayed in current unit)
+// ===================================================================
+function addRow(r){
+  r = r || {use:true, name:'', od_mm:'', id_mm:'', len_m:'', wt_kgm:'', sf:1, material:'Steel'};
+  var tr = document.createElement('tr');
+  var len = r.len_m === '' ? '' : +L(+r.len_m).toFixed(3);
+  var wt = r.wt_kgm === '' ? '' : +(UNIT === 'metric' ? +r.wt_kgm : +r.wt_kgm * KGM2LBFT).toFixed(3);
+  tr.innerHTML =
+    '<td><input type="checkbox" ' + (r.use !== false ? 'checked' : '') + ' style="width:auto" onchange="refreshBha()"></td>' +
+    '<td><input value="' + String(r.name || '').replace(/"/g,'&quot;') + '" style="min-width:140px"></td>' +
+    '<td><input type="number" step="0.01" value="' + r.od_mm + '" oninput="refreshBha()"></td>' +
+    '<td><input type="number" step="0.01" value="' + r.id_mm + '" oninput="refreshBha()"></td>' +
+    '<td><input type="number" step="0.001" value="' + len + '" oninput="refreshBha()"></td>' +
+    '<td><input type="number" step="0.001" value="' + wt + '"></td>' +
+    '<td><input type="number" step="0.01" value="' + (r.sf == null ? 1 : r.sf) + '"></td>' +
+    '<td><select class="matSel" onchange="invalidate()">' + materialOptions(r.material) + '</select></td>' +
+    '<td class="fromBit">—</td>' +
+    '<td><button onclick="this.closest(\'tr\').remove();refreshBha()">✕</button></td>';
+  $('bhaBody').appendChild(tr);
+  refreshBha();
+}
+// readBha(all): rows in SI. all=false -> only ticked + valid rows.
+function readBha(all){
+  return Array.from(document.querySelectorAll('#bhaBody tr')).map(function(tr){
+    var ins = tr.querySelectorAll('input'), sel = tr.querySelector('select');
+    var lenD = ins[4].value === '' ? '' : Lm(+ins[4].value);
+    var wtD = ins[5].value === '' ? '' : (UNIT === 'metric' ? +ins[5].value : +ins[5].value / KGM2LBFT);
+    return { use: ins[0].checked, name: ins[1].value, od_mm: ins[2].value === '' ? '' : +ins[2].value,
+      id_mm: ins[3].value === '' ? '' : +ins[3].value, len_m: lenD, wt_kgm: wtD,
+      sf: ins[6].value === '' ? 1 : +ins[6].value, material: sel.value };
+  }).filter(function(r){ return all || (r.use && r.od_mm > 0 && r.len_m > 0 && r.id_mm >= 0 && r.id_mm < r.od_mm); });
+}
+function refreshBha(){
+  var cum = 0, used = 0, n = 0;
+  document.querySelectorAll('#bhaBody tr').forEach(function(tr){
+    var ins = tr.querySelectorAll('input');
+    tr.querySelector('.fromBit').textContent = fmt(L(cum), 2);
+    var len = Lm(+ins[4].value || 0);
+    if(ins[0].checked){ used += len; n++; }
+    cum += len;
+  });
+  var rows = readBha(false);
+  var bit = rows[0], stabs = 0;
+  if(bit) rows.slice(1).forEach(function(r){ if(r.od_mm > bit.od_mm * 0.9 && r.len_m < 1.2) stabs++; });
+  $('bhaInfo').textContent = n + ' rows used, length ' + fmt(L(used), 2) + (UNIT === 'metric' ? ' m' : ' ft') +
+    (bit ? ' · hole = bit OD ' + bit.od_mm + ' mm · ' + stabs + ' stabiliser row(s)' : '');
+  // 2026-10-24 (#1): warn when the ticked rows are longer than the BHA length
+  // limit. Analysing hundreds of metres of drill pipe made Beam (SurQC) never
+  // converge (e.g. 751 m -> -35.97 deg); the sensor correction depends only
+  // on the BHA up to where it rests on the wall (industry practice: ~30 m of
+  // assembly above the last stabilisation point, Innova SAG guide).
+  var lim = Lm(+$('bhaLimit').value || 0), u2 = UNIT === 'metric' ? ' m' : ' ft';
+  if(lim > 0 && used > lim + 1e-9){
+    $('limitWarn').style.display = '';
+    $('limitWarn').innerHTML = '⚠ Ticked rows total ' + fmt(L(used), 1) + u2 + ', longer than the BHA length limit (' + fmt(L(lim), 1) + u2 +
+      '). The analysis uses only the first ' + fmt(L(lim), 1) + u2 + ' (the row crossing the limit is cut there; rows beyond it are ignored). ' +
+      'Recommended: untick drill pipe / rows that run past the limit — Beam (SurQC) often cannot converge on long flexible pipe even when cut. ' +
+      '<button onclick="untickBeyondLimit()">Untick rows that extend past the limit</button>';
+  } else $('limitWarn').style.display = 'none';
+}
+// 2026-10-24 (#2): enforce the BHA length limit for BOTH models — only the
+// first `limit` metres of the ticked rows are sent to the solver; the row
+// that crosses the limit is shortened to end exactly at it.
+function limitRows(rows){
+  var lim = Lm(+$('bhaLimit').value || 0); if(!(lim > 0)) return rows;
+  var out = [], cum = 0;
+  for(var i = 0; i < rows.length && cum < lim - 1e-9; i++){
+    var r = Object.assign({}, rows[i]); r.len_m = Math.min(r.len_m, lim - cum); out.push(r); cum += r.len_m; }
+  return out;
+}
+// Button in the limit warning: untick every ticked row whose END is past the
+// limit (e.g. a 704 m drill-pipe row starting at 47 m), so only whole BHA
+// components inside the limit are analysed.
+function untickBeyondLimit(){
+  var lim = Lm(+$('bhaLimit').value || 0), cum = 0;
+  document.querySelectorAll('#bhaBody tr').forEach(function(tr){
+    var ins = tr.querySelectorAll('input'), len = Lm(+ins[4].value || 0);
+    if(ins[0].checked){ if(cum + len > lim + 1e-9) ins[0].checked = false; else cum += len; }
+  });
+  refreshBha(); invalidate();
+}
+function applyLimit(){
+  var lim = Lm(+$('bhaLimit').value || 0), cum = 0;
+  document.querySelectorAll('#bhaBody tr').forEach(function(tr){
+    var ins = tr.querySelectorAll('input');
+    ins[0].checked = cum < lim;
+    cum += Lm(+ins[4].value || 0);
+  });
+  refreshBha();
+}
+function exportBha(){
+  var rows = readBha(true);
+  if(!rows.length){ alert('BHA table is empty.'); return; }
+  var M = UNIT === 'metric';
+  var data = rows.map(function(r){
+    var o = {};
+    o['Component'] = r.name; o['OD (mm)'] = +r.od_mm || 0; o['ID (mm)'] = +r.id_mm || 0;
+    o[M ? 'Length (m)' : 'Length (ft)'] = +(+L(+r.len_m || 0)).toFixed(3);
+    o[M ? 'Wt (kg/m)' : 'Wt (lb/ft)'] = +(M ? +r.wt_kgm || 0 : (+r.wt_kgm || 0) * KGM2LBFT).toFixed(3);
+    o['Stiffness factor'] = r.sf; o['Material'] = r.material; o['Use'] = r.use ? 1 : 0;
+    return o;
+  });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'BHA');
+  XLSX.writeFile(wb, 'SAG_BHA.xlsx');
+}
+// Same loose header matching as the T&D modeler's importBHAExcel; extra
+// optional columns: Stiffness factor, Material, Use. Replaces the table.
+function importBha(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+      if(!rows.length){ alert('No rows found.'); return; }
+      var h = Object.keys(rows[0]);
+      function col(re){ return h.filter(function(x){ return re.test(x); })[0]; }
+      var cN = col(/component|name/i), cOD = col(/^od\b|od\s*\(/i), cID = col(/^id\b|id\s*\(/i),
+          cLen = col(/length|len\b/i), cWt = col(/wt|weight/i), cSF = col(/stiff/i), cMat = col(/material/i), cUse = col(/^use$/i);
+      if(!cN || !cOD || !cID || !cLen){ alert('Could not find Component, OD, ID, Length columns.\nFound: ' + h.join(', ')); return; }
+      var lenFt = /\(ft\)/i.test(cLen), wtLb = cWt && /lb\s*\/\s*ft/i.test(cWt);
+      $('bhaBody').innerHTML = '';
+      rows.forEach(function(r){
+        var len = (+r[cLen] || 0) * (lenFt ? FT : 1);
+        var wt = cWt ? (+r[cWt] || 0) / (wtLb ? KGM2LBFT : 1) : '';
+        addRow({ use: cUse ? !!+r[cUse] : true, name: String(r[cN] || ''), od_mm: +r[cOD] || 0, id_mm: +r[cID] || 0,
+          len_m: len, wt_kgm: wt, sf: cSF && r[cSF] !== '' ? +r[cSF] : 1, material: cMat ? String(r[cMat] || 'Steel') : 'Steel' });
+      });
+      invalidate();
+    }catch(err){ alert('Import failed: ' + err.message); }
+    evt.target.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ===================================================================
+// Materials (#5)
+// ===================================================================
+var STEEL = {name:'Steel', density:7700, youngs:210e9, notes:'SurQC built-in', builtIn:true};
+// Built-in reference materials (2026-10-24, John's request). Values quoted
+// verbatim from the published datasheet named in `notes` (typical values;
+// those sheets state "not for design"). Conversions only: lb/in3 x 27679.9,
+// ksi x 6.894757 MPa. Vendor-specific grades should still be added by the
+// user from their own spec sheet.
+var BUILTIN = [STEEL,
+  {name:'NMDC 15-15LC Mod (non-mag)', density:7760, youngs:191.0e9, builtIn:true,
+   notes:'CarTech 15-15LC Modified datasheet: SG 7.76 (0.2800 lb/in³), E 27.7×10³ ksi'},
+  {name:'Monel K-500', density:8440, youngs:179e9, builtIn:true,
+   notes:'Ulbrich Monel K500 (UNS N05500) datasheet: 8.44 g/cm³, E 179×10³ MPa in tension'},
+  {name:'Aluminium 2014-T6', density:2800, youngs:72.4e9, builtIn:true,
+   notes:'ASM/MatWeb (Aluminum Association typical) 2014-T6: 2.8 g/cc, E 72.4 GPa in tension'},
+  {name:'Titanium Ti-6Al-4V (annealed)', density:4430, youngs:113.8e9, builtIn:true,
+   notes:'ASM/MatWeb Ti-6Al-4V Grade 5 annealed: 4.43 g/cc, E 113.8 GPa'}];
+var MATERIALS = BUILTIN.slice();
+function materialByName(n){ return MATERIALS.find(function(m){ return m.name === n; }) || STEEL; }
+function materialOptions(sel){ return MATERIALS.map(function(m){ return '<option' + (m.name === sel ? ' selected' : '') + '>' + m.name + '</option>'; }).join('') +
+  (sel && !MATERIALS.some(function(m){ return m.name === sel; }) ? '<option selected>' + sel + '</option>' : ''); }
+async function refreshMaterials(){
+  try{
+    var d = await (await fetch('/notes/sagCorrection/materials')).json(); if(!d.ok) return;
+    MATERIALS = BUILTIN.concat(d.materials);
+    $('matBody').innerHTML = MATERIALS.map(function(m){
+      var canDel = !m.builtIn && USER_ROLE !== 'viewer' && (USER_ROLE === 'admin' || m.createdByUserId === d.currentUserId);
+      return '<tr><td>' + m.name + '</td><td>' + m.density + '</td><td>' + (m.youngs / 1e9) + '</td><td>' + (m.notes || '') + '</td><td>' + (m.createdByName || '—') + '</td><td>' +
+        (canDel ? '<button onclick="deleteMaterial(\'' + m._id + '\')">✕</button>' : '') + '</td></tr>'; }).join('');
+    document.querySelectorAll('#bhaBody .matSel').forEach(function(s){ var v = s.value; s.innerHTML = materialOptions(v); });
+  }catch(e){}
+}
+async function addMaterial(){
+  var body = {name:$('matName').value, density:+$('matRho').value, youngs:+$('matE').value * 1e9, notes:$('matNotes').value};
+  var d = await (await fetch('/notes/sagCorrection/material', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
+  if(!d.ok){ alert(d.error); return; }
+  ['matName','matRho','matE','matNotes'].forEach(function(id){ $(id).value = ''; }); refreshMaterials();
+}
+async function deleteMaterial(id){
+  if(!confirm('Delete this material? Rows using it fall back to Steel.')) return;
+  var d = await (await fetch('/notes/sagCorrection/material/' + id, {method:'DELETE'})).json(); if(!d.ok){ alert(d.error); return; } refreshMaterials();
+}
+
+// ===================================================================
+// Job connection (reuses the T&D modeler's lookup + saved BHA)
+// ===================================================================
+async function loadJob(){
+  var id = $('mtxId').value.trim(); if(!id){ $('jobStatus').textContent = 'Enter a Job ID first.'; return; }
+  $('jobStatus').textContent = 'Loading…';
+  try{
+    var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id));
+    var d = await r.json();
+    if(!r.ok) throw new Error(d.error || r.status);
+    job = { noteId: d.noteId, title: d.title, mtxJobId: id, wells: d.subjectWells || [], td: null };
+    var r2 = await fetch('/notes/tdModel/' + d.noteId); job.td = await r2.json();
+    $('wellSel').innerHTML = job.wells.map(function(w, i){ return '<option value="' + i + '">' + w.wellKey + '</option>'; }).join('');
+    onWellChange();
+    $('jobStatus').innerHTML = '<span class="ok">✔ ' + d.title + '</span> · ' + job.wells.length + ' subject well(s)' +
+      (job.td ? '' : ' · no saved T&D model in this job') + (d.duplicateWarning ? ' <span class="warn">' + d.duplicateWarning + '</span>' : '');
+  }catch(err){ $('jobStatus').innerHTML = '<span class="bad">' + err.message + '</span>'; }
+}
+function onWellChange(){
+  var w = job.wells[+$('wellSel').value]; var td = job.td;
+  var opts = [];
+  if(td && td.scenarios && w){
+    Object.keys(td.scenarios).forEach(function(s){
+      var rb = td.scenarios[s].resultsByWell || {};
+      if(rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length) opts.push(s);
+    });
+  }
+  $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + s + '</option>'; }).join('')
+    : '<option value="">(no saved BHA for this well)</option>';
+}
+function loadBhaFromTD(){
+  var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
+  if(!w || !s){ alert('Load a job and pick a well with a saved T&D BHA first.'); return; }
+  var bha = job.td.scenarios[s].resultsByWell[w.wellKey].bha;
+  // T&D getBHA(): {name, od_m, id_m, len (m), wt (kg/m)}, bit first.
+  $('bhaBody').innerHTML = '';
+  bha.forEach(function(c){ addRow({ use:true, name:c.name, od_mm:+(c.od_m * 1000).toFixed(2), id_mm:+(c.id_m * 1000).toFixed(2),
+    len_m:+c.len, wt_kgm:c.wt == null ? '' : +c.wt, sf:1, material:'Steel' }); });
+  applyLimit(); invalidate();
+  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + s + '" for ' + w.wellKey + ' (' + bha.length + ' components; rows beyond the BHA length limit unticked).';
+}
+function loadSurveyFromJob(){
+  var w = job.wells[+$('wellSel').value];
+  if(!w){ alert('Load a job first.'); return; }
+  survey = w.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az}; });
+  surveySource = { noteId: job.noteId, wellKey: w.wellKey };
+  $('svyInfo').textContent = survey.length + ' stations from ' + w.wellKey;
+  corrected = []; renderSurvey(); $('btnSaveVer').disabled = true;
+}
+
+// ===================================================================
+// Engine calls (Web Worker)
+// ===================================================================
+function engineInput(){
+  var rows = limitRows(readBha(false));
+  if(rows.length < 2) throw new Error('The BHA needs at least a bit and one more component.');
+  var totLen = rows.reduce(function(a, r){ return a + r.len_m; }, 0);
+  if(Lm(+$('sensor').value) >= totLen) throw new Error('The sensor position is beyond the analysed BHA length (' + fmt(L(totLen), 2) + (UNIT === 'metric' ? ' m' : ' ft') + '). Increase the BHA length limit or tick more rows.');
+  return {
+    // rho / E / wt are used by Kinetic only (#5); Beam ignores them (SurQC = steel, OD/ID weight).
+    subComponents: rows.map(function(r){ var m = materialByName(r.material);
+      return {name:r.name, od:r.od_mm / 1000, id:r.id_mm / 1000, len:r.len_m, sf:r.sf,
+              rho:m.density, E:m.youngs, wt:(r.wt_kgm === '' || !(+r.wt_kgm > 0)) ? 0 : +r.wt_kgm}; }),
+    sensorPosition: Lm(+$('sensor').value),
+    mudDensity: UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG,
+    gravity: +$('grav').value,
+    bendDistance: Lm(+$('bendDist').value),
+    bendAngleDeg: +$('bendDeg').value,
+    // Kinetic-only options (#7 run-constant part; per-station values are set by the worker)
+    axialLoad: $('modelSel').value === 'Kinetic' && $('kAxial').checked,
+    wob: ($('modelSel').value === 'Kinetic' && $('kAxial').checked && $('kWobSrc').value === 'one') ? wobUnitToN(+$('kWob').value) : 0,
+  };
+}
+function getWorker(){
+  if(worker) worker.terminate();
+  worker = new Worker('/js/sagWorker.js');
+  return worker;
+}
+function invalidate(){ if(table){ $('tableWarn').innerHTML = '<div class="note warnbox">Inputs changed — press <b>Correction table</b> to update.</div>'; } }
+['sensor','mud','bendDist','bendDeg','grav'].forEach(function(id){ document.addEventListener('DOMContentLoaded', function(){ $(id).addEventListener('input', invalidate); }); });
+document.addEventListener('input', function(e){ if(e.target.closest && e.target.closest('#bhaBody')) invalidate(); });
+
+function runProfile(){
+  var inp; try{ inp = engineInput(); }catch(e){ alert(e.message); return; }
+  var inc = +$('profInc').value;
+  if(inc > 90) inc = 180 - inc;   // SurQC mirrors 90-180 onto 0-90
+  $('profStatus').textContent = 'Solving at ' + inc + '°…';
+  var w = getWorker();
+  w.onmessage = function(ev){
+    var m = ev.data;
+    if(m.type === 'error'){ $('profStatus').innerHTML = '<span class="bad">' + m.error + '</span>'; return; }
+    var r = m.res;
+    $('profStatus').innerHTML = '<b>' + $('modelSel').value + '</b> · ' + (r.status === 'ok' ? '<span class="ok">Converged</span>' :
+      '<span class="bad">Did not converge</span> (stopped at ' + r.iterations + ' iterations — SurQC would hang here)' +
+        ($('modelSel').value === 'Beam' ? ' — Beam (SurQC) converges slowly with large motor bends (a 2–2.5° bend needed ~0.5 million iterations, ~9 s per inclination, in tests): raise "Max iterations / Inc". ' +
+          'It cannot solve a stabiliser directly above the bit or long flexible pipe at all — untick drill-pipe rows or use Kinetic.' : '')) +
+      ' · sag at sensor = ' + fmt(r.sensorSag, 3) + '° · residual out of hole ' + fmt(r.residualOutOfHole * 1000, 2) + ' mm';
+    var x = r.x.map(L), xl = 'Distance from bit (' + (UNIT === 'metric' ? 'm' : 'ft') + ')';
+    var lay = function(t, y){ return { title:{text:t, font:{size:12}}, margin:{l:60,r:10,t:28,b:36}, paper_bgcolor:'#171b21', plot_bgcolor:'#171b21',
+      font:{color:'#e6e9ef', size:10}, xaxis:{title:xl, gridcolor:'#2a313c'}, yaxis:{title:y, gridcolor:'#2a313c'},
+      shapes:[{type:'line', x0:L(inp.sensorPosition), x1:L(inp.sensorPosition), yref:'paper', y0:0, y1:1, line:{color:'#f5a623', dash:'dot', width:1}}] }; };
+    var cfg = {displaylogo:false, responsive:true};
+    Plotly.newPlot('pShear', [{x:x, y:r.shear, mode:'lines', line:{color:'#4da3ff'}}], lay('Shear Force @ ' + inc + '°', 'N'), cfg);
+    Plotly.newPlot('pMoment', [{x:x, y:r.moment, mode:'lines', line:{color:'#4da3ff'}}], lay('Bending Moment', 'N·m'), cfg);
+    Plotly.newPlot('pSag', [{x:x, y:r.sag, mode:'lines', line:{color:'#4da3ff'}}], lay('Sag (dashed = sensor)', '°'), cfg);
+    Plotly.newPlot('pDrop', [{x:x, y:r.drop.map(function(v){ return v * 1000; }), mode:'lines', line:{color:'#4da3ff'}}], lay('Drop (negative = below centreline)', 'mm'), cfg);
+  };
+  w.postMessage({type:'profile', model:$('modelSel').value, input:inp, inc:inc, opts:{maxIterations:+$('maxIter').value}});
+}
+
+function runTable(){
+  var inp; try{ inp = engineInput(); }catch(e){ alert(e.message); return; }
+  $('corrBody').innerHTML = ''; $('tableWarn').innerHTML = ''; $('btnTable').disabled = true; beamWarnHtml = '';
+  if($('modelSel').value === 'Beam' && inp.subComponents.some(function(c){ return c.rho !== 7700 || c.E !== 210e9; }))
+    beamWarnHtml = $('tableWarn').innerHTML = '<div class="note warnbox">Beam (SurQC) uses steel for every row — non-steel materials are ignored. Use Kinetic to apply them.</div>';
+  var t0 = Date.now(), w = getWorker();
+  w.onmessage = function(ev){
+    var m = ev.data;
+    if(m.type === 'error'){ $('runStatus').innerHTML = '<span class="bad">' + m.error + '</span>'; $('btnTable').disabled = false; return; }
+    if(m.type === 'row'){
+      $('progress').firstElementChild.style.width = (100 * m.done / m.total) + '%';
+      $('runStatus').textContent = m.done + ' / ' + m.total + ' inclinations';
+      var r = m.row, ok = r.status === 'ok';
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + r.inc.toFixed(1) + '</td><td>' + (ok ? fmt(r.corr, 3) : '<span class="bad">—</span>') + '</td><td class="' + (ok ? 'ok' : 'bad') + '">' +
+        (ok ? 'converged' : (r.status === 'capped' ? 'did not converge' : r.status)) + '</td><td>' + r.iterations + '</td><td>' + fmt(r.residualOutOfHole * 1000, 2) + '</td>';
+      $('corrBody').appendChild(tr);
+    }
+    if(m.type === 'table'){
+      table = m.table; lastInputSig = JSON.stringify(inp) + '|' + m.table.model; $('btnTable').disabled = false;
+      var bad = table.rows.filter(function(r){ return r.status !== 'ok'; });
+      $('runStatus').textContent = table.model + ' · done in ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s';
+      $('tableWarn').innerHTML = beamWarnHtml + (bad.length ? '<div class="note warnbox">' + bad.length + ' inclination(s) did not converge (' +
+        bad.map(function(r){ return r.inc; }).join(', ') + '°). These rows are not used.' + (table.model === 'Beam' ? ' Known SurQC limitation: a stabiliser directly above the bit ' +
+        'makes the solver oscillate (this is what freezes SurQC) — try the Kinetic model.' : '') + '</div>' : '');
+      if(survey.length) applyCorrection();
+    }
+  };
+  w.postMessage({type:'table', model:$('modelSel').value, input:inp, opts:{maxIterations:+$('maxIter').value}});
+}
+function exportTable(){
+  if(!table){ alert('Run the correction table first.'); return; }
+  var data = table.rows.map(function(r){ return {'Model': table.model, 'Inc (deg)': r.inc, 'Correction (deg)': r.corr, 'Status': r.status, 'Iterations': r.iterations, 'Residual (mm)': +(r.residualOutOfHole * 1000).toFixed(3)}; });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Sag table');
+  XLSX.writeFile(wb, 'SAG_correction_table_' + table.model + '.xlsx');
+}
+
+// ===================================================================
+// Survey
+// ===================================================================
+function importSurvey(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+      // First row whose 3 first cells are numbers = data start; header text decides ft vs m.
+      var hdr = rows.find(function(r){ return r.some(function(c){ return /md|depth/i.test(String(c)); }); }) || [];
+      var mdFt = hdr.some(function(c){ return /md|depth/i.test(String(c)) && /ft|feet/i.test(String(c)); });
+      survey = rows.filter(function(r){ return r.length >= 3 && [0,1,2].every(function(i){ return r[i] !== '' && isFinite(+r[i]); }); })
+        .map(function(r){ return {md:+r[0] * (mdFt ? FT : 1), inc:+r[1], az:+r[2]}; });
+      if(!survey.length) throw new Error('No numeric MD / INC / AZ rows found (columns A, B, C).');
+      surveySource = null; $('btnSaveVer').disabled = true;
+      $('svyInfo').textContent = survey.length + ' stations imported from ' + f.name + (mdFt ? ' (MD in ft, converted)' : ' (MD assumed m)');
+      corrected = []; renderSurvey();
+    }catch(err){ alert('Import failed: ' + err.message); }
+    evt.target.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+var stationInfo = null;   // per-station geometry/WOB used (for display/export)
+async function applyCorrection(){
+  if(!survey.length){ alert('Load or import a survey first.'); return; }
+  if(perStationMode()) return applyPerStation();
+  stationInfo = null;
+  if(!table){ alert('Run the correction table first.'); return; }
+  try{ if(JSON.stringify(engineInput()) + '|' + $('modelSel').value !== lastInputSig){ if(!confirm('Inputs changed since the table was calculated. Apply the old table anyway?')) return; } }catch(e){}
+  corrected = SagModel.correctSurvey(survey, table.full, {tvd:0, n:0, e:0});
+  renderSurvey();
+  var skipped = corrected.filter(function(s){ return s.corr == null; }).length;
+  $('btnSaveVer').disabled = !surveySource || USER_ROLE === 'viewer';
+  $('svyInfo').innerHTML = corrected.length + ' stations corrected' + (skipped ? ' · <span class="warn">' + skipped + ' left uncorrected (non-converged table rows)</span>' : '') +
+    ' · ΔTVD at TD = ' + fmt(L(corrected[corrected.length - 1].dTvd), 3) + (UNIT === 'metric' ? ' m' : ' ft');
+}
+// Drilling Mechanics WOB (saved Pason "WOB vs Measured Depth" plot of the
+// connected job; Average curve, kDaN -> N x 10000). Read at bit depth =
+// station MD + sensor offset (the survey MD is the sensor's depth).
+async function loadDmWob(){
+  if(!job.noteId) throw new Error('Connect an MTX job (section 1) to use Drilling Mechanics WOB.');
+  var doc = await (await fetch('/notes/pasonPlots/' + job.noteId)).json();
+  var w = doc && doc.plots && doc.plots.wob;
+  var pts = (w && w.rows || []).filter(function(r){ return r[1] !== '' && r[1] != null && isFinite(+r[0]) && isFinite(+r[1]); })
+    .map(function(r){ return [+r[0], +r[1] * 10000]; }).sort(function(a, b){ return a[0] - b[0]; });
+  if(!pts.length) throw new Error('No WOB vs Measured Depth plot saved in Drilling Mechanics for this job.');
+  return function(md){ if(md <= pts[0][0]) return pts[0][1]; if(md >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+    for(var i = 1; i < pts.length; i++) if(pts[i][0] >= md){ var a = pts[i - 1], b = pts[i]; return a[1] + (md - a[0]) * (b[1] - a[1]) / ((b[0] - a[0]) || 1); } };
+}
+async function applyPerStation(){
+  var inp; try{ inp = engineInput(); }catch(e){ alert(e.message); return; }
+  var wobAt = null;
+  if($('kAxial').checked && $('kWobSrc').value === 'dm'){ try{ wobAt = await loadDmWob(); }catch(e){ alert(e.message); return; } }
+  var geo = SagKinetic.stationGeometry(survey), useC = $('kCurv').checked, useTF = $('kBendTF').value === 'survey';
+  var stations = survey.map(function(s, i){ var gm = geo[i];
+    return { md: s.md, inc: s.inc, curvatureV: useC ? gm.kappa * Math.cos(gm.tf * Math.PI / 180) : 0,
+             bendTFDeg: useTF ? gm.tf : 0, wob: inp.axialLoad ? (wobAt ? wobAt(s.md + inp.sensorPosition) : inp.wob) : 0 }; });
+  stationInfo = stations.map(function(st, i){ return { dls30: geo[i].dls30, tf: geo[i].tf, tfDefined: geo[i].tfDefined, wob: st.wob }; });
+  $('svyInfo').textContent = 'Solving ' + stations.length + ' stations…';
+  var t0 = Date.now(), w = getWorker();
+  w.onmessage = function(ev){ var m = ev.data;
+    if(m.type === 'error'){ $('svyInfo').innerHTML = '<span class="bad">' + m.error + '</span>'; return; }
+    if(m.type === 'stationProgress'){ $('svyInfo').textContent = 'Solving stations ' + m.done + ' / ' + m.total + '…'; return; }
+    if(m.type === 'stations'){
+      corrected = SagModel.correctSurveyPerStation(survey, m.results.map(function(r){ return r.corr; }), {tvd:0, n:0, e:0});
+      corrected.forEach(function(s, i){ s.status = m.results[i].status; });
+      table = table || {model:'Kinetic', rows:[], full:[]}; table.model = 'Kinetic';
+      renderSurvey();
+      var bad = m.results.filter(function(r){ return r.status !== 'ok'; }).length;
+      // Dawson & Paslay (JPT 1984) critical-load check: the planar model can't show buckling, so warn.
+      var dpBad = m.results.filter(function(r){ return r.dp != null && r.dp < 1; }).length;
+      $('btnSaveVer').disabled = !surveySource || USER_ROLE === 'viewer';
+      $('svyInfo').innerHTML = 'Kinetic per-station · ' + corrected.length + ' stations in ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s' +
+        (bad ? ' · <span class="warn">' + bad + ' not solved (buckled / not converged) — left uncorrected</span>' : '') +
+        (dpBad ? ' · <span class="warn">' + dpBad + ' station(s) with compression above the Dawson–Paslay critical buckling load — treat those corrections with caution</span>' : '') +
+        ' · ΔTVD at TD = ' + fmt(L(corrected[corrected.length - 1].dTvd), 3) + (UNIT === 'metric' ? ' m' : ' ft');
+    } };
+  w.postMessage({type:'stations', input:inp, stations:stations, opts:{maxIterations:+$('maxIter').value}});
+}
+function renderSurvey(){
+  var src = corrected.length ? corrected : survey.map(function(s){ return {md:s.md, incRaw:s.inc, az:s.az}; });
+  $('svyBody').innerHTML = src.map(function(s, idx){
+    var c = corrected.length, si = (c && stationInfo) ? stationInfo[idx] : null;
+    return '<tr><td>' + fmt(L(s.md), 2) + '</td><td>' + fmt(s.incRaw, 3) + '</td><td' + (c && s.corr == null ? ' class="warn"' : '') + '>' +
+      (c ? (s.corr == null ? 'n/c' : fmt(s.corr, 3)) : '') + '</td><td>' + (c ? fmt(s.inc, 3) : '') + '</td><td>' + fmt(s.az, 3) + '</td>' +
+      '<td>' + (c ? fmt(L(s.tvdRaw), 2) : '') + '</td><td>' + (c ? fmt(L(s.tvd), 2) : '') + '</td><td>' + (c ? fmt(L(s.dTvd), 3) : '') + '</td>' +
+      '<td>' + (c ? fmt(L(s.dN), 3) : '') + '</td><td>' + (c ? fmt(L(s.dE), 3) : '') + '</td><td>' + (c ? fmt(s.dls, 2) : '') + '</td>' +
+      '<td>' + (si ? (si.tfDefined ? fmt(si.tf, 1) : '—') : '') + '</td><td>' + (si && $('kAxial').checked ? fmt(UNIT === 'metric' ? si.wob / 1000 : si.wob / 4448.2216152605, 1) + (UNIT === 'metric' ? ' kN' : ' klbf') : '') + '</td></tr>';
+  }).join('');
+}
+function exportSurvey(){
+  if(!corrected.length){ alert('Apply the sag correction first.'); return; }
+  var u = UNIT === 'metric' ? 'm' : 'ft';
+  var data = corrected.map(function(s){ var o = {};
+    o['MD (' + u + ')'] = +L(s.md).toFixed(3); o['Inc measured (deg)'] = s.incRaw; o['Sag correction (deg)'] = s.corr;
+    o['Inc corrected (deg)'] = +s.inc.toFixed(4); o['Az (deg)'] = s.az;
+    o['TVD measured (' + u + ')'] = +L(s.tvdRaw).toFixed(3); o['TVD corrected (' + u + ')'] = +L(s.tvd).toFixed(3);
+    o['dTVD (' + u + ')'] = +L(s.dTvd).toFixed(4); o['dN (' + u + ')'] = +L(s.dN).toFixed(4); o['dE (' + u + ')'] = +L(s.dE).toFixed(4);
+    o['DLS (deg/30m)'] = +s.dls.toFixed(3);
+    if(stationInfo){ var si = stationInfo[corrected.indexOf(s)]; o['Survey DLS used (deg/30m)'] = +si.dls30.toFixed(3); o['Survey TF used (deg)'] = si.tfDefined ? +si.tf.toFixed(2) : '';
+      o['WOB used (N)'] = Math.round(si.wob); o['Status'] = s.status || ''; }
+    return o; });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Sag corrected');
+  if(table) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(table.rows.map(function(r){ return {'Model':table.model, 'Inc (deg)':r.inc, 'Correction (deg)':r.corr, 'Status':r.status}; })), 'Sag table');
+  XLSX.writeFile(wb, 'SAG_corrected_survey' + (surveySource ? '_' + surveySource.wellKey.replace(/[^a-z0-9\-_ ]/gi, '_') : '') + '.xlsx');
+}
+// Improvement #10 (2026-10-24): toolcode chosen at save time ("ask each
+// time"). Suggestion = the toolcode with the same tokens plus "SAG"
+// (e.g. MWD+SRGM -> MWD+SRGM+SAG, MWD+IFR1+MS_Fl -> MWD+IFR1+SAG+MS_Fl).
+// The suggestion's term list is compared with the original's excluding the
+// sag terms (SAG, SAGE): any other difference is shown as a warning — this
+// catches MWD+HRGM, whose XYM3/XYM4/SAG terms were added from Compass's
+// .ipm while MWD+HRGM+SAG was not updated (pending John's +SAG .ipm).
+var TOOLCODES = null, svOrigCode = '';
+var SAG_TERMS = ['SAG', 'SAGE'];
+function tcTokens(code){ var fl = /_Fl$/.test(code); return {fl: fl, set: code.replace(/_Fl$/, '').split('+').sort().join('+')}; }
+function sagCounterpart(code){
+  if(!code || /(^|\+)SAG(\+|_|$)/.test(code)) return null;
+  var t = tcTokens(code), want = code.replace(/_Fl$/, '').split('+').concat(['SAG']).sort().join('+');
+  return Object.keys(TOOLCODES).find(function(k){ var u = tcTokens(k); return u.fl === t.fl && u.set === want; }) || null;
+}
+function nonSagDiff(a, b){
+  var A = {}, B = {}, out = [];
+  (TOOLCODES[a] || []).forEach(function(t){ A[t.code] = JSON.stringify(t); });
+  (TOOLCODES[b] || []).forEach(function(t){ B[t.code] = JSON.stringify(t); });
+  Object.keys(Object.assign({}, A, B)).forEach(function(k){
+    if(SAG_TERMS.indexOf(k) >= 0) return;
+    if(!(k in B)) out.push(k + ' missing in ' + b); else if(!(k in A)) out.push(k + ' only in ' + b); else if(A[k] !== B[k]) out.push(k + ' differs');
+  });
+  return out;
+}
+function sagDiffText(a, b){
+  var A = {}, B = {}, out = [];
+  (TOOLCODES[a] || []).forEach(function(t){ if(SAG_TERMS.indexOf(t.code) >= 0) A[t.code] = t.magnitude; });
+  (TOOLCODES[b] || []).forEach(function(t){ if(SAG_TERMS.indexOf(t.code) >= 0) B[t.code] = t.magnitude; });
+  SAG_TERMS.forEach(function(k){ if(A[k] !== B[k]) out.push(k + ' ' + (A[k] == null ? '—' : A[k] + '°') + ' → ' + (B[k] == null ? '—' : B[k] + '°')); });
+  return out.join(', ');
+}
+function checkToolcode(){
+  var code = $('svCode').value, base = svOrigCode || 'MWD+SRGM', html = '';
+  if(code !== base){
+    var d = nonSagDiff(base, code), sd = sagDiffText(base, code);
+    if(sd) html += '<div class="muted">Sag terms: ' + sd + '</div>';
+    if(d.length) html += '<div class="warn">⚠ ' + code + ' also differs from ' + base + ' in non-sag terms: ' + d.join(', ') +
+      '. Saving with it will change the AC ellipses beyond the sag correction.</div>';
+  }
+  if(/HRGM/.test(code) && /SAG/.test(code))
+    html += '<div class="warn">⚠ ' + code + ' has not been checked against a Compass .ipm (only MWD+HRGM has; HRGM sag-corrected .ipm pending).</div>';
+  $('svWarn').innerHTML = html;
+}
+async function saveVersion(){
+  if(!surveySource || !corrected.length) return;
+  try{
+    if(!TOOLCODES) TOOLCODES = await (await fetch('/data/iscwsaToolcodes.json')).json();
+    var lst = await (await fetch('/notes/wellboreTrajectory/list/' + surveySource.noteId)).json();
+    var t = (lst.trajectories || []).find(function(x){ return x.wellName === surveySource.wellKey && x.source !== 'SAGcorrection'; });
+    svOrigCode = t ? (t.toolcode || '') : '';
+  }catch(err){ alert('Could not load toolcodes: ' + err.message); return; }
+  var base = svOrigCode || 'MWD+SRGM';
+  var sug = sagCounterpart(base);
+  // suggestion only if it is clean (no non-sag differences); otherwise keep original
+  var pre = (sug && !nonSagDiff(base, sug).length) ? sug : base;
+  $('svOrig').textContent = (svOrigCode || '(default MWD+SRGM)') + (sug && pre !== sug ? ' — suggested ' + sug + ' NOT preselected (non-sag differences)' : '');
+  $('svCode').innerHTML = Object.keys(TOOLCODES).map(function(k){ return '<option' + (k === pre ? ' selected' : '') + '>' + k + '</option>'; }).join('');
+  $('saveVerPanel').style.display = '';
+  checkToolcode();
+}
+async function confirmSaveVersion(){
+  try{
+    var r = await fetch('/notes/sagCorrection/saveVersion', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({noteId: surveySource.noteId, wellKey: surveySource.wellKey, model: table ? table.model : 'Beam', toolcode: $('svCode').value,
+        corrections: corrected.map(function(s){ return {md:s.md, inc:s.inc}; })})});
+    var d = await r.json(); if(!d.ok) throw new Error(d.error);
+    $('saveVerPanel').style.display = 'none';
+    alert('Saved as "' + d.wellName + '" with toolcode ' + d.toolcode + '. The original survey was not changed.');
+  }catch(err){ alert('Save failed: ' + err.message); }
+}
+
+// Model selector (2026-10-24). Beam = SurQC port (default, matches SurQC);
+// Kinetic = same physics, exact FE + active-set wall contact (sagKinetic.js).
+var MODEL_NOTES = {
+  Beam: '<b>Beam</b> — line-by-line port of SurQC (2016 source), matches SurQC to round-off. Known SurQC limits kept: ' +
+    'no convergence with a stabiliser directly above the bit; sensor read 0.1–0.2 m above the entered position; Inc 0° = 0; ' +
+    'BHA may sit up to 2.5 mm inside the hole wall (contact tolerance).',
+  Kinetic: '<b>Kinetic</b> — same physics as Beam (beam theory, buoyed weight, bit centred, top on low side), solved exactly: ' +
+    'finite elements + exact wall contact (converges with near-bit stabilisers), slope read at the exact sensor position, bend at its exact ' +
+    'distance and solved at Inc 0°. Differs from Beam by up to a few hundredths of a degree, mainly because Beam lets the BHA sit inside the wall.'
+};
+function onModelChange(){ $('modelNote').innerHTML = MODEL_NOTES[$('modelSel').value]; refreshKinOpts(); invalidate(); }
+function refreshKinOpts(){
+  var kin = $('modelSel').value === 'Kinetic';
+  $('kinOpts').style.display = kin ? '' : 'none';
+  $('kWobSrc').disabled = !$('kAxial').checked;
+  $('kWobField').style.display = ($('kAxial').checked && $('kWobSrc').value === 'one') ? '' : 'none';
+}
+// Per-station solving is needed when an option varies along the survey.
+function perStationMode(){
+  return $('modelSel').value === 'Kinetic' && ($('kCurv').checked || $('kBendTF').value === 'survey' || ($('kAxial').checked && $('kWobSrc').value === 'dm'));
+}
+function wobUnitToN(v){ return UNIT === 'metric' ? v * 1000 : v * 4448.2216152605; }   // kN or klbf -> N (1 lbf = 4.4482216152605 N, exact)
+document.addEventListener('DOMContentLoaded', function(){ $('modelNote').innerHTML = MODEL_NOTES.Beam; });
+
+// ===================================================================
+// Saved cases (same role matrix as 6-axis Data)
+// ===================================================================
+function caseInput(){
+  return { unit: UNIT, bhaRows: readBha(true), sensor_m: Lm(+$('sensor').value),
+    mud_kgm3: UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG, bendDist_m: Lm(+$('bendDist').value),
+    bendDeg: +$('bendDeg').value, grav: +$('grav').value, maxIter: +$('maxIter').value, bhaLimit_m: Lm(+$('bhaLimit').value),
+    profInc: +$('profInc').value, model: $('modelSel').value,
+    kinetic: { curv: $('kCurv').checked, bendTF: $('kBendTF').value, axial: $('kAxial').checked, wobSrc: $('kWobSrc').value, wob_N: wobUnitToN(+$('kWob').value) },
+    source: { mtxJobId: job.mtxJobId, surveySource: surveySource } };
+}
+async function refreshCases(){
+  try{
+    var d = await (await fetch('/notes/sagCorrection/cases')).json();
+    window._cases = d;
+    $('caseList').innerHTML = '<option value="">— saved cases —</option>' + d.cases.map(function(c){
+      return '<option value="' + c._id + '">' + c.name + ' · ' + c.createdByName + ' · ' + new Date(c.createdAt).toLocaleDateString() + '</option>'; }).join('');
+  }catch(e){}
+}
+async function saveCase(){
+  var name = $('caseName').value.trim(); if(!name){ alert('Enter a case name.'); return; }
+  var r = await fetch('/notes/sagCorrection/case', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:name, inputData:caseInput(), survey:survey})});
+  var d = await r.json(); if(!d.ok){ alert(d.error); return; }
+  refreshCases(); alert('Case saved.');
+}
+async function loadCase(){
+  var id = $('caseList').value; if(!id) return;
+  var d = await (await fetch('/notes/sagCorrection/case/' + id)).json(); if(!d.ok){ alert(d.error); return; }
+  var c = d.case.inputData || {};
+  $('unitSel').value = 'metric'; UNIT = 'metric'; setUnit('metric');
+  $('sensor').value = c.sensor_m; $('mud').value = c.mud_kgm3; $('bendDist').value = c.bendDist_m; $('bendDeg').value = c.bendDeg;
+  $('grav').value = c.grav || 9.80665; $('maxIter').value = Math.max(c.maxIter || 0, 2000000); $('bhaLimit').value = c.bhaLimit_m || 60; $('profInc').value = c.profInc || 45;  // 2026-10-24: maxIter floor 2e6 (older cases saved 200000, too low for large bends)
+  $('bhaBody').innerHTML = ''; (c.bhaRows || []).forEach(function(r){ addRow(r); });
+  survey = d.case.survey || []; surveySource = (c.source && c.source.surveySource) || null;
+  corrected = []; table = null; $('corrBody').innerHTML = ''; renderSurvey(); $('btnSaveVer').disabled = true;
+  $('caseName').value = d.case.name;
+  $('modelSel').value = c.model === 'Kinetic' ? 'Kinetic' : 'Beam';
+  var kn = c.kinetic || {}; $('kCurv').checked = !!kn.curv; $('kBendTF').value = kn.bendTF === 'survey' ? 'survey' : 'hs';
+  $('kAxial').checked = !!kn.axial; $('kWobSrc').value = kn.wobSrc === 'dm' ? 'dm' : 'one'; $('kWob').value = ((kn.wob_N || 0) / 1000).toFixed(2);
+  onModelChange();
+  if(c.unit === 'imperial'){ $('unitSel').value = 'imperial'; setUnit('imperial'); }
+  $('svyInfo').textContent = survey.length ? survey.length + ' stations (from case)' : '';
+}
+async function deleteCase(){
+  var id = $('caseList').value; if(!id) return;
+  if(!confirm('Delete this case?')) return;
+  var d = await (await fetch('/notes/sagCorrection/case/' + id, {method:'DELETE'})).json();
+  if(!d.ok){ alert(d.error); return; } refreshCases();
+}
+
+// ===================================================================
+// Init — default BHA = the T&D modeler's preloaded CNRL BHA section
+// (as shown in its default table), so the page opens with something to run.
+// ===================================================================
+document.addEventListener('DOMContentLoaded', function(){
+  if(USER_ROLE === 'viewer'){ $('btnSaveCase').disabled = true; $('btnDelCase').disabled = true; }
+  [['PDC Bit',158.75,50.8,0.20,310.044],['Mud Motor',137,63.5,10.05,103.933],['DC 127mm',127,64,4.60,109.841],
+   ['DC 121mm',121,68,9.29,109.841],['DC 120mm',120,76,1.60,109.841],['DC 122mm B',122,67,9.54,109.841],
+   ['DC 122mm A',122,67,9.42,109.841],['Sub 137mm',137.16,48.77,1.18,155.379],['Underreamer',130,58,1.38,70.866]]
+   .forEach(function(a){ addRow({use:true, name:a[0], od_mm:a[1], id_mm:a[2], len_m:a[3], wt_kgm:a[4], sf:1, material:'Steel'}); });
+  refreshCases(); refreshMaterials();
+});
+</script>
+</body>
+</html>

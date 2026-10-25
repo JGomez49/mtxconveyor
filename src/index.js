@@ -38,4 +38,7 @@ console.log('[BUILD MARKER] Schedule raw-passthrough + insert-then-delete-old + 
 
 app.listen(app.get('port'), ()=>{
     console.log('Escuchando en el puerto ' + app.get('port'));
+    // ADDED 2026-10-23: daily inactive-user cleanup (only deletes when an admin
+    // has switched "auto-delete" on in Manage Users — see helpers/inactiveUsers.js)
+    require('./helpers/inactiveUsers').startInactiveUserScheduler();
 })

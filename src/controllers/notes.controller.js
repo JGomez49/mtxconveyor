@@ -27,6 +27,10 @@ const SiteConfig    = require("../models/SiteConfig");
 const VPArea        = require("../models/VPArea");
 // ADDED 2026-10-10: iPlan scenario trajectories (job-level, see model comment)
 const IPlanScenario = require("../models/IPlanScenario");
+// 2026-10-24: SAGcorrection module (SurQC sag-solver port) — saved cases + shared math.
+const SagCorrectionCase = require("../models/SagCorrectionCase");
+const SagModelCore = require("../public/js/sagModel.js");
+const SagMaterial = require("../models/SagMaterial");
 
 
 
@@ -2436,4 +2440,154 @@ notesCrtl.saveWbtColorMode = async (req, res) => {
         console.error('saveWbtColorMode error:', error);
         res.status(500).json({ error: error.message });
     }
+};
+
+
+// =====================================================================
+// SAGcorrection (added 2026-10-24) — standalone tool, port of SurQC's BHA
+// sag solver (public/js/sagModel.js; validated against the original C#,
+// see that file's header). Same standalone/no-bound-job pattern as
+// 6-axis Data; route-guarded with canUseModelers (Geo/GeoM blocked).
+// =====================================================================
+notesCrtl.renderSagCorrection = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    res.render('sagCorrection.ejs', {user});
+};
+
+// Saved cases — identical role matrix to the SixAxisCase handlers above.
+notesCrtl.saveSagCase = async(req,res)=>{
+    try{
+        const {name, inputData, survey} = req.body;
+        if(!name || !String(name).trim()) return res.status(400).json({ok:false, error:'A case name is required.'});
+        const doc = await SagCorrectionCase.create({
+            user: req.session.passport.user, name: String(name).trim(),
+            inputData: inputData || {}, survey: Array.isArray(survey) ? survey : [],
+        });
+        res.json({ok:true, case:{_id:doc._id, name:doc.name, createdAt:doc.createdAt}});
+    }catch(err){ console.error('[SagCorrectionCase] save failed', err); res.status(500).json({ok:false, error:'Failed to save case.'}); }
+};
+notesCrtl.listSagCases = async(req,res)=>{
+    try{
+        const cases = await SagCorrectionCase.find({}, 'name createdAt user').populate('user','name email').sort({createdAt:-1}).lean();
+        res.json({ok:true, cases: cases.map(c => ({
+            _id:c._id, name:c.name, createdAt:c.createdAt,
+            createdByName: c.user ? (c.user.name || c.user.email || 'Unknown') : 'Unknown',
+            createdByUserId: c.user ? String(c.user._id) : null })),
+            currentUserId: req.session.passport.user ? String(req.session.passport.user) : null,
+            currentUserRole: req.user ? req.user.role : null });
+    }catch(err){ console.error('[SagCorrectionCase] list failed', err); res.status(500).json({ok:false, error:'Failed to list cases.'}); }
+};
+notesCrtl.getSagCase = async(req,res)=>{
+    try{
+        const doc = await SagCorrectionCase.findById(req.params.id).lean();
+        if(!doc) return res.status(404).json({ok:false, error:'Case not found.'});
+        res.json({ok:true, case:doc});
+    }catch(err){ console.error('[SagCorrectionCase] get failed', err); res.status(500).json({ok:false, error:'Failed to load case.'}); }
+};
+notesCrtl.deleteSagCase = async(req,res)=>{
+    try{
+        const filter = {_id:req.params.id};
+        if(!req.user || req.user.role !== 'admin') filter.user = req.session.passport.user;
+        const r = await SagCorrectionCase.deleteOne(filter);
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Case not found, or you do not have permission to delete it.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[SagCorrectionCase] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete case.'}); }
+};
+
+// "Save as new version": writes the sag-corrected survey as a NEW
+// WellboreTrajectory document next to the original (source
+// "SAGcorrection", wellName "<original> SAG <yyyy-mm-dd>"). The original
+// document is only READ, never modified. MD and Az are copied; Inc is the
+// corrected value sent by the page; TVD/N/E are recomputed server-side by
+// minimum curvature (Bourgoyne Ch.8, SagModelCore.minimumCurvature) from
+// the original tie station; the corrected-minus-original MC deltas are
+// added to the stored TVD/localN/localE (station 0 unchanged).
+// subSea/northing/easting/position are shifted by the same deltas, using
+// the conventions documented on WellboreTrajectory/FracPlane
+// (subSea = elevation, X = Easting, Y = -TVD, Z = -Northing).
+notesCrtl.saveSagVersion = async(req,res)=>{
+    try{
+        const {noteId, wellKey, corrections} = req.body;
+        // 2026-10-24: sag model used (Beam | Kinetic), recorded in each station comment.
+        const model = req.body.model === 'Kinetic' ? 'Kinetic' : 'Beam';
+        if(!noteId || !wellKey || !Array.isArray(corrections) || !corrections.length)
+            return res.status(400).json({ok:false, error:'noteId, wellKey and corrections are required.'});
+        const orig = await WellboreTrajectory.findOne({noteId, wellName: wellKey, source: {$ne: 'SAGcorrection'}}).lean();
+        if(!orig || !orig.survey || !orig.survey.length) return res.status(404).json({ok:false, error:'Original well survey not found.'});
+        if(corrections.length !== orig.survey.length)
+            return res.status(400).json({ok:false, error:'Station count does not match the original survey ('+orig.survey.length+'). Reload the well and re-run.'});
+        for(let i = 0; i < orig.survey.length; i++){
+            if(Math.abs((+corrections[i].md) - orig.survey[i].md) > 1e-6)
+                return res.status(400).json({ok:false, error:'MD mismatch at station '+(i+1)+'. Reload the well and re-run.'});
+        }
+        const s0 = orig.survey[0];
+        const stations = orig.survey.map((s, i) => ({md:s.md, inc:+corrections[i].inc, az:s.azim}));
+        const tie = {tvd:s0.tvd, n:s0.localN, e:s0.localE};
+        const mc = SagModelCore.minimumCurvature(stations, tie);
+        // Deltas = MC(corrected Inc) - MC(original Inc), both from the same
+        // tie, then added to the STORED values — so a zero correction moves
+        // nothing even if the stored TVD/N/E came from a different
+        // calculation (vendor rounding, other method).
+        const mc0 = SagModelCore.minimumCurvature(orig.survey.map(s => ({md:s.md, inc:s.incl, az:s.azim})), tie);
+        const survey = orig.survey.map((s, i) => {
+            const dT = mc[i].tvd - mc0[i].tvd, dN = mc[i].n - mc0[i].n, dE = mc[i].e - mc0[i].e;
+            const pos = s.position || {x:0,y:0,z:0};
+            return Object.assign({}, s, {
+                incl: mc[i].inc, tvd: s.tvd + dT, localN: s.localN + dN, localE: s.localE + dE,
+                dogleg: mc[i].dls, subSea: s.subSea - dT, northing: s.northing + dN, easting: s.easting + dE,
+                position: {x: pos.x + dE, y: pos.y - dT, z: pos.z - dN},
+                comments: (s.comments ? s.comments + ' | ' : '') + 'SAG corr (' + model + ') ' + (+corrections[i].inc - s.incl).toFixed(3) + ' deg',
+            });
+        });
+        // 2026-10-24 (improvement #10): ISCWSA toolcode for the new version,
+        // chosen by the user at save time (page suggests the '+SAG'
+        // counterpart and warns if it differs in non-sag terms). Must be a
+        // key of public/data/iscwsaToolcodes.json; otherwise keep original's.
+        let toolcode = orig.toolcode || '';
+        if (typeof req.body.toolcode === 'string' && req.body.toolcode) {
+            const codes = require('../public/data/iscwsaToolcodes.json');
+            if (!Object.prototype.hasOwnProperty.call(codes, req.body.toolcode))
+                return res.status(400).json({ok:false, error:'Unknown toolcode "' + req.body.toolcode + '".'});
+            toolcode = req.body.toolcode;
+        }
+        const date = new Date().toISOString().slice(0,10);
+        const doc = await WellboreTrajectory.create({
+            noteId, wellName: wellKey + ' SAG ' + date, source: 'SAGcorrection',
+            wellCategory: orig.wellCategory || '', pad: orig.pad || '', colorHex: '',
+            toolcode, surveyCount: survey.length, survey,
+            user: req.user ? req.user._id : null, uploadedDate: new Date(),
+        });
+        res.json({ok:true, wellName: doc.wellName, id: doc._id, toolcode});
+    }catch(err){ console.error('[SAGcorrection] save version failed', err); res.status(500).json({ok:false, error:err.message}); }
+};
+
+// SAGcorrection materials (2026-10-24, improvement #5) — see models/SagMaterial.js.
+notesCrtl.listSagMaterials = async(req,res)=>{
+    try{
+        const mats = await SagMaterial.find({}).populate('user','name email').sort({name:1}).lean();
+        res.json({ok:true, currentUserId: String(req.session.passport.user || ''), currentUserRole: req.user ? req.user.role : null,
+            materials: mats.map(m => ({_id:m._id, name:m.name, density:m.density, youngs:m.youngs, notes:m.notes,
+                createdByName: m.user ? (m.user.name || m.user.email) : 'Unknown', createdByUserId: m.user ? String(m.user._id) : null}))});
+    }catch(err){ console.error('[SagMaterial] list failed', err); res.status(500).json({ok:false, error:'Failed to list materials.'}); }
+};
+notesCrtl.saveSagMaterial = async(req,res)=>{
+    try{
+        const name = String(req.body.name || '').trim(), density = +req.body.density, youngs = +req.body.youngs;
+        // Names reserved by the page's built-in reference materials (sagCorrection.ejs BUILTIN).
+        const RESERVED = ['steel','nmdc 15-15lc mod (non-mag)','monel k-500','aluminium 2014-t6','titanium ti-6al-4v (annealed)'];
+        if(!name || RESERVED.includes(name.toLowerCase())) return res.status(400).json({ok:false, error:'Enter a material name (that name is a built-in material).'});
+        if(!(density > 0 && density < 30000)) return res.status(400).json({ok:false, error:'Density must be in kg/m3 (0-30000).'});
+        if(!(youngs > 1e9 && youngs < 1e12)) return res.status(400).json({ok:false, error:"Young's modulus must be in Pa (1e9-1e12)."});
+        const doc = await SagMaterial.create({user:req.session.passport.user, name, density, youngs, notes:String(req.body.notes || '')});
+        res.json({ok:true, material:{_id:doc._id, name, density, youngs, notes:doc.notes}});
+    }catch(err){ console.error('[SagMaterial] save failed', err); res.status(500).json({ok:false, error:'Failed to save material.'}); }
+};
+notesCrtl.deleteSagMaterial = async(req,res)=>{
+    try{
+        const filter = {_id:req.params.id};
+        if(!req.user || req.user.role !== 'admin') filter.user = req.session.passport.user;
+        const r = await SagMaterial.deleteOne(filter);
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Material not found, or you do not have permission to delete it.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[SagMaterial] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete material.'}); }
 };
