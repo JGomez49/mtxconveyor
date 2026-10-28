@@ -1059,6 +1059,26 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                     placeholder="Wells #">
                             </div>
 
+                            <!-- ADDED 2026-10-28 (John): Design Code + Folder URL (Handover e-mail / job folder button) -->
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Design Code</span>
+                                <%# 2026-10-28 (John): dropdown from the Design Codes page instead of free text; a saved value that is no longer in the list is kept and flagged. %>
+                                <% var dcList = (typeof designCodeList !== 'undefined' && designCodeList) || []; var dcCur = (note.designCode || '').trim(); %>
+                                <select name="designCode" class="form-select bg-dark text-white">
+                                    <option value="">— none —</option>
+                                    <% if (dcCur && !dcList.some(function(d){ return d.code === dcCur; })) { %><option value="<%= dcCur %>" selected><%= dcCur %> (not in Design Codes)</option><% } %>
+                                    <% ['Thermal','East','Central','West'].forEach(function(g){ var items = dcList.filter(function(d){ return d.group === g; }); if (!items.length) return; %>
+                                        <optgroup label="<%= g %>"><% items.forEach(function(d){ %><option value="<%= d.code %>" <%= d.code === dcCur ? 'selected' : '' %>><%= d.code %> · <%= d.area %></option><% }); %></optgroup>
+                                    <% }); %>
+                                    <% var other = dcList.filter(function(d){ return ['Thermal','East','Central','West'].indexOf(d.group) < 0; }); if (other.length) { %><optgroup label="Other"><% other.forEach(function(d){ %><option value="<%= d.code %>" <%= d.code === dcCur ? 'selected' : '' %>><%= d.code %> · <%= d.area %></option><% }); %></optgroup><% } %>
+                                </select>
+                            </div>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Folder URL</span>
+                                <input value="<%= note.folderUrl || '' %>" type="text" name="folderUrl"
+                                    class="form-control bg-dark text-white" placeholder="\\cnrl.com\cnrl\... or https://...">
+                            </div>
+
                             
 
                             <div class="input-group mb-2">
@@ -1132,6 +1152,13 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                     name="dueDate" 
                                     class="form-control bg-dark text-white"
                                     value="<%= note.dueDate %>">
+                            </div>
+
+                            <!-- ADDED 2026-10-28 (John): Notes to Vendor — included in the Handover e-mail body -->
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Notes to Vendor</span>
+                                <textarea name="notesToVendor" rows="4" class="form-control bg-dark text-white"
+                                    placeholder="Included in each well of the Handover e-mail"><%= note.notesToVendor || '' %></textarea>
                             </div>
 
 

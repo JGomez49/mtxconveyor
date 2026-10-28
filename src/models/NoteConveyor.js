@@ -41,6 +41,16 @@ const NoteConveyorSchema = new Schema({
     // Saved on the job so everyone opening it sees the same choice.
     wbtColorMode: {type: String, enum: ['single', 'multi'], default: 'single'},
 
+    // ADDED 2026-10-28 (John): Handover e-mail fields, edited on the EDIT page
+    // (edit-note.ejs), shown read-only on the job page (job.ejs).
+    // designCode and notesToVendor go into every well block of the Gantt
+    // Handover e-mail (all-notes.ejs). folderUrl: job folder, opened from the
+    // job page (https link -> new tab; \\server\share path -> copied to the
+    // clipboard, because browsers cannot open network paths from a web page).
+    designCode:    {type: String, default: ''},
+    folderUrl:     {type: String, default: ''},
+    notesToVendor: {type: String, default: ''},
+
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
     checkOffsetWellsInfo: {type: String, defaultValue: "No"},

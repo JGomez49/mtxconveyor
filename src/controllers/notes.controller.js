@@ -32,6 +32,8 @@ const PadDistList   = require("../models/PadDistList");
 const VendorDistList = require("../models/VendorDistList");
 // ADDED 2026-10-27: BV Rigs reference table (VP Areas page).
 const BvRig          = require("../models/BvRig");
+// ADDED 2026-10-28: Design Codes (trajectory design guidelines, /notes/designCodes).
+const DesignCode     = require("../models/DesignCode");
 // ADDED 2026-10-28: Ops. Geo. Distribution List (Exp. Manager -> Ops Geo, Handover CC).
 const OpsGeoDistList = require("../models/OpsGeoDistList");
 // ADDED 2026-10-10: iPlan scenario trajectories (job-level, see model comment)
@@ -171,7 +173,7 @@ notesCrtl.renderNotes = async (req,res)=>{
     // ── Run all DB queries in parallel ───────────────────────────────────
     // Select only the fields rendered in all-notes.ejs — avoids transferring
     // large unused fields like description, imageID, wellbore data, etc.
-    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays';
+    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays path designCode notesToVendor folderUrl'; // 2026-10-28: + designCode notesToVendor (Handover e-mail); + path (job picture URL) so the Handover window knows which pads have a picture
 
     const [notes, dpStats, newSchedule] = await Promise.all([
         Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
@@ -218,10 +220,13 @@ notesCrtl.renderNotes = async (req,res)=>{
 
     // ADDED 2026-10-28 (John): Exp. Manager -> Ops Geo (OpsGeoDistList) for Handover CC.
     const opsGeoList = await OpsGeoDistList.find().select('expManager opsGeos -_id').lean();
+    // ADDED 2026-10-28 (John): Design Code tables for the Handover e-mail body (text only, no pictures).
+    const designCodeMap = (await DesignCode.find({ code: { $ne: 'GENERAL' } }).select('code area formations updatedDate sections -_id').lean())
+        .reduce((m, d) => { m[d.code] = d; return m; }, {});
 
     res.render('all-notes.ejs', {
         notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup,
-        canSeeActivity, activityReport, vpAreaList, padDistMap, vendorList, bvRigVendorMap, opsGeoList,
+        canSeeActivity, activityReport, vpAreaList, padDistMap, vendorList, bvRigVendorMap, opsGeoList, designCodeMap,
     });
 };
 
@@ -324,7 +329,10 @@ notesCrtl.renderEditForm = async(req,res)=>{
     let user = await User.findById(req.session.passport.user);
     const note = await Note.findById(req.params.id);
     const wellboreTrajectories = await WellboreTrajectory.find({noteId: note._id}).select('-survey').sort({wellName: 1});
-    res.render('edit-note.ejs', {note, user, wellboreTrajectories});
+    // 2026-10-28 (John): Design Code dropdown on the EDIT page (list from the Design Codes page).
+    let designCodeList = [];
+    try{ await seedDesignCodes(); designCodeList = await DesignCode.find({ code: { $ne: 'GENERAL' } }).select('code area group -_id').sort({ code: 1 }).lean(); }catch(err){ console.error('[DesignCode] list for edit page failed', err); }
+    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList});
 }
 
 
@@ -371,7 +379,7 @@ notesCrtl.updateNote = async (req,res)=>{
         compassOffsetsDoneAt, compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, 
         planningDoneAt, reportsDoneBy, reportsDoneAt, sentBy, sentAt, checkETSUpdate , 
         ETSUpdateBy, ETSUpdateAt, created, imageURL,
-
+        designCode, folderUrl, notesToVendor, // 2026-10-28: Handover e-mail fields
     } = req.body;
     await Note.findByIdAndUpdate(req.params.id, {
         title, description, priority, status, responsible, dueDate, invoice, 
@@ -383,6 +391,7 @@ notesCrtl.updateNote = async (req,res)=>{
         compassOffsetsDoneAt, compassSubjectDoneBy, compassSubjectDoneAt, planningDoneBy, 
         planningDoneAt, reportsDoneBy, reportsDoneAt, sentBy, sentAt, checkETSUpdate, 
         ETSUpdateBy, ETSUpdateAt, created, imageURL,
+        designCode, folderUrl, notesToVendor, // 2026-10-28
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
@@ -663,6 +672,145 @@ notesCrtl.deleteOpsGeoDistList = async (req,res)=>{
         if(!r.deletedCount) return res.status(404).json({ok:false, error:'Row not found.'});
         res.json({ok:true});
     }catch(err){ console.error('[OpsGeoDistList] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the row.'}); }
+};
+// ADDED 2026-10-28 (John): job picture for the Handover .eml e-mail. The
+// browser cannot reliably download the Cloudinary image itself (note.path is
+// stored as an http:// URL -> blocked as mixed content on https, and CORS is
+// not guaranteed), so the server fetches it over https and streams it back.
+// Only res.cloudinary.com URLs are fetched (no open proxy).
+notesCrtl.handoverImage = async (req,res)=>{
+    try{
+        const note = await Note.findById(req.params.id).select('path').lean();
+        if(!note || !note.path) return res.status(404).send('No picture for this job.');
+        const url = new URL(String(note.path).replace(/^http:/i, 'https:'));
+        if(url.hostname !== 'res.cloudinary.com') return res.status(400).send('Picture host not allowed.');
+        require('https').get(url, r => {
+            if(r.statusCode !== 200){ r.resume(); return res.status(502).send('Picture download failed (' + r.statusCode + ').'); }
+            res.set('Content-Type', r.headers['content-type'] || 'application/octet-stream');
+            res.set('Cache-Control', 'private, max-age=300');
+            r.pipe(res);
+        }).on('error', err => { console.error('[handoverImage]', err); if(!res.headersSent) res.status(502).send('Picture download failed.'); });
+    }catch(err){ console.error('[handoverImage]', err); res.status(500).send('Picture download failed.'); }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+// ADDED 2026-10-28 (John): Design Codes (trajectory design guidelines).
+// Page /notes/designCodes — every logged-in user can read; only admin edits.
+// Seed: when the DesignCode collection is empty, it is filled ONCE from
+// src/data/designCodes/seed.json (parsed from CNRL_Design_Codes.xlsx) and the
+// sheet pictures in src/data/designCodes/img are uploaded to Cloudinary
+// (folder "mtx-design-codes"; identical pictures uploaded once and shared).
+// A picture that fails to upload is skipped (logged) — the text still seeds.
+// ─────────────────────────────────────────────────────────────────────────────
+let designCodeSeeding = null;
+async function seedDesignCodes(){
+    if(await DesignCode.countDocuments() > 0) return;
+    if(designCodeSeeding) return designCodeSeeding;
+    designCodeSeeding = (async () => {
+        const path = require('path'), fs = require('fs');
+        const dir = path.join(__dirname, '..', 'data', 'designCodes');
+        const seed = JSON.parse(fs.readFileSync(path.join(dir, 'seed.json'), 'utf8')).codes || [];
+        const uploaded = {}; // hash part of file name -> {url, public_id}
+        for(const c of seed){
+            const images = [];
+            for(const im of (c.images || [])){
+                const key = String(im.file).replace(/^.*_/, '');
+                try{
+                    if(!uploaded[key]){
+                        const r = await cloudinary.v2.uploader.upload(path.join(dir, 'img', im.file), { folder: 'mtx-design-codes' });
+                        uploaded[key] = { url: r.secure_url, public_id: r.public_id };
+                    }
+                    images.push(Object.assign({ section: im.section || '', caption: '' }, uploaded[key]));
+                }catch(err){ console.error('[DesignCode seed] picture upload failed', im.file, err.message || err); }
+            }
+            await DesignCode.updateOne({ code: c.code }, { $setOnInsert: {
+                code: c.code, group: c.group || '', area: c.area || '', formations: c.formations || '', updatedDate: c.updatedDate || '',
+                sections: c.sections || [], images, log: [{ user: 'import', at: new Date(), what: 'Imported from CNRL_Design_Codes.xlsx (' + (c.sheet || '') + ')' }],
+            } }, { upsert: true });
+        }
+        console.log('[DesignCode] seeded', seed.length, 'codes,', Object.keys(uploaded).length, 'pictures');
+    })();
+    try{ await designCodeSeeding; } finally { designCodeSeeding = null; }
+}
+const dcIsAdmin = async req => { const u = await User.findById(req.session.passport.user); return (u && u.role === 'admin') ? u : null; };
+// Delete a Cloudinary picture only when no other code still uses it (seeded pictures are shared).
+async function dcDestroyIfUnused(public_id){
+    if(!public_id) return;
+    if(await DesignCode.countDocuments({ 'images.public_id': public_id }) > 0) return;
+    try{ await cloudinary.v2.uploader.destroy(public_id); }catch(e){ console.error('[DesignCode] destroy failed', public_id, e.message || e); }
+}
+const dcToday = () => new Date().toISOString().slice(0, 10);
+const dcCodeOrder = c => ({ Thermal: 0, East: 1, Central: 2, West: 3 }[c.group] ?? 9);
+
+notesCrtl.renderDesignCodes = async (req,res)=>{
+    const user = await User.findById(req.session.passport.user);
+    try{ await seedDesignCodes(); }catch(err){ console.error('[DesignCode] seed failed', err); }
+    const codes = (await DesignCode.find().lean()).sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : dcCodeOrder(a) - dcCodeOrder(b) || a.code.localeCompare(b.code)));
+    res.render('designCodes.ejs', { user, codes, isAdmin: !!(user && user.role === 'admin') });
+};
+// Body {id?, code, group, area, formations, sections:[{title, rows:[{param,value,note}]}], images:[{_id, section, caption}]}
+notesCrtl.saveDesignCode = async (req,res)=>{
+    try{
+        const admin = await dcIsAdmin(req); if(!admin) return res.status(403).json({ok:false, error:'Only admin accounts can edit Design Codes.'});
+        const t = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+        const code = t(req.body.code, 40).toUpperCase(); if(!code) return res.status(400).json({ok:false, error:'Enter the code (e.g. T-007).'});
+        const clash = await DesignCode.findOne({ code }).lean();
+        if(clash && String(clash._id) !== String(req.body.id || '')) return res.status(400).json({ok:false, error:'Code ' + code + ' already exists.'});
+        const sections = (Array.isArray(req.body.sections) ? req.body.sections : []).slice(0, 60).map(s => ({
+            title: t(s.title, 200),
+            rows: (Array.isArray(s.rows) ? s.rows : []).slice(0, 200).map(r => ({ param: t(r.param, 500), value: t(r.value, 5000), note: t(r.note, 2000) })).filter(r => r.param || r.value || r.note),
+        })).filter(s => s.title || s.rows.length);
+        const set = { code, group: t(req.body.group, 40), area: t(req.body.area, 200), formations: t(req.body.formations, 500), sections, updatedDate: dcToday() };
+        let doc;
+        if(req.body.id){
+            doc = await DesignCode.findById(req.body.id); if(!doc) return res.status(404).json({ok:false, error:'Design Code not found.'});
+            if(doc.code === 'GENERAL') set.code = 'GENERAL';
+            Object.assign(doc, set);
+            const meta = {}; (Array.isArray(req.body.images) ? req.body.images : []).forEach(i => { meta[String(i._id)] = i; });
+            doc.images.forEach(im => { const m = meta[String(im._id)]; if(m){ im.section = t(m.section, 200); im.caption = t(m.caption, 300); } });
+            doc.log.push({ user: admin.name, at: new Date(), what: 'Edited' });
+            await doc.save();
+        } else {
+            doc = await DesignCode.create(Object.assign(set, { log: [{ user: admin.name, at: new Date(), what: 'Created' }] }));
+        }
+        res.json({ok:true, id: doc._id, code: doc.code});
+    }catch(err){ console.error('[DesignCode] save failed', err); res.status(500).json({ok:false, error:'Failed to save the Design Code.'}); }
+};
+notesCrtl.deleteDesignCode = async (req,res)=>{
+    try{
+        const admin = await dcIsAdmin(req); if(!admin) return res.status(403).json({ok:false, error:'Only admin accounts can edit Design Codes.'});
+        const doc = await DesignCode.findById(req.params.id); if(!doc) return res.status(404).json({ok:false, error:'Design Code not found.'});
+        if(doc.code === 'GENERAL') return res.status(400).json({ok:false, error:'The general block cannot be deleted.'});
+        const ids = doc.images.map(i => i.public_id);
+        await DesignCode.deleteOne({ _id: doc._id });
+        for(const p of ids) await dcDestroyIfUnused(p);
+        res.json({ok:true});
+    }catch(err){ console.error('[DesignCode] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the Design Code.'}); }
+};
+// multipart: field "image" (global multer in server.js) + section, caption
+notesCrtl.uploadDesignCodeImage = async (req,res)=>{
+    try{
+        const admin = await dcIsAdmin(req); if(!admin) return res.status(403).json({ok:false, error:'Only admin accounts can edit Design Codes.'});
+        if(!req.file) return res.status(400).json({ok:false, error:'No picture received.'});
+        if(!/^image\//.test(req.file.mimetype || '')) return res.status(400).json({ok:false, error:'The file must be a picture (PNG, JPG...).'});
+        const doc = await DesignCode.findById(req.params.id); if(!doc) return res.status(404).json({ok:false, error:'Design Code not found.'});
+        const r = await cloudinary.v2.uploader.upload(req.file.path, { folder: 'mtx-design-codes' });
+        doc.images.push({ url: r.secure_url, public_id: r.public_id, section: String(req.body.section || '').slice(0, 200), caption: String(req.body.caption || '').slice(0, 300) });
+        doc.updatedDate = dcToday(); doc.log.push({ user: admin.name, at: new Date(), what: 'Picture added' });
+        await doc.save();
+        res.json({ok:true});
+    }catch(err){ console.error('[DesignCode] picture upload failed', err); res.status(500).json({ok:false, error:'Failed to upload the picture.'}); }
+    finally{ if(req.file) try{ await unlink(req.file.path); }catch(_){} }
+};
+notesCrtl.deleteDesignCodeImage = async (req,res)=>{
+    try{
+        const admin = await dcIsAdmin(req); if(!admin) return res.status(403).json({ok:false, error:'Only admin accounts can edit Design Codes.'});
+        const doc = await DesignCode.findById(req.params.id); if(!doc) return res.status(404).json({ok:false, error:'Design Code not found.'});
+        const im = doc.images.id(req.params.imgId); if(!im) return res.status(404).json({ok:false, error:'Picture not found.'});
+        const pid = im.public_id; doc.images.pull(im._id);
+        doc.updatedDate = dcToday(); doc.log.push({ user: admin.name, at: new Date(), what: 'Picture removed' });
+        await doc.save(); await dcDestroyIfUnused(pid);
+        res.json({ok:true});
+    }catch(err){ console.error('[DesignCode] picture delete failed', err); res.status(500).json({ok:false, error:'Failed to remove the picture.'}); }
 };
 // ADDED 2026-10-27 (John): BV Rigs — create / edit / delete (admin only).
 notesCrtl.saveBvRig = async (req,res)=>{

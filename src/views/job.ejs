@@ -1970,6 +1970,39 @@ body.light-mode #statusTextbox {
                     </div>
                 <% } %>
 
+                <!-- ADDED 2026-10-28 (John): Design Code, Folder URL (+ open button), edited on the EDIT page.
+                     Button: https/http link -> opens in a new tab; anything else (\\server\share path) ->
+                     copied to the clipboard, because browsers block opening network/file paths from a web page. -->
+                <% if (note.designCode) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Design Code</span>
+                        <input value="<%= note.designCode %>" readonly type="text" class="form-control bg-dark text-white">
+                        <%# 2026-10-28 (John): opens this code's guideline on the Design Codes page %>
+                        <a class="btn btn-outline-info" href="/notes/designCodes?code=<%= encodeURIComponent(note.designCode.trim()) %>" target="_blank" title="Open the Design Code guideline">📏 Guideline</a>
+                    </div>
+                <% } %>
+                <% if (note.folderUrl) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Folder</span>
+                        <input id="jobFolderUrl" value="<%= note.folderUrl %>" readonly type="text" class="form-control bg-dark text-white">
+                        <button type="button" id="jobFolderBtn" class="btn btn-outline-info"></button>
+                    </div>
+                    <script>
+                    (function(){
+                        var inp = document.getElementById('jobFolderUrl'), btn = document.getElementById('jobFolderBtn');
+                        var v = inp.value.trim(), isWeb = /^https?:\/\//i.test(v);
+                        btn.textContent = isWeb ? '📂 Open' : '📋 Copy path';
+                        btn.title = isWeb ? 'Open the folder in a new tab' : 'Copy the path, then paste it in File Explorer (Win+E, Ctrl+L, Ctrl+V, Enter)';
+                        btn.addEventListener('click', function(){
+                            if(isWeb){ window.open(v, '_blank', 'noopener'); return; }
+                            var done = function(){ var t = btn.textContent; btn.textContent = '✔ Copied — paste in File Explorer'; setTimeout(function(){ btn.textContent = t; }, 2500); };
+                            if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(v).then(done, function(){ inp.select(); document.execCommand('copy'); done(); }); }
+                            else { inp.select(); document.execCommand('copy'); done(); }
+                        });
+                    })();
+                    </script>
+                <% } %>
+
                 <% if (note.trajWells != null) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white" style="min-width:160px;">Traj. Wells</span>
@@ -2089,6 +2122,14 @@ body.light-mode #statusTextbox {
                         >
                     </div>
                 <% } %> 
+
+                <!-- ADDED 2026-10-28 (John): Notes to Vendor (edited on the EDIT page; goes into the Handover e-mail). -->
+                <% if (note.notesToVendor) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Notes to Vendor</span>
+                        <textarea readonly rows="4" class="form-control bg-dark text-white"><%= note.notesToVendor %></textarea>
+                    </div>
+                <% } %>
 
 
 

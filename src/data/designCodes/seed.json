@@ -1,0 +1,7107 @@
+{
+ "_source": "CNRL_Design_Codes.xlsx (John, 2026-10-28) — parsed once by Claude; used ONLY to seed an empty DesignCode collection (see notes.controller.js seedDesignCodes). Edit in MTX afterwards.",
+ "codes": [
+  {
+   "code": "GENERAL",
+   "group": "",
+   "area": "Directional Drilling Basic Trajectory Design Guidelines",
+   "formations": "",
+   "updatedDate": "",
+   "order": -1,
+   "sheet": "Contents",
+   "images": [
+    {
+     "file": "GENERAL_86fe24c481.png",
+     "section": "Hard Boundaries / Set Backs per Province (Always)"
+    }
+   ],
+   "sections": [
+    {
+     "title": "Hard Boundaries / Set Backs per Province (Always)",
+     "rows": [
+      {
+       "param": "Alberta",
+       "value": "Oil: 50m   ·   Gas: Xm"
+      },
+      {
+       "param": "Saskatchewan",
+       "value": "Oil: 100m   ·   Gas: Xm"
+      },
+      {
+       "param": "British Columbia",
+       "value": "Oil: Xm   ·   Gas: Xm"
+      },
+      {
+       "param": "Manitoba",
+       "value": "Oil: Xm   ·   Gas: Xm"
+      }
+     ]
+    },
+    {
+     "title": "Sponsor Approval",
+     "rows": [
+      {
+       "param": "",
+       "value": "Tyler Cherry - Eng. Manager [West & Central]"
+      },
+      {
+       "param": "",
+       "value": "Ryan Austin - Eng. Manager [East & Thermal]"
+      }
+     ]
+    },
+    {
+     "title": "Author",
+     "rows": [
+      {
+       "param": "",
+       "value": "John Gonzalez"
+      },
+      {
+       "param": "",
+       "value": "Pola Cifuentes"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "T-001",
+   "group": "Thermal",
+   "area": "SAGD",
+   "formations": "MCMURRAY",
+   "updatedDate": "2025-07-17",
+   "sheet": "SAGD",
+   "order": 0,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "25m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "Project dependent"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "10° [MAX 15°]"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Nudge Profile Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": "~15m. priority is to gain separation prior to plan the build"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "50m at 80-85⁰ INC"
+      },
+      {
+       "param": "MD from bottom of tangent to ICP",
+       "value": "not a concern if ESP pumps"
+      },
+      {
+       "param": "Delta TVD end of tangent to ICP",
+       "value": "<25m as low as possible"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location(Injector and Producer)",
+       "value": "30m after landing. If spacing is limited then use up to 2⁰/30m to get to ICP on the same MD"
+      },
+      {
+       "param": "****Injector ICP",
+       "value": "6m higher and 10m MD earlier than producer"
+      },
+      {
+       "param": "Injector approach to producer",
+       "value": "ideally begin gradual close approach ~150m MD before ICP, by being max15m between centres, min 12m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3⁰/30m [MAX 5⁰/30m]"
+      },
+      {
+       "param": "Injector",
+       "value": "bring centre to centre distance with producer to 5m on the first ~100m MD"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1 and/or IFR2"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "as needed to avoid nudging laterals and drill straight. Need confirmation from Prod Eng on offset status."
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "5m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "In addition to MWD tools ranging is required\nSF always above 1 regardless of C2C against CNRL observation wells"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "T-001_90d4c3d9e2.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "T-002",
+   "group": "Thermal",
+   "area": "SAGD [Cross drilled pads]",
+   "formations": "MCMURRAY",
+   "updatedDate": "2025-07-17",
+   "sheet": "SAGD (Cross)",
+   "order": 1,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "25m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "Project dependent"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "10° [MAX 15°]"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": "~15m. priority is to gain separation prior to plan the build"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "**If possible",
+       "value": "10m MD of DLS <4°/30m prior of tangent"
+      },
+      {
+       "param": "Pump tangent #1",
+       "value": ""
+      },
+      {
+       "param": ">>Length",
+       "value": "30m"
+      },
+      {
+       "param": ">>Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": ">>TVD Guideline",
+       "value": "Bottom of tangent ~5m TVD above the drainagle top. G&G needs to provide for planning"
+      },
+      {
+       "param": "Pump tangent #2",
+       "value": ""
+      },
+      {
+       "param": ">>Length",
+       "value": "50m [30m min]"
+      },
+      {
+       "param": ">>Inclination",
+       "value": "80-85⁰"
+      },
+      {
+       "param": ">>-Delta TVD end of tangent to ICP",
+       "value": "<25m as low as possible"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location(Injector and Producer)",
+       "value": "30m after landing. If spacing is limited then use up to 2⁰/30m to get to ICP on the same MD"
+      },
+      {
+       "param": "****Injector ICP",
+       "value": "6m higher and 10m MD earlier than producer"
+      },
+      {
+       "param": "Injector approach to producer",
+       "value": "ideally begin gradual close approach ~150m MD before ICP, by being max15m between centres, min 12m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3⁰/30m [MAX 5⁰/30m]"
+      },
+      {
+       "param": "Injector",
+       "value": "bring centre to centre distance with producer to 5m on the first ~100m MD"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1 and/or IFR2"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "as needed to avoid nudging laterals and drill straight. Need confirmation from Prod Eng on offset status."
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "5m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "In addition to MWD tools ranging is required\nSF always above 1 regardless of C2C against CNRL observation wells"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "T-002_90d4c3d9e2.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "T-003",
+   "group": "Thermal",
+   "area": "CSS",
+   "formations": "CLEARWATER",
+   "updatedDate": "2026-04-17",
+   "sheet": "CSS",
+   "order": 2,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "35m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "Project dependent, set 10-15mTVD below Quaternary"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": "~15m. priority is to gain separation prior to plan the build"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "aim for 8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "CSS Pump tangent",
+       "value": ""
+      },
+      {
+       "param": "Length",
+       "value": "30m"
+      },
+      {
+       "param": "Inclination",
+       "value": "aim to place it between 80° and 85°INC"
+      },
+      {
+       "param": "MD From surface to top of tangent",
+       "value": "1000mMD MAX - if not achievable see notes below - check with Prod. Eng"
+      },
+      {
+       "param": "Delta TVD Botton of tangent to ICP",
+       "value": "5m\nIf spacing is limited for CSS tangent >>"
+      },
+      {
+       "param": "Secondary Steamflood Pump tangent",
+       "value": ""
+      },
+      {
+       "param": "Length",
+       "value": "30m"
+      },
+      {
+       "param": "Inclination",
+       "value": "aim to place it ~≤ 70° INC"
+      },
+      {
+       "param": "MD From surface to top of tangent",
+       "value": "1000mMD MAX - ideal not a hard rule"
+      },
+      {
+       "param": "Delta TVD Botton of tangent to ICP",
+       "value": "aim for 5m\nIf spacing is limited for SF tangent >>"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "aim 4°/30m [8°/30m MAX]"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "30m after landing."
+      },
+      {
+       "param": "Max ICP MD",
+       "value": "1400m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3⁰/30m [MAX 6⁰/30m]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Notes – To accommodate CSS Pump Tangent (in order)"
+      },
+      {
+       "param": "",
+       "value": "1. Shorten Steamflood pump tangent length to min 20m [10m with 4 DLS + 10m with 0 DLS]"
+      },
+      {
+       "param": "",
+       "value": "2. Shorten CSS pump tangent length to min 20m [10m with 4 DLS + 10m with 0 DLS]"
+      },
+      {
+       "param": "",
+       "value": "3. Modify Steamflood pump tangent DLS to < 2°/30m [the full 30m MD]"
+      },
+      {
+       "param": "",
+       "value": "4. Remove Steamflood Tangent (and attempt to restore CSS pump tangent original length requirement)"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1 and/or IFR2"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "as needed to avoid nudging laterals and drill straight. Need confirmation from Prod Eng on offset status."
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "5m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "In addition to MWD tools ranging is required\nSF always above 1 regardless of C2C against CNRL observation wells"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "T-003_9a7f190657.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "T-004",
+   "group": "Thermal",
+   "area": "Re-Entries",
+   "formations": "MCMURRAY",
+   "updatedDate": "2025-07-17",
+   "sheet": "Re-Entries",
+   "order": 3,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": ""
+      },
+      {
+       "param": "Distance between rows",
+       "value": "Not Applicable"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": ""
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "Not Applicable"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": ""
+      },
+      {
+       "param": "Type",
+       "value": ""
+      },
+      {
+       "param": "DLS",
+       "value": "Not Applicable"
+      },
+      {
+       "param": "Max Inclination",
+       "value": ""
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "For Wipstock stk:",
+       "value": ""
+      },
+      {
+       "param": "Tool Face orientation",
+       "value": "+/- 60⁰ max"
+      },
+      {
+       "param": "Top of Wipstock",
+       "value": "< 20 m TVD above landing point (criteria for Gas lift). Should be below the top of the zone of interest."
+      },
+      {
+       "param": "For Open Hole, stk DLS",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "Tangent (contingency)",
+       "value": "30-50m Project Dependent"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3⁰/30m [MAX 5⁰/30m]"
+      },
+      {
+       "param": "Distance from parent hole",
+       "value": "15m min or as directed by G&G"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Estimate sidetrack point based on TVD given for landing and build section parameters"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1 and/or IFR2"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - STK Pt",
+       "value": "Tool code from parent borehole"
+      },
+      {
+       "param": "STK Pt - TD",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "as needed to avoid nudging laterals and drill straight. Need confirmation from Prod Eng on offset status."
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "5m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "In addition to MWD tools ranging is required\nSF always above 1 regardless of C2C against CNRL observation wells"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": [
+      {
+       "param": "",
+       "value": "If drilling with AURORA C2C can be 5m"
+      }
+     ]
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "T-005",
+   "group": "Thermal",
+   "area": "Re-Drills",
+   "formations": "MCMURRAY",
+   "updatedDate": "2025-07-17",
+   "sheet": "Re-Drills",
+   "order": 4,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": ""
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "150-160m TVD. Project dependent"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": "~15m. priority is to gain separation prior to plan the build"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "50m at 80-85⁰ INC"
+      },
+      {
+       "param": "MD to bottom of tangent",
+       "value": "not a concern if ESP pumps"
+      },
+      {
+       "param": "Delta TVD end of tangent to ICP",
+       "value": "<25m as low as possible"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "8.0⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location(Injector and Producer)",
+       "value": "30m after landing."
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3⁰/30m [MAX 5⁰/30m]"
+      },
+      {
+       "param": "Distance from parent hole",
+       "value": "15m min or as directed by G&G"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1 and/or IFR2"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR2+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "as needed to avoid nudging laterals and drill straight. Need confirmation from Prod Eng on offset status."
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "5m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "In addition to MWD tools ranging is required\nSF always above 1 regardless of C2C against CNRL observation wells"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": [
+      {
+       "param": "",
+       "value": "AURORA: C2C ~5m. Close approach needs to start ~200m MD prior to ICP on parent hole"
+      },
+      {
+       "param": "",
+       "value": "MGT: C2C ~5m for close approach can start ~30m MD prior to ICP on parent hole"
+      },
+      {
+       "param": "",
+       "value": "MWD: C2C needs to be @ 15m"
+      }
+     ]
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "T-006",
+   "group": "Thermal",
+   "area": "STRATS",
+   "formations": "MCMURRAY, PALEO",
+   "updatedDate": "2025-09-25",
+   "sheet": "Strats",
+   "order": 5,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m. Project dependent"
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": ""
+      },
+      {
+       "param": "Slant Spud (Up to 45⁰)",
+       "value": "Only to be considered in extreme cases - Require full vet with Drilling Engineer"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "10m MD past Bedrock (varies between areas)"
+      },
+      {
+       "param": "KOP",
+       "value": "50m MD [40m MD min]"
+      },
+      {
+       "param": "DLS",
+       "value": "4°/30m [5°/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "19° MAX"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "20-30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": ""
+      },
+      {
+       "param": "Type",
+       "value": ""
+      },
+      {
+       "param": "DLS",
+       "value": "Not applicable"
+      },
+      {
+       "param": "Max Inclination",
+       "value": ""
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": ""
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Hold and potentially Drop. Avoid any turn as much as possible (Clear with DE if needed)."
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "8°/30m [10°/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as required to hit the target. if above 50° Mention the inclination of main hole on the delivery notes"
+      },
+      {
+       "param": "If cored well",
+       "value": "Aim for the lowest INC through cored section (Confirm with Geo type of profile desired \"J\" or \"S\" for planning)"
+      },
+      {
+       "param": "Target",
+       "value": "Target coordinates and TVDss from prog and hold to Drillers TD TVDss depth."
+      },
+      {
+       "param": "Overhole",
+       "value": "13m MD Max. Or as dictated by the geo"
+      },
+      {
+       "param": "if multiborehole",
+       "value": "Sidetrack points 30-50m apart"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": ""
+      },
+      {
+       "param": "Distance from parent hole",
+       "value": "Not applicable"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Dual and triple leg strats (Drilled off the same surface casing) to be considered and used in Athabasca."
+      },
+      {
+       "param": "",
+       "value": "(Not applicable for PAW) DE to confirm"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "E-001",
+   "group": "East",
+   "area": "BRINTNELL [High & Low Pressure]",
+   "formations": "WABISKAW",
+   "updatedDate": "2025-07-17",
+   "sheet": "Brintnell_HP",
+   "order": 6,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "N/A"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent mostly re-drills"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "150m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed inside Surface hole at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "To build and drop to vertical: 4⁰/30m MAX"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "DLS",
+       "value": "KOP to 85⁰ INC --> 8.5⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "50m at 85⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "85⁰ INC at end of pump tangent"
+      },
+      {
+       "param": "Landing",
+       "value": "Enter zone at 85⁰ INC."
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "Landing inclination",
+       "value": "Land on target depth at 90⁰ INC"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m MAX"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-001_17b374138c.png",
+     "section": "AC Nudges"
+    },
+    {
+     "file": "E-001_4d6969a19e.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "E-002",
+   "group": "East",
+   "area": "HEAVY OIL (Hockey Stick)",
+   "formations": "GP, SPARKY, COLONY, LLOYMINSTER,CUMMINGS",
+   "updatedDate": "2026-10-21",
+   "sheet": "HO (Hockey Stick)",
+   "order": 7,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold",
+       "note": "Typical Hockey stick desing"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP to 80⁰ INC",
+       "value": "8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. 5-10m Delta TVD from tangent bottom to ICP"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Fork desing inside Hockey stick",
+       "value": "To decrease Toe to Toe distance & make legs more parallel then 8⁰/30m MAX\nMinimum Sidetrack distance between the main legs is 50m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": "2500m [2800m Max]- TVD dependant. 1,800m-2,000m optimum TD."
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "17,000m (all legs)\nUp to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "50m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1600mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Always check DP request form for depletion information and avoid given area with the trajectory"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-002_a54ee1a962.png",
+     "section": "AC Nudges"
+    },
+    {
+     "file": "E-002_048339c5d5.png",
+     "section": "Lateral Section"
+    }
+   ]
+  },
+  {
+   "code": "E-013",
+   "group": "East",
+   "area": "HEAVY OIL (Hockey Stick-Lined)",
+   "formations": "GP, SPARKY, COLONY, LLOYMINSTER,CUMMINGS",
+   "updatedDate": "2026-10-21",
+   "sheet": "HO (Hockey Stick-Lined)",
+   "order": 8,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP to 80⁰ INC",
+       "value": "8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. 5-10m Delta TVD from tangent bottom to ICP"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Fork desing inside Hockey stick",
+       "value": "To decrease Toe to Toe distance & make legs more parallel then 8⁰/30m MAX\nMinimum Sidetrack distance between the main legs is 50m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": "2500m [2800m Max]- TVD dependant. 1,800m-2,000m optimum TD."
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "17,000m (all legs)\nUp to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "100m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1700mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      },
+      {
+       "param": "Drill order",
+       "value": "From ICP to Final TD"
+      },
+      {
+       "param": "Liner on the spine design",
+       "value": "Drill the first 50m of the leg at 90°INC at the landing TVD, aligned with the spine's azimuth and then climb 1m TVD\nover the first 40m MD. Complete the turn if needed after flattening the trajectory once the climb is done with\nmax DLS 6°/30m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "This is for drilling the legs forward from ICP to TD. Last leg should remain at targeted TVD for the liner"
+      },
+      {
+       "param": "",
+       "value": "* 1m Climb (~40m MD): with 6°/30m +/-45TF to 92°inc, hold(or max 2° of turn), bring back to 90° inc 1m higher in TVD"
+      },
+      {
+       "param": "",
+       "value": "Always check DP request form for depletion information and avoid given area with the trajectory"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "E-003",
+   "group": "East",
+   "area": "HEAVY OIL (Fishbone-Lined)",
+   "formations": "CUMMINGS",
+   "updatedDate": "2026-10-21",
+   "sheet": "HO (Fishbone-Lined)",
+   "order": 9,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      },
+      {
+       "param": "DLS KOP to 80⁰ INC",
+       "value": "8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "Hold after landing (ICP tangent)",
+       "value": "50m Ideal [30m Min]"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. 5-10m Delta TVD from tangent bottom to ICP"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Leg]",
+       "value": "Max 2500m"
+      },
+      {
+       "param": "TMD [well]",
+       "value": "17,000m (all legs)\nUp to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "100m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1,700m MD"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      },
+      {
+       "param": "Drill order",
+       "value": "From ICP to Final TD"
+      },
+      {
+       "param": "Liner on the spine design",
+       "value": "Drill the first 50m of the leg at 90°INC at the landing TVD, aligned with the spine's azimuth and then climb 1m TVD\nover the first 40m MD. Complete the turn if needed after flattening the trajectory once the climb is done with\nmax DLS 6°/30m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "This is for drilling the legs forward from ICP to TD. Last leg should remain at targeted TVD for the liner"
+      },
+      {
+       "param": "",
+       "value": "* 1m Climb (~40m MD): with 6°/30m +/-45TF to 92°inc, hold(or max 2° of turn), bring back to 90° inc 1m higher in TVD"
+      },
+      {
+       "param": "",
+       "value": "Always check DP request form for depletion information and avoid given area with the trajectory"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-003_544d1532c0.png",
+     "section": "Build Section"
+    },
+    {
+     "file": "E-003_45deeeb911.png",
+     "section": "Lateral Section"
+    }
+   ]
+  },
+  {
+   "code": "E-011",
+   "group": "East",
+   "area": "HEAVY OIL (Waseca)",
+   "formations": "WASECA",
+   "updatedDate": "2026-10-21",
+   "sheet": "HO_waseca",
+   "order": 10,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build & lateral turn preferred. Build & Turn acceptable to land, but keep to minimum possible."
+      },
+      {
+       "param": "DLS KOP to 80⁰ INC [to pump tangent]",
+       "value": "8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. 5-10m Delta TVD from tangent bottom to LP"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Fork design inside Hockey stick",
+       "value": "To decrease Toe to Toe distance & make legs more parallel then 8⁰/30m MAX"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": "MAX:2400m Optimum 2000m MD [Plan full length to cover polygon and make a note if exceeds 2000m MD]"
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "20,000m"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "100m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1600mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "If displacement tangent is needed to land, those extra meters can be added to the pump tangent at 80 deg INC"
+      },
+      {
+       "param": "",
+       "value": "If the well Switched to be lined, the first plan will be flat and need to confirm for the iteration after if there is room"
+      },
+      {
+       "param": "",
+       "value": "for the climb of 1m TVD"
+      },
+      {
+       "param": "",
+       "value": "Always check DP request form for depletion information and avoid given area with the trajectory"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "As directed by G&G"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-011_048339c5d5.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "E-004",
+   "group": "East",
+   "area": "HEAVY OIL [Senlac]",
+   "formations": "CUMMINGS, DINA",
+   "updatedDate": "2026-10-21",
+   "sheet": "HO (Senlac)",
+   "order": 11,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      },
+      {
+       "param": "DLS KOP to 80⁰ INC",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "Hold after landing (ICP tangent)",
+       "value": "50m Ideal [30m Min]"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. If VS to land is >350m, this value can be increased for extended reach"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Leg]",
+       "value": "Max 2500m"
+      },
+      {
+       "param": "TMD [well]",
+       "value": "17,000m (all legs)\nUp to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "50m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1400m MD"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      },
+      {
+       "param": "Ideal Type of design",
+       "value": "Hockey stick"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Always check DP request form for depletion information and avoid given area with the trajectory"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "E-005",
+   "group": "East",
+   "area": "DRIFTWOOD [Single]",
+   "formations": "WABISKAW",
+   "updatedDate": "2026-01-29",
+   "sheet": "Driftwood(Single)",
+   "order": 12,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "N/A"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "65m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5⁰/30m [4⁰/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "[MAX 8⁰/30m]"
+      },
+      {
+       "param": "Pump tangent [Producer]",
+       "value": "30m. Bottom of tangent @ <4m TVD above landing. Max 85⁰ INC. min 25m MD from End of tangent to ICP"
+      },
+      {
+       "param": "Packer tangent [Injector]",
+       "value": "30m. Bottom of tangent @ 20m MD after the Wab C top. Max 85⁰ INC. If tangent length needs to have DLS keep it <2°/30m"
+      },
+      {
+       "param": "ICP Location",
+       "value": "min 30m after landing. Geo will provide UTMs"
+      },
+      {
+       "param": "Landing INC",
+       "value": "~90⁰ INC if lateral is up dip, INC as required to be constant from ICP to TD, if lateral is down dip"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "6.0⁰/30m. No turn to land after 80 Deg Inclination, if absolutely required <2° MAX"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MSA"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MSA"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.0*"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "10m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "*Asset team responsible for confirming satisfactory abandonment when 1.0<SF<1.5 with Non-CNRL Abandoned well"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": [
+      {
+       "param": "",
+       "value": "Azimuthal Resistivity tool required for these wells"
+      }
+     ]
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "E-009",
+   "group": "East",
+   "area": "DRIFTWOOD & BRINTNELL [Open Hole MHZ]",
+   "formations": "WABISKAW",
+   "updatedDate": "2026-09-28",
+   "sheet": "DriftW&Brintnell(OHMHZ)",
+   "order": 13,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "N/A"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "65m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5⁰/30m [4⁰/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "aim 8⁰/30m[MAX 8.5⁰/30m]"
+      },
+      {
+       "param": "Pump tangent [Producer]",
+       "value": "30m. Bottom of tangent @ <4m TVD above landing. Max 85⁰ INC. min 25m MD from End of tangent to ICP"
+      },
+      {
+       "param": "Packer tangent [Injector]",
+       "value": "30m. Bottom of tangent @ 20m MD after the Wab C top. Max 85⁰ INC. If tangent length needs to have DLS keep it <2°/30m"
+      },
+      {
+       "param": "ICP Location",
+       "value": "min 30m after landing. Geo will provide UTMs. Aim for max 1100m MD"
+      },
+      {
+       "param": "Landing INC",
+       "value": "~90⁰ INC if lateral is up dip, INC as required to be constant from ICP to TD, if lateral is down dip"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "aim 6⁰/30m[MAX 8⁰/30m]. No turn to land after 80 Deg Inclination, if absolutely required <2° MAX"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "Aim for 5⁰/30m particularly in longer laterals [MAX 6⁰/30m] Vet with DE if more is required."
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": "[4000m Max]- TVD dependant."
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "21,000m (all legs)\nUp to 24,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "50m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "2500mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m minimum"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Producer: MHZ Do main outer legs and sidetrack inwards for both sides"
+      },
+      {
+       "param": "",
+       "value": "Injector: Centered in between the MHZ producer"
+      },
+      {
+       "param": "",
+       "value": "Inter-leg distance for all wells will be provided by Geos at DP request"
+      },
+      {
+       "param": "",
+       "value": "Combo wells \"SC\", need to be planned as Producers with the middle leg to be lined, therefore last to drill"
+      },
+      {
+       "param": "",
+       "value": "Half fishbone (comb) wells keep the lateral max delta azimuth from the spine to the legs to be 45 degrees"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MSA"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MSA"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.0*"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "10m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": "*Asset team responsible for confirming satisfactory abandonment when 1.0<SF<1.5 with Non-CNRL Abandoned well"
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": [
+      {
+       "param": "",
+       "value": "Azimuthal Resistivity tool required for these wells"
+      }
+     ]
+    }
+   ],
+   "images": [
+    {
+     "file": "E-009_9a8f9edc2e.png",
+     "section": "Lateral Section"
+    }
+   ]
+  },
+  {
+   "code": "E-006",
+   "group": "East",
+   "area": "SLANTS [Heavy Oil]",
+   "formations": "PALEOZOIC",
+   "updatedDate": "2026-09-28",
+   "sheet": "Slants HO",
+   "order": 14,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "provided on request"
+      },
+      {
+       "param": "Slant spud",
+       "value": "Increase up to 45° inc as required"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m\nNo KOP inside surface hole. If needed DE, Supt and Prod Eng. need to approve."
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": ""
+      },
+      {
+       "param": "Type",
+       "value": ""
+      },
+      {
+       "param": "DLS",
+       "value": "Not Applicable"
+      },
+      {
+       "param": "Max Inclination",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight NO turns. Goal is to always hit the target"
+      },
+      {
+       "param": "Max well inclination",
+       "value": "Ideal <=50° INC. MAX: As needed to hit the target. If >58°=>plan for tubing conveyed logs [Flag on DP]"
+      },
+      {
+       "param": "DLS",
+       "value": "Up to 6°/30m --goal is minimize absolute DLS (length build section as required)"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "Min 30m and Inc given by the target location"
+      },
+      {
+       "param": "Target",
+       "value": "Marked on the Prog with \"P\""
+      },
+      {
+       "param": "TD",
+       "value": "Hold INC from target to Drillers TVDss. If Paleozoic=>hold 10m MD"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": ""
+      },
+      {
+       "param": "Inclination range",
+       "value": "Not Applicable"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Hard boundary should be annotated. “Do Not Exceed 10m MD after Paleozoic top” on the plot if applicable"
+      },
+      {
+       "param": "",
+       "value": "If well inclination exceeds 58° INC include box on the plot identifying the ETS #"
+      },
+      {
+       "param": "",
+       "value": "Future projects"
+      },
+      {
+       "param": "",
+       "value": "Work with Prod, wells servicing and facilities to come up with a surface layout template that also accounts for AC"
+      },
+      {
+       "param": "",
+       "value": "Understand max VS to hit target at Inc --- To provide a quick reference at the conceptualization phase"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "SCP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on main hole",
+       "value": "10m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-006_5cf0c98fd6.png",
+     "section": "For PlanIT use only"
+    },
+    {
+     "file": "E-006_c92e52a7a5.png",
+     "section": "Lateral Section"
+    },
+    {
+     "file": "E-006_e51618a9a7.png",
+     "section": "Surface Slot Layout"
+    }
+   ]
+  },
+  {
+   "code": "E-007",
+   "group": "East",
+   "area": "ALDERSON",
+   "formations": "BASE QUARTZ, DETRITIAL, GLAUCONITIC",
+   "updatedDate": "2025-12-15",
+   "sheet": "Alderson",
+   "order": 15,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "N/A"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "200m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP."
+      },
+      {
+       "param": "Type",
+       "value": "Build, hold, Drop"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5⁰/30m [4⁰/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "Aim for DLS <7°/30m. 7s max to 70° INC (67°-75° acceptable)"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "N/A. Do not leave any tangent on the build"
+      },
+      {
+       "param": "ICP Location",
+       "value": "At landing ~90° INC"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC if lateral inc>90°. Required inc to hit WP1/TD if lateral inc<90°"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "9⁰/30m Max. Aim to use even DLS above and below ≈ 70° INC if possible"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section [Single]",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5⁰/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      },
+      {
+       "param": "Design A [Candle middle lined]",
+       "value": "Ensure sidetraking sequence, leaves the middle leg last for the liner to go in"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "30m"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "50m"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5⁰/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section [Multi]",
+     "rows": [
+      {
+       "param": "Design B [Hockey stick forward]",
+       "value": "Liner will be set on the last leg covering all the sidetracks from ICP"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "30m"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "50m"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5⁰/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "If you can't hit a WP then leave it on the drawing so the the proximity to it can be seen"
+      },
+      {
+       "param": "",
+       "value": "Multi-lateral waypoints often will not fit given planning constraints – plan to best fit"
+      },
+      {
+       "param": "",
+       "value": "Leg arrangement after EOT parallel keeping inter-leg distance even"
+      },
+      {
+       "param": "",
+       "value": "Annotate way points"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-007_0b1aa50361.png",
+     "section": "Lateral Section [Multi]"
+    },
+    {
+     "file": "E-007_203884bafa.png",
+     "section": "Lateral Section [Single]"
+    },
+    {
+     "file": "E-007_fd53e2b6f5.png",
+     "section": "For PlanIT use only"
+    }
+   ]
+  },
+  {
+   "code": "E-008",
+   "group": "East",
+   "area": "DRUMHELLER & BROOKS",
+   "formations": "BASE QUARTZ, DETRITIAL, GLAUCONITIC",
+   "updatedDate": "2026-01-08",
+   "sheet": "Drum&Brooks",
+   "order": 16,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "N/A"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "180m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP."
+      },
+      {
+       "param": "Type",
+       "value": "Build, hold, Drop"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5⁰/30m [4⁰/30m MAX]"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "as needed"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land. Perfer more turn on the build section"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "7°/30m to ~70°INC"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30m.Top of tangent ~125m MD above ICP. Top of tangent to ICP Delta TVD 25-40m. Ideal INC range (65° to 75° INC) -flexible"
+      },
+      {
+       "param": "ICP Location",
+       "value": "At landing"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC if lateral inc>90°. Required inc to hit WP1/TD if lateral inc<90°"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "Max 9°/30m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section [Single]",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5°/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      },
+      {
+       "param": "Design A [Candle middle lined]",
+       "value": "Ensure sidetraking sequence, leaves the middle leg last for the liner to go in"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "30m"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "50m"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5⁰/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section [Multi]",
+     "rows": [
+      {
+       "param": "Design B [Hockey stick forward]",
+       "value": "Liner will be set on the last leg covering all the sidetracks from ICP"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "30m"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "50m"
+      },
+      {
+       "param": "DLS",
+       "value": "3.5°/30m [4.5⁰/30m MAX]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 3⁰ inc [87⁰-93⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Whenever it is possible to use less than 7° below ≈ 70° aim to use even DLS above and below ≈ 70°"
+      },
+      {
+       "param": "",
+       "value": "Multi-lateral waypoints often will not fit given planning constraints – plan to best fit"
+      },
+      {
+       "param": "",
+       "value": "Sidetracking DLS 8°/30m Max over ~20m."
+      },
+      {
+       "param": "",
+       "value": "Leg arrangement after EOT parallel keeping inter-leg distance even"
+      },
+      {
+       "param": "",
+       "value": "Annotate way points"
+      },
+      {
+       "param": "",
+       "value": "If reach is too high add the displacement on the pump tangent as much as possible"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. Well by well basis. Check with DE"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-008_0b1aa50361.png",
+     "section": "Lateral Section [Multi]"
+    },
+    {
+     "file": "E-008_203884bafa.png",
+     "section": "Lateral Section [Single]"
+    },
+    {
+     "file": "E-008_fd53e2b6f5.png",
+     "section": "For PlanIT use only"
+    }
+   ]
+  },
+  {
+   "code": "E-010",
+   "group": "East",
+   "area": "BRINTNELL [Re-Entry]",
+   "formations": "WABISKAW",
+   "updatedDate": "2025-08-12",
+   "sheet": "Brintnell RE",
+   "order": 17,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": ""
+      },
+      {
+       "param": "Distance between rows",
+       "value": "Not Applicable"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": ""
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "Not Applicable"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": ""
+      },
+      {
+       "param": "Type",
+       "value": ""
+      },
+      {
+       "param": "DLS",
+       "value": "Not Applicable"
+      },
+      {
+       "param": "Max Inclination",
+       "value": ""
+      },
+      {
+       "param": "Min C2C distance between wells at SCP",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land"
+      },
+      {
+       "param": "For Whipstock stk:",
+       "value": ""
+      },
+      {
+       "param": "Tool Face orientation",
+       "value": "+/- 60⁰ max"
+      },
+      {
+       "param": "Exit Window of Whipstock [Stk Pt]",
+       "value": ""
+      },
+      {
+       "param": "For Open Hole, stk DLS",
+       "value": "9⁰/30m"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "8⁰/30m Ideal [10⁰/30m MAX - Run it by DE & Sup]"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m [MAX 6.5⁰/30m]"
+      },
+      {
+       "param": "Distance from parent hole",
+       "value": "As directed by G&G"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Estimate sidetrack point based on TVD given for landing and build section parameters, Casing logs must be"
+      },
+      {
+       "param": "",
+       "value": "reviewed by DE and Whipstock placement confirmed prior to execution."
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - STK Pt",
+       "value": "Tool code from parent borehole"
+      },
+      {
+       "param": "STK Pt - TD",
+       "value": "MWD+IFR1+MSA+SAG"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "As directed by G&G"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-010_1e74b2a67f.png",
+     "section": "Build Section"
+    }
+   ]
+  },
+  {
+   "code": "E-012",
+   "group": "East",
+   "area": "LINED EYELASH [All East]",
+   "formations": "GP, SPARKY, COLONY, LLOYMINSTER,WABISKAW, CUMMINGS20,CUMMINGS, DINA",
+   "updatedDate": "2026-10-21",
+   "sheet": "EYELASH (Lined)",
+   "order": 18,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "BGWP + 15m TVD [Do not plan if BGWP is not given]"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "T62,63 & R6,7W4 [Only]",
+       "value": "5m above the Colorado top (If max DLS<=9°/30m, if not then place it as deep as possible for max 9°/30m)"
+      },
+      {
+       "param": "Saskatchewan Wells Always",
+       "value": "140m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      },
+      {
+       "param": "DLS KOP to 80⁰ INC",
+       "value": "8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "DLS 80⁰ to 87⁰ INC",
+       "value": "8⁰/30m"
+      },
+      {
+       "param": "DLS 87⁰ to 90⁰ INC (Soft landing)",
+       "value": "3⁰/30m"
+      },
+      {
+       "param": "***Or alternative after the pump tangent to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30-50m at 80⁰ INC. 5-10m Delta TVD from tangent bottom to ICP"
+      },
+      {
+       "param": "ICP Location",
+       "value": "25m after landing"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Leg]",
+       "value": "Max 2500m"
+      },
+      {
+       "param": "TMD [well]",
+       "value": "17,000m (all legs)\nUp to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "100m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1,700m MD"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      },
+      {
+       "param": "Drill order",
+       "value": "From ICP to Final TD"
+      },
+      {
+       "param": "Liner on the spine design \n[Drilling Recommendation-> Spine to the right]",
+       "value": "Drill the first 50m of the leg at 90°INC at the landing TVD, align with the spine's azimuth and then climb 1m TVD\nover the first 40m MD*. Complete the turn if needed after flattening the trajectory once the climb is done with\nmax DLS 6°/30m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "This is for drilling the legs forward from ICP to TD. Last leg should remain at targeted TVD for the liner"
+      },
+      {
+       "param": "",
+       "value": "* 1m Climb (~40m MD): with 6°/30m -45TF to 92°inc, hold(or max 2° of turn), bring back to 90° inc 1m higher"
+      },
+      {
+       "param": "",
+       "value": "Ideally spine on the right side of all the legs. Otherwise, vetting from DE and DE Manager is needed"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "E-012_544d1532c0.png",
+     "section": "Build Section"
+    },
+    {
+     "file": "E-012_491f2f751d.png",
+     "section": "Lateral Section"
+    }
+   ]
+  },
+  {
+   "code": "C-001",
+   "group": "Central",
+   "area": "BILBO/WAPITI",
+   "formations": "FALHER",
+   "updatedDate": "2026-08-17",
+   "sheet": "Bilbo|Wapiti",
+   "order": 19,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      },
+      {
+       "param": "Inclination",
+       "value": "Max 7⁰ for surface hole"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Inside surface hole at 150m"
+      },
+      {
+       "param": "Type",
+       "value": "\"s\" or \"J\" as required for AC"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "Max 25⁰"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP to Land",
+       "value": "6⁰/30m MAX as deep as possible ideally below ICP"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "ICP Location",
+       "value": "Vertical ICP. 15m MD into the Shaftsbury top as it will be called via gamma."
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC if lateral inc>90°. Required INC to hit WP1/TD if lateral inc<90°"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Check with DE if nudge inclination required is above 25° for the ICP to be vertical"
+      },
+      {
+       "param": "",
+       "value": "Please cc Angela.Galipeault@cnrl.com on DP delivery"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-002",
+   "group": "Central",
+   "area": "DEEP BASIN [ICP]",
+   "formations": "GETHING, HALFWAY, FALHER, NISKU, CADOMIN, CARDIUM, LEDUC, WINTERBURN, MONTNEY",
+   "updatedDate": "2026-08-17",
+   "sheet": "DB_ICP",
+   "order": 20,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Always after SCP"
+      },
+      {
+       "param": "Type",
+       "value": "Build, hold, Drop"
+      },
+      {
+       "param": "DLS",
+       "value": "1.5⁰/30m - 3.5⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "up to 3.5⁰ and from 7⁰"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP to ICP",
+       "value": "4⁰/30m Ideal [6°/30MAX]"
+      },
+      {
+       "param": "ICP Location",
+       "value": "15m MD in Nordegg"
+      },
+      {
+       "param": "Max Inclination through Fernie",
+       "value": "30°"
+      },
+      {
+       "param": "DLS ICP to Land",
+       "value": "7⁰/30m [up to 9⁰/30m for Montney D wells]"
+      },
+      {
+       "param": "Required tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "Annotate “Casing XO”",
+       "value": "70° INC"
+      },
+      {
+       "param": "Landing",
+       "value": "~90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m [Max]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-011",
+   "group": "Central",
+   "area": "DEEP BASIN [Monobore]",
+   "formations": "GETHING, HALFWAY, FALHER, NISKU, CADOMIN, CARDIUM, LEDUC, WINTERBURN, MONTNEY",
+   "updatedDate": "2026-08-17",
+   "sheet": "DB_Monobr",
+   "order": 21,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Always after SCP"
+      },
+      {
+       "param": "Type",
+       "value": "Build, hold, Drop"
+      },
+      {
+       "param": "DLS",
+       "value": "1.5⁰/30m - 3.5⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "up to 3.5⁰ and from 7⁰"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]\nAim for KOP below fernie as possible"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Max Inclination through Fernie",
+       "value": "15°"
+      },
+      {
+       "param": "DLS to Land",
+       "value": "ideally 7⁰/30m [MAX 9⁰/30m for Montney D wells -10°/30m only on special cases and needs DE vetting]"
+      },
+      {
+       "param": "Required tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "Annotate “Casing XO”",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC if up dip lateral or at required INC to have a constant drop if down dip lateral"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m [6°/30m Max]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "SCP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-004",
+   "group": "Central",
+   "area": "KAYBOB DUVERNAY",
+   "formations": "DUVERNAY",
+   "updatedDate": "2026-09-11",
+   "sheet": "Duvernay",
+   "order": 22,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "20m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "400m - 600m TVD. Confirm with DE"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed 200m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "1.5⁰-2.5⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "MAX 7⁰ INC"
+      },
+      {
+       "param": "Profile type",
+       "value": "Build & Turn profile. Negative section acceptable (if needed)"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Do not have directional work in",
+       "value": "Lee Park, Cardium, Nordegg, Banff Chert, Winterburn, Blueridge"
+      },
+      {
+       "param": "DLS in Wabamun",
+       "value": "3-3.5°/30m"
+      },
+      {
+       "param": "DLS in Nisku",
+       "value": "1.5⁰/30m [no less. no more]"
+      },
+      {
+       "param": "if additional DD work is needed",
+       "value": ""
+      },
+      {
+       "param": "DLS in Shunda, Pekisko, Banff",
+       "value": "MAX 3°/30m"
+      },
+      {
+       "param": "DLS in Montney",
+       "value": "MAX 2°/30m"
+      },
+      {
+       "param": "Annotate “Casing XO”",
+       "value": "Confirm with DE the specific TVD. Default 60° INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "100m TVD into Nisku"
+      },
+      {
+       "param": "ICP Inclination",
+       "value": "35⁰ [Max 37⁰]"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "5⁰/30m ideal [6⁰/30m Max]"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC if lateral is up dip. Required inc to be constant to TD if lateral is down dip"
+      },
+      {
+       "param": "Est. dist. between heels on the same plane",
+       "value": "~191m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m [5⁰/30m Max]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "TMD Limit",
+       "value": "8600m"
+      },
+      {
+       "param": "U-Turns Only DLS",
+       "value": "6⁰/30m Max"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Ideal Heel separation for the wells going opposite ways. Both wells need to enter Duvernay C ~50m away on the same plane,"
+      },
+      {
+       "param": "",
+       "value": "and ~52m orthogonally. The Heel separation will be ~191m using current build section design parameters."
+      },
+      {
+       "param": "",
+       "value": "Always include CNRL.RealTimeOPS@cnrl.com for DP delivery"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. Evaluated on a well by well basis"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "C-004_6cc54dd1a8.png",
+     "section": "AC Nudges"
+    }
+   ]
+  },
+  {
+   "code": "C-003",
+   "group": "Central",
+   "area": "DEEP BASIN [Karr]",
+   "formations": "DUNVEGAN",
+   "updatedDate": "2026-08-17",
+   "sheet": "DB Karr",
+   "order": 23,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": ""
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "For Karr wells Inside Surface hole at 150m."
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold and drop"
+      },
+      {
+       "param": "DLS",
+       "value": "1.5⁰/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "up to 3.5⁰ and from 7⁰"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP to Land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Annotate “Casing XO”",
+       "value": "50m after pump tangent [Dunvegan Wells] Max INC 75°"
+      },
+      {
+       "param": "AVOID directional work in",
+       "value": "Belly River. If needed, hold displacement tangent (Max25° INC) through it"
+      },
+      {
+       "param": "Formation required for design",
+       "value": "SWS & SWS(lower). Maintain INC<50° through it"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30m at 65⁰ INC"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC if up dip or at required INC to have a constant drop if down dip"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m MAX"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. Well to well basis"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-005",
+   "group": "Central",
+   "area": "NORTHERN ALBERTA [Smith/Marten Hills]",
+   "formations": "CLEARWATER, WABISKAW, GRAND RAPIDS",
+   "updatedDate": "2025-07-17",
+   "sheet": "NAB Smith&MartenH",
+   "order": 24,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "150m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed inside Surface hole at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "To build and drop to vertical: 4⁰/30m MAX"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build and turn to land on AZM."
+      },
+      {
+       "param": "DLS",
+       "value": "KOP to 85⁰ INC 8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "45-50m at 75-85⁰ INC"
+      },
+      {
+       "param": "DLS",
+       "value": "85⁰ to 90⁰ INC 8⁰/30m"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "35m after landing as much as possible"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "Landing inclination",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "DLS",
+       "value": "6⁰/30m MAX"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-006",
+   "group": "Central",
+   "area": "NORTHERN ALBERTA [Cliffdale]",
+   "formations": "BLUESKY",
+   "updatedDate": "2026-01-08",
+   "sheet": "NAB Cliffdale",
+   "order": 25,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "150m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed inside Surface hole at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "4⁰/30m MAX"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build & Turn to land to better fill the drainage polygon (least amount of turn preferred on the build section)"
+      },
+      {
+       "param": "DLS",
+       "value": "KOP to 85⁰ INC 8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "45-50m at 75-85⁰ INC. [Ideal 85° INC]"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "85⁰ to 90⁰ INC 8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Landing inclination",
+       "value": "~90⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "10m after landing"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "Landing inclination",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 4⁰ inc [86⁰-94⁰ inc]"
+      },
+      {
+       "param": "DLS",
+       "value": "6.5⁰/30m [8.5°/30m MAX for hooks]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": "2500m [2800m Max]- TVD dependant. 1,800m-2,000m optimum TD."
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "Up to 20,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "50m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1600mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      },
+      {
+       "param": "Winerack design",
+       "value": "Land on the lower horizon and go to the upper on Leg1. Sidetrack all the legs on the same horizon and then drop\nto drill all the legs on the same horizon. Candle stick is acceptable"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "for combo wells Climb and flatten with max 4°/30"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": [
+    {
+     "file": "C-006_7ed5197839.png",
+     "section": "Build Section"
+    },
+    {
+     "file": "C-006_d124102892.png",
+     "section": "Surface Casing"
+    }
+   ]
+  },
+  {
+   "code": "C-012",
+   "group": "Central",
+   "area": "NORTHERN ALBERTA [Water Injector]",
+   "formations": "CLEARWATER",
+   "updatedDate": "2026-07-13",
+   "sheet": "NAB WaterInj",
+   "order": 26,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.32m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "N/A"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "150m TVD. Always confirm with DE"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Regularly after SCP. If needed inside Surface hole at 50m TVD is acceptable for AC"
+      },
+      {
+       "param": "Type",
+       "value": "Build and hold"
+      },
+      {
+       "param": "DLS",
+       "value": "To build and drop to vertical: 4⁰/30m MAX"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "As needed"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Build and turn to land on AZM."
+      },
+      {
+       "param": "DLS to land",
+       "value": "KOP to land 8⁰/30m [MAX 9⁰/30m]"
+      },
+      {
+       "param": "Tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "35m after landing as much as possible"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "Landing inclination",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "DLS",
+       "value": "8⁰/30m [9⁰/30m MAX] If more is needed confirm with DE"
+      },
+      {
+       "param": "TMD per leg",
+       "value": "~3000m MD"
+      },
+      {
+       "param": "Lateral TMD per leg",
+       "value": "~1600m MD"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "50m after ICP"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1600mMD max. If more is needed confirm with DE"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "40m Ideal 50m"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Always flag offset wells that are <5m TVD away within 35m radial distance from subject wellbore"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "IFR1"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "Yes"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+IFR1"
+      },
+      {
+       "param": "SCP - ICP",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+IFR1+MS"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "10m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-007",
+   "group": "Central",
+   "area": "PEACE RIVER AREA 1",
+   "formations": "MONTNEY",
+   "updatedDate": "2026-08-17",
+   "sheet": "PRA 1",
+   "order": 27,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "20m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent (Lease orientation dependent)"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "400-615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP"
+      },
+      {
+       "param": "Type",
+       "value": "build and drop to vertical"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "3.5⁰ or from 7⁰ - 10° [no nudges from 3.5°to7° to avoid TF swich zone"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "If landing is <600m => turn acceptable after the pump tangent. If not, straight build and lateral turn is preferred.\nStraight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP to Doig",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "DLS Doig to Montney",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "DLS Montney to Tangent",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "30m at 65⁰ INC"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing INC",
+       "value": "~90⁰ INC"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "6⁰/30m"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Upper Montney eq. distance to land ~330m. Upper Montney eq. DLS to land 5.2⁰/30m"
+      },
+      {
+       "param": "",
+       "value": "Lower Montney eq. distance to land ~300m. Lower Montney eq. DLS to land 5.7⁰/30m"
+      },
+      {
+       "param": "",
+       "value": "displacement tangents are acceptable if landing is set, try to have Inclination <35° for that section"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. On well by well basis. If need MWD+IFR1+MSA"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "50m. If SF<1 then apply survey corrections. Make notes at DP delivery to inform DE"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-008",
+   "group": "Central",
+   "area": "PEACE RIVER AREA 2",
+   "formations": "CHARLIE LAKE",
+   "updatedDate": "2026-08-17",
+   "sheet": "PRA 2",
+   "order": 28,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row [A]",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows [B]",
+       "value": "20m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent (Lease orientation dependent)"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "400-615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP"
+      },
+      {
+       "param": "Type",
+       "value": "build and drop to vertical"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "7⁰ - 10°"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "6⁰/30m Max"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "50m max 30⁰ INC in Fernie. Bottom of tangent to be at Nordegg top"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "up to 11⁰/30m (as required)"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. On well by well basis. If need MWD+IFR1+MSA"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "50m. If SF<1 then apply survey corrections. Make notes at DP delivery to inform DE"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-009",
+   "group": "Central",
+   "area": "SMOKY",
+   "formations": "FALHER",
+   "updatedDate": "2026-08-17",
+   "sheet": "Smoky",
+   "order": 29,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "10m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "Project dependent (Lease orientation dependent)"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent (Lease orientation dependent)"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "600m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP up to 1000m MD"
+      },
+      {
+       "param": "Type",
+       "value": "build and drop to vertical"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "3.5⁰ or from 7⁰ - 10° [no nudges from 3.5°to7° to avoid TF swich zone"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "6⁰/30m Max\nAvoid KOP in Belly River. Ideally be vertical through it."
+      },
+      {
+       "param": "Pump tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "INC and AZM monitoring is required trhough the Falher Coals and Joli Fou Shales. Build section plan:"
+      },
+      {
+       "param": "",
+       "value": "FLHR D Coal: INC<40° & AZM 0°-90° or 180°-270° [Desired parameters, if outside check with DE]"
+      },
+      {
+       "param": "",
+       "value": "FLHR G Coal: INC<65° & AZM 0°-90° or 180°-270° [Desired parameters, if outside check with DE]"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-010",
+   "group": "Central",
+   "area": "FERRIER",
+   "formations": "CARDIUM",
+   "updatedDate": "2026-08-17",
+   "sheet": "Ferrier",
+   "order": 30,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "Project dependent (Lease orientation dependent)"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent (Lease orientation dependent)"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "600m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP"
+      },
+      {
+       "param": "Type",
+       "value": "build and drop to vertical"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "3.5⁰ or from 7⁰ - 10° [no nudges from 3.5°to7° to avoid TF swich zone"
+      },
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP",
+       "value": "6⁰/30m Max\nAvoid KOP in Belly River. Ideally be vertical through it."
+      },
+      {
+       "param": "Pump tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "INC and AZM monitoring is required trhough the Falher Coals and Joli Fou Shales. Build section plan:"
+      },
+      {
+       "param": "",
+       "value": "FLHR D Coal: INC<40° & AZM 0°-90° or 180°-270° [Desired parameters, if outside check with DE]"
+      },
+      {
+       "param": "",
+       "value": "FLHR G Coal: INC<65° & AZM 0°-90° or 180°-270° [Desired parameters, if outside check with DE]"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "C-013",
+   "group": "Central",
+   "area": "PEACE RIVER AREA MHZ",
+   "formations": "CHARLIE LAKE",
+   "updatedDate": "2026-09-22",
+   "sheet": "PRA MHZ",
+   "order": 31,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row [A]",
+       "value": "7.3m"
+      },
+      {
+       "param": "Distance between rows [B]",
+       "value": "20m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent (Lease orientation dependent)"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "400-615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "After SCP"
+      },
+      {
+       "param": "Type",
+       "value": "build and drop to vertical"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "7⁰ - 10°"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "Profile Type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      },
+      {
+       "param": "DLS KOP",
+       "value": "6⁰/30m Max"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "50m max 30⁰ INC in Fernie. Bottom of tangent to be at Nordegg top. Higher inclinations might be acceptable with\nvetting from DEng for shallower CLLK wells"
+      },
+      {
+       "param": "ICP Location",
+       "value": "Landing point"
+      },
+      {
+       "param": "Landing INC",
+       "value": "90⁰ INC"
+      },
+      {
+       "param": "Landing DLS",
+       "value": "up to 11⁰/30m (as required)"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "5⁰/30m [MAX 6⁰/30m]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      },
+      {
+       "param": "LatMD [Surface to TD] per leg",
+       "value": ""
+      },
+      {
+       "param": "Total Lateral Length per well",
+       "value": "18,000m (all legs)\nUp to 29,000m can be considered with geo & drilling manager approval  (ability to capture final legs on subsequent wells must be considered)"
+      },
+      {
+       "param": "First Sidetrack Min MD",
+       "value": "150m after LP (min 100m if needed to better cover the drainage area)"
+      },
+      {
+       "param": "Last Sidetrack Max MD",
+       "value": "1700mMD max"
+      },
+      {
+       "param": "Distance between sidetracks Min MD",
+       "value": "50m [Min 40m]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": []
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No. On well by well basis. If need MWD+IFR1+MSA"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "50m. If SF<1 then apply survey corrections. Make notes at DP delivery to inform DE"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  },
+  {
+   "code": "W-001",
+   "group": "West",
+   "area": "BRITISH COLUMBIA",
+   "formations": "MONTNEY",
+   "updatedDate": "2026-10-21",
+   "sheet": "British Columbia",
+   "order": 32,
+   "sections": [
+    {
+     "title": "Surface Slot Layout",
+     "rows": [
+      {
+       "param": "Distance between slots on the same row",
+       "value": "7.32m"
+      },
+      {
+       "param": "Distance between rows",
+       "value": "35-50m"
+      },
+      {
+       "param": "Typical row orientation",
+       "value": "Project dependent"
+      }
+     ]
+    },
+    {
+     "title": "Surface Casing",
+     "rows": [
+      {
+       "param": "Typical shoe depth",
+       "value": "515-615m TVD"
+      },
+      {
+       "param": "Drill out tangent",
+       "value": "30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Nudges",
+     "rows": [
+      {
+       "param": "KOP",
+       "value": "Ideally after SCP. Inside SC at 150m TVD is acceptable if the profile requires it. Clear with DE"
+      },
+      {
+       "param": "Type",
+       "value": "Build, hold, drop"
+      },
+      {
+       "param": "DLS",
+       "value": "2⁰/30m-3.5°/30m"
+      },
+      {
+       "param": "Max Inclination",
+       "value": "3.5⁰ or from 7⁰ - 10° [no nudges from 3.5°to7° inclination to avoid TF switch zone"
+      },
+      {
+       "param": "Profile type",
+       "value": "Straight build and lateral turn preferred [for Build & Turn and negative section, clear with DE first]"
+      }
+     ]
+    },
+    {
+     "title": "Build Section",
+     "rows": [
+      {
+       "param": "DLS KOP to Doig",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "DLS Doig to Montney",
+       "value": "4⁰/30m"
+      },
+      {
+       "param": "DLS Montney to land",
+       "value": "6⁰/30m"
+      },
+      {
+       "param": "Pump tangent",
+       "value": "N/A"
+      },
+      {
+       "param": "ICP Location",
+       "value": "N/A"
+      },
+      {
+       "param": "Landing",
+       "value": "90⁰ INC if up dip lateral or at required INC to have a constant drop if down dip lateral"
+      }
+     ]
+    },
+    {
+     "title": "Lateral Section",
+     "rows": [
+      {
+       "param": "DLS",
+       "value": "4⁰/30m [5⁰/30m Max]"
+      },
+      {
+       "param": "Inclination range",
+       "value": "+/- 2⁰ inc [88⁰-92⁰ inc]"
+      }
+     ]
+    },
+    {
+     "title": "For PlanIT use only",
+     "rows": [
+      {
+       "param": "",
+       "value": "Upper Montney eq. distance to land ~330m"
+      },
+      {
+       "param": "",
+       "value": "Upper Montney eq. DLS to land 5.2⁰/30m"
+      },
+      {
+       "param": "",
+       "value": "Lower Montney eq. distance to land ~300m"
+      },
+      {
+       "param": "",
+       "value": "Lower Montney eq. DLS to land 5.7⁰/30m"
+      }
+     ]
+    },
+    {
+     "title": "AC Guidelines Default",
+     "rows": [
+      {
+       "param": "Default surveying tool",
+       "value": "MWD"
+      },
+      {
+       "param": "Default Geomagnetic model",
+       "value": "HRGM"
+      },
+      {
+       "param": "Survey correction services required [Default]",
+       "value": "No"
+      },
+      {
+       "param": "Default Survey Program",
+       "value": ""
+      },
+      {
+       "param": "0m - 100m",
+       "value": "MWD Int AZM"
+      },
+      {
+       "param": "100m - SCP",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "ICP - TD",
+       "value": "MWD+HRGM"
+      },
+      {
+       "param": "Separation Factor and Center to Center Guidelines",
+       "value": ""
+      },
+      {
+       "param": "Min SF against CNRL Active wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against CNRL Abandoned wells",
+       "value": "1"
+      },
+      {
+       "param": "Min SF against non-CNRL Active wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min SF against non-CNRL Abandoned wells",
+       "value": "1.5"
+      },
+      {
+       "param": "Min C2C distance between wells on build",
+       "value": "15m"
+      },
+      {
+       "param": "Min C2C distance between wells on lateral",
+       "value": "15m"
+      },
+      {
+       "param": "Additional considerations",
+       "value": ""
+      }
+     ]
+    },
+    {
+     "title": "Additional notes",
+     "rows": []
+    }
+   ],
+   "images": []
+  }
+ ]
+}

@@ -112,6 +112,12 @@ const {
     deleteBvRig,
     saveOpsGeoDistList,
     deleteOpsGeoDistList,
+    handoverImage,
+    renderDesignCodes,
+    saveDesignCode,
+    deleteDesignCode,
+    uploadDesignCodeImage,
+    deleteDesignCodeImage,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -173,6 +179,14 @@ router.delete('/notes/bvRig/:id', isAuthenticated, deleteBvRig);
 // 2026-10-28: Ops. Geo. Distribution List (admin check inside the handlers).
 router.post('/notes/opsGeoDistList', isAuthenticated, saveOpsGeoDistList);
 router.delete('/notes/opsGeoDistList/:id', isAuthenticated, deleteOpsGeoDistList);
+// 2026-10-28: job picture for the Handover .eml (server-side fetch from Cloudinary).
+router.get('/notes/handoverImage/:id', isAuthenticated, handoverImage);
+// 2026-10-28: Design Codes — all logged-in users read; admin check inside the edit handlers.
+router.get('/notes/designCodes', isAuthenticated, renderDesignCodes);
+router.post('/notes/designCodes', isAuthenticated, saveDesignCode);
+router.delete('/notes/designCodes/:id', isAuthenticated, deleteDesignCode);
+router.post('/notes/designCodes/:id/image', isAuthenticated, uploadDesignCodeImage);
+router.delete('/notes/designCodes/:id/image/:imgId', isAuthenticated, deleteDesignCodeImage);
 
 // Bulk delete (Archived table, admin-only — enforced server-side in the
 // controller). Added 2026-09-14 alongside the per-row Delete button.
