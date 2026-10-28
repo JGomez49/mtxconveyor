@@ -82,6 +82,247 @@
         </form>
     </div>
 
+    <!--
+        ADDED 2026-10-28 (John): "Ops. Geo. Distribution List" (just before the
+        Pad Distribution List). Exp. Manager -> Ops Geo e-mail(s). If an Exp.
+        Manager's name is in a pad's Pad Distribution List, the Gantt Handover
+        e-mail also CCs that manager's Ops Geo(s). Each row saves on its own
+        (POST /notes/opsGeoDistList, DELETE /notes/opsGeoDistList/:id;
+        models/OpsGeoDistList.js). Names match ignoring case/commas/word order.
+    -->
+    <div class="container mb-5">
+        <h3>Ops. Geo. Distribution List</h3>
+        <p class="text-muted">If an <b>Exp. Manager</b> is on the Handover e-mail (their name is in the pad's Pad Distribution List), their <b>Ops Geo</b> address(es) are added to <b>CC</b>. Addresses separated by <b>;</b>.</p>
+        <table class="table table-dark table-sm table-bordered">
+            <thead><tr><th style="width:25%;">Exp. Manager</th><th>Ops Geos</th><th style="width:15%;"></th></tr></thead>
+            <tbody>
+                <% opsGeos.concat([{ _id: '', expManager: '', opsGeos: '' }]).forEach(function(o){ var isNew = !o._id; %>
+                    <tr data-id="<%= o._id %>">
+                        <td><input type="text" class="form-control form-control-sm og-mgr" value="<%= o.expManager %>" <%- isNew ? 'placeholder="New Exp. Manager"' : '' %>></td>
+                        <td><input type="text" class="form-control form-control-sm og-mails" value="<%= o.opsGeos %>" <%- isNew ? 'placeholder="first.last@cnrl.com;"' : '' %>></td>
+                        <td><% if (isNew) { %><button type="button" class="btn btn-success btn-sm og-save">Add</button><% } else { %><button type="button" class="btn btn-primary btn-sm og-save">Save</button> <button type="button" class="btn btn-danger btn-sm og-del">Delete</button><% } %></td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+    <script>
+    (function(){
+        document.querySelectorAll('.og-save').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr');
+            try{ var r = await fetch('/notes/opsGeoDistList', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: tr.dataset.id || null, expManager: tr.querySelector('.og-mgr').value, opsGeos: tr.querySelector('.og-mails').value }) });
+                var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Save failed: ' + err.message); }
+        }); });
+        document.querySelectorAll('.og-del').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr'); if(!confirm('Delete "' + tr.querySelector('.og-mgr').value + '"?')) return;
+            try{ var r = await fetch('/notes/opsGeoDistList/' + tr.dataset.id, { method: 'DELETE' }); var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Delete failed: ' + err.message); }
+        }); });
+    })();
+    </script>
+    <!--
+        ADDED 2026-10-27 (John): "Pad Distribution List". Same day: entered by
+        MTX ID instead of the site name (pad = that job's project/site). Recipients of the
+        Gantt "Handover" e-mail, one list per pad (site). The admin imports
+        the ETS distribution-list export (.xls/.xlsx): names come from the
+        "ETS User" column (Role kept for display); importing REPLACES that
+        pad's list. Parsed in the browser with SheetJS (same CDN/version as
+        the other MTX pages), saved via POST /notes/padDistList
+        (notesCrtl.savePadDistList, models/PadDistList.js). Pads are matched
+        to Gantt jobs by the first 14 characters of the site name.
+    -->
+    <div class="container mb-5">
+        <h3>Pad Distribution List</h3>
+        <p class="text-muted">E-mail recipients (CC:) for the Gantt <b>Handover</b> e-mail, one list per pad. Import the ETS distribution list: names are taken from the <b>ETS User</b> column. Enter the job's <b>MTX ID</b>: the pad is that job's site (project). Importing again for the same pad replaces its list.</p>
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-2">
+            <div><label class="form-label mb-0 small">MTX ID</label><input type="text" id="pdlPad" class="form-control form-control-sm" style="width:160px" placeholder="e.g. 2423"></div>
+            <div><label class="form-label mb-0 small">ETS distribution list (.xls / .xlsx)</label><input type="file" id="pdlFile" class="form-control form-control-sm" accept=".xls,.xlsx,.csv"></div>
+            <button type="button" class="btn btn-primary btn-sm" id="pdlSaveBtn" disabled>Save list for this pad</button>
+        </div>
+        <div id="pdlPreview" class="small text-muted mb-3"></div>
+        <%# CHANGED 2026-10-28 (John): one block per pad with a 2-column Role | ETS User table (same style as the
+             Ops. Geo. Distribution List). Rows can be edited, added or removed; "Save list" re-saves the whole
+             list through POST /notes/padDistList (same endpoint as the import, keeps the MTX ID and file name). %>
+        <% if (!padLists.length) { %><p class="text-muted">No distribution lists yet.</p><% } %>
+        <% padLists.forEach(function(p){ %>
+            <div class="pdl-pad mb-4" data-id="<%= p._id %>" data-mtx="<%= p.mtxJobId || '' %>" data-src="<%= p.sourceFile || '' %>" data-pad="<%= p.pad %>">
+                <div class="d-flex flex-wrap gap-3 align-items-center mb-1">
+                    <b>MTX ID <%= p.mtxJobId || '—' %></b><span><%= p.pad %></span>
+                    <span class="small text-muted">Imported: <%= p.sourceFile || '—' %> <%= p.updatedAt ? new Date(p.updatedAt).toISOString().slice(0,10) : '' %></span>
+                    <span class="ms-auto"><button type="button" class="btn btn-primary btn-sm pdl-save" <%= p.mtxJobId ? '' : 'disabled title="Re-import this list with its MTX ID to edit it"' %>>Save list</button>
+                    <button type="button" class="btn btn-danger btn-sm pdl-del" data-id="<%= p._id %>" data-pad="<%= p.pad %>">Delete list</button></span>
+                </div>
+                <table class="table table-dark table-sm table-bordered mb-0">
+                    <thead><tr><th style="width:30%;">Role</th><th>ETS User (name in the e-mail)</th><th style="width:8%;"></th></tr></thead>
+                    <tbody>
+                        <% p.recipients.forEach(function(r){ %>
+                            <tr class="pdl-row"><td><input type="text" class="form-control form-control-sm pdl-role" value="<%= r.role %>"></td>
+                                <td><input type="text" class="form-control form-control-sm pdl-user" value="<%= r.etsUser %>"></td>
+                                <td><button type="button" class="btn btn-outline-danger btn-sm pdl-rm" title="Remove row">✕</button></td></tr>
+                        <% }); %>
+                        <tr class="pdl-row"><td><input type="text" class="form-control form-control-sm pdl-role" placeholder="New role"></td>
+                            <td><input type="text" class="form-control form-control-sm pdl-user" placeholder="First Last"></td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        <% }); %>
+    </div>
+    <!--
+        ADDED 2026-10-27 (John): "Vendor Distribution List". DP vendor e-mail
+        lists; in the Gantt Handover e-mail the vendor chosen for a pad goes
+        to To:. Each row saves on its own (POST /notes/vendorDistList,
+        DELETE /notes/vendorDistList/:id; models/VendorDistList.js). Addresses
+        are separated by ";" — "Name <address>" entries are fine (the address
+        inside < > is used).
+    -->
+    <div class="container mb-5">
+        <h3>Vendor Distribution List</h3>
+        <p class="text-muted">E-mail addresses for each DP vendor, separated by <b>;</b>. In the Gantt <b>Handover</b> window you pick the vendor for each pad and its addresses go to <b>To:</b> (the Pad Distribution List goes to CC after prelimdirectionalplanning@cnrl.com). "Name &lt;address&gt;" entries are fine.</p>
+        <table class="table table-dark table-sm table-bordered">
+            <thead><tr><th style="width:18%;">Vendor</th><th>Distribution List</th><th style="width:15%;"></th></tr></thead>
+            <tbody>
+                <% vendors.forEach(function(v){ %>
+                    <tr data-id="<%= v._id %>">
+                        <td><input type="text" class="form-control form-control-sm vd-name" value="<%= v.name %>"></td>
+                        <td><textarea class="form-control form-control-sm vd-emails" rows="2"><%= v.emails %></textarea><div class="small vd-info"></div></td>
+                        <td><button type="button" class="btn btn-primary btn-sm vd-save">Save</button> <button type="button" class="btn btn-danger btn-sm vd-del">Delete</button></td>
+                    </tr>
+                <% }); %>
+                <tr data-id="">
+                    <td><input type="text" class="form-control form-control-sm vd-name" placeholder="New vendor"></td>
+                    <td><textarea class="form-control form-control-sm vd-emails" rows="2" placeholder="a@vendor.com; b@vendor.com; Name <c@vendor.com>"></textarea><div class="small vd-info"></div></td>
+                    <td><button type="button" class="btn btn-success btn-sm vd-save">Add vendor</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <script>
+    (function(){
+        // split on ";" (not "," — "Castro, Gustavo <...>" contains a comma); address = text inside <> or the entry itself
+        function parse(t){ var seen = {}, ok = [], bad = [];
+            String(t || '').split(';').map(function(x){ return x.trim(); }).filter(Boolean).forEach(function(x){
+                var m = x.match(/<([^>]+)>/), a = (m ? m[1] : x).trim();
+                if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(a)){ bad.push(x); return; }
+                if(seen[a.toLowerCase()]) return; seen[a.toLowerCase()] = 1; ok.push(a); });
+            return { ok: ok, bad: bad }; }
+        function info(tr){ var p = parse(tr.querySelector('.vd-emails').value), el = tr.querySelector('.vd-info');
+            el.innerHTML = '<span class="text-muted">' + p.ok.length + ' address(es)</span>' + (p.bad.length ? ' <span class="text-danger">— not an e-mail address: ' + p.bad.map(function(b){ return b.replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }).join(' | ') + '</span>' : ''); }
+        document.querySelectorAll('.vd-emails').forEach(function(t){ var tr = t.closest('tr'); info(tr); t.addEventListener('input', function(){ info(tr); }); });
+        document.querySelectorAll('.vd-save').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr');
+            try{ var r = await fetch('/notes/vendorDistList', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: tr.dataset.id || null, name: tr.querySelector('.vd-name').value, emails: tr.querySelector('.vd-emails').value }) });
+                var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Save failed: ' + err.message); }
+        }); });
+        document.querySelectorAll('.vd-del').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr'); if(!confirm('Delete vendor "' + tr.querySelector('.vd-name').value + '"?')) return;
+            try{ var r = await fetch('/notes/vendorDistList/' + tr.dataset.id, { method: 'DELETE' }); var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Delete failed: ' + err.message); }
+        }); });
+    })();
+    </script>
+    <!--
+        ADDED 2026-10-27 (John): "BV Rigs" reference table (models/BvRig.js).
+        Each row saves on its own (POST /notes/bvRig, DELETE /notes/bvRig/:id).
+        Directional Vendor is picked from the Vendor Distribution List above
+        (a value not in that list is kept and shown as such).
+    -->
+    <div class="container mb-5">
+        <h3>BV Rigs</h3>
+        <% var vNames = vendors.map(function(v){ return v.name; }); %>
+        <table class="table table-dark table-sm table-bordered">
+            <thead><tr><th style="width:17%;">Rig</th><th style="width:10%;">Air gap</th><th style="width:17%;">Drilling Sup</th><th style="width:16%;">Directional Vendor</th><th>Notes</th><th style="width:14%;"></th></tr></thead>
+            <tbody>
+                <% bvRigs.concat([{ _id: '', rig: '', airgap: '', drillingSup: '', vendor: '', notes: '' }]).forEach(function(r){ var isNew = !r._id; %>
+                    <tr data-id="<%= r._id %>">
+                        <td><input type="text" class="form-control form-control-sm br-rig" value="<%= r.rig %>" <%- isNew ? 'placeholder="New rig"' : '' %>></td>
+                        <td><input type="text" class="form-control form-control-sm br-airgap" value="<%= r.airgap %>" placeholder="e.g. 4.3m"></td>
+                        <td><input type="text" class="form-control form-control-sm br-sup" value="<%= r.drillingSup %>"></td>
+                        <td><select class="form-select form-select-sm br-vendor"><option value="">—</option>
+                            <% if (r.vendor && vNames.indexOf(r.vendor) < 0) { %><option selected value="<%= r.vendor %>"><%= r.vendor %> (not in vendor list)</option><% } %>
+                            <% vNames.forEach(function(n){ %><option <%= n === r.vendor ? 'selected' : '' %>><%= n %></option><% }); %></select></td>
+                        <td><input type="text" class="form-control form-control-sm br-notes" value="<%= r.notes %>"></td>
+                        <td><% if (isNew) { %><button type="button" class="btn btn-success btn-sm br-save">Add rig</button><% } else { %><button type="button" class="btn btn-primary btn-sm br-save">Save</button> <button type="button" class="btn btn-danger btn-sm br-del">Delete</button><% } %></td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+    <script>
+    (function(){
+        document.querySelectorAll('.br-save').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr'), q = function(c){ return tr.querySelector(c).value; };
+            try{ var r = await fetch('/notes/bvRig', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: tr.dataset.id || null, rig: q('.br-rig'), airgap: q('.br-airgap'), drillingSup: q('.br-sup'), vendor: q('.br-vendor'), notes: q('.br-notes') }) });
+                var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Save failed: ' + err.message); }
+        }); });
+        document.querySelectorAll('.br-del').forEach(function(b){ b.addEventListener('click', async function(){
+            var tr = b.closest('tr'); if(!confirm('Delete rig "' + tr.querySelector('.br-rig').value + '"?')) return;
+            try{ var r = await fetch('/notes/bvRig/' + tr.dataset.id, { method: 'DELETE' }); var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Delete failed: ' + err.message); }
+        }); });
+    })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+    (function(){
+        var parsed = null, fileName = '';
+        var $ = function(id){ return document.getElementById(id); };
+        function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+        function refresh(){ $('pdlSaveBtn').disabled = !(parsed && parsed.length && $('pdlPad').value.trim()); }
+        $('pdlPad').addEventListener('input', refresh);
+        $('pdlFile').addEventListener('change', function(){
+            parsed = null; fileName = ''; refresh();
+            var f = this.files[0]; if(!f) return; fileName = f.name;
+            var rd = new FileReader();
+            rd.onload = function(e){
+                try{
+                    var wb = XLSX.read(e.target.result, { type: 'array' });
+                    var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+                    // header row = first row that has an "ETS User" cell
+                    var h = rows.findIndex(function(r){ return r.some(function(c){ return /^\s*ets\s*user\s*$/i.test(String(c)); }); });
+                    if(h < 0) throw new Error('No "ETS User" column found in ' + f.name + '.');
+                    var cu = rows[h].findIndex(function(c){ return /^\s*ets\s*user\s*$/i.test(String(c)); });
+                    var cr = rows[h].findIndex(function(c){ return /^\s*role\s*$/i.test(String(c)); });
+                    parsed = rows.slice(h + 1).map(function(r){ return { role: cr >= 0 ? String(r[cr]).trim() : '', etsUser: String(r[cu]).trim() }; })
+                        .filter(function(r){ return r.etsUser; });
+                    $('pdlPreview').innerHTML = parsed.length ? '<b>' + parsed.length + ' name(s) found:</b> ' + parsed.map(function(r){ return esc(r.etsUser) + (r.role ? ' <i>(' + esc(r.role) + ')</i>' : ''); }).join('; ')
+                        : '<span class="text-danger">The "ETS User" column is empty.</span>';
+                }catch(err){ parsed = null; $('pdlPreview').innerHTML = '<span class="text-danger">' + esc(err.message) + '</span>'; }
+                refresh();
+            };
+            rd.readAsArrayBuffer(f);
+        });
+        $('pdlSaveBtn').addEventListener('click', async function(){
+            var pad = $('pdlPad').value.trim();
+            try{
+                var r = await fetch('/notes/padDistList', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mtxJobId: pad, recipients: parsed, sourceFile: fileName }) });
+                var d = await r.json(); if(!d.ok) throw new Error(d.error);
+                alert('Saved ' + d.count + ' recipient(s) for MTX ID ' + d.mtxJobId + ' — pad ' + d.pad + ' (replacing any previous list).' + (d.warning ? '\n\n⚠ ' + d.warning : '')); location.reload();
+            }catch(err){ alert('Save failed: ' + err.message); }
+        });
+        // 2026-10-28 (John): edit a pad list in place (Role | ETS User rows).
+        document.querySelectorAll('.pdl-rm').forEach(function(b){ b.addEventListener('click', function(){ b.closest('tr').remove(); }); });
+        document.querySelectorAll('.pdl-save').forEach(function(b){ b.addEventListener('click', async function(){
+            var box = b.closest('.pdl-pad'), rec = [];
+            box.querySelectorAll('.pdl-row').forEach(function(tr){ var u = tr.querySelector('.pdl-user').value.trim(); if(u) rec.push({ role: tr.querySelector('.pdl-role').value.trim(), etsUser: u }); });
+            if(!rec.length) return alert('The list is empty — use "Delete list" instead.');
+            try{ var r = await fetch('/notes/padDistList', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mtxJobId: box.dataset.mtx, recipients: rec, sourceFile: box.dataset.src }) });
+                var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Save failed: ' + err.message); }
+        }); });
+        document.querySelectorAll('.pdl-del').forEach(function(b){ b.addEventListener('click', async function(){
+            if(!confirm('Delete the distribution list for ' + b.dataset.pad + '?')) return;
+            try{ var r = await fetch('/notes/padDistList/' + b.dataset.id, { method: 'DELETE' }); var d = await r.json(); if(!d.ok) throw new Error(d.error); location.reload(); }
+            catch(err){ alert('Delete failed: ' + err.message); }
+        }); });
+    })();
+    </script>
+
 <% } else { %>
     <div class="container mt-4">
         <p class="text-danger">You do not have permission to view this page.</p>
