@@ -54,6 +54,8 @@
                         <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/pipeStretch" target="_blank">🌡 PipeStretch</a><% } %>
                         <%# 2026-10-25: DSI (Drill String Interference) — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
                         <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/dsi" target="_blank">🧲 DSI</a><% } %>
+                        <%# 2026-10-28: Design Codes (trajectory design guidelines) — visible to everyone; only admin can edit on the page %>
+                        <a class="dropdown-item" href="/notes/designCodes" target="_blank">📏 Design Codes</a>
                         <a class="dropdown-item" href="/notes/help" target="_blank">❓ Help</a>
                         <a class="dropdown-item" href="/users/change-password">🔐 Change Password</a>
                         <a class="dropdown-item" href="/users/logout">Logout</a>
