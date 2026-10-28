@@ -702,8 +702,9 @@ function exportSurvey(){
 // (e.g. MWD+SRGM -> MWD+SRGM+SAG, MWD+IFR1+MS_Fl -> MWD+IFR1+SAG+MS_Fl).
 // The suggestion's term list is compared with the original's excluding the
 // sag terms (SAG, SAGE): any other difference is shown as a warning — this
-// catches MWD+HRGM, whose XYM3/XYM4/SAG terms were added from Compass's
-// .ipm while MWD+HRGM+SAG was not updated (pending John's +SAG .ipm).
+// caught MWD+HRGM, whose XYM3/XYM4/SAG terms were added from Compass's
+// .ipm; since 2026-10-26 those legacy terms are treated as a known Compass
+// revision difference (see COMPASS_MB_LEGACY below).
 var TOOLCODES = null, svOrigCode = '';
 var SAG_TERMS = ['SAG', 'SAGE'];
 function tcTokens(code){ var fl = /_Fl$/.test(code); return {fl: fl, set: code.replace(/_Fl$/, '').split('+').sort().join('+')}; }
@@ -712,12 +713,25 @@ function sagCounterpart(code){
   var t = tcTokens(code), want = code.replace(/_Fl$/, '').split('+').concat(['SAG']).sort().join('+');
   return Object.keys(TOOLCODES).find(function(k){ var u = tcTokens(k); return u.fl === t.fl && u.set === want; }) || null;
 }
+// 2026-10-26 (John, option 2): MTX's MWD+HRGM matches John's Compass .ipm
+// (OWSG B001Mb, Rev 5 Nov-2019), which still carries the legacy terms SAG,
+// XYM3 and XYM4 next to SAGE/XYM3E/XYM4E. The +SAG/+AX/+MS toolcodes come
+// from the official OWSG Rev 5.1 workbook (B00xMc, Oct-2020), whose revision
+// note says XYM3->XYM3E, XYM4->XYM4E, SAG->SAGE were REPLACED. Dropping those
+// legacy terms is therefore a known revision difference, not a model change:
+// it no longer blocks the suggestion and is shown as a note instead.
+var COMPASS_MB_LEGACY = ['SAG', 'XYM3', 'XYM4'];
+function legacyDropped(a, b){
+  var A = {}, B = {}; (TOOLCODES[a] || []).forEach(function(t){ A[t.code] = 1; }); (TOOLCODES[b] || []).forEach(function(t){ B[t.code] = 1; });
+  return COMPASS_MB_LEGACY.filter(function(k){ return A[k] && !B[k]; });
+}
 function nonSagDiff(a, b){
   var A = {}, B = {}, out = [];
   (TOOLCODES[a] || []).forEach(function(t){ A[t.code] = JSON.stringify(t); });
   (TOOLCODES[b] || []).forEach(function(t){ B[t.code] = JSON.stringify(t); });
   Object.keys(Object.assign({}, A, B)).forEach(function(k){
     if(SAG_TERMS.indexOf(k) >= 0) return;
+    if(!(k in B) && COMPASS_MB_LEGACY.indexOf(k) >= 0) return; // known Compass Mb vs OWSG Mc difference (see above)
     if(!(k in B)) out.push(k + ' missing in ' + b); else if(!(k in A)) out.push(k + ' only in ' + b); else if(A[k] !== B[k]) out.push(k + ' differs');
   });
   return out;
@@ -737,8 +751,9 @@ function checkToolcode(){
     if(d.length) html += '<div class="warn">⚠ ' + code + ' also differs from ' + base + ' in non-sag terms: ' + d.join(', ') +
       '. Saving with it will change the AC ellipses beyond the sag correction.</div>';
   }
-  if(/HRGM/.test(code) && /SAG/.test(code))
-    html += '<div class="warn">⚠ ' + code + ' has not been checked against a Compass .ipm (only MWD+HRGM has; HRGM sag-corrected .ipm pending).</div>';
+  var leg = code !== base ? legacyDropped(base, code) : [];
+  if(leg.length) html += '<div class="muted">Note: ' + base + ' (Compass .ipm, OWSG Rev 5 B001Mb) has the legacy term(s) ' + leg.join(', ') +
+    ' that OWSG Rev 5.1 replaced (XYM3→XYM3E, XYM4→XYM4E, SAG→SAGE); ' + code + ' is the official Rev 5.1 version without them.</div>';
   $('svWarn').innerHTML = html;
 }
 async function saveVersion(){

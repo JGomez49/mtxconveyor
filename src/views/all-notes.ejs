@@ -2342,6 +2342,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         <button type="button" class="gantt-reset-btn" id="ganttExportExcelBtn2" style="width:auto;padding:4px 12px;">&#11015; Download Excel</button>
                         <!-- ADDED 2026-10-06: one slide per area (East/Central/West/Thermal) — see ganttExportPptx2(). -->
                         <button type="button" class="gantt-reset-btn" id="ganttExportPptxBtn2" style="width:auto;padding:4px 12px;margin-left:6px;">&#11015; Download PowerPoint</button>
+                        <%# ADDED 2026-10-26 (John): Blue/Red jobs starting between today and the black +4 Months line,
+                            listed in a new window; clicking a row opens an e-mail (mailto: -> default mail app,
+                            e.g. Outlook). Same roles that see the black line. See ganttUpcomingBlueRed2(). %>
+                        <% if (['admin','leader','user'].includes(user.role)) { %>
+                        <button type="button" class="gantt-reset-btn" id="ganttUpcomingBtn2" style="width:auto;padding:4px 12px;margin-left:6px;" title="DP-YES / Approved DP (blue) and In Queue (red) jobs whose start is between today and the +4 Months line">&#9993; Handover</button>
+                        <% } %>
                     </div>
                     <div id="chartDiv2" class="m-2"></div>
 
@@ -2407,7 +2413,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
-<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0 }; } return m; },{})) %></script>
+<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0, mtx:String(n.mtxJobId||'') /* 2026-10-27: MTX ID for the Handover table */ }; } return m; },{})) %></script>
+<%# ADDED 2026-10-27: Pad Distribution List (padKey -> {pad, names}) for the Handover e-mail To: field (models/PadDistList.js). %>
+<%# ADDED 2026-10-27: Vendor Distribution List [{name, emails}] for the Handover e-mail To: (models/VendorDistList.js). %>
+<script type="application/json" id="vendorListData"><%- JSON.stringify(typeof vendorList !== 'undefined' ? vendorList : []).replace(/</g, '\\u003c') %></script>
+<%# ADDED 2026-10-27: BV Rigs rig -> Directional Vendor, for the Handover vendor preselection. %>
+<script type="application/json" id="bvRigVendorData"><%- JSON.stringify(typeof bvRigVendorMap !== 'undefined' ? bvRigVendorMap : {}).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="opsGeoListData"><%- JSON.stringify(typeof opsGeoList !== 'undefined' ? opsGeoList : []).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="padDistMapData"><%- JSON.stringify(typeof padDistMap !== 'undefined' ? padDistMap : {}).replace(/</g, '\\u003c') %></script>
 <script type="application/json" id="ganttScheduleMeta"><%- JSON.stringify((function(){
     if(!newSchedule || !newSchedule.headers || !newSchedule.headers.length) return null;
     return { updatedAt: newSchedule.uploadedAt || null, user: (newSchedule.user && newSchedule.user.name) ? newSchedule.user.name : null };
@@ -3158,6 +3171,158 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
+    // ── Blue/Red jobs up to the black line + e-mail ────────────────────────
+    // ADDED 2026-10-26 (John): lists the jobs whose Gantt bar is BLUE (DP-YES,
+    // incl. APPROVED DP = blue bar with the green corner) or RED (IN QUEUE),
+    // per classifySiteObj() — the same rule that colours the bars — and whose
+    // START date is between today and the black "+4 Months" line (same date
+    // arithmetic as fourMonthLine in ganttRenderChart2). John's choices:
+    // start date in range; ALL jobs (sidebar filters ignored); Batch Days
+    // pre-bars excluded (they duplicate a real job). The list opens in a new
+    // window; clicking a row opens a new e-mail through a mailto: link, i.e.
+    // in the computer's default mail app (Outlook when it is the default),
+    // with an empty To:, a subject and every Gantt tooltip field + MTX link.
+    // CHANGED 2026-10-27 (John): button renamed "Handover"; the e-mail To: is
+    // filled from the pad's Pad Distribution List (VP Areas page, "ETS User"
+    // names, joined with "; " so Outlook resolves them against the address
+    // book). Pad matched by the 14-char site key. No list -> empty To:.
+    let padDistMap2 = null;
+    function padNamesFor(site){
+        if(!padDistMap2){ try{ padDistMap2 = JSON.parse(document.getElementById('padDistMapData').textContent) || {}; }catch(e){ padDistMap2 = {}; } }
+        const e = padDistMap2[String(site || '').trim().toUpperCase().slice(0,14)];
+        return e ? e.names.concat(opsGeosFor(e.names)) : [];
+    }
+    // ADDED 2026-10-28 (John): Ops. Geo. Distribution List (VP Areas page) —
+    // if an Exp. Manager is in the pad's list, add their Ops Geo address(es)
+    // to CC (appended after the pad names, duplicates dropped). Names compared
+    // as sorted lowercase words, so "Nagra, Amar" matches "Amar Nagra".
+    let opsGeoList2 = null;
+    const nameKey = n => String(n || '').replace(/<[^>]*>/g, ' ').toLowerCase().split(/[^a-z0-9'-]+/).filter(Boolean).sort().join(' ');
+    function opsGeosFor(names){
+        if(!opsGeoList2){ try{ opsGeoList2 = JSON.parse(document.getElementById('opsGeoListData').textContent) || []; }catch(e){ opsGeoList2 = []; } }
+        const keys = new Set(names.map(nameKey)), out = [], seen = new Set(names.map(n => String(n).toLowerCase()));
+        opsGeoList2.filter(o => keys.has(nameKey(o.expManager))).forEach(o =>
+            String(o.opsGeos || '').split(';').map(x => { const m = x.match(/<([^>]+)>/); return (m ? m[1] : x).trim(); }).filter(Boolean)
+                .forEach(a => { if(!seen.has(a.toLowerCase())){ seen.add(a.toLowerCase()); out.push(a); } }));
+        return out;
+    }
+    // CHANGED 2026-10-27 (John): one e-mail PER PAD (site) — jobs are grouped
+    // by the 14-char site key; the group header opens one e-mail listing all
+    // of that pad's wells. CC is always prelimdirectionalplanning@cnrl.com.
+    // MTX ID column added (from the job matched by site, ganttNotesMap.mtx).
+    const HANDOVER_CC = 'prelimdirectionalplanning@cnrl.com';
+    // CHANGED 2026-10-27 (John): To: = the addresses of the vendor chosen for
+    // the pad (Vendor Distribution List, VP Areas page); the Pad Distribution
+    // List moved to CC, right after HANDOVER_CC. Vendor addresses are split on
+    // ";" (entries "Name <addr>" -> addr), de-duplicated. The vendor is
+    // preselected when its name matches the pad's DP Company, else chosen by hand.
+    let vendorList2 = null;
+    function handoverVendors(){
+        if(!vendorList2){ try{ vendorList2 = JSON.parse(document.getElementById('vendorListData').textContent) || []; }catch(e){ vendorList2 = []; } }
+        return vendorList2;
+    }
+    function vendorAddresses(name){
+        const v = handoverVendors().find(x => x.name === name); if(!v) return [];
+        const seen = {}, out = [];
+        String(v.emails || '').split(';').map(x => x.trim()).filter(Boolean).forEach(x => {
+            const m = x.match(/<([^>]+)>/), a = (m ? m[1] : x).trim();
+            if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(a) || seen[a.toLowerCase()]) return;
+            seen[a.toLowerCase()] = 1; out.push(a);
+        });
+        return out;
+    }
+    // CHANGED 2026-10-27 (John): vendor preselection = the rig's Directional
+    // Vendor from BV Rigs (VP Areas page) first, if that vendor exists in the
+    // Vendor Distribution List; otherwise the DP Company name match below.
+    let bvRigVendor2 = null;
+    function rigVendor(rig){
+        if(!bvRigVendor2){ try{ bvRigVendor2 = JSON.parse(document.getElementById('bvRigVendorData').textContent) || {}; }catch(e){ bvRigVendor2 = {}; } }
+        const v = bvRigVendor2[String(rig || '').trim().toUpperCase().replace(/\s+/g, ' ')];
+        return v && handoverVendors().some(x => x.name === v) ? v : '';
+    }
+    function guessVendor(dpCompany, rig){
+        const rv = rigVendor(rig); if(rv) return rv;
+        const d = String(dpCompany || '').trim().toLowerCase(); if(!d) return '';
+        const v = handoverVendors().find(x => { const n = x.name.toLowerCase(); return n === d || d.includes(n) || n.includes(d); });
+        return v ? v.name : '';
+    }
+    function ganttUpcomingBlueRed2(){
+        const today = new Date(); today.setHours(0,0,0,0);
+        const limit = new Date(today.getFullYear(), today.getMonth() + 4, today.getDate());
+        const fmtD = d => (!d || isNaN(d)) ? '' : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        const jobs = (ganttAllBars2 || []).filter(b => !b.isBatchDaysBar && b.start && !isNaN(b.start) && b.start >= today && b.start <= limit).map(b => {
+            const k = String(b.site || '').slice(0,14);
+            const status = classifySiteObj(b, inProgressSites.has(k), inSetupQueueSites.has(k), inDesignQueueSites.has(k), inBlackOpsQueueSites.has(k));
+            const colour = (status === 'DP-YES' || status === 'APPROVED DP') ? 'Blue' : (status === 'IN QUEUE' ? 'Red' : null);
+            const meta = ganttNotesMap[k] || {};
+            return Object.assign({}, b, { status, colour, padKey: k.trim().toUpperCase(), mtx: meta.mtx || '',
+                end: new Date(b.start.getTime() + (Number(b.duration)||0) * 86400000),
+                link: meta.id ? (location.origin + '/notes/job/' + meta.id) : '' });
+        }).filter(j => j.colour).sort((a, b) => a.start - b.start);
+        if(!jobs.length){ alert('No blue or red jobs start between ' + fmtD(today) + ' and ' + fmtD(limit) + '.'); return; }
+        // group by pad, groups ordered by their earliest start
+        const groups = [];
+        jobs.forEach(j => { let g = groups.find(x => x.key === j.padKey); if(!g){ g = { key: j.padKey, site: j.site, jobs: [], to: padNamesFor(j.site), vendor: guessVendor(j.dpCompany, j.rig), vendorFromRig: !!rigVendor(j.rig) }; groups.push(g); } g.jobs.push(j); });
+        const dpTime = j => { if(!j.dpReq || !j.dpReceivedDate) return '—'; const r = new Date(j.dpReq), v = new Date(j.dpReceivedDate);
+            return (isNaN(r) || isNaN(v)) ? '—' : Math.round((v - r) / 86400000) + ' days'; };
+        const wellLines = j => [
+            'Well: ' + j.well, 'Site: ' + j.site, 'MTX ID: ' + (j.mtx || '—'), 'Rig: ' + j.rig, 'ETS: ' + j.ETS,
+            'Status: ' + j.status + ' (' + j.colour + ' on the Gantt)',
+            'Start: ' + fmtD(j.start), 'End: ' + fmtD(j.end), 'Duration: ' + j.duration + ' days',
+            'Type: ' + j.type, 'D.E: ' + (j.de || '—'), 'VP: ' + j.vp, 'Group: ' + j.group, 'Exploration Mgr: ' + j.explMgr,
+            'Drill OK: ' + j.drillok, 'Geo OK: ' + j.geook,
+            'DP: ' + j.dp, 'DP Company: ' + j.dpCompany, 'DP Requested: ' + (j.dpReq || '—'), 'DP Received: ' + (j.dpReceivedDate || '—'), 'DP Time: ' + dpTime(j),
+            'Geo: ' + j.geo, 'Version: ' + j.version, 'Primary Zone: ' + j.primaryZone,
+            'Surface Lat: ' + (j.surfaceLat != null ? j.surfaceLat : '—'), 'Surface Lon: ' + (j.surfaceLon != null ? j.surfaceLon : '—'),
+            'MTX job: ' + (j.link || '(no MTX job found for this site)') ];
+        const mailOf = (g, vendor) => {
+            const n = g.jobs.length, first = g.jobs[0];
+            const subject = 'Handover – ' + g.site + ' – ' + n + ' well' + (n > 1 ? 's' : '') + ' – start ' + fmtD(first.start);
+            const lines = ['Pad: ' + g.site + (first.mtx ? '   (MTX ID ' + first.mtx + ')' : ''), n + ' well(s):', ''];
+            g.jobs.forEach((j, i) => { lines.push('--- ' + (i + 1) + '. ' + j.well + ' ---'); wellLines(j).forEach(l => lines.push(l)); lines.push(''); });
+            const to = vendorAddresses(vendor), cc = [HANDOVER_CC].concat(g.to);
+            return 'mailto:' + to.map(encodeURIComponent).join(';') + '?cc=' + cc.map(encodeURIComponent).join(';') +
+                '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(lines.join('\r\n'));
+        };
+        const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const w = window.open('', '_blank');
+        if(!w){ alert('The browser blocked the new window — allow pop-ups for MTX and try again.'); return; }
+        const nBlue = jobs.filter(j => j.colour === 'Blue').length, NC = 16;
+        const rows = groups.map((g, gi) =>
+            '<tr class="grp" data-g="' + gi + '" title="Click to open ONE e-mail for this pad (all its wells)"><td colspan="' + NC + '">&#9993; <b>' + esc(g.site) + '</b> — ' + g.jobs.length + ' well(s) — ' +
+                'To (vendor): <select class="vsel" data-g="' + gi + '" onclick="event.stopPropagation()"><option value="">— select vendor —</option>' +
+                handoverVendors().map(v => '<option' + (v.name === g.vendor ? ' selected' : '') + '>' + esc(v.name) + '</option>').join('') + '</select>' +
+                (g.vendor ? ' <span style="color:#8a93a3">(' + (g.vendorFromRig ? 'from BV Rigs: ' + esc(g.jobs[0].rig) : 'from DP Company') + ')</span>'
+                          : ' <span style="color:#f5a623">' + (g.jobs[0].dpCompany ? 'rig not in BV Rigs and no vendor matches DP Company "' + esc(g.jobs[0].dpCompany) + '"' : 'rig not in BV Rigs, no DP Company') + '</span>') +
+                ' — CC: ' + esc(HANDOVER_CC) + '; ' + (g.to.length ? esc(g.to.join('; ')) : '<span style="color:#f5a623">no Pad Distribution List</span>') + '</td></tr>' +
+            g.jobs.map(j => '<tr class="job" data-g="' + gi + '">' +
+                '<td><span class="dot" style="background:' + (j.colour === 'Blue' ? '#0084c7' : '#ff4c4c') + '"></span>' + esc(j.status) + '</td>' +
+                '<td>' + esc(j.mtx || '—') + '</td><td>' + esc(fmtD(j.start)) + '</td><td>' + esc(fmtD(j.end)) + '</td><td>' + esc(j.rig) + '</td><td>' + esc(j.site) + '</td><td>' + esc(j.well) + '</td>' +
+                '<td>' + esc(j.ETS) + '</td><td>' + esc(j.type) + '</td><td>' + esc(j.de || '—') + '</td><td>' + esc(j.drillok) + '</td><td>' + esc(j.geook) + '</td>' +
+                '<td>' + esc(j.dpCompany) + '</td><td>' + esc(j.dpReq || '—') + '</td><td>' + esc(j.dpReceivedDate || '—') + '</td>' +
+                '<td>' + (j.link ? '<a href="' + esc(j.link) + '" target="_blank" onclick="event.stopPropagation()">Open</a>' : '') + '</td></tr>').join('')).join('');
+        w.document.open();
+        w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Handover — MTX</title><style>' +
+            'body{font-family:Segoe UI,Arial,sans-serif;background:#0f1216;color:#e6e9ef;margin:14px;font-size:12px}h3{margin:0 0 4px}.sub{color:#8a93a3;margin-bottom:10px}' +
+            'table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #2a313c;padding:5px 7px;text-align:left;white-space:nowrap}th{background:#1e232b;color:#8a93a3;position:sticky;top:0}' +
+            'tr.grp td{background:#1e2d3d;color:#e6e9ef;padding-top:9px;white-space:normal}tbody tr{cursor:pointer}tbody tr:hover td{background:#24384d}.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}a{color:#4da3ff}</style></head><body>' +
+            '<h3>&#9993; Handover — blue / red jobs starting ' + esc(fmtD(today)) + ' → ' + esc(fmtD(limit)) + ' (black +4 Months line)</h3>' +
+            '<div class="sub">' + jobs.length + ' job(s) on ' + groups.length + ' pad(s): ' + nBlue + ' blue (DP-YES / Approved DP), ' + (jobs.length - nBlue) + ' red (In Queue). All jobs, sidebar filters not applied. ' +
+            'Choose the vendor for each pad, then click the pad (or any of its wells) to open ONE e-mail in your default mail app (Outlook): To: = the vendor\'s Vendor Distribution List; CC: ' + esc(HANDOVER_CC) + ' + the pad\'s Pad Distribution List (VP Areas page).</div>' +
+            '<table><thead><tr><th>Status</th><th>MTX ID</th><th>Start</th><th>End</th><th>Rig</th><th>Site</th><th>Well</th><th>ETS</th><th>Type</th><th>D.E</th><th>Drill OK</th><th>Geo OK</th><th>DP Company</th><th>DP Requested</th><th>DP Received</th><th>MTX</th></tr></thead><tbody>' +
+            rows + '</tbody></table></body></html>');
+        w.document.close();
+        const vendorOf = gi => { const sel = w.document.querySelector('select.vsel[data-g="' + gi + '"]'); return sel ? sel.value : ''; };
+        w.document.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => {
+            const gi = +tr.dataset.g, v = vendorOf(gi);
+            if(!v && !w.confirm('No vendor selected for ' + groups[gi].site + ' — To: will be empty. Open the e-mail anyway?')) return;
+            w.location.href = mailOf(groups[gi], v);
+        }));
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const ub = document.getElementById('ganttUpcomingBtn2');
+        if(ub) ub.addEventListener('click', () => { try{ ganttUpcomingBlueRed2(); }catch(e){ alert('Could not build the list: ' + e.message); } });
+    });
     document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('ganttExportExcelBtn2');
         if(btn) btn.addEventListener('click', () => { ganttExportExcel2().catch(e => ganttExportMsg2('Export failed: ' + e.message)); });

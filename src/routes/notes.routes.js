@@ -104,6 +104,14 @@ const {
     saveWbtColorMode,
     renderVPAreas,
     saveVPAreas,
+    savePadDistList,
+    deletePadDistList,
+    saveVendorDistList,
+    deleteVendorDistList,
+    saveBvRig,
+    deleteBvRig,
+    saveOpsGeoDistList,
+    deleteOpsGeoDistList,
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -153,6 +161,18 @@ router.delete('/notes/delete/:id', isAuthenticated, deleteNote);
 // section (all-notes.ejs). Added 2026-09-14.
 router.get('/notes/vpAreas', isAuthenticated, renderVPAreas);
 router.post('/notes/vpAreas', isAuthenticated, saveVPAreas);
+// 2026-10-27: Pad Distribution List (admin check inside the handlers, like VP Areas).
+router.post('/notes/padDistList', isAuthenticated, savePadDistList);
+router.delete('/notes/padDistList/:id', isAuthenticated, deletePadDistList);
+// 2026-10-27: Vendor Distribution List (admin check inside the handlers).
+router.post('/notes/vendorDistList', isAuthenticated, saveVendorDistList);
+router.delete('/notes/vendorDistList/:id', isAuthenticated, deleteVendorDistList);
+// 2026-10-27: BV Rigs (admin check inside the handlers).
+router.post('/notes/bvRig', isAuthenticated, saveBvRig);
+router.delete('/notes/bvRig/:id', isAuthenticated, deleteBvRig);
+// 2026-10-28: Ops. Geo. Distribution List (admin check inside the handlers).
+router.post('/notes/opsGeoDistList', isAuthenticated, saveOpsGeoDistList);
+router.delete('/notes/opsGeoDistList/:id', isAuthenticated, deleteOpsGeoDistList);
 
 // Bulk delete (Archived table, admin-only — enforced server-side in the
 // controller). Added 2026-09-14 alongside the per-row Delete button.

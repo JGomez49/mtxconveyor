@@ -1918,7 +1918,8 @@ function scMatchPreview(){
 //      MBI*/MSI*) and MDI*/MFI* (dip/field-strength) added.
 //  MS: magnitudes of the magnetometer terms (MBXY-TI1S/2S, MBZ, MSXY-TI1S/2S/3S,
 //      MSZ) and AMIL change; nothing added or removed.
-// Any other difference (e.g. MWD+HRGM's XYM3/XYM4/SAG from Compass's .ipm) is
+// Any other difference (MWD+HRGM's legacy XYM3/XYM4/SAG from Compass's .ipm are
+// exempt since 2026-10-26, see SC_COMPASS_MB_LEGACY) is
 // listed as a warning and the suggestion is not preselected.
 var SC_AX_REMOVED = ['ABXY-TI1S','ABXY-TI2S','ABZ','ASXY-TI1S','ASXY-TI2S','ASXY-TI3S','ASZ','MBXY-TI1S','MBXY-TI2S','MBZ','MSXY-TI1S','MSXY-TI2S','MSXY-TI3S','MSZ','AMIL'];
 var SC_MS_CHANGED = ['MBXY-TI1S','MBXY-TI2S','MBZ','MSXY-TI1S','MSXY-TI2S','MSXY-TI3S','MSZ','AMIL'];
@@ -1931,12 +1932,22 @@ function scCounterpart(code, tok){
   var t = scTokens(code), want = code.replace(/_Fl$/, '').split('+').concat([tok]).sort().join('+');
   return Object.keys(SC_TOOLCODES).find(function(k){ var u = scTokens(k); return u.fl === t.fl && u.set === want; }) || null;
 }
+// 2026-10-26 (John, option 2): legacy terms of John's Compass MWD+HRGM .ipm
+// (OWSG B001Mb: SAG, XYM3, XYM4) are absent from the official OWSG Rev 5.1
+// (B00xMc) +AX/+MS/+SAG toolcodes because Rev 5.1 REPLACED them with SAGE,
+// XYM3E, XYM4E. Known revision difference: shown as a note, not a blocker.
+var SC_COMPASS_MB_LEGACY = ['SAG', 'XYM3', 'XYM4'];
+function scLegacyDropped(a, b){
+  var A = {}, B = {}; (SC_TOOLCODES[a] || []).forEach(function(t){ A[t.code] = 1; }); (SC_TOOLCODES[b] || []).forEach(function(t){ B[t.code] = 1; });
+  return SC_COMPASS_MB_LEGACY.filter(function(k){ return A[k] && !B[k]; });
+}
 function scOtherDiff(a, b, tok){
   var A = {}, B = {}, out = [];
   (SC_TOOLCODES[a] || []).forEach(function(t){ A[t.code] = JSON.stringify(t); });
   (SC_TOOLCODES[b] || []).forEach(function(t){ B[t.code] = JSON.stringify(t); });
   var adds = scHasTok(b, tok) && !scHasTok(a, tok);
   Object.keys(Object.assign({}, A, B)).forEach(function(k){
+    if(!(k in B) && SC_COMPASS_MB_LEGACY.indexOf(k) >= 0) return; // known Compass Mb vs OWSG Mc difference
     if(!(k in B)){ if(!(adds && tok === 'AX' && SC_AX_REMOVED.indexOf(k) >= 0)) out.push(k + ' missing in ' + b); }
     else if(!(k in A)){ if(!(adds && tok === 'AX' && scIsAxAdded(k))) out.push(k + ' only in ' + b); }
     else if(A[k] !== B[k]){ if(!(adds && tok === 'MS' && SC_MS_CHANGED.indexOf(k) >= 0)) out.push(k + ' differs'); }
@@ -1966,8 +1977,9 @@ function scCheckCode(){
     if(d.length) html += '<div style="color:var(--bad)">⚠ ' + scEsc(code) + ' differs from ' + scEsc(base) + ' beyond the ' + tok + ' change: ' + scEsc(d.join(', ')) + '. Saving with it changes the AC ellipses beyond this correction.</div>';
     else if(scHasTok(code, tok)) html += '<div>' + (tok === 'AX' ? 'AX swap only (ISCWSA Rev5.13 §6.2.1 short-collar-corrected sensor terms).' : 'MS change only (ISCWSA Rev5 multi-station-corrected magnetometer terms).') + '</div>';
   }
-  if(/HRGM/.test(code) && scHasTok(code, tok))
-    html += '<div style="color:var(--bad)">⚠ ' + scEsc(code) + ' has not been checked against a Compass .ipm (only MWD+HRGM has).</div>';
+  var leg = code !== base ? scLegacyDropped(base, code) : [];
+  if(leg.length) html += '<div>Note: ' + scEsc(base) + ' (Compass .ipm, OWSG Rev 5 B001Mb) has the legacy term(s) ' + scEsc(leg.join(', ')) +
+    ' that OWSG Rev 5.1 replaced (XYM3→XYM3E, XYM4→XYM4E, SAG→SAGE); ' + scEsc(code) + ' is the official Rev 5.1 version without them.</div>';
   scEl('scCodeWarn').innerHTML = html;
 }
 async function scConfirmSave(){

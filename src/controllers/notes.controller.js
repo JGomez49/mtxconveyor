@@ -6,7 +6,8 @@ const Note = require('../models/NoteConveyor');
 const User = require('../models/User');
 const Job = require('../models/MTXjobNumber');
 const Log = require('../models/LogConveyor');
-const ImageMirelleDog = require('../models/ImageMirelleDog');
+// 2026-10-27: models/ImageMirelleDog.js renamed to models/JobImage.js (same Mongo model/collection "ImageMirelleDog").
+const JobImage = require('../models/JobImage');
 const NewSchedule = require("../models/NewSchedule");
 const DPStats = require("../models/DPStats");
 const WellboreTrajectory = require("../models/WellboreTrajectory");
@@ -25,6 +26,14 @@ const SiteConfig    = require("../models/SiteConfig");
 // ADDED 2026-09-14: VP -> Main Area mapping, backing renderVPAreas/saveVPAreas
 // below and the vpAreaList fed into all-notes.ejs's Snapshot section.
 const VPArea        = require("../models/VPArea");
+// ADDED 2026-10-27: Pad Distribution List (handover e-mail recipients per pad).
+const PadDistList   = require("../models/PadDistList");
+// ADDED 2026-10-27: Vendor Distribution List (Handover e-mail To:).
+const VendorDistList = require("../models/VendorDistList");
+// ADDED 2026-10-27: BV Rigs reference table (VP Areas page).
+const BvRig          = require("../models/BvRig");
+// ADDED 2026-10-28: Ops. Geo. Distribution List (Exp. Manager -> Ops Geo, Handover CC).
+const OpsGeoDistList = require("../models/OpsGeoDistList");
 // ADDED 2026-10-10: iPlan scenario trajectories (job-level, see model comment)
 const IPlanScenario = require("../models/IPlanScenario");
 // 2026-10-24: SAGcorrection module (SurQC sag-solver port) — saved cases + shared math.
@@ -195,10 +204,24 @@ notesCrtl.renderNotes = async (req,res)=>{
     // else here was changed. See VPArea model + renderVPAreas/saveVPAreas
     // below for the admin-managed source of this mapping.
     const vpAreaList = await VPArea.find().select('vpName mainArea -_id').lean();
+    // ADDED 2026-10-27: padKey -> [ETS User names] for the Gantt "Handover"
+    // e-mail To: field (see models/PadDistList.js).
+    const padDistMap = (await PadDistList.find().select('pad padKey mtxJobId recipients -_id').lean())
+        .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', names: (p.recipients || []).map(r => r.etsUser).filter(Boolean) }; return m; }, {});
+
+    // ADDED 2026-10-27: vendor lists for the Handover e-mail To: (VendorDistList).
+    const vendorList = await VendorDistList.find().sort({ name: 1 }).select('name emails -_id').lean();
+    // ADDED 2026-10-27 (John): rig -> Directional Vendor (BV Rigs) — the
+    // Handover window preselects the pad's vendor from its rig first.
+    const bvRigVendorMap = (await BvRig.find().select('rig vendor -_id').lean())
+        .reduce((m, r) => { if(r.vendor) m[String(r.rig).trim().toUpperCase().replace(/\s+/g, ' ')] = r.vendor; return m; }, {});
+
+    // ADDED 2026-10-28 (John): Exp. Manager -> Ops Geo (OpsGeoDistList) for Handover CC.
+    const opsGeoList = await OpsGeoDistList.find().select('expManager opsGeos -_id').lean();
 
     res.render('all-notes.ejs', {
         notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup,
-        canSeeActivity, activityReport, vpAreaList,
+        canSeeActivity, activityReport, vpAreaList, padDistMap, vendorList, bvRigVendorMap, opsGeoList,
     });
 };
 
@@ -388,7 +411,7 @@ notesCrtl.deleteNote = async (req,res)=>{
     const note = await Note.findById(id)
     if(note.imageID){
         await cloudinary.v2.uploader.destroy(note.imageID)
-        await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+        await JobImage.findByIdAndDelete(note.noteImageID);
     };
     await Note.findByIdAndDelete(req.params.id);
     req.flash('success_msg','Note deleted successfully');
@@ -422,7 +445,7 @@ notesCrtl.deleteNotesBulk = async (req,res)=>{
         if(note.imageID){
             try{
                 await cloudinary.v2.uploader.destroy(note.imageID);
-                await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+                await JobImage.findByIdAndDelete(note.noteImageID);
             } catch(err){
                 console.error('[deleteNotesBulk] image cleanup failed for note', note._id, err);
             }
@@ -464,8 +487,72 @@ notesCrtl.renderVPAreas = async (req,res)=>{
     }
 
     const vpAreas = await VPArea.find().sort({ mainArea: 1, vpName: 1 }).lean();
+    const padLists = await PadDistList.find().sort({ pad: 1 }).lean(); // 2026-10-27: Pad Distribution List table
+    // 2026-10-27: Vendor Distribution List — seeded once with John's list
+    // (as given 2026-10-27) when the collection is empty; editable afterwards.
+    if(await VendorDistList.countDocuments() === 0){
+        const seed = [
+            { name: 'Altitude',    emails: 'amelanson@altitude-ep.com; gwilkinson@altitude-ep.com; mwiddifield@altitude-ep.com; sluger@altitude-ep.com; Jacob Pustanyk <jpustanyk@altitude-ep.com>' },
+            { name: 'Halliburton', emails: 'sean.hinke@halliburton.com;John.Person@Halliburton.com;Ignacio.Garda@halliburton.com; Emran.Mojumdar@halliburton.com; Paula.Besas@halliburton.com; Carlos.Guardia@halliburton.com;  Benjamin Hand <Benjamin.Hand@halliburton.com>;calgary.wellplanning@halliburton.com' },
+            { name: 'Mostar',      emails: 'wellplanning@mostardirectional.com; scott@mostardirectional.com;' },
+            { name: 'Pacesetter',  emails: 'rwilliams@pacesetterdirectional.ca;amatheson@pacesetterdirectional.ca; wellplanners@pacesetterdirectional.ca;Dustin Deschamps <dustind@pacesetterdirectional.ca>' },
+            { name: 'Phoenix',     emails: 'dblanchard@phxtech.com; Wellplanningcdn@phxtech.com;blowes@phxtech.com; ' },
+            { name: 'SLB',         emails: 'ColinOKeefe@slb.com; FMedina8@slb.com;  MSchaaf@slb.com;CNRL.RealTimeOPS@cnrl.com; Alexis Marin <amanzanillo@slb.com>' },
+            { name: 'Weatherford', emails: 'Jason.Blanken@weatherford.com ;valerie.dominiuk1@Weatherford.com ;Brandon.Kubinec@weatherford.com;Jason.Blanken@weatherford.com; Gabriel.Stefan@weatherford.com;Gilberto.Concha@weatherford.com;Castro, Gustavo <Gustavo.Castro@weatherford.com>; andy.hill@Weatherford.com' },
+            { name: 'CNRL DDs',    emails: 'CNRL.RealTimeOPS@cnrl.com;' },
+        ];
+        for(const v of seed) await VendorDistList.updateOne({ name: v.name }, { $setOnInsert: v }, { upsert: true });
+    }
+    const vendors = await VendorDistList.find().sort({ name: 1 }).lean();
+    // 2026-10-28: Ops. Geo. Distribution List — seeded once with John's list
+    // (as given 2026-10-28) when the collection is empty; editable afterwards.
+    if(await OpsGeoDistList.countDocuments() === 0){
+        const seedOg = [
+            ['Amar Nagra', 'Angela.Galipeault@cnrl.com;'], ['Barbara Wingate', "Jason.D'Aoust@cnrl.com;"],
+            ['Camille Naqvi', 'Kallum.McIvor@cnrl.com;'], ['Jordan Jonasson', 'Ryan.Henkelman@cnrl.com;'],
+            ['Josh Lau', 'Ryan.Henkelman@cnrl.com;'], ['Leanne Colborne', 'Rod.Day@cnrl.com;'],
+            ['Scott Donaldson', 'Marielle.Hopf@cnrl.com;'], ['Sean Kleiner', 'Corey.Fitzgerald@cnrl.com;'],
+            ['Tiffany Power', 'Kelvin.Humphrey-Kugbega@cnrl.com;'],
+        ];
+        for(const [expManager, opsGeos] of seedOg) await OpsGeoDistList.updateOne({ expManager }, { $setOnInsert: { expManager, opsGeos } }, { upsert: true });
+    }
+    const opsGeos = await OpsGeoDistList.find().sort({ expManager: 1 }).lean();
+    // 2026-10-27: BV Rigs — seeded once with John's table (as given
+    // 2026-10-27, trailing spaces trimmed) when the collection is empty.
+    if(await BvRig.countDocuments() === 0){
+        const seedRigs = [
+            { rig: 'AKITA 28', airgap: '5.15m', drillingSup: 'Chris Sereda', vendor: 'SLB', notes: '' },
+            { rig: 'AKITA 31', airgap: '5.8m', drillingSup: 'Don Grant', vendor: 'Altitude', notes: '' },
+            { rig: 'BONANZA 6', airgap: '4.3m', drillingSup: 'Stacey Petersen', vendor: 'Phoenix', notes: '' },
+            { rig: 'ENSIGN 218', airgap: '4.8m', drillingSup: 'Andy Hofer', vendor: 'Altitude', notes: 'Strat program' },
+            { rig: 'ENSIGN 37', airgap: '7.95m', drillingSup: 'Levi Foster', vendor: 'Pacesetter', notes: '' },
+            { rig: 'ENSIGN 39', airgap: '8.2m', drillingSup: 'Tyrell Drake', vendor: 'SLB', notes: '' },
+            { rig: 'ENSIGN 44', airgap: '6.0m', drillingSup: 'Tyrell Drake', vendor: 'Pacesetter', notes: '' },
+            { rig: 'ENSIGN 531', airgap: '4.5m', drillingSup: 'Andy Hofer', vendor: 'Altitude', notes: '' },
+            { rig: 'ENSIGN 770', airgap: '8.6m', drillingSup: 'Tyrell Drake', vendor: 'SLB', notes: '' },
+            { rig: 'EXCALIBUR 10', airgap: '4.57m', drillingSup: 'Chris McLeod', vendor: 'Altitude', notes: '' },
+            { rig: 'HORIZON 19', airgap: '5.7m', drillingSup: 'Andy Hofer', vendor: 'Altitude', notes: '' },
+            { rig: 'PRECISION 153', airgap: '4.3m', drillingSup: 'Chris McLeod', vendor: 'Altitude', notes: 'Strat program' },
+            { rig: 'PRECISION 182', airgap: '4.3m', drillingSup: 'Stacey Petersen', vendor: 'Altitude', notes: '' },
+            { rig: 'PRECISION 183', airgap: '4.55m', drillingSup: 'Chris Sereda', vendor: 'Halliburton', notes: '' },
+            { rig: 'PRECISION 185', airgap: '4.3m', drillingSup: 'Chris McLeod', vendor: 'Altitude', notes: '' },
+            { rig: 'PRECISION 190', airgap: '4.6m', drillingSup: 'Don Grant', vendor: 'Altitude', notes: '' },
+            { rig: 'PRECISION 239', airgap: '4.3m', drillingSup: 'Stacey Petersen', vendor: 'Pacesetter', notes: '' },
+            { rig: 'PRECISION 300', airgap: '4.3m', drillingSup: 'Andy Hofer', vendor: 'Altitude', notes: 'Strat program' },
+            { rig: 'PRECISION 541', airgap: '5.3m', drillingSup: 'Chris Sereda', vendor: 'Halliburton', notes: '' },
+            { rig: 'SAVANNA 651', airgap: '6.1m', drillingSup: 'Levi Foster', vendor: 'Pacesetter', notes: '' },
+            { rig: 'SAVANNA 803', airgap: '6.85m', drillingSup: 'Levi Foster', vendor: 'Pacesetter', notes: '' },
+            { rig: 'SAVANNA 804', airgap: '6.0m', drillingSup: 'Don Grant', vendor: 'Altitude', notes: '' },
+            { rig: 'SAVANNA 805', airgap: '6.0m', drillingSup: 'Don Grant', vendor: 'Altitude', notes: '' }
+        ];
+        for(const r of seedRigs) await BvRig.updateOne({ rig: r.rig }, { $setOnInsert: r }, { upsert: true });
+    }
+    // 2026-10-27 (John): spelling fixed to match the Gantt ("EXCALLIBUR 10" in
+    // the original table -> "EXCALIBUR 10"); also corrects an already-seeded row.
+    if(!(await BvRig.exists({ rig: 'EXCALIBUR 10' }))) await BvRig.updateOne({ rig: 'EXCALLIBUR 10' }, { $set: { rig: 'EXCALIBUR 10' } });
+    const bvRigs = await BvRig.find().sort({ rig: 1 }).lean();
     const user = await User.findById(req.session.passport.user);
-    res.render('vpAreas.ejs', { user, vpAreas });
+    res.render('vpAreas.ejs', { user, vpAreas, padLists, vendors, bvRigs, opsGeos });
 };
 
 // ADDED 2026-09-14: saves the admin's edits from vpAreas.ejs. Accepts
@@ -504,6 +591,121 @@ notesCrtl.saveVPAreas = async (req,res)=>{
     req.flash('success_msg','VP Areas saved successfully');
     res.redirect('/notes/vpAreas');
 }
+
+// ADDED 2026-10-27 (John): Pad Distribution List — save (REPLACE) one pad's
+// recipients from an imported ETS distribution-list file (parsed in the
+// browser on vpAreas.ejs; body {pad, recipients:[{role, etsUser}], sourceFile}).
+// Admin only, same check as the VP Areas page.
+notesCrtl.savePadDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        // 2026-10-27 (John): the list is linked through the MTX ID — the pad is
+        // that job's project (site), as in findJobByMtxId (first match).
+        const mtxJobId = String(req.body.mtxJobId || '').trim();
+        if(!mtxJobId) return res.status(400).json({ok:false, error:'Enter the MTX ID.'});
+        const notesForId = await Note.find({ mtxJobId }).select('project title').lean();
+        if(!notesForId.length) return res.status(404).json({ok:false, error:'No job found with MTX ID ' + mtxJobId + '.'});
+        const pad = String(notesForId[0].project || '').trim();
+        const padKey = PadDistList.keyOf(pad);
+        if(!padKey) return res.status(400).json({ok:false, error:'MTX ID ' + mtxJobId + ' has no site (project) set, so it cannot be matched to the Gantt.'});
+        const seen = new Set();
+        const recipients = (Array.isArray(req.body.recipients) ? req.body.recipients : [])
+            .map(r => ({ role: String((r && r.role) || '').trim().slice(0, 100), etsUser: String((r && r.etsUser) || '').trim().slice(0, 200) }))
+            .filter(r => r.etsUser && !seen.has(r.etsUser.toLowerCase()) && seen.add(r.etsUser.toLowerCase()));
+        if(!recipients.length) return res.status(400).json({ok:false, error:'No names found in the "ETS User" column.'});
+        const doc = await PadDistList.findOneAndUpdate({ padKey },
+            { $set: { pad, padKey, mtxJobId, recipients, sourceFile: String(req.body.sourceFile || '').slice(0, 200), user: requester._id } },
+            { upsert: true, new: true });
+        res.json({ok:true, id: doc._id, pad: doc.pad, padKey, mtxJobId, count: recipients.length,
+            warning: notesForId.length > 1 ? notesForId.length + ' jobs share MTX ID ' + mtxJobId + '; the first one (' + pad + ') was used.' : null});
+    }catch(err){ console.error('[PadDistList] save failed', err); res.status(500).json({ok:false, error:'Failed to save the distribution list.'}); }
+};
+// ADDED 2026-10-27 (John): Vendor Distribution List — create / edit / delete
+// (admin only). Body {id?, name, emails}; emails stored as typed.
+notesCrtl.saveVendorDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        const name = String(req.body.name || '').trim().slice(0, 100), emails = String(req.body.emails || '').trim().slice(0, 5000);
+        if(!name) return res.status(400).json({ok:false, error:'Enter the vendor name.'});
+        const clash = await VendorDistList.findOne({ name: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
+        if(clash && String(clash._id) !== String(req.body.id || '')) return res.status(400).json({ok:false, error:'A vendor called "' + clash.name + '" already exists.'});
+        const doc = req.body.id
+            ? await VendorDistList.findByIdAndUpdate(req.body.id, { $set: { name, emails, user: requester._id } }, { new: true })
+            : await VendorDistList.create({ name, emails, user: requester._id });
+        if(!doc) return res.status(404).json({ok:false, error:'Vendor not found.'});
+        res.json({ok:true, id: doc._id, name: doc.name});
+    }catch(err){ console.error('[VendorDistList] save failed', err); res.status(500).json({ok:false, error:'Failed to save the vendor.'}); }
+};
+// ADDED 2026-10-28 (John): Ops. Geo. Distribution List — create / edit /
+// delete (admin only, same rule as the Pad Distribution List).
+// Body {id?, expManager, opsGeos}; opsGeos stored as typed.
+notesCrtl.saveOpsGeoDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        const expManager = String(req.body.expManager || '').trim().slice(0, 100), opsGeos = String(req.body.opsGeos || '').trim().slice(0, 2000);
+        if(!expManager) return res.status(400).json({ok:false, error:'Enter the Exp. Manager name.'});
+        const clash = await OpsGeoDistList.findOne({ expManager: new RegExp('^' + expManager.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
+        if(clash && String(clash._id) !== String(req.body.id || '')) return res.status(400).json({ok:false, error:'"' + clash.expManager + '" is already in the list.'});
+        const set = { expManager, opsGeos, user: requester._id };
+        const doc = req.body.id ? await OpsGeoDistList.findByIdAndUpdate(req.body.id, { $set: set }, { new: true }) : await OpsGeoDistList.create(set);
+        if(!doc) return res.status(404).json({ok:false, error:'Row not found.'});
+        res.json({ok:true, id: doc._id});
+    }catch(err){ console.error('[OpsGeoDistList] save failed', err); res.status(500).json({ok:false, error:'Failed to save the row.'}); }
+};
+notesCrtl.deleteOpsGeoDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        const r = await OpsGeoDistList.deleteOne({ _id: req.params.id });
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Row not found.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[OpsGeoDistList] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the row.'}); }
+};
+// ADDED 2026-10-27 (John): BV Rigs — create / edit / delete (admin only).
+notesCrtl.saveBvRig = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage BV Rigs.'});
+        const f = k => String(req.body[k] || '').trim().slice(0, 300);
+        const rig = f('rig'); if(!rig) return res.status(400).json({ok:false, error:'Enter the rig name.'});
+        const clash = await BvRig.findOne({ rig: new RegExp('^' + rig.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
+        if(clash && String(clash._id) !== String(req.body.id || '')) return res.status(400).json({ok:false, error:'Rig "' + clash.rig + '" already exists.'});
+        const set = { rig, airgap: f('airgap'), drillingSup: f('drillingSup'), vendor: f('vendor'), notes: f('notes'), user: requester._id };
+        const doc = req.body.id ? await BvRig.findByIdAndUpdate(req.body.id, { $set: set }, { new: true }) : await BvRig.create(set);
+        if(!doc) return res.status(404).json({ok:false, error:'Rig not found.'});
+        res.json({ok:true, id: doc._id});
+    }catch(err){ console.error('[BvRig] save failed', err); res.status(500).json({ok:false, error:'Failed to save the rig.'}); }
+};
+notesCrtl.deleteBvRig = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage BV Rigs.'});
+        const r = await BvRig.deleteOne({ _id: req.params.id });
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Rig not found.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[BvRig] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the rig.'}); }
+};
+notesCrtl.deleteVendorDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        const r = await VendorDistList.deleteOne({ _id: req.params.id });
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Vendor not found.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[VendorDistList] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the vendor.'}); }
+};
+notesCrtl.deletePadDistList = async (req,res)=>{
+    try{
+        const requester = await User.findById(req.session.passport.user);
+        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        const r = await PadDistList.deleteOne({ _id: req.params.id });
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'List not found.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[PadDistList] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete the list.'}); }
+};
 
 
 
@@ -572,7 +774,7 @@ notesCrtl.uploadImage = async(req, res) => {
         const note = await Note.findById(req.params.id);
         if (note && (note.path || note.imageID)) {
             await cloudinary.v2.uploader.destroy(note.imageID);
-            await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+            await JobImage.findByIdAndDelete(note.noteImageID);
             await Note.findByIdAndUpdate(note._id, {
                 path: "",
                 imageID: "",
@@ -580,7 +782,7 @@ notesCrtl.uploadImage = async(req, res) => {
             });
         }   
         // Subir la nueva imagen
-        const image = new ImageMirelleDog();
+        const image = new JobImage();
         const result = await cloudinary.v2.uploader.upload(req.file.path);
             image.filename = req.file.filename;
             image.path = result.url;
@@ -591,7 +793,7 @@ notesCrtl.uploadImage = async(req, res) => {
             image.noteId = req.body.noteId;
         await unlink(req.file.path);
         await image.save();
-        let noteWhereImageIsSaved = await ImageMirelleDog.findOne({'public_id': image.public_id});
+        let noteWhereImageIsSaved = await JobImage.findOne({'public_id': image.public_id});
         await Note.findByIdAndUpdate(image.noteId, {
             path: image.path,
             imageID: image.public_id,
@@ -616,7 +818,7 @@ notesCrtl.removeImage = async(req,res)=>{
     try{
         const note = await Note.findById(req.params.id);
         await cloudinary.v2.uploader.destroy(note.imageID);
-        await ImageMirelleDog.findByIdAndDelete(note.noteImageID);
+        await JobImage.findByIdAndDelete(note.noteImageID);
         await Note.findByIdAndUpdate(note._id, {
             path: "",
             imageID: "",
