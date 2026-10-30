@@ -173,7 +173,7 @@ notesCrtl.renderNotes = async (req,res)=>{
     // ── Run all DB queries in parallel ───────────────────────────────────
     // Select only the fields rendered in all-notes.ejs — avoids transferring
     // large unused fields like description, imageID, wellbore data, etc.
-    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays path designCode notesToVendor folderUrl'; // 2026-10-28: + designCode notesToVendor (Handover e-mail); + path (job picture URL) so the Handover window knows which pads have a picture
+    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays path designCode notesToVendor folderUrl handoverChecklist'; // 2026-10-28: + designCode notesToVendor (Handover e-mail); + path (job picture URL) so the Handover window knows which pads have a picture
 
     const [notes, dpStats, newSchedule] = await Promise.all([
         Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
@@ -209,7 +209,8 @@ notesCrtl.renderNotes = async (req,res)=>{
     // ADDED 2026-10-27: padKey -> [ETS User names] for the Gantt "Handover"
     // e-mail To: field (see models/PadDistList.js).
     const padDistMap = (await PadDistList.find().select('pad padKey mtxJobId recipients -_id').lean())
-        .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', names: (p.recipients || []).map(r => r.etsUser).filter(Boolean) }; return m; }, {});
+        .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', names: (p.recipients || []).map(r => r.etsUser).filter(Boolean),
+            people: (p.recipients || []).map(r => ({ role: r.role || '', name: r.etsUser || '' })) /* 2026-10-29: roles for the Handover checklist */ }; return m; }, {});
 
     // ADDED 2026-10-27: vendor lists for the Handover e-mail To: (VendorDistList).
     const vendorList = await VendorDistList.find().sort({ name: 1 }).select('name emails -_id').lean();
@@ -332,13 +333,32 @@ notesCrtl.renderEditForm = async(req,res)=>{
     // 2026-10-28 (John): Design Code dropdown on the EDIT page (list from the Design Codes page).
     let designCodeList = [];
     try{ await seedDesignCodes(); designCodeList = await DesignCode.find({ code: { $ne: 'GENERAL' } }).select('code area group -_id').sort({ code: 1 }).lean(); }catch(err){ console.error('[DesignCode] list for edit page failed', err); }
-    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList});
+    // 2026-10-29 (John): Handover checklist rows (auto Responsible from the pad's Pad Distribution List roles).
+    let hcRows = [];
+    try{ hcRows = HandoverChecklist.resolve(note.handoverChecklist, await padPeopleOf(note.project), note.poc); }catch(err){ console.error('[HandoverChecklist] edit page', err); }
+    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList, hcRows, hcLabels: { inFolder: HandoverChecklist.IN_FOLDER, status: HandoverChecklist.STATUS }});
 }
 
 
 
 
 
+// ADDED 2026-10-29 (John): Handover checklist from the EDIT form (fields hc[i][key|inFolder|status|responsible]).
+const HandoverChecklist = require('../public/js/handoverChecklist.js');
+function hcFromBody(body){
+    const src = Array.isArray(body.hc) ? body.hc : (body.hc && typeof body.hc === 'object' ? Object.values(body.hc) : null);
+    if(!src) return undefined; // form without the checklist -> leave the saved value untouched
+    const keys = HandoverChecklist.ITEMS.map(i => i.key), okF = Object.keys(HandoverChecklist.IN_FOLDER), okS = Object.keys(HandoverChecklist.STATUS);
+    return src.filter(r => r && keys.includes(r.key)).map(r => ({ key: r.key,
+        inFolder: okF.includes(r.inFolder) ? r.inFolder : '', status: okS.includes(r.status) ? r.status : '',
+        responsible: String(r.responsible || '').trim().slice(0, 300) }));
+}
+// Pad Distribution List people [{role, name}] for a site (padKey = first 14 chars, see PadDistList.keyOf)
+async function padPeopleOf(project){
+    const key = PadDistList.keyOf(String(project || '').trim()); if(!key) return [];
+    const p = await PadDistList.findOne({ padKey: key }).select('recipients').lean();
+    return p ? (p.recipients || []).map(r => ({ role: r.role || '', name: r.etsUser || '' })) : [];
+}
 notesCrtl.updateNote = async (req,res)=>{
     // res.send('Update note...');
     // console.log(req.body);
@@ -392,6 +412,7 @@ notesCrtl.updateNote = async (req,res)=>{
         planningDoneAt, reportsDoneBy, reportsDoneAt, sentBy, sentAt, checkETSUpdate, 
         ETSUpdateBy, ETSUpdateAt, created, imageURL,
         designCode, folderUrl, notesToVendor, // 2026-10-28
+        handoverChecklist: hcFromBody(req.body), // 2026-10-29
     });
     req.flash('success_msg','Note updated successfully');
     res.redirect('/notes');
@@ -811,6 +832,15 @@ notesCrtl.deleteDesignCodeImage = async (req,res)=>{
         await doc.save(); await dcDestroyIfUnused(pid);
         res.json({ok:true});
     }catch(err){ console.error('[DesignCode] picture delete failed', err); res.status(500).json({ok:false, error:'Failed to remove the picture.'}); }
+};
+// ADDED 2026-10-29 (John): CNRL logo for the Handover e-mail (John's Cloudinary link), fetched by the
+// server for the same reason as handoverImage (browser download of Cloudinary is not reliable).
+const HANDOVER_LOGO_URL = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png';
+notesCrtl.handoverLogo = (req,res)=>{
+    require('https').get(HANDOVER_LOGO_URL, r => {
+        if(r.statusCode !== 200){ r.resume(); return res.status(502).send('Logo download failed (' + r.statusCode + ').'); }
+        res.set('Content-Type', r.headers['content-type'] || 'image/png'); res.set('Cache-Control', 'private, max-age=3600'); r.pipe(res);
+    }).on('error', err => { console.error('[handoverLogo]', err); if(!res.headersSent) res.status(502).send('Logo download failed.'); });
 };
 // ADDED 2026-10-27 (John): BV Rigs — create / edit / delete (admin only).
 notesCrtl.saveBvRig = async (req,res)=>{
