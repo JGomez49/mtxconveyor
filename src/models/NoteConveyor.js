@@ -50,6 +50,10 @@ const NoteConveyorSchema = new Schema({
     designCode:    {type: String, default: ''},
     folderUrl:     {type: String, default: ''},
     notesToVendor: {type: String, default: ''},
+    // ADDED 2026-10-29 (John): Handover e-mail "Supporting Documents Checklist"
+    // (items in public/js/handoverChecklist.js). [{key, inFolder:''|included|
+    // incomplete|noinfo, status:''|ok|confirm|revise, responsible:'' = auto}]
+    handoverChecklist: {type: [{ _id: false, key: String, inFolder: String, status: String, responsible: String }], default: []},
 
     checkInitialInfo: {type: String, defaultValue: "No"},
     checkFoldersSetup: {type: String, defaultValue: "No"},
