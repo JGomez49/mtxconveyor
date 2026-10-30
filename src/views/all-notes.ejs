@@ -2413,7 +2413,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
-<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0, mtx:String(n.mtxJobId||'') /* 2026-10-27: MTX ID for the Handover table */, img: n.path ? 1 : 0 /* 2026-10-28: job has a picture (Handover .eml) */, dc: String(n.designCode||''), ntv: String(n.notesToVendor||'') /* 2026-10-28: Handover e-mail, per well */, fu: String(n.folderUrl||'') /* 2026-10-28: Notification e-mail */ }; } return m; },{})) %></script>
+<script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0, mtx:String(n.mtxJobId||'') /* 2026-10-27: MTX ID for the Handover table */, img: n.path ? 1 : 0 /* 2026-10-28: job has a picture (Handover .eml) */, dc: String(n.designCode||''), ntv: String(n.notesToVendor||'') /* 2026-10-28: Handover e-mail, per well */, fu: String(n.folderUrl||'') /* 2026-10-28: Notification e-mail */, hc: n.handoverChecklist || [] /* 2026-10-29: Handover checklist */ }; } return m; },{})).replace(/</g, '\\u003c') /* 2026-10-29: escape '<' (free text inside) */ %></script>
 <%# ADDED 2026-10-27: Pad Distribution List (padKey -> {pad, names}) for the Handover e-mail To: field (models/PadDistList.js). %>
 <%# ADDED 2026-10-27: Vendor Distribution List [{name, emails}] for the Handover e-mail To: (models/VendorDistList.js). %>
 <script type="application/json" id="vendorListData"><%- JSON.stringify(typeof vendorList !== 'undefined' ? vendorList : []).replace(/</g, '\\u003c') %></script>
@@ -2425,6 +2425,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 <script type="application/json" id="legsByEtsData"><%- JSON.stringify(((typeof dpStats !== "undefined" && dpStats) || []).reduce((m, d) => { if(d.etsId != null && /^\s*y/i.test(String(d.dpCurrentPlanAllPlans || '')) && d.dpProposedWellbores != null) m[String(d.etsId).trim()] = d.dpProposedWellbores; return m; }, {})) %></script>
 <script type="application/json" id="designCodeMapData"><%- JSON.stringify(typeof designCodeMap !== 'undefined' ? designCodeMap : {}).replace(/</g, '\\u003c') %></script>
 <script type="application/json" id="opsGeoListData"><%- JSON.stringify(typeof opsGeoList !== 'undefined' ? opsGeoList : []).replace(/</g, '\\u003c') %></script>
+<script src="/js/handoverChecklist.js"></script><%# 2026-10-29: Handover checklist items (shared with the server) %>
 <script type="application/json" id="padDistMapData"><%- JSON.stringify(typeof padDistMap !== 'undefined' ? padDistMap : {}).replace(/</g, '\\u003c') %></script>
 <script type="application/json" id="ganttScheduleMeta"><%- JSON.stringify((function(){
     if(!newSchedule || !newSchedule.headers || !newSchedule.headers.length) return null;
@@ -2734,6 +2735,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         headers.forEach((h, i) => {
             const hStr = String(h || '').trim();
             if(!hStr) return;
+            // 2026-10-30 (John): License column ("License # / WA") — match "license"/"licence" (both spellings) and
+            // prefer the "License # / WA" header if another header also mentions a licence.
+            if(/licen[cs]e\s*#\s*\/\s*wa/i.test(hStr) || (colMap.license === undefined && /licen[cs]e/i.test(hStr))){ colMap.license = i; }
             for(const [substr, field] of NS_HEADER_MAP){
                 if(colMap[field] !== undefined) continue;
                 if(hStr.toLowerCase().includes(substr.toLowerCase())){
@@ -3194,6 +3198,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // names, joined with "; " so Outlook resolves them against the address
     // book). Pad matched by the 14-char site key. No list -> empty To:.
     let padDistMap2 = null;
+    // 2026-10-29 (John): Pad Distribution List people [{role, name}] (Handover checklist Responsible).
+    function padPeopleFor(site){ padNamesFor(site); const e = padDistMap2[String(site || '').trim().toUpperCase().slice(0,14)]; return e ? (e.people || []) : []; }
     function padNamesFor(site){
         if(!padDistMap2){ try{ padDistMap2 = JSON.parse(document.getElementById('padDistMapData').textContent) || {}; }catch(e){ padDistMap2 = {}; } }
         const e = padDistMap2[String(site || '').trim().toUpperCase().slice(0,14)];
@@ -3218,6 +3224,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // of that pad's wells. CC is always prelimdirectionalplanning@cnrl.com.
     // MTX ID column added (from the job matched by site, ganttNotesMap.mtx).
     const HANDOVER_CC = 'prelimdirectionalplanning@cnrl.com';
+    const HANDOVER_CC_BDF = 'betterdatafaster@cnrl.com'; // 2026-10-30 (John): always CC'd on the Handover e-mail
     // CHANGED 2026-10-27 (John): To: = the addresses of the vendor chosen for
     // the pad (Vendor Distribution List, VP Areas page); the Pad Distribution
     // List moved to CC, right after HANDOVER_CC. Vendor addresses are split on
@@ -3266,7 +3273,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             const status = classifySiteObj(b, inProgressSites.has(k), inSetupQueueSites.has(k), inDesignQueueSites.has(k), inBlackOpsQueueSites.has(k));
             const colour = (status === 'DP-YES' || status === 'APPROVED DP') ? 'Blue' : (status === 'IN QUEUE' ? 'Red' : null);
             const meta = ganttNotesMap[k] || {};
-            return Object.assign({}, b, { status, colour, padKey: k.trim().toUpperCase(), mtx: meta.mtx || '', noteId: meta.id || '', hasImg: !!meta.img, designCode: meta.dc || '', notesToVendor: meta.ntv || '', folderUrl: meta.fu || '',
+            return Object.assign({}, b, { status, colour, padKey: k.trim().toUpperCase(), mtx: meta.mtx || '', noteId: meta.id || '', hasImg: !!meta.img, designCode: meta.dc || '', notesToVendor: meta.ntv || '', folderUrl: meta.fu || '', hc: meta.hc || [],
                 end: new Date(b.start.getTime() + (Number(b.duration)||0) * 86400000),
                 link: meta.id ? (location.origin + '/notes/job/' + meta.id) : '' });
         });
@@ -3346,13 +3353,15 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 '  • Any missing information must be provided directly to the vendor after handover.',
                 '  • Following handover, PlanIT will no longer support file transfers.', '',
                 'Thank you for your prompt attention.', '', '────────────────────────────────', ''];
-            const lines = intro.concat(['Pad: ' + g.site + (first.mtx ? '   (MTX ID ' + first.mtx + ')' : ''), 'Design Code: ' + (jd.designCode || '—')]
+            const lines = intro.concat(['Pad: ' + g.site + (first.mtx ? '   (MTX ID ' + first.mtx + ')' : '')]
                 // CHANGED 2026-10-28 (John): the link was replaced by the code's table (Design Codes page), right below the Design Code line.
-                .concat(designCodeLines(jd.designCode))
-                .concat(jd.notesToVendor ? ['', 'Notes to Vendor:'].concat(String(jd.notesToVendor).split(/\r?\n/)) : [])
+                // 2026-10-30 (John): Design Code + Notes to Vendor only in the Handover, not in the Notification.
+                .concat(isNotif ? [] : ['Design Code: ' + (jd.designCode || '—')].concat(designCodeLines(jd.designCode)))
+                .concat(!isNotif && jd.notesToVendor ? ['', 'Notes to Vendor:'].concat(String(jd.notesToVendor).split(/\r?\n/)) : [])
                 .concat(['', n + ' well(s):', '']));
             g.jobs.forEach((j, i) => { lines.push('--- ' + (i + 1) + '. ' + j.well + ' ---'); wellLines(j).forEach(l => lines.push(l)); lines.push(''); });
-            const to = isNotif ? g.to.slice() : vendorAddresses(vendor), cc = isNotif ? [HANDOVER_CC] : [HANDOVER_CC].concat(g.to);
+            // 2026-10-30 (John): the Handover always CCs BetterDataFaster (HANDOVER_CC_BDF); the Notification does not.
+            const to = isNotif ? g.to.slice() : vendorAddresses(vendor), cc = isNotif ? [HANDOVER_CC] : [HANDOVER_CC, HANDOVER_CC_BDF].concat(g.to.filter(a => a.toLowerCase() !== HANDOVER_CC_BDF));
             return 'mailto:' + to.map(encodeURIComponent).join(';') + '?cc=' + cc.map(encodeURIComponent).join(';') +
                 '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(lines.join('\r\n'));
         };
@@ -3370,33 +3379,180 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         const hdr = s => /^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + b64(s) + '?='; // RFC 2047 encoded-word
         const wrap76 = s => s.replace(/.{1,76}/g, '$&\r\n');
         const bufB64 = buf => { const u = new Uint8Array(buf); let s = ''; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+        // ADDED 2026-10-29 (John): HTML "Directional Planning Handover" e-mail (mimics John's Excel sheet,
+        // modern look). Used for the HANDOVER .eml only (mailto stays plain text). Outlook-safe markup:
+        // tables + inline styles only (no flex/grid/CSS classes, Outlook's Word engine ignores them).
+        // Header: CNRL logo (cid:cnrllogo@mtx, /notes/handoverLogo). Request Date = the day the e-mail is built.
+        // Checklist: public/js/handoverChecklist.js + the job's EDIT-page choices; Responsible auto from roles.
+        const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const fmtL = d => (!d || isNaN(d)) ? '—' : String(d.getDate()).padStart(2,'0') + '-' + MON[d.getMonth()] + '-' + d.getFullYear();
+        const C = { navy: '#0d2b4e', blue: '#1f6fd1', ink: '#1d2733', muted: '#6b7685', line: '#e3e8ef', soft: '#f5f7fa', page: '#eef2f6' };
+        const pill = (txt, fg, bg) => '<span style="display:inline-block;padding:3px 10px;border-radius:12px;background:' + bg + ';color:' + fg + ';font-size:12px;font-weight:600;white-space:nowrap">' + txt + '</span>';
+        const IN_F = { included: ['&#10004; Included', '#1e7e45', '#e3f5ea'], incomplete: ['&#9679; Incomplete', '#9a6700', '#fff3d1'], noinfo: ['&#10006; No info', '#b42318', '#fde8e7'], '': ['Pending', '#6b7685', '#eef1f5'] };
+        const ST = { ok: ['&#10004; Approved / Complete', '#1e7e45', '#e3f5ea'], confirm: ['! To confirm / Incomplete', '#9a6700', '#fff3d1'], revise: ['&#10006; Revision needed', '#b42318', '#fde8e7'], '': ['Pending', '#6b7685', '#eef1f5'] };
+        const card = (title, inner, accent) => '<tr><td style="padding:0 28px 22px 28px">' +
+            '<div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:' + (accent || C.navy) + ';margin:0 0 8px 0">' + title + '</div>' + inner + '</td></tr>';
+        const th = t => '<th align="left" style="background:' + C.navy + ';color:#ffffff;font-size:12px;font-weight:600;padding:9px 10px;text-align:left">' + t + '</th>';
+        const td = (t, i, extra) => '<td style="padding:9px 10px;font-size:13px;color:' + C.ink + ';border-bottom:1px solid ' + C.line + ';background:' + (i % 2 ? C.soft : '#ffffff') + ';' + (extra || '') + '">' + t + '</td>';
+        // 2026-10-30: Design Code card shared by the Handover and Notification HTML e-mails.
+        const dcCardOf = code => { const jd = { designCode: code }; return jd.designCode ? (() => { designCodeLines(jd.designCode); const d = (dcMap2 || {})[String(jd.designCode).trim().toUpperCase()];
+                if(!d) return card('Design Code ' + esc(jd.designCode), '<div style="font-size:13px;color:' + C.muted + '">Not found on the Design Codes page.</div>');
+                const cellK = 'padding:5px 0;font-size:13px;color:' + C.muted + ';border-bottom:1px solid ' + C.line, cellV = 'padding:5px 0 5px 12px;font-size:13px;color:' + C.ink + ';border-bottom:1px solid ' + C.line + ';white-space:pre-wrap';
+                const body = (d.sections || []).filter(x => !/planit use only/i.test(x.title || '') && (x.rows || []).length).map(x =>
+                    '<tr><td colspan="2" style="padding:14px 0 4px 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:' + C.blue + '">' + esc(x.title) + '</td></tr>' +
+                    x.rows.map(r => { const note = r.note ? '<div style="font-size:12px;color:#9a6700">' + esc(r.note) + '</div>' : '';
+                        if(r.param && !r.value) return '<tr><td colspan="2" style="padding:8px 0 3px 0;font-size:13px;font-weight:700;color:' + C.ink + '">' + esc(r.param) + note + '</td></tr>';
+                        return '<tr><td width="40%" valign="top" style="' + cellK + '">' + esc(r.param) + '</td><td valign="top" style="' + cellV + '">' + esc(r.value) + note + '</td></tr>'; }).join('')).join('');
+                return card('Design Code ' + esc(d.code || jd.designCode), '<div style="font-size:13px;color:' + C.muted + ';margin-bottom:2px"><b style="color:' + C.ink + '">' + esc(d.area) + '</b>' + (d.formations ? ' · ' + esc(d.formations) : '') + (d.updatedDate ? ' · updated ' + esc(d.updatedDate) : '') + '</div>' +
+                    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' + body + '</table>'); })() : ''; };
+        // ADDED 2026-10-30 (John): HTML Notification e-mail (.eml). Same look as the Handover: intro text with
+        // real dates + folder, the "please ensure…" line, then John's pad table — one row per well:
+        // ID (MTX) | ETS | Task | Project | VP Of Exp | D.E | Geo | Geo Tech | Drilling Tech | Rig.
+        // Geo / Geo Tech / Drilling Tech come from the pad's Pad Distribution List roles (Geo falls back to the
+        // schedule's "Responsible Geology", D.E to the job D.E). Task is fixed "Exe-Vendor" (as in John's sheet).
+        // Followed by Notes to Vendor, the Design Code card and the Spider Plot.
+        const notificationHtml = (g, hasLogo, hasPic) => {
+            const first = g.jobs[0], jd = g.jobs.find(j => j.designCode || j.notesToVendor) || first;
+            const people = padPeopleFor(g.site), norm = r => String(r || '').trim().toUpperCase().replace(/\s+/g, ' ');
+            const roleNames = r => people.filter(p => norm(p.role) === r).map(p => p.name).filter(Boolean).join(', ');
+            const t0 = new Date(); t0.setHours(0,0,0,0);
+            const wed = new Date(t0); do { wed.setDate(wed.getDate() + 1); } while(wed.getDay() !== 3);
+            const thu = new Date(wed); thu.setDate(thu.getDate() + 1);
+            const jf = g.jobs.find(j => j.folderUrl) || first;
+            const folder = jf.folderUrl ? String(jf.folderUrl).trim().replace(/[\\/]+$/, '') + '\\01_Input\\HandoverToVendor' : '';
+            const P = t => '<p style="margin:0 0 12px 0;font-size:14px;color:' + C.ink + ';line-height:1.5">' + t + '</p>';
+            const li = t => '<li style="margin:0 0 6px 0">' + t + '</li>', ul = items => '<ul style="margin:0 0 14px 0;padding-left:22px;font-size:14px;color:' + C.ink + ';line-height:1.5">' + items + '</ul>';
+            const dateB = d => '<b style="color:' + C.navy + '">' + esc(d) + '</b>';
+            const intro = P('Hello,') +
+                P('You are listed in ETS as designated contact for this site. The DPs will be handed over to the vendor on ' + dateB('Thursday ' + fmtL(thu)) + '.') +
+                P('By ' + dateB('Wednesday ' + fmtL(wed)) + ', please:') +
+                ul(li('Confirm the DP approval status in ETS. If not approved, reply with any required DP revisions.') +
+                   li('Upload required documents to ' + (folder ? '<span style="font-family:Consolas,monospace;background:' + C.soft + ';padding:1px 5px;border-radius:4px">' + esc(folder) + '</span>' : '<span style="color:#b42318">(no Folder URL set on the MTX job)</span>') +
+                      '<ul style="margin:6px 0 0 0;padding-left:20px">' + ['Land Survey', 'Geo Program', 'WBID', 'Licenses'].map(li).join('') + '</ul>') +
+                   li('Confirm Hard Boundaries.')) +
+                '<div style="background:' + C.soft + ';border-left:4px solid ' + C.blue + ';border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 12px 0">' +
+                '<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:' + C.blue + ';margin-bottom:4px">Note</div>' +
+                ul(li('The handover will proceed using the files available on ' + dateB('Wednesday ' + fmtL(wed)) + '.') + li('Any missing information must be provided directly to the vendor after handover.') + li('Following handover, PlanIT will no longer support file transfers.')) + '</div>' +
+                P('Thank you for your prompt attention.');
+            const thc = t => '<th align="center" style="background:' + C.navy + ';color:#ffffff;font-size:12px;font-weight:600;padding:8px 8px;text-align:center;white-space:nowrap">' + t + '</th>';
+            const tdc = (t, i, extra) => td(t, i, 'text-align:center;font-size:12px;padding:7px 8px;' + (extra || ''));
+            const geo = roleNames('GEOLOGY'), geoTech = roleNames('GEO TECH'), drillTech = roleNames('DRILLING TECH');
+            const tbl = '<div style="font-size:14px;font-weight:700;color:' + C.blue + ';margin:0 0 10px 0">Please ensure all required reviews, confirmations, and file uploads are completed before the handover date.</div>' +
+                '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' +
+                ['ID', 'ETS', 'Task', 'Project', 'VP Of Exp', 'D.E', 'Geo', 'Geo Tech', 'Drilling Tech', 'Rig'].map(thc).join('') + '</tr>' +
+                g.jobs.map((j, i) => '<tr>' + tdc(esc(j.mtx || '—'), i, 'font-weight:700') + tdc(esc(j.ETS || '—'), i) + tdc('Exe-Vendor', i, 'white-space:nowrap') + tdc(esc(j.site || '—'), i, 'white-space:nowrap') +
+                    tdc(esc(j.vp || '—'), i) + tdc(esc(j.de || roleNames('DRILLING ENGINEER') || '—'), i) + tdc(esc(geo || j.geo || '—'), i) +
+                    tdc(esc(geoTech || '—'), i) + tdc(esc(drillTech || '—'), i) + tdc(esc(j.rig || '—'), i, 'white-space:nowrap;font-weight:600') + '</tr>').join('') + '</table>';
+            const notes = jd.notesToVendor ? card('Notes to Vendor', '<div style="background:#fff8e6;border-left:4px solid #f0a500;padding:12px 14px;font-size:14px;color:' + C.ink + ';white-space:pre-wrap;border-radius:0 8px 8px 0">' + esc(jd.notesToVendor) + '</div>', '#9a6700') : '';
+            return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>' +
+                '<body style="margin:0;padding:0;background:' + C.page + ';font-family:Segoe UI,Calibri,Arial,sans-serif">' +
+                '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + C.page + '"><tr><td align="center" style="padding:24px 12px">' +
+                '<table role="presentation" width="860" cellpadding="0" cellspacing="0" style="width:860px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ' + C.line + '">' +
+                '<tr><td style="background:' + C.blue + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
+                '<tr><td style="padding:24px 28px 18px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+                  '<td valign="middle"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:' + C.blue + ';font-weight:700">PlanIT · Directional Planning</div>' +
+                  '<div style="font-size:26px;font-weight:700;color:' + C.navy + ';margin-top:4px">Handover Notification</div>' +
+                  '<div style="font-size:14px;color:' + C.muted + ';margin-top:4px">' + esc(g.site) + ' · ' + g.jobs.length + ' well' + (g.jobs.length > 1 ? 's' : '') + ' · handover ' + esc('Thursday ' + fmtL(thu)) + '</div></td>' +
+                  (hasLogo ? '<td align="right" valign="middle" width="190"><img src="cid:cnrllogo@mtx" alt="Canadian Natural" width="170" style="display:block;width:170px;height:auto;border:0"></td>' : '') +
+                '</tr></table></td></tr>' +
+                '<tr><td style="padding:0 28px 10px 28px">' + intro + '</td></tr>' +
+                card('Pad', tbl) + /* 2026-10-30 (John): no Notes to Vendor / Design Code in the Notification */
+                (hasPic ? card('Spider Plot', '<img src="cid:jobpicture@mtx" alt="Spider Plot" style="display:block;max-width:100%;height:auto;border:1px solid ' + C.line + ';border-radius:8px">') : '') +
+                '<tr><td style="padding:14px 28px;background:' + C.soft + ';border-top:1px solid ' + C.line + ';font-size:11px;color:' + C.muted + '">Generated by MTX Conveyor · PlanIT Directional Planning · ' + esc(fmtL(new Date())) + '</td></tr>' +
+                '</table></td></tr></table></body></html>';
+        };
+        const handoverHtml = (g, vendor, hasLogo, hasPic) => {
+            const first = g.jobs[0], jd = g.jobs.find(j => j.designCode || j.notesToVendor) || first, jh = g.jobs.find(j => (j.hc || []).length) || first;
+            const moveD = g.jobs.reduce((m, j) => (j.start && (!m || j.start < m)) ? j.start : m, null);
+            const people = padPeopleFor(g.site), de = (g.jobs.find(j => j.de) || {}).de || '';
+            const rowsHc = (window.HandoverChecklist ? HandoverChecklist.resolve(jh.hc, people, de) : []);
+            // 2026-10-30: a pad can mix site suffixes / rigs (e.g. S2 obs well on PRECISION 153 + KS24 wells on AKITA 28):
+            // show every distinct value instead of only the first well's.
+            const uniq = k => [...new Set(g.jobs.map(j => String(j[k] || '').trim()).filter(Boolean))];
+            const info = [['Site', '<span style="color:' + C.blue + ';font-weight:700">' + (uniq('site').map(esc).join('<br>') || esc(g.site)) + '</span>'], ['Est. Move date', esc(fmtL(moveD))], ['PlanIT ID', esc(first.mtx || '—')],
+                          ['Rig', uniq('rig').map(esc).join('<br>') || '—'], ['Service Provider', esc(vendor || '—')], ['Request Date', esc(fmtL(new Date()))]];
+            const tile = (k, v, hi) => '<td width="33%" valign="top" style="padding:12px 14px;background:' + (hi ? '#fff6dc' : C.soft) + ';border:4px solid #ffffff;border-radius:10px">' +
+                '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:' + C.muted + '">' + k + '</div><div style="font-size:15px;font-weight:700;color:' + C.ink + ';margin-top:3px">' + v + '</div></td>';
+            const infoHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate"><tr>' + info.slice(0, 3).map((x, i) => tile(x[0], x[1], i === 1)).join('') + '</tr><tr>' + info.slice(3).map(x => tile(x[0], x[1])).join('') + '</tr></table>';
+            const notes = jd.notesToVendor ? card('Notes to Vendor', '<div style="background:#fff8e6;border-left:4px solid #f0a500;padding:12px 14px;font-size:14px;color:' + C.ink + ';white-space:pre-wrap;border-radius:0 8px 8px 0">' + esc(jd.notesToVendor) + '</div>', '#9a6700') : '';
+            const hcHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden"><tr>' + th('In Folder') + th('Item') + th('Status') + th('Provider') + th('Responsible') + '</tr>' +
+                rowsHc.map((r, i) => { const f = IN_F[r.inFolder] || IN_F[''], s = ST[r.status] || ST[''];
+                    const item = esc(r.item); // 2026-10-30 (John): no Design code here — the full Design Code table is below the Wells table
+                    return '<tr>' + td(pill(f[0], f[1], f[2]), i) + td(item, i, 'font-weight:600') + td(pill(s[0], s[1], s[2]), i) + td(esc(r.provider), i, 'color:' + C.muted) + td(esc(r.responsible || '—'), i) + '</tr>'; }).join('') + '</table>';
+            const wellsHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' + th('ETS ID') + th('Well name') + th('Drilling Lic #') + th('Total legs') + th('BHL [Leg01]') + '</tr>' +
+                g.jobs.map((j, i) => { const legs = legsOf(j.ETS); return '<tr>' + td(esc(j.ETS || '—'), i) + td(esc(j.well || '—'), i, 'font-weight:600') + td(esc(j.license || '—'), i) + td(esc(legs !== '' ? legs : '—'), i, 'text-align:center') + td(esc(bhLocOf(j.ETS) || '—'), i, 'font-family:Consolas,monospace;white-space:nowrap') + '</tr>'; }).join('') + '</table>';
+            const dc = dcCardOf(jd.designCode);
+            // ADDED 2026-10-30 (John): Distribution List (DPs & Final Directional Surveys), last section of the Handover.
+            const padNames = (padDistMap2 && padDistMap2[String(g.site || '').trim().toUpperCase().slice(0,14)] || {}).names || [];
+            const distHtml = !window.HandoverChecklist ? '' : (() => {
+                const yes = pill('&#10004; Include', '#1e7e45', '#e3f5ea'), no = '<span style="color:#b8c0cc">—</span>';
+                return '<div style="font-size:13px;color:' + C.muted + ';margin:-2px 0 10px 0">Might be different for dailies — for those please confirm with the Drilling Engineer or Drilling Supervisor.</div>' +
+                    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' + th('Role') + th('Name / E-mail') +
+                    '<th align="center" style="background:' + C.navy + ';color:#ffffff;font-size:12px;font-weight:600;padding:9px 10px;text-align:center">DP Delivery</th>' +
+                    '<th align="center" style="background:' + C.navy + ';color:#ffffff;font-size:12px;font-weight:600;padding:9px 10px;text-align:center">Final DS Delivery</th></tr>' +
+                    HandoverChecklist.distRows(people, de, opsGeosFor(padNames)).map((r, i) => '<tr>' + td(esc(r.role), i, 'font-weight:700;font-size:12px;letter-spacing:.03em') +
+                        td(r.who.length ? r.who.map(esc).join('<br>') : '<span style="color:#b42318">not in the Pad Distribution List</span>', i) +
+                        td(r.dp ? yes : no, i, 'text-align:center') + td(r.ds ? yes : no, i, 'text-align:center') + '</tr>').join('') + '</table>';
+            })();
+            const legend = '<div style="font-size:11px;color:' + C.muted + ';margin-top:8px">In Folder: ' + pill('&#10004; Included', '#1e7e45', '#e3f5ea') + ' ' + pill('&#9679; Incomplete', '#9a6700', '#fff3d1') + ' ' + pill('&#10006; No info', '#b42318', '#fde8e7') + '</div>';
+            return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>' +
+                '<body style="margin:0;padding:0;background:' + C.page + ';font-family:Segoe UI,Calibri,Arial,sans-serif">' +
+                '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + C.page + '"><tr><td align="center" style="padding:24px 12px">' +
+                '<table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:760px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ' + C.line + '">' +
+                '<tr><td style="background:' + C.navy + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
+                '<tr><td style="padding:24px 28px 18px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+                  '<td valign="middle"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:' + C.blue + ';font-weight:700">PlanIT · Directional Planning</div>' +
+                  '<div style="font-size:26px;font-weight:700;color:' + C.navy + ';margin-top:4px">Directional Planning Handover</div>' +
+                  '<div style="font-size:14px;color:' + C.muted + ';margin-top:4px">' + esc(g.site) + ' · ' + g.jobs.length + ' well' + (g.jobs.length > 1 ? 's' : '') + '</div></td>' +
+                  (hasLogo ? '<td align="right" valign="middle" width="190"><img src="cid:cnrllogo@mtx" alt="Canadian Natural" width="170" style="display:block;width:170px;height:auto;border:0"></td>' : '') +
+                '</tr></table></td></tr>' +
+                card('Pad', infoHtml) + notes +
+                card('Supporting Documents Checklist', hcHtml + legend) +
+                card('Wells', wellsHtml) + dc +
+                (hasPic ? card('Spider Plot', /* 2026-10-30 (John): was 'Pad picture' */ '<img src="cid:jobpicture@mtx" alt="Pad picture" style="display:block;max-width:100%;height:auto;border:1px solid ' + C.line + ';border-radius:8px">') : '') +
+                (distHtml ? card('Distribution List: DPs &amp; Final Directional Surveys', distHtml) : '') +
+                '<tr><td style="padding:14px 28px;background:' + C.soft + ';border-top:1px solid ' + C.line + ';font-size:11px;color:' + C.muted + '">Generated by MTX Conveyor · PlanIT Directional Planning · ' + esc(fmtL(new Date())) + '</td></tr>' +
+                '</table></td></tr></table></body></html>';
+        };
         const emlOf = async (g, vendor, kind) => {
             const m = mailOf(g, vendor, kind), qi = m.indexOf('?'), q = new URLSearchParams(m.slice(qi + 1).replace(/\+/g, '%2B'));
             const to = decodeURIComponent(m.slice(7, qi)), cc = q.get('cc') || '', subject = q.get('subject') || '', body = q.get('body') || '';
-            const imgJob = g.jobs.find(j => j.hasImg && j.noteId);
-            let img = null;
-            if(imgJob){
-                const r = await fetch('/notes/handoverImage/' + imgJob.noteId, { credentials: 'same-origin' });
-                if(!r.ok) throw new Error('could not download the job picture (' + r.status + ')');
-                img = { type: (r.headers.get('Content-Type') || 'image/png').split(';')[0], data: bufB64(await r.arrayBuffer()) };
+            // CHANGED 2026-10-29 (John): inline pictures generalised (job picture + CNRL logo for the HTML Handover).
+            const getImg = async (url, cid, name, required) => { const r = await fetch(url, { credentials: 'same-origin' });
+                if(!r.ok){ if(required) throw new Error('could not download ' + name + ' (' + r.status + ')'); return null; }
+                const type = (r.headers.get('Content-Type') || 'image/png').split(';')[0]; return { cid, type, name: name + '.' + (type.split('/')[1] || 'png').replace('jpeg', 'jpg'), data: bufB64(await r.arrayBuffer()) }; };
+            const imgJob = g.jobs.find(j => j.hasImg && j.noteId), imgs = [];
+            const pic = imgJob ? await getImg('/notes/handoverImage/' + imgJob.noteId, 'jobpicture@mtx', 'job-picture', true) : null; if(pic) imgs.push(pic);
+            let html;
+            if(kind === 'handover' || kind === 'notification'){ // 2026-10-30: Notification is HTML too
+                const logo = await getImg('/notes/handoverLogo', 'cnrllogo@mtx', 'canadian-natural-logo', false).catch(() => null); if(logo) imgs.push(logo);
+                html = kind === 'handover' ? handoverHtml(g, vendor, !!logo, !!pic) : notificationHtml(g, !!logo, !!pic);
+            } else {
+                html = '<html><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif;font-size:11pt">' +
+                    '<pre style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap">' + esc(body) + '</pre>' +
+                    (pic ? '<p><img src="cid:jobpicture@mtx" alt="Job picture" style="max-width:100%"></p>' : '') + '</body></html>';
             }
-            const html = '<html><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif;font-size:11pt">' +
-                '<pre style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap">' + esc(body) + '</pre>' +
-                (img ? '<p><img src="cid:jobpicture@mtx" alt="Job picture" style="max-width:100%"></p>' : '') + '</body></html>';
-            const B = 'mtx_' + Date.now().toString(36), ext = (img && img.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-            const L = ['To: ' + to, 'Cc: ' + cc, 'Subject: ' + hdr(subject), 'X-Unsent: 1', 'MIME-Version: 1.0'];
-            if(img) L.push('Content-Type: multipart/related; boundary="' + B + '"; type="text/html"', '', '--' + B);
+            const B = 'mtx_' + Date.now().toString(36);
+            // FIX 2026-10-30 (John's test .eml files): To/Cc were written with ';' between entries (mailto style).
+            // In an .eml header (RFC 5322 §3.4) the separator is ',' — ';' made "Name" entries parse as broken
+            // groups. Now: ', ' separated, non-ASCII names RFC 2047-encoded, long lines folded (limit 998 chars).
+            const addrHdr = (name, list) => { const items = String(list || '').split(';').map(x => x.trim()).filter(Boolean).map(x => /^[\x20-\x7e]*$/.test(x) ? x : hdr(x));
+                let out = name + ': ', line = out.length; items.forEach((x, i) => { const piece = x + (i < items.length - 1 ? ',' : '');
+                    if(i && line + piece.length + 1 > 76){ out += '\r\n '; line = 1; } else if(i){ out += ' '; line++; } out += piece; line += piece.length; }); return out; };
+            const L = [addrHdr('To', to), addrHdr('Cc', cc), 'Subject: ' + hdr(subject), 'X-Unsent: 1', 'MIME-Version: 1.0'];
+            if(imgs.length) L.push('Content-Type: multipart/related; boundary="' + B + '"; type="text/html"', '', '--' + B);
             L.push('Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap76(b64(html)));
-            if(img) L.push('--' + B, 'Content-Type: ' + img.type + '; name="job-picture.' + ext + '"', 'Content-Transfer-Encoding: base64',
-                    'Content-ID: <jobpicture@mtx>', 'Content-Disposition: inline; filename="job-picture.' + ext + '"', '', wrap76(img.data), '--' + B + '--');
-            return { text: L.join('\r\n'), hasImg: !!img };
+            imgs.forEach((im, i) => { L.push('--' + B, 'Content-Type: ' + im.type + '; name="' + im.name + '"', 'Content-Transfer-Encoding: base64',
+                    'Content-ID: <' + im.cid + '>', 'Content-Disposition: inline; filename="' + im.name + '"', '', wrap76(im.data)); });
+            if(imgs.length) L.push('--' + B + '--');
+            return { text: L.join('\r\n'), hasImg: !!pic };
         };
         const w = window.open('', '_blank');
         if(!w){ alert('The browser blocked the new window — allow pop-ups for MTX and try again.'); return; }
-        const nBlue = jobs.filter(j => j.colour === 'Blue').length, nRed = jobs.filter(j => j.colour === 'Red').length, NC = 16;
+        const nBlue = jobs.filter(j => j.colour === 'Blue').length, nRed = jobs.filter(j => j.colour === 'Red').length, NC = 17; /* 2026-10-30: + License column */
         const rows = groups.map((g, gi) =>
             '<tr class="grp" data-g="' + gi + '"><td colspan="' + NC + '"><button class="mb" data-k="notification" data-g="' + gi + '" title="Notification (sent first): no vendor; To: Pad Distribution List + Ops Geos; CC: ' + esc(HANDOVER_CC) + '">&#9993; Notification</button> ' +
-                '<button class="mb hb" data-k="handover" data-g="' + gi + '" title="Handover: To: vendor; CC: ' + esc(HANDOVER_CC) + ' + Pad Distribution List + Ops Geos">&#9993; Handover</button> &nbsp;<b>' + esc(g.site) + '</b> — ' + g.jobs.length + ' well(s) — ' +
+                '<button class="mb hb" data-k="handover" data-g="' + gi + '" title="Handover: To: vendor; CC: ' + esc(HANDOVER_CC) + ', ' + esc(HANDOVER_CC_BDF) + ' + Pad Distribution List + Ops Geos">&#9993; Handover</button> &nbsp;<b>' + esc(g.site) + '</b> — ' + g.jobs.length + ' well(s) — ' +
                 'To (vendor): <select class="vsel" data-g="' + gi + '" onclick="event.stopPropagation()"><option value="">— select vendor —</option>' +
                 handoverVendors().map(v => '<option' + (v.name === g.vendor ? ' selected' : '') + '>' + esc(v.name) + '</option>').join('') + '</select>' +
                 (g.vendor ? ' <span style="color:#8a93a3">(' + (g.vendorFromRig ? 'from BV Rigs: ' + esc(g.jobs[0].rig) : 'from DP Company') + ')</span>'
@@ -3405,7 +3561,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             g.jobs.map(j => '<tr class="job" data-g="' + gi + '">' +
                 '<td><span class="dot" style="background:' + (j.colour === 'Blue' ? '#0084c7' : j.colour === 'Red' ? '#ff4c4c' : '#8a93a3') + '"></span>' + esc(j.status) + (j.inRange ? '' : ' <span style="color:#8a93a3">(same pad)</span>') + '</td>' +
                 '<td>' + esc(j.mtx || '—') + '</td><td>' + esc(fmtD(j.start)) + '</td><td>' + esc(fmtD(j.end)) + '</td><td>' + esc(j.rig) + '</td><td>' + esc(j.site) + '</td><td>' + esc(j.well) + '</td>' +
-                '<td>' + esc(j.ETS) + '</td><td>' + esc(j.type) + '</td><td>' + esc(j.de || '—') + '</td><td>' + esc(j.drillok) + '</td><td>' + esc(j.geook) + '</td>' +
+                '<td>' + esc(j.ETS) + '</td><td>' + esc(j.license || '—') + '</td><td>' + esc(j.type) + '</td><td>' + esc(j.de || '—') + '</td><td>' + esc(j.drillok) + '</td><td>' + esc(j.geook) + '</td>' +
                 '<td>' + esc(j.dpCompany) + '</td><td>' + esc(j.dpReq || '—') + '</td><td>' + esc(j.dpReceivedDate || '—') + '</td>' +
                 '<td>' + (j.link ? '<a href="' + esc(j.link) + '" target="_blank" onclick="event.stopPropagation()">Open</a>' : '') + '</td></tr>').join('')).join('');
         w.document.open();
@@ -3419,7 +3575,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             '<div style="margin:0 0 8px">E-mail format: <label><input type="radio" name="fmt" value="eml" checked> .eml draft with the job picture in the body</label> ' +
             '<label style="margin-left:10px"><input type="radio" name="fmt" value="mailto"> Plain (mailto, no picture)</label>' +
             ' <span style="color:#8a93a3">— .eml: the file downloads; open it and Outlook shows a new draft ready to send.</span></div>' +
-            '<table><thead><tr><th>Status</th><th>MTX ID</th><th>Start</th><th>End</th><th>Rig</th><th>Site</th><th>Well</th><th>ETS</th><th>Type</th><th>D.E</th><th>Drill OK</th><th>Geo OK</th><th>DP Company</th><th>DP Requested</th><th>DP Received</th><th>MTX</th></tr></thead><tbody>' +
+            '<table><thead><tr><th>Status</th><th>MTX ID</th><th>Start</th><th>End</th><th>Rig</th><th>Site</th><th>Well</th><th>ETS</th><th>License</th><th>Type</th><th>D.E</th><th>Drill OK</th><th>Geo OK</th><th>DP Company</th><th>DP Requested</th><th>DP Received</th><th>MTX</th></tr></thead><tbody>' +
             rows + '</tbody></table></body></html>');
         w.document.close();
         const vendorOf = gi => { const sel = w.document.querySelector('select.vsel[data-g="' + gi + '"]'); return sel ? sel.value : ''; };
