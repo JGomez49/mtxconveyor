@@ -113,6 +113,7 @@ const {
     saveOpsGeoDistList,
     deleteOpsGeoDistList,
     handoverImage,
+    handoverLogo,
     renderDesignCodes,
     saveDesignCode,
     deleteDesignCode,
@@ -181,6 +182,7 @@ router.post('/notes/opsGeoDistList', isAuthenticated, saveOpsGeoDistList);
 router.delete('/notes/opsGeoDistList/:id', isAuthenticated, deleteOpsGeoDistList);
 // 2026-10-28: job picture for the Handover .eml (server-side fetch from Cloudinary).
 router.get('/notes/handoverImage/:id', isAuthenticated, handoverImage);
+router.get('/notes/handoverLogo', isAuthenticated, handoverLogo); // 2026-10-29: CNRL logo for the Handover e-mail
 // 2026-10-28: Design Codes — all logged-in users read; admin check inside the edit handlers.
 router.get('/notes/designCodes', isAuthenticated, renderDesignCodes);
 router.post('/notes/designCodes', isAuthenticated, saveDesignCode);
