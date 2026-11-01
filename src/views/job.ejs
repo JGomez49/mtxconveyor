@@ -756,6 +756,12 @@ body.light-mode #statusTextbox {
                                 <input type="range" id="wbtLineThicknessOffset" min="0.1" max="5" step="0.1" value="0.5">
                                 <div style="font-size:10px;margin-top:4px;">Scenarios (iPlan) <span id="wbtLtScnVal"></span></div>
                                 <input type="range" id="wbtLineThicknessScenario" min="0.1" max="5" step="0.1" value="0.5">
+                                <!-- ADDED 2026-10-31 (John): thickness of the iPad preview ("prototype") ghost wells -->
+                                <div style="font-size:10px;margin-top:4px;">iPad previews <span id="wbtLtIpadVal"></span></div>
+                                <input type="range" id="wbtLineThicknessIpad" min="0.1" max="5" step="0.1" value="1">
+                                <!-- ADDED 2026-10-31 (John): markers at the iPad export "Comments" points (SurfaceCasing, Nudge, KickOff, tangents, IntermediateCasing, formation tops, TD) -->
+                                <div style="font-size:10px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;"><span>iPad markers <span id="wbtLtIpadMkVal">× 1.0</span></span><label style="font-size:10px;"><input type="checkbox" id="wbtIpadMkShow" checked> show</label></div>
+                                <input type="range" id="wbtIpadMkSize" min="0.1" max="5" step="0.1" value="1">
                                 <div style="font-size:10px;margin-top:8px;">Individual trajectory</div>
                                 <select id="wbtLtIndivSel" style="margin:3px 0;"><option value="">— select —</option></select>
                                 <input type="range" id="wbtLtIndiv" min="0.1" max="5" step="0.1" value="0.5" disabled>
@@ -856,6 +862,14 @@ body.light-mode #statusTextbox {
                          (vertical → KOP → curve → tangent → curve to land → lateral). Every well
                          it creates is an ordinary iPlan scenario tagged with a group, so 3D,
                          Anti-collision, saving and the wizards all work on them unchanged. -->
+                    <%# 2026-10-31 (John): readable iPad tables — cell padding, row lines, zebra rows, sticky header %>
+                    <style>
+                        #ipdBody table{border-collapse:collapse;}
+                        #ipdBody th{position:sticky;top:0;z-index:1;background:var(--wbt-panel2,#1e232b);padding:3px 10px !important;border-bottom:1px solid var(--wbt-border,#2a313c);text-align:left;white-space:nowrap;}
+                        #ipdBody td{padding:2px 10px !important;border-bottom:1px solid var(--wbt-border,#2a313c);white-space:nowrap;}
+                        #ipdBody tr:nth-child(even) td{background:rgba(127,127,127,0.07);}
+                        #ipdBody tr:hover td{background:rgba(77,163,255,0.12);}
+                    </style>
                     <div class="ipl-root" id="ipdRoot">
                         <div class="ipl-head" id="ipdHead">
                             <span class="ipl-title">&#9679; iPad &mdash; Pad Planner</span>
@@ -3008,6 +3022,7 @@ body.light-mode #statusTextbox {
             wbtMarkerGroup = new THREE.Group();
             group.add(wbtMarkerGroup);
             wbtInitTooltip();
+            wbtPfInit();   // 2026-11-01: click a trajectory -> profile panel
 
             animate();
             window.addEventListener('resize', onResize);
@@ -3247,6 +3262,8 @@ body.light-mode #statusTextbox {
 
                 // Track tube mesh for raycasting tooltip
                 wbtTubeMeshData.push({ mesh, name: well.wellName, colorHex: well.colorHex, survey });
+                mesh.userData.pick = () => ({ name: well.wellName, color: well.colorHex || color, rows: wbtPfRowsFromSurvey(survey),   // 2026-11-01: profile panel
+                    ac: () => { const A = window.acpPadApi; const x = A && A.baseWells().find(b => String(b.well._id) === String(well._id) || b.well.wellName === well.wellName); return x ? x.well : null; } });
 
                 wellsData.push({name: well.wellName, wellName: well.wellName, color, mesh, _id: well._id, pad: well.pad, source: well.source, wellCategory: well.wellCategory, colorHex: well.colorHex || ('#' + color.toString(16).padStart(6,'0')), surveyCount: well.surveyCount});
 
@@ -3367,7 +3384,7 @@ body.light-mode #statusTextbox {
                 mesh.geometry.dispose();
                 mesh.geometry = new THREE.TubeGeometry(curve, tubularSegments, baseRadius * factor, 6, false);
             });
-            [['wbtLtSubjVal','wbtLineThickness'],['wbtLtOffVal','wbtLineThicknessOffset'],['wbtLtScnVal','wbtLineThicknessScenario']].forEach(([lbl, id]) => {
+            [['wbtLtSubjVal','wbtLineThickness'],['wbtLtOffVal','wbtLineThicknessOffset'],['wbtLtScnVal','wbtLineThicknessScenario'],['wbtLtIpadVal','wbtLineThicknessIpad']].forEach(([lbl, id]) => {
                 const el = document.getElementById(lbl); if(el) el.textContent = '× ' + wbtSliderVal(id).toFixed(1);
             });
             // iPlan redraws its scenario tubes on this event (see iPlan script)
@@ -3462,7 +3479,7 @@ body.light-mode #statusTextbox {
             });
 
             document.getElementById('wbtLineThickness').addEventListener('input', () => { applyWbtLineThickness(); wbtSyncIndivSlider(); });
-            ['wbtLineThicknessOffset','wbtLineThicknessScenario'].forEach(id => {
+            ['wbtLineThicknessOffset','wbtLineThicknessScenario','wbtLineThicknessIpad'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.addEventListener('input', () => { applyWbtLineThickness(); wbtSyncIndivSlider(); });
             });
@@ -3890,11 +3907,17 @@ body.light-mode #statusTextbox {
             };
         };
 
+        window.wbtRenderDashboard = function(w, o){ return wbtRenderDashboard(w, o); };   // 2026-11-01: used by iPad preview score cards
         // Stored after each wbtRenderDashboard call for Excel export
         let wbtLastDashboardMetrics = [];
 
-        function wbtRenderDashboard(wellsForDashboard){
-            const container = document.getElementById('wbtDashboard');
+        // CHANGED 2026-11-01 (John): optional opts so the iPad module can reuse these cards for its preview
+        // wells ("work in progress"): {containerId, summaryId, exportBtnId, noSave (no padStats PATCH, no
+        // overwrite of the official export data), wip (badge on each card), extraRows(wellName) -> [[label, value]]}.
+        // Called without opts it behaves exactly as before.
+        function wbtRenderDashboard(wellsForDashboard, opts){
+            opts = opts || {};
+            const container = document.getElementById(opts.containerId || 'wbtDashboard');
             if(!container) return;
             container.innerHTML = '';
 
@@ -3904,16 +3927,17 @@ body.light-mode #statusTextbox {
             const padAvgDDI   = validMetrics.filter(m => m.ddi   !== null).reduce((s,m,_,a) => s + m.ddi/a.length, 0)   || null;
 
             // Store for Excel export and wire button
-            wbtLastDashboardMetrics = validMetrics.map((m, idx) => ({
+            const metricsForExport = validMetrics.map((m, idx) => ({
                 ...m, color: (wellsForDashboard[idx] || {}).color || 0
             }));
-            const dashExportBtn = document.getElementById('wbtExportDashboard');
+            if(!opts.noSave) wbtLastDashboardMetrics = metricsForExport;
+            const dashExportBtn = document.getElementById(opts.exportBtnId || 'wbtExportDashboard');
             if(dashExportBtn){
-                dashExportBtn.onclick = () => wbtExportDashboardExcel(wbtLastDashboardMetrics);
+                dashExportBtn.onclick = () => wbtExportDashboardExcel(metricsForExport);
             }
 
-            // Auto-save pad summary stats to the note in MongoDB
-            fetch('/notes/padStats/<%- note._id %>', {
+            // Auto-save pad summary stats to the note in MongoDB (official cards only)
+            if(!opts.noSave) fetch('/notes/padStats/<%- note._id %>', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -3924,7 +3948,7 @@ body.light-mode #statusTextbox {
             }).catch(err => console.warn('padStats save failed:', err));
 
             // Pad summary bar
-            const summary = document.getElementById('wbtPadSummary');
+            const summary = document.getElementById(opts.summaryId || 'wbtPadSummary');
             if(summary){
                 summary.innerHTML = '';
                 function padStat(lbl, val){
@@ -3950,6 +3974,8 @@ body.light-mode #statusTextbox {
                 sw.style.background = '#' + w.color.toString(16).padStart(6,'0');
                 title.appendChild(sw);
                 title.appendChild(document.createTextNode(metrics.wellName));
+                if(opts.wip){ const b = document.createElement('span'); b.textContent = 'WORK IN PROGRESS'; b.title = 'iPad preview design — not an official / drilled trajectory';
+                    b.style.cssText = 'margin-left:auto;font-size:9px;padding:1px 6px;border:1px dashed #ffd060;color:#ffd060;border-radius:3px;'; title.style.display = 'flex'; title.style.alignItems = 'center'; title.appendChild(b); }
                 card.appendChild(title);
 
                 // Highlighted key points: SC / ICP / LP / TD. ICP
@@ -4044,6 +4070,7 @@ body.light-mode #statusTextbox {
                 m('Final Incl / Azim', wbtFmt(metrics.finalIncl,1) + '° / ' + wbtFmt(metrics.finalAzim,1) + '°');
                 m('DDI (Oag & Williams)', wbtFmt(metrics.ddi, 2));
                 m('Steer Index', wbtFmt(metrics.steerIndex, 3));
+                if(opts.extraRows) (opts.extraRows(w.name) || []).forEach(x => { const c = m(x[0], x[1]); if(x[2]) c.forEach(el => { el.style.setProperty('background-color', x[2], 'important'); el.style.setProperty('color', '#000000', 'important'); }); });
 
                 card.appendChild(grid);
                 container.appendChild(card);
@@ -5107,6 +5134,208 @@ body.light-mode #statusTextbox {
         // [{mesh: THREE.Mesh, name, tvd, subSea}]
         let wbtFormPlaneData = [];
 
+
+        // ================================================================
+        // ADDED 2026-11-01 (John): CLICK A TRAJECTORY -> PROFILE PANEL
+        // Floating panel over the 3D view with three tabs: Inclination / Azimuth / DLS vs MD. Works for every
+        // tube that carries mesh.userData.pick() -> { name, color, rows:[{md, inc, az, tvd, ss, dls, n, e, comment}] }
+        // (planned / offset wells here, iPlan scenarios and iPad previews set it where they build their tubes).
+        // Click = show that well; Shift+click = overlay (max 4). Comment points (KickOff, Nudge, tangents,
+        // IntermediateCasing, TD, ...) drawn as markers. Hover = read-out + a sphere at that MD in 3D.
+        // A click is a press/release without dragging (< 5 px) so orbiting the view does not open it.
+        // Azimuth is unwrapped (continuous through 0/360) for plotting; tick labels are shown modulo 360.
+        // ================================================================
+        const WBT_PF_MK = { SURFACECASING:'#b0b0b0', NUDGE:'#ff9800', KICKOFF:'#00e5ff', 'START STEAMFLOOD TANG':'#00e676', 'END STEAMFLOOD TANG':'#00e676',
+            'START TANG':'#76ff03', 'END TANG':'#76ff03', INTERMEDIATECASING:'#e040fb', LANDING:'#e040fb', TD:'#ff4c4c', 'START LATERAL AVOIDANCE':'#ffeb3b', 'END LATERAL AVOIDANCE':'#ffeb3b' };
+        const wbtPf = { wells: [], tab: 'inc', el: null, sphere: null, down: null };
+        function wbtPfColor(c){ return typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : (c || '#00c8ff'); }
+        function wbtPfInit(){
+            const canvas = document.getElementById('wbtViewer'); if(!canvas) return;
+            canvas.addEventListener('pointerdown', e => { wbtPf.down = { x: e.clientX, y: e.clientY }; });
+            canvas.addEventListener('pointerup', e => {
+                const d = wbtPf.down; wbtPf.down = null;
+                if(!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5 || e.button !== 0) return;
+                const rect = canvas.getBoundingClientRect(), v = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+                const rc = new THREE.Raycaster(); rc.setFromCamera(v, camera);
+                const meshes = []; group.traverse(o => { if(o.isMesh && o.visible && o.userData && typeof o.userData.pick === 'function') meshes.push(o); });
+                const hit = rc.intersectObjects(meshes, false)[0]; if(!hit) return;
+                let info = null; try { info = hit.object.userData.pick(); } catch(err){ console.warn('profile pick', err); }
+                if(!info || !info.rows || info.rows.length < 2) return;
+                info.color = wbtPfColor(info.color);
+                info.mesh = hit.object; wbtPf.sepCache = null;
+                if(e.shiftKey && wbtPf.wells.length){ if(!wbtPf.wells.some(w => w.name === info.name)){ wbtPf.wells.push(info); if(wbtPf.wells.length > 4) wbtPf.wells.shift(); } }
+                else wbtPf.wells = [info];
+                wbtPfRender();
+            });
+        }
+        function wbtPfClose(){ if(wbtPf.el) wbtPf.el.style.display = 'none'; wbtPf.wells = []; wbtPf.sepCache = null; wbtPfSphere(null); }
+        function wbtPfSphere(row, color){
+            if(!row){ if(wbtPf.sphere) wbtPf.sphere.visible = false; return; }
+            if(!wbtPf.sphere){ wbtPf.sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff })); group.add(wbtPf.sphere); }
+            if(wbtPf.sphere.parent !== group) group.add(wbtPf.sphere);
+            const r = Math.max(3, (wbtPf.wells[0] && wbtPf.wells[0].rows.length ? 6 : 6));
+            wbtPf.sphere.scale.setScalar(r); wbtPf.sphere.material.color.set(color || '#ffffff');
+            wbtPf.sphere.position.set(row.e, row.ss, -row.n); wbtPf.sphere.visible = true;
+        }
+        function wbtPfRender(){
+            const canvas = document.getElementById('wbtViewer'); if(!canvas) return;
+            const host = canvas.parentElement; if(getComputedStyle(host).position === 'static') host.style.position = 'relative';
+            if(!wbtPf.el){
+                const el = document.createElement('div'); wbtPf.el = el;
+                el.style.cssText = 'position:absolute;top:8px;right:8px;width:min(560px,calc(100% - 16px));background:var(--wbt-panel,#0d131b);border:1px solid var(--wbt-border,#1e2d3d);border-radius:6px;z-index:20;padding:6px 8px;font-size:11px;color:var(--wbt-text,#c8d8e8);box-shadow:0 4px 16px rgba(0,0,0,.4);';
+                host.appendChild(el);
+            }
+            const el = wbtPf.el; el.style.display = 'block';
+            const tabs = [['inc','Inclination'],['az','Azimuth'],['dls','DLS'],['sep','Separation']];   // 2026-11-01: Separation tab
+            el.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                ${tabs.map(([k, l]) => `<button type="button" class="wbt-btn" data-pftab="${k}" style="padding:2px 8px;${wbtPf.tab === k ? 'border-color:#00c8ff;color:#00c8ff;' : ''}">${l}</button>`).join('')}
+                <span style="flex:1;"></span>
+                ${wbtPf.wells.map(w => `<span style="white-space:nowrap;"><span style="display:inline-block;width:10px;height:3px;background:${w.color};vertical-align:middle;margin-right:3px;"></span>${(w.name || '').replace(/</g,'&lt;')}</span>`).join(' ')}
+                <button type="button" class="wbt-btn" data-pfclose style="padding:0 7px;" title="Close">&times;</button></div>
+                <div data-pfchart style="position:relative;"></div>
+                <div data-pfread style="font-family:var(--wbt-mono,monospace);min-height:15px;color:var(--wbt-text-dim,#8aa);">Hover the chart · Shift+click another trajectory to overlay (max 4)</div>`;
+            el.querySelectorAll('[data-pftab]').forEach(b => b.addEventListener('click', () => { wbtPf.tab = b.dataset.pftab; wbtPfRender(); }));
+            el.querySelector('[data-pfclose]').addEventListener('click', wbtPfClose);
+            if(wbtPf.tab === 'sep') wbtPfSep(el.querySelector('[data-pfchart]'), el.querySelector('[data-pfread]'));
+            else wbtPfChart(el.querySelector('[data-pfchart]'), el.querySelector('[data-pfread]'));
+        }
+        function wbtPfChart(box, read){
+            const W = box.clientWidth || 540, H = 230, L = 44, R = 10, T = 8, B = 26, tab = wbtPf.tab;
+            const series = wbtPf.wells.map(w => {
+                const rows = w.rows.filter(r => isFinite(r.md)).slice().sort((a, b) => a.md - b.md);
+                let prev = null, off = 0;
+                const ys = rows.map(r => {
+                    if(tab === 'inc') return r.inc;
+                    if(tab === 'dls') return isFinite(r.dls) ? r.dls : 0;
+                    let a = r.az; if(prev != null){ let d = a + off - prev; if(d > 180) off -= 360; else if(d < -180) off += 360; } a += off; prev = a; return a;
+                });
+                return { w, rows, ys };
+            });
+            let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+            series.forEach(sr => sr.rows.forEach((r, i) => { x0 = Math.min(x0, r.md); x1 = Math.max(x1, r.md); if(isFinite(sr.ys[i])){ y0 = Math.min(y0, sr.ys[i]); y1 = Math.max(y1, sr.ys[i]); } }));
+            if(!isFinite(x0) || x1 <= x0){ box.innerHTML = ''; return; }
+            if(tab === 'inc'){ y0 = 0; y1 = Math.max(100, Math.ceil((y1 + 1) / 10) * 10); }   // headroom so 90 deg is not on the frame
+            else if(tab === 'dls'){ y0 = 0; y1 = Math.max(1, Math.ceil(y1 + 0.5)); }
+            else { const pad = Math.max(5, (y1 - y0) * 0.08); y0 = Math.floor((y0 - pad) / 10) * 10; y1 = Math.ceil((y1 + pad) / 10) * 10; }
+            const sx = v => L + (v - x0) / (x1 - x0) * (W - L - R), sy = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+            const nice = (a, b, n) => { const raw = (b - a) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), st = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw) || raw; const out = []; for(let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) out.push(+v.toFixed(6)); return out; };
+            const xt = nice(x0, x1, 6), yt = tab === 'inc' ? nice(y0, y1, 6) : nice(y0, y1, 5);
+            const grid = 'var(--wbt-border,#1e2d3d)', txt = 'var(--wbt-text-dim,#8aa)';
+            let svg = `<svg width="${W}" height="${H}" style="display:block;">`;
+            xt.forEach(v => { svg += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="${grid}" stroke-width="1"/><text x="${sx(v)}" y="${H - B + 13}" fill="${txt}" font-size="10" text-anchor="middle">${v}</text>`; });
+            yt.forEach(v => { const lab = tab === 'az' ? (((v % 360) + 360) % 360) : v; svg += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="${grid}" stroke-width="1"/><text x="${L - 4}" y="${sy(v) + 3}" fill="${txt}" font-size="10" text-anchor="end">${lab}</text>`; });
+            svg += `<text x="${(L + W - R) / 2}" y="${H - 2}" fill="${txt}" font-size="10" text-anchor="middle">MD (m)</text>`;
+            svg += `<text x="10" y="${(T + H - B) / 2}" fill="${txt}" font-size="10" text-anchor="middle" transform="rotate(-90 10 ${(T + H - B) / 2})">${tab === 'inc' ? 'Inc (°)' : tab === 'az' ? 'Azimuth (°)' : 'DLS (°/30 m)'}</text>`;
+            series.forEach(sr => {
+                if(tab === 'dls'){   // DLS is per interval -> steps
+                    let d = ''; sr.rows.forEach((r, i) => { if(!i){ d += `M${sx(r.md)},${sy(sr.ys[i])}`; return; } d += `H${sx(r.md)}V${sy(sr.ys[i])}`; });
+                    svg += `<path d="${d}" fill="none" stroke="${sr.w.color}" stroke-width="1.6"/>`;
+                } else svg += `<polyline points="${sr.rows.map((r, i) => sx(r.md) + ',' + sy(sr.ys[i])).join(' ')}" fill="none" stroke="${sr.w.color}" stroke-width="1.8"/>`;
+                sr.rows.forEach((r, i) => { if(!r.comment) return; const k = String(r.comment).split(';')[0].trim().toUpperCase(); const c = WBT_PF_MK[k] || '#ffffff';
+                    svg += `<circle cx="${sx(r.md)}" cy="${sy(sr.ys[i])}" r="3.5" fill="${c}" stroke="#000" stroke-width="0.6"><title>${String(r.comment).replace(/</g,'&lt;')} @ MD ${r.md.toFixed(1)}</title></circle>`; });
+            });
+            svg += `<line data-pfx x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#ffffff" stroke-opacity="0.5" stroke-dasharray="3 3" style="display:none;"/></svg>`;
+            box.innerHTML = svg;
+            const sv = box.querySelector('svg'), vl = box.querySelector('[data-pfx]');
+            sv.addEventListener('mousemove', e => {
+                const rb = sv.getBoundingClientRect(), x = e.clientX - rb.left; if(x < L || x > W - R){ vl.style.display = 'none'; return; }
+                const md = x0 + (x - L) / (W - L - R) * (x1 - x0); vl.setAttribute('x1', x); vl.setAttribute('x2', x); vl.style.display = '';
+                const parts = series.map(sr => { let bi = 0, bd = Infinity; sr.rows.forEach((r, i) => { const d = Math.abs(r.md - md); if(d < bd){ bd = d; bi = i; } }); return { sr, r: sr.rows[bi] }; });
+                const f2 = (v, d) => (v == null || !isFinite(v)) ? '-' : (+v).toFixed(d);
+                read.innerHTML = parts.map(p => `<span style="color:${p.sr.w.color};">●</span> MD ${f2(p.r.md,1)} · Inc ${f2(p.r.inc,2)}° · Az ${f2(p.r.az,2)}° · TVD ${f2(p.r.tvd,1)} · SS ${f2(p.r.ss,1)} · DLS ${f2(p.r.dls,2)}${p.r.comment ? ' · <b>' + String(p.r.comment).replace(/</g,'&lt;') + '</b>' : ''}`).join('<br>');
+                wbtPfSphere(parts[0].r, parts[0].sr.w.color);
+            });
+            sv.addEventListener('mouseleave', () => { vl.style.display = 'none'; wbtPfSphere(null); });
+        }
+
+        // ---------- Separation vs MD (ADDED 2026-11-01, John) ----------
+        // Reference = the FIRST well in the panel. C2C (geometric, centre to centre, 3D, Sub-Sea datum) from each of
+        // its stations to every other trajectory in the scene (all tubes with a pick provider: planned, offset,
+        // scenarios, iPad previews), straight segments between stations. Shown: "Nearest" (min over all wells,
+        // white) + the 3 wells that come closest, in their colours. Lines: build clearance (iPad Tunnel input,
+        // default 10 m) and lateral clearance (iPad lateral input, default 15 m).
+        // "SF" view: ISCWSA separation factor vs those 3 wells via window.acpPadApi.pairProfile — the Anti-collision
+        // module's own computeC2CProfile / covariance / Confidence K (nothing re-derived here). Lines SF 1.0 / 1.25.
+        function wbtPfSepData(){
+            if(wbtPf.sepCache) return wbtPf.sepCache;
+            const ref = wbtPf.wells[0], rows = ref.rows.filter(r => isFinite(r.md) && isFinite(r.n)).slice().sort((a, b) => a.md - b.md);
+            const others = []; group.traverse(o => { if(o.isMesh && o.visible && o !== ref.mesh && o.userData && typeof o.userData.pick === 'function') others.push(o); });
+            const bb = rows.reduce((b, r) => [Math.min(b[0], r.n), Math.max(b[1], r.n), Math.min(b[2], r.e), Math.max(b[3], r.e)], [Infinity, -Infinity, Infinity, -Infinity]), pad = 300;
+            const cand = [];
+            others.forEach(m => { let info; try { info = m.userData.pick(); } catch(e){ return; } if(!info || !info.rows || info.rows.length < 2 || info.name === ref.name) return;
+                const P = info.rows.filter(r => isFinite(r.n) && isFinite(r.e) && isFinite(r.ss) && r.n > bb[0] - pad && r.n < bb[1] + pad && r.e > bb[2] - pad && r.e < bb[3] + pad).sort((a, b) => a.md - b.md);
+                if(P.length < 2) return;
+                const d = rows.map(r => { let best = Infinity;
+                    for(let i = 1; i < P.length; i++){ const a = P[i-1], c = P[i], vx = c.n - a.n, vy = c.e - a.e, vz = c.ss - a.ss, wx = r.n - a.n, wy = r.e - a.e, wz = r.ss - a.ss, L2 = vx*vx + vy*vy + vz*vz;
+                        let t = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const dd = Math.hypot(wx - t*vx, wy - t*vy, wz - t*vz); if(dd < best) best = dd; }
+                    return best; });
+                cand.push({ name: info.name, color: wbtPfColor(info.color), d, min: Math.min(...d), ac: info.ac, rowsOther: info.rows });
+            });
+            cand.sort((a, b) => a.min - b.min);
+            const near = rows.map((r, i) => { let m = Infinity, who = ''; cand.forEach(c => { if(c.d[i] < m){ m = c.d[i]; who = c.name; } }); return { d: m, who }; });
+            const g = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : NaN; };
+            wbtPf.sepCache = { rows, top: cand.slice(0, 3), near, clrB: isFinite(g('ipdTunR')) ? g('ipdTunR') : 10, clrL: isFinite(g('ipdLatClr')) ? g('ipdLatClr') : 15, view: 'c2c', sf: null };
+            return wbtPf.sepCache;
+        }
+        async function wbtPfRunSf(){
+            const S = wbtPf.sepCache, A = window.acpPadApi, ref = wbtPf.wells[0];
+            if(!A){ S.sfErr = 'Anti-collision module not available on this page.'; return; }
+            const refW = ref.ac ? ref.ac() : null; if(!refW){ S.sfErr = 'No AC data (toolcode / survey) for ' + ref.name + '.'; return; }
+            await A.ready();
+            S.sf = S.top.map(c => { const offW = c.ac ? c.ac() : null; if(!offW) return { c, err: 'no AC data' };
+                const r = A.pairProfile(refW, offW); return r ? { c, prof: r.prof, real: r.real } : { c, err: 'not computable' }; });
+            A.forget('__pf__');
+        }
+        function wbtPfSep(box, read){
+            if(!wbtPf.wells.length) return;
+            const S = wbtPfSepData(), W = box.clientWidth || 540, H = 230, L = 44, R = 10, T = 8, B = 26;
+            const head = `<div style="margin-bottom:3px;">Ref: <b>${String(wbtPf.wells[0].name).replace(/</g,'&lt;')}</b> ·
+                <button type="button" class="wbt-btn" data-pfsv="c2c" style="padding:1px 7px;${S.view === 'c2c' ? 'border-color:#00c8ff;color:#00c8ff;' : ''}">C2C (m)</button>
+                <button type="button" class="wbt-btn" data-pfsv="sf" style="padding:1px 7px;${S.view === 'sf' ? 'border-color:#00c8ff;color:#00c8ff;' : ''}">SF (ISCWSA)</button>
+                <span style="color:var(--wbt-text-dim,#8aa);">${S.top.length ? 'closest: ' + S.top.map(c => `<span style="color:${c.color};">${String(c.name).replace(/</g,'&lt;')} ${c.min.toFixed(1)} m</span>`).join(', ') : 'no other trajectory nearby'}</span></div>`;
+            const mdMin = S.rows[0].md, mdMax = S.rows[S.rows.length - 1].md;
+            let series = [], lines = [], y1;
+            if(S.view === 'c2c'){
+                series = [{ color: '#ffffff', w: 2, pts: S.rows.map((r, i) => [r.md, S.near[i].d]), name: 'Nearest' }].concat(S.top.map(c => ({ color: c.color, w: 1.2, dash: '4 3', pts: S.rows.map((r, i) => [r.md, c.d[i]]), name: c.name })));
+                lines = [[S.clrB, '#ff9f1c', 'build ' + S.clrB + ' m'], [S.clrL, '#ff4c4c', 'lateral ' + S.clrL + ' m']];
+                const mx = Math.max(...S.near.map(x => x.d).filter(isFinite), S.clrL); y1 = Math.min(Math.max(30, Math.ceil(mx / 10) * 10), Math.max(60, S.clrL * 4));
+            } else {
+                if(!S.sf){ box.innerHTML = head + `<div style="padding:20px 0;">${S.sfErr ? '<span style="color:#ff4c4c;">' + S.sfErr + '</span>' : '<button type="button" class="wbt-btn" data-pfsfrun>&#9888; Compute SF vs the 3 closest wells</button> <span style="color:var(--wbt-text-dim,#8aa);">(ISCWSA, same as the Anti-collision Plots — may take a few seconds)</span>'}</div>`;
+                    box.querySelectorAll('[data-pfsv]').forEach(b => b.addEventListener('click', () => { S.view = b.dataset.pfsv; wbtPfSep(box, read); }));
+                    const rb = box.querySelector('[data-pfsfrun]'); if(rb) rb.addEventListener('click', async () => { rb.disabled = true; rb.textContent = 'Computing…'; await new Promise(r => setTimeout(r, 20)); try { await wbtPfRunSf(); } catch(err){ S.sfErr = err.message; } wbtPfSep(box, read); });
+                    return; }
+                series = S.sf.filter(x => x.prof).map(x => ({ color: x.c.color, w: 1.6, pts: x.prof.filter(p => p.sf != null && isFinite(p.sf)).map(p => [p.md, Math.min(p.sf, 20)]), name: x.c.name + (x.real ? '' : ' (simplified)') }));
+                lines = [[1.0, '#ff4c4c', 'SF 1.0'], [1.25, '#ff9f1c', 'SF 1.25']];
+                const mx = Math.max(2, ...series.map(sr => Math.min(...sr.pts.map(p => p[1])))); y1 = Math.min(20, Math.max(5, Math.ceil(mx * 3)));
+            }
+            const x0 = mdMin, x1 = mdMax > mdMin ? mdMax : mdMin + 1, y0 = 0;
+            const sx = v => L + (v - x0) / (x1 - x0) * (W - L - R), sy = v => T + (1 - (Math.min(v, y1) - y0) / (y1 - y0)) * (H - T - B);
+            const nice = (a, b, k) => { const raw = (b - a) / k, mag = Math.pow(10, Math.floor(Math.log10(raw))), st = [1, 2, 2.5, 5, 10].map(q => q * mag).find(q => q >= raw) || raw; const o = []; for(let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) o.push(+v.toFixed(6)); return o; };
+            const grid = 'var(--wbt-border,#1e2d3d)', txt = 'var(--wbt-text-dim,#8aa)';
+            let svg = `<svg width="${W}" height="${H}" style="display:block;">`;
+            nice(x0, x1, 6).forEach(v => { svg += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="${grid}"/><text x="${sx(v)}" y="${H - B + 13}" fill="${txt}" font-size="10" text-anchor="middle">${v}</text>`; });
+            nice(y0, y1, 5).forEach(v => { svg += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="${grid}"/><text x="${L - 4}" y="${sy(v) + 3}" fill="${txt}" font-size="10" text-anchor="end">${v}</text>`; });
+            lines.forEach(([v, c, lab]) => { if(v <= y1) svg += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="${c}" stroke-dasharray="6 3"/><text x="${W - R - 2}" y="${sy(v) - 3}" fill="${c}" font-size="9" text-anchor="end">${lab}</text>`; });
+            svg += `<text x="${(L + W - R) / 2}" y="${H - 2}" fill="${txt}" font-size="10" text-anchor="middle">MD (m) — ${String(wbtPf.wells[0].name).replace(/</g,'&lt;')}</text><text x="10" y="${(T + H - B) / 2}" fill="${txt}" font-size="10" text-anchor="middle" transform="rotate(-90 10 ${(T + H - B) / 2})">${S.view === 'c2c' ? 'C2C (m)' : 'SF'}</text>`;
+            series.forEach(sr => { const pts = sr.pts.filter(p => isFinite(p[1])); if(pts.length > 1) svg += `<polyline points="${pts.map(p => sx(p[0]) + ',' + sy(p[1])).join(' ')}" fill="none" stroke="${sr.color}" stroke-width="${sr.w}" ${sr.dash ? `stroke-dasharray="${sr.dash}"` : ''}/>`; });
+            svg += `<line data-pfx x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#ffffff" stroke-opacity="0.5" stroke-dasharray="3 3" style="display:none;"/></svg>`;
+            box.innerHTML = head + svg;
+            box.querySelectorAll('[data-pfsv]').forEach(b => b.addEventListener('click', () => { S.view = b.dataset.pfsv; wbtPfSep(box, read); }));
+            const sv = box.querySelector('svg'), vl = box.querySelector('[data-pfx]');
+            sv.addEventListener('mousemove', e => {
+                const rb = sv.getBoundingClientRect(), x = e.clientX - rb.left; if(x < L || x > W - R){ vl.style.display = 'none'; return; }
+                const md = x0 + (x - L) / (W - L - R) * (x1 - x0); vl.setAttribute('x1', x); vl.setAttribute('x2', x); vl.style.display = '';
+                let bi = 0, bd = Infinity; S.rows.forEach((r, i) => { const d = Math.abs(r.md - md); if(d < bd){ bd = d; bi = i; } });
+                const r = S.rows[bi];
+                if(S.view === 'c2c') read.innerHTML = `MD ${r.md.toFixed(1)} · nearest <b>${String(S.near[bi].who).replace(/</g,'&lt;')}</b> ${isFinite(S.near[bi].d) ? S.near[bi].d.toFixed(2) + ' m' : '—'}` + S.top.map(c => ` · <span style="color:${c.color};">${String(c.name).replace(/</g,'&lt;')} ${isFinite(c.d[bi]) ? c.d[bi].toFixed(1) : '—'}</span>`).join('');
+                else read.innerHTML = `MD ${r.md.toFixed(1)}` + (S.sf || []).map(x => { if(!x.prof) return ` · ${String(x.c.name).replace(/</g,'&lt;')}: ${x.err}`; let pb = null, pd = Infinity; x.prof.forEach(p => { const d = Math.abs(p.md - md); if(d < pd){ pd = d; pb = p; } });
+                    return ` · <span style="color:${x.c.color};">${String(x.c.name).replace(/</g,'&lt;')}</span> SF <b>${pb && pb.sf != null ? (+pb.sf).toFixed(2) : '—'}</b> (C2C ${pb ? (+pb.c2c).toFixed(1) : '—'} m)`; }).join('');
+                wbtPfSphere(r, wbtPf.wells[0].color);
+            });
+            sv.addEventListener('mouseleave', () => { vl.style.display = 'none'; wbtPfSphere(null); });
+        }
+        // planned / offset survey rows -> profile rows
+        function wbtPfRowsFromSurvey(survey){ return (survey || []).map(r => ({ md: num(r.md), inc: num(r.incl), az: num(r.azim), tvd: num(r.tvd), ss: wbtYOf(r), dls: num(r.dogleg), n: num(r.northing), e: num(r.easting), comment: r.comments || '' })); }
         function wbtInitTooltip(){
             wbtTooltipEl = document.createElement('div');
             Object.assign(wbtTooltipEl.style, {
@@ -5645,6 +5874,8 @@ body.light-mode #statusTextbox {
             mesh.geometry.dispose();
             mesh.geometry = new THREE.TubeGeometry(ud.curve, ud.tubularSegments, ud.baseRadius * k, 6, false);
             mesh.userData.iplan = sc.id;
+            mesh.userData.pick = () => ({ name: sc.name || 'Scenario', color: GREEN, rows: (sc._calc && sc._calc.stations || []).map(s0 => ({ md: s0.md, inc: s0.inc, az: s0.az, tvd: s0.tvd, ss: s0.subSea, dls: s0.dls30, n: s0.n, e: s0.e, comment: '' })),   // 2026-11-01: profile panel
+                ac: () => { const A = window.acpPadApi; return A ? (A.scenarioWells().find(x => x.scenarioId === sc.id) || null) : null; } });
             api.getGroup().add(mesh);
             sc._mesh = mesh;
         }
@@ -6228,12 +6459,64 @@ body.light-mode #statusTextbox {
         // SURFACE's Sub-Sea is its RKB elevation, and target TVD = surface SS - target SS.
         // Wells are created as normal iPlan scenarios with group = the pad name.
         const ipd = {
-            surfaces: [], targets: [],
-            tpl: { mode:'turn', kop:150, kopStep:10, dls:6, incT:80, lt:30, lateral:800, maxDls:10, tangents:'83/30, 85/30, 90/30' }, // 2026-10-12: 'turn' default
-            name: 'Pad iPad', refWell: WELLS.length ? String(WELLS[0]._id) : '', preview: null, ghosts: [], showExisting: true
+            surfaces: [], targets: [], tds: [], alignAz: false,
+            // ADDED 2026-11-01 (John): design rules (IPlanCore.padRuleCheck). No nudge above 10 deg ON by default
+            // (tolerance 2 deg: a pure turn at constant DLS dips Inc ~2 deg — seen on pad 163 W2 70 -> 68 while turning,
+            // that is not a nudge); max turn 90 deg ON; formation zones (Sub-Sea) optional.
+            rules: { noNudge:{ on:true, incMin:10, tol:0.5, windows:[] }, maxTurn:{ on:true, deg:90 }, zones:[] },   // 2026-11-01 (John): TD targets + 'align ICP azimuth to TD'
+            tpl: { mode:'back', kop:150, kopStep:10, dls:6, incT:80, lt:30, lateral:800, maxDls:10, tangents:'83/30, 85/30, 90/30',  // 2026-10-12: 'turn'; 2026-10-31: 'back' default
+                   // 2026-10-31 (John): "Back-projected from ICP" design freedoms (IPlanCore.padSolveBack). KOP = surface casing (one per pad) + 20 m (+ optional stagger).
+                   sc:130, backKopStep:0, back:{ t1Min:70, t1Max:75, t2Min:80, t2Max:85, L1:30, L2:30, dMin:6, dMax:9, dFMin:4, dFMax:6, dTvd1Min:28, dTvd1Max:38, dTvd2Min:5, dTvd2Max:8, objective:'short', icpAlong:0, icpAcross:0,
+                   autoKopStep:40, nudgeOn:true, nudgeKop:50, nudgeDls:4, nudgeIncMax:6 } },   // 2026-10-31: auto KOP stagger + AC nudge (Design Codes "AC Nudges")   // 2026-10-31: Delta TVD per pump tangent; ICP tolerance (used by Avoidance)
+            name: 'Pad iPad', refWell: WELLS.length ? String(WELLS[0]._id) : '', preview: null, ghosts: [], showExisting: true,
+            plotZoom: 1, plotFit: 'slots',
+            formations: []   // 2026-10-31 (John): [{name, ss}] pasted Formation / Subsea table -> formation-top comments in the export   // 2026-10-31: slot plot zoom (wheel / buttons); fit to the pad's slots by default
+        };
+        // ADDED 2026-10-31 (John): pre-loaded test setups (button "Load pre-loaded"). Pad 163 = John's
+        // 14-06-069-04W4 Pad163 [P3-2316]: surfaces [N, E, Sub-Sea] and ICPs [N, E, Sub-Sea, Inc, Az] as he gave them.
+        const IPD_PRESETS = {
+            'Pad 163 (14-06-069-04W4, P3-2316)': {
+                surfaces: [[6089002.11,525531.03,713.24],[6089036.99,525520.95,713.24],[6089002.08,525521.03,713.24],[6089036.97,525510.96,713.24],[6089002.06,525511.04,713.24],[6089036.94,525500.96,713.24],[6089002.04,525501.04,713.24],[6089036.92,525490.96,713.24],[6089002.01,525491.05,713.24],[6089036.9,525480.97,713.24],[6089001.99,525481.05,713.24],[6089036.87,525470.97,713.24],[6089001.96,525471.05,713.24],[6089036.85,525460.98,713.24],[6089001.94,525461.06,713.24],[6089036.83,525450.98,713.24],[6089001.92,525451.06,713.24],[6089036.8,525440.98,713.24],[6089001.89,525441.06,713.24],[6089036.78,525430.99,713.24],[6089001.87,525431.07,713.24],[6089036.76,525420.99,713.24],[6089001.85,525421.07,713.24],[6089036.76,525410.99,713.24],[6089001.82,525411.08,713.24]],
+                targets:  [[6089280.0,526035.0,219.0,90.0,0.0],[6089280.0,525975.0,219.05,90.0,0.2],[6089280.0,525915.0,219.77,90.0,0.0],[6089280.0,525855.0,220.46,90.0,0.0],[6089280.0,525795.0,220.5,90.0,0.0],[6089335.17,525735.06,220.49,90.0,0.0],[6089358.32,525667.82,220.48,90.0,0.0],[6089357.89,525612.61,220.46,90.0,0.0],[6089358.96,525555.0,219.23,90.0,0.0],[6089358.51,525495.0,219.0,90.0,0.0],[6089358.5,525435.0,219.17,90.0,0.0],[6089358.51,525375.0,221.55,90.0,0.0],[6089358.5,525315.0,222.0,90.0,0.0],[6089358.5,525255.0,222.73,90.0,0.0],[6089358.5,525195.0,223.5,90.0,0.0],[6089358.5,525135.0,223.46,90.0,0.0],[6089358.5,525075.0,223.33,90.0,0.0],[6089358.51,525015.0,222.98,90.0,0.0],[6089358.5,524955.0,222.59,90.0,0.0],[6089358.5,524895.0,222.5,90.0,0.3],[6089358.5,524835.0,222.6,90.0,0.0],[6089358.5,524775.0,223.26,90.0,0.0],[6089358.51,524715.0,223.74,90.0,0.0],[6089358.5,524655.0,223.53,90.0,0.0],[6089358.51,524595.0,223.5,90.0,357.0]],
+                // ADDED 2026-11-01 (John): TDs [N, E, Sub-Sea, Inc, Az] as he gave them
+                tds:      [[6091300.10,526033.25,221.52,90,0],[6091312.76,525974.98,222.01,90,0],[6091304.60,525915.00,222.52,90,0],[6091305.53,525855.00,222.96,90,0],[6091290.40,525795.00,222.96,90,0],[6091275.37,525735.00,222.99,90,0],[6091277.07,525674.93,223.27,90,0],[6091293.73,525615.00,223.88,90,0],[6091300.95,525555.00,223.80,90,0],[6091306.97,525495.00,223.72,90,0],[6091294.65,525435.00,223.79,90,0],[6091301.48,525375.00,223.72,90,0],[6091177.75,525315.00,223.35,90,0],[6090703.12,525255.00,225.88,90,0],[6090688.84,525195.00,225.97,90,0],[6090704.74,525135.00,226.01,90,0],[6090683.60,525074.83,226.23,90,0],[6090676.89,525015.00,227.33,90,0],[6090691.39,524955.00,227.90,90,0],[6090681.58,524894.72,225.26,90,0],[6090693.58,524835.00,227.98,90,0],[6090700.19,524774.94,228.53,90,0],[6090699.65,524714.99,230.22,90,0],[6090694.50,524654.94,230.84,90,0],[6090676.22,524594.84,230.34,90,0]]
+            }
         };
         const ipdRoot = document.getElementById('ipdRoot');
-        function ipdClearGhosts(){ ipd.ghosts.forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); }); ipd.ghosts = []; }
+        // 2026-10-31 (John): iPad preview ghost thickness = "iPad previews" slider (Line Thickness panel).
+        function ipdScaleGhost(m){
+            const el = document.getElementById('wbtLineThicknessIpad'), k = el ? (parseFloat(el.value) || 1) : 1, u = m.userData || {};
+            if(!u.curve) return;
+            m.geometry.dispose(); m.geometry = new THREE.TubeGeometry(u.curve, u.tubularSegments, u.baseRadius * k, 6, false);
+        }
+        window.addEventListener('wbtThicknessChanged', () => (ipd.ghosts || []).forEach(ipdScaleGhost));
+        // ADDED 2026-10-31 (John): spheres at every point that gets an export Comment (same list as the Excel
+        // "Comments" column, via ipdCommentedStations). Size = "iPad markers" slider (Line Thickness panel),
+        // visibility = its "show" tick. Hover not needed: colour per comment kind; mixed comments take the first.
+        const IPD_MK_COL = { SurfaceCasing:0xb0b0b0, Nudge:0xff9800, KickOff:0x00e5ff, 'Start Steamflood Tang':0x00e676, 'End Steamflood Tang':0x00e676, 'Start Tang':0x76ff03, 'End Tang':0x76ff03, IntermediateCasing:0xe040fb, TD:0xff4c4c, 'Start Lateral Avoidance':0xffeb3b, 'End Lateral Avoidance':0xffeb3b };   // 2026-11-01: lateral avoidance = yellow
+        ipd.markers = [];
+        function ipdMkK(){ const el = document.getElementById('wbtIpadMkSize'); return el ? (parseFloat(el.value) || 1) : 1; }
+        function ipdMkShow(){ const el = document.getElementById('wbtIpadMkShow'); return !el || el.checked; }
+        function ipdClearMarkers(){ ipd.markers.forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); }); ipd.markers = []; }
+        function ipdBuildMarkers(wells){
+            ipdClearMarkers();
+            const k = ipdMkK(), vis = ipdMkShow();
+            wells.forEach((w, wi) => {
+                const g = ipd.ghosts.find(x => x.userData && x.userData.ipdWell === wi), base = g && g.userData.baseRadius ? g.userData.baseRadius * 3 : 3;
+                let pts = []; try { pts = ipdCommentedStations(w).filter(p => p.comment); } catch(e){ return; }
+                pts.forEach(p => {
+                    const first = String(p.comment).split(';')[0].trim(), col = IPD_MK_COL[first] != null ? IPD_MK_COL[first] : 0xffffff;   // white = formation top
+                    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
+                    m.position.set(p.e, n(w.s.ss) - p.tvd, -p.n); m.userData.mkBase = base; m.scale.setScalar(base * k); m.visible = vis;
+                    m.userData.label = w.name + ' — ' + p.comment + ' @ MD ' + p.md.toFixed(1);
+                    api.getGroup().add(m); ipd.markers.push(m);
+                });
+            });
+        }
+        function ipdMkUpdate(){ const k = ipdMkK(), vis = ipdMkShow(), lb = document.getElementById('wbtLtIpadMkVal'); if(lb) lb.textContent = '× ' + k.toFixed(1);
+            ipd.markers.forEach(m => { m.scale.setScalar(m.userData.mkBase * k); m.visible = vis; }); }
+        ['wbtIpadMkSize','wbtIpadMkShow'].forEach(id => { const el = document.getElementById(id); if(el){ el.addEventListener('input', ipdMkUpdate); el.addEventListener('change', ipdMkUpdate); } });
+        function ipdClearGhosts(){ ipdClearMarkers(); ipd.ghosts.forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); }); ipd.ghosts = []; if(typeof ipdClearTunnels === 'function') ipdClearTunnels(); }   // 2026-10-31: tunnels go with the preview
         function ipdParse(text, cols){
             // tab / comma / semicolon separated; header row skipped if its numeric columns aren't numbers;
             // Name column optional (rows with one fewer value get an automatic name).
@@ -6249,7 +6532,7 @@ body.light-mode #statusTextbox {
             return rows;
         }
         function ipdTableHtml(kind){
-            const T = kind === 's' ? ipd.surfaces : ipd.targets;
+            const T = kind === 's' ? ipd.surfaces : kind === 'd' ? ipd.tds : ipd.targets;   // 2026-11-01: 'd' = TDs
             const cols = kind === 's' ? [['name','Name','text'],['n','Northing'],['e','Easting'],['ss','Sub-Sea (RKB elev.)']]
                                       : [['name','Name','text'],['n','Northing'],['e','Easting'],['ss','Sub-Sea'],['inc','Inc (°)'],['az','Az (°)']];
             if(!T.length) return '<div style="color:var(--wbt-text-dim);">No rows yet.</div>';
@@ -6267,6 +6550,8 @@ body.light-mode #statusTextbox {
             body.innerHTML = `
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                 <label style="color:var(--wbt-text-dim);">Pad name</label><input type="text" id="ipdName" value="${esc(ipd.name)}" style="width:160px;">
+                <select id="ipdPresetSel" style="margin-left:8px;" title="Pre-loaded surfaces + ICPs (2026-10-31)">${Object.keys(IPD_PRESETS).map(k => `<option>${esc(k)}</option>`).join('')}</select>
+                <button type="button" class="wbt-btn" id="ipdPresetLoad" title="Replaces the Surfaces and Targets tables">&#11014; Load pre-loaded</button>
                 <span style="font-size:10px;color:var(--wbt-text-dim);">wells → "${esc(ipd.name)} W01…"</span>
                 <label style="color:var(--wbt-text-dim);">Reference planned well (magnetics / AC toolcode)</label><select id="ipdRef" style="max-width:260px;">${wellOptions(ipd.refWell)}</select>
             </div>
@@ -6294,7 +6579,12 @@ body.light-mode #statusTextbox {
                             <div id="ipsTable">${ipdTableHtml('s')}</div>
                             <button type="button" class="wbt-btn" id="ipsAdd">+ row</button> <button type="button" class="wbt-btn" id="ipsClr">Clear</button>
                         </div>
-                        <div><div id="ipsPlot"></div>
+                        <div><div style="display:flex;gap:4px;margin-bottom:3px;font-size:10px;align-items:center;">
+                                <button type="button" class="wbt-btn" id="ipsZoomIn" style="padding:0 7px;" title="Zoom in (or mouse wheel)">+</button>
+                                <button type="button" class="wbt-btn" id="ipsZoomOut" style="padding:0 7px;" title="Zoom out (or mouse wheel)">&minus;</button>
+                                <button type="button" class="wbt-btn" id="ipsFitSlots" style="padding:0 6px;" title="Fit to this pad's slots">Fit pad</button>
+                                <button type="button" class="wbt-btn" id="ipsFitAll" style="padding:0 6px;" title="Fit pad + existing wells">Fit all</button></div>
+                            <div id="ipsPlot"></div>
                             <label style="font-size:10px;color:var(--wbt-text-dim);"><input type="checkbox" id="ipsPlotExisting" ${ipd.showExisting ? 'checked' : ''}> show existing planned wells' surfaces</label></div>
                     </div>
                 </div>
@@ -6320,17 +6610,66 @@ body.light-mode #statusTextbox {
                     <div id="iptTable" style="margin-top:6px;">${ipdTableHtml('t')}</div>
                     <button type="button" class="wbt-btn" id="iptAdd">+ row</button> <button type="button" class="wbt-btn" id="iptClr">Clear</button>
                 </div>
+                <!-- ADDED 2026-11-01 (John): TD targets. Assigned by order like the ICPs (ICP i -> TD i). With a TD the
+                     lateral is a hold at the ICP Inc/Az ending abreast of the TD (replaces "Lateral length" for that well);
+                     "Align ICP azimuth to TD" overwrites each ICP Az with the grid azimuth ICP -> TD. -->
+                <div class="ipl-h">2b · TDs (lateral end, optional)</div>
+                <div class="ipl-sec" style="display:block;">
+                    <label><input type="checkbox" id="ipdAlignAz" ${ipd.alignAz ? 'checked' : ''}> Align ICP azimuth to the TD (overwrites the ICP Az in table 2)</label>
+                    <details style="margin-top:4px;"><summary style="font-size:11px;cursor:pointer;">Paste from Excel (Name, N, E, Sub-Sea, Inc, Az)</summary>
+                        <textarea id="ipdPaste" rows="4" style="width:100%;font-family:var(--wbt-mono);font-size:11px;background:var(--wbt-panel2);color:var(--wbt-text);"></textarea>
+                        <button type="button" class="wbt-btn" id="ipdTdLoad">Load pasted (replaces table)</button></details>
+                    <div style="margin-top:6px;">${ipdTableHtml('d')}</div>
+                    <button type="button" class="wbt-btn" id="ipdTdAdd">+ row</button> <button type="button" class="wbt-btn" id="ipdTdClr">Clear</button>
+                    <span style="font-size:10px;color:var(--wbt-text-dim);margin-left:6px;">No TD for a well → the "Lateral length" setting is used. TD Inc/Az are informative only.</span>
+                </div>
               </div>
+            </div>
+            <%# 2026-10-31 (John): formation tops for the export comments — pasted from Excel (Formation, Subsea) %>
+            <div class="ipl-h">Formations (for the export comments)</div>
+            <div class="ipl-sec" style="display:block;">
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-bottom:3px;">Paste 2 columns from Excel: <b>Formation</b>, <b>Subsea</b> (header row optional). Each top is written in the export's Comments column where the well crosses that Subsea (formations taken as flat). Empty table = no formation comments (design comments only).</div>
+                <details><summary style="cursor:pointer;font-size:11px;">Paste from Excel</summary>
+                    <textarea id="ipfPaste" rows="4" style="width:100%;font-family:var(--wbt-mono);font-size:11px;background:var(--wbt-panel2);color:var(--wbt-text);" placeholder="QUATERNARY&#9;639.82&#10;NIOBRARA&#9;527.81"></textarea>
+                    <button type="button" class="wbt-btn" id="ipfLoad">Load pasted (replaces table)</button></details>
+                <div style="max-height:200px;overflow:auto;margin-top:4px;">${ipd.formations.length ? `<table style="font-size:11px;"><tr><th>#</th><th>Formation</th><th>Subsea (m)</th><th></th></tr>` +
+                    ipd.formations.map((f0, i) => `<tr><td>${i + 1}</td><td><input type="text" data-f="${i}" data-k="name" value="${esc(f0.name)}" style="width:180px;"></td><td><input type="number" step="0.01" data-f="${i}" data-k="ss" value="${esc(f0.ss)}" style="width:90px;"></td><td><button type="button" class="wbt-btn" data-fdel="${i}" style="padding:0 6px;">&times;</button></td></tr>`).join('') + '</table>'
+                    : '<div style="color:var(--wbt-text-dim);">No formations — the export will have design comments only.</div>'}</div>
+                <button type="button" class="wbt-btn" id="ipfAdd">+ row</button> <button type="button" class="wbt-btn" id="ipfClr">Clear</button>
             </div>
             <div class="ipl-h">3 · Template (assigned by order: surface 1 → target 1, …)</div>
             <div class="ipl-sec" style="display:block;">
                 <div style="font-size:11px;color:var(--wbt-text-dim);margin-bottom:4px;">Vertical → KOP → curve 1 (builds &amp; turns) → tangent → curve 2 to landing Inc/Az → lateral. Landing N/E/TVD needs 3 solved values per well: the tangent azimuth + two more:</div>
-                <select id="ipdMode" style="max-width:520px;">
+ <select id="ipdMode" style="max-width:520px;">
+                    <option value="back" ${t.mode === 'back' ? 'selected' : ''}>Back-projected from ICP (Compass style): SC + 20 m → optimum align (curve-hold-curve) → tangent 1 → curve → tangent 2 → ICP, with ranges</option>
                     <option value="turn" ${t.mode === 'turn' ? 'selected' : ''}>Build &amp; turn early (recommended): fixed KOP &amp; tangents → solve curve A Inc/Az + one DLS</option>
                     <option value="kop_dls12" ${t.mode === 'kop_dls12' ? 'selected' : ''}>Fixed KOP &amp; tangent → solve DLS curve 1 + DLS curve 2</option>
                     <option value="kop_dls_len" ${t.mode === 'kop_dls_len' ? 'selected' : ''}>Fixed KOP &amp; tangent Inc → solve one shared DLS + tangent length</option>
                     <option value="dls_kop_len" ${t.mode === 'dls_kop_len' ? 'selected' : ''}>Fixed DLS (both curves) &amp; tangent Inc → solve KOP + tangent length</option>
                 </select>
+                <div id="ipdBackBox" style="display:${t.mode === 'back' ? 'block' : 'none'};margin:6px 0;border:1px solid var(--wbt-border);border-radius:4px;padding:6px;">
+                    <div style="font-size:11px;color:var(--wbt-text-dim);margin-bottom:4px;">Design freedoms (2026-10-31). Built backwards from the ICP like in Compass: final curve → tangent 2 (lateral azimuth) → curve → tangent 1 (azimuth free) → optimum align (curve – hold – curve, hold length free) up to KOP = surface casing + 20 m. ICP Sub-Sea / N / E / Inc / Az are fixed (targets table). Inside the ranges the solver picks the design by the objective; values sitting on a range limit are listed per well.</div>
+                    <div class="ipl-grid" style="grid-template-columns:repeat(6,auto);">
+                        <label>Surface casing TVD (pad, m)</label><input type="number" step="1" data-tb="sc" value="${t.sc}">
+                        <label>KOP = SC + 20, stagger / well (m)</label><input type="number" step="1" data-tb="backKopStep" value="${t.backKopStep}">
+                        <label>Objective</label><select data-tbo="objective">
+                            <option value="short" ${t.back.objective === 'short' ? 'selected' : ''}>Shortest build (MD to ICP)</option>
+                            <option value="smooth" ${t.back.objective === 'smooth' ? 'selected' : ''}>Smoothest (lowest DLS)</option>
+                            <option value="typical" ${t.back.objective === 'typical' ? 'selected' : ''}>Typical (middle of the ranges)</option></select>
+                        <label>Upper tangent T1 Inc min–max (°)</label><span><input type="number" step="0.5" data-tbb="t1Min" value="${t.back.t1Min}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="t1Max" value="${t.back.t1Max}" style="width:55px;"></span>
+                        <label>Upper tangent T1 length ≥ (m)</label><input type="number" step="1" data-tbb="L1" value="${t.back.L1}">
+                        <label>Curve DLS min–max (°/30m)</label><span><input type="number" step="0.5" data-tbb="dMin" value="${t.back.dMin}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="dMax" value="${t.back.dMax}" style="width:55px;"></span>
+                        <label>Lower tangent T2 (near ICP) Inc min–max (°)</label><span><input type="number" step="0.5" data-tbb="t2Min" value="${t.back.t2Min}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="t2Max" value="${t.back.t2Max}" style="width:55px;"></span>
+                        <label>Lower tangent T2 length ≥ (m)</label><input type="number" step="1" data-tbb="L2" value="${t.back.L2}">
+                        <label>Final curve DLS min–max (°/30m)</label><span><input type="number" step="0.5" data-tbb="dFMin" value="${t.back.dFMin}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="dFMax" value="${t.back.dFMax}" style="width:55px;"></span>
+                        <label>Δ TVD ICP − bottom of T1 (m)</label><span><input type="number" step="0.5" data-tbb="dTvd1Min" value="${t.back.dTvd1Min}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="dTvd1Max" value="${t.back.dTvd1Max}" style="width:55px;"></span>
+                        <label title="Neighbouring slots get different KOPs (level x step), like the hand designs. 0 = off (uses the linear stagger)">Auto KOP stagger step (m, 0 = off)</label><input type="number" step="5" min="0" data-tbb="autoKopStep" value="${t.back.autoKopStep}">
+                        <label title="AC nudge used by Avoidance: vertical to the nudge KOP, build at the nudge DLS to up to the max Inc (in 8 directions), hold to the main KOP">AC nudge (Avoidance): KOP TVD / DLS / max Inc</label><span><input type="checkbox" data-tbc="nudgeOn" ${t.back.nudgeOn ? 'checked' : ''}> <input type="number" step="5" min="0" data-tbb="nudgeKop" value="${t.back.nudgeKop}" style="width:50px;"> / <input type="number" step="0.5" min="0.5" data-tbb="nudgeDls" value="${t.back.nudgeDls}" style="width:45px;"> / <input type="number" step="0.5" min="0" data-tbb="nudgeIncMax" value="${t.back.nudgeIncMax}" style="width:45px;"></span>
+                        <label title="Used by Avoidance: the ICP may move this much along / across the lateral (Sub-Sea fixed)">ICP tolerance ± along / ± across lateral (m)</label><span><input type="number" step="1" min="0" data-tbb="icpAlong" value="${t.back.icpAlong || 0}" style="width:55px;"> / <input type="number" step="1" min="0" data-tbb="icpAcross" value="${t.back.icpAcross || 0}" style="width:55px;"></span>
+                        <label>Δ TVD ICP − bottom of T2 (m)</label><span><input type="number" step="0.5" data-tbb="dTvd2Min" value="${t.back.dTvd2Min}" style="width:55px;"> – <input type="number" step="0.5" data-tbb="dTvd2Max" value="${t.back.dTvd2Max}" style="width:55px;"></span>
+                    </div>
+                    <div style="font-size:10px;color:var(--wbt-text-dim);">Takes ~2 s per well. Lateral length and Max DLS below still apply.</div>
+                </div>
                 <div class="ipl-grid" style="grid-template-columns:repeat(8,auto);">
                     <label>KOP 1st well (m)</label><input type="number" step="1" data-tp="kop" value="${t.kop}">
                     <label>KOP stagger / well (m)</label><input type="number" step="1" data-tp="kopStep" value="${t.kopStep}">
@@ -6344,6 +6683,7 @@ body.light-mode #statusTextbox {
                     <input type="text" id="ipdTangents" value="${esc(t.tangents)}" style="width:260px;" title="e.g. 83/30, 85/30, 90/30 — the last one ends at the landing / ICP">
                     <span style="font-size:10px;color:var(--wbt-text-dim);">"Build &amp; turn early" only — e.g. 83/30, 85/30, 90/30 (the last tangent ends at the landing / ICP)</span></div>
                 <div style="font-size:10px;color:var(--wbt-text-dim);">Fixed values are used as entered; the solved ones replace them per well. In "solve KOP" mode the KOP fields are only the starting guess.</div>
+                ${ipdRulesHtml()}
                 <button type="button" class="wbt-btn" id="ipdPreview" style="margin-top:6px;">&#128269; Preview</button>
                 <div id="ipdOut" style="margin-top:6px;"></div>
             </div>
@@ -6368,9 +6708,11 @@ body.light-mode #statusTextbox {
             const light = document.body.classList.contains('light-mode');
             const bg = light ? '#ffffff' : '#000000', grid = light ? '#d0d7de' : '#3a3f44', txt = light ? '#000000' : '#ffffff';
             if(!all.length){ box.innerHTML = `<svg width="${W}" height="${H}" style="background:${bg};border:1px solid var(--wbt-border);"><text x="${W/2}" y="${H/2}" fill="${txt}" font-size="11" text-anchor="middle">No slots yet</text></svg>`; return; }
-            let minE = Math.min(...all.map(p => p.e)), maxE = Math.max(...all.map(p => p.e));
-            let minN = Math.min(...all.map(p => p.n)), maxN = Math.max(...all.map(p => p.n));
-            const span = Math.max(maxE - minE, maxN - minN, 10) * 1.4;          // equal scale in both axes; margin for labels
+            // 2026-10-31: view = the pad's slots ("Fit pad", default) or everything ("Fit all"), divided by the zoom factor
+            const fitPts = (ipd.plotFit === 'slots' && slots.length) ? slots : all;
+            let minE = Math.min(...fitPts.map(p => p.e)), maxE = Math.max(...fitPts.map(p => p.e));
+            let minN = Math.min(...fitPts.map(p => p.n)), maxN = Math.max(...fitPts.map(p => p.n));
+            const span = Math.max(maxE - minE, maxN - minN, 10) * 1.4 / (ipd.plotZoom || 1);   // equal scale in both axes; margin for labels
             const cE = (minE + maxE) / 2, cN = (minN + maxN) / 2;
             minE = cE - span / 2; maxE = cE + span / 2; minN = cN - span / 2; maxN = cN + span / 2;
             const sz = Math.min(W, H) - 2 * pad;
@@ -6392,8 +6734,22 @@ body.light-mode #statusTextbox {
         function ipdWire(){
             const g = id => document.getElementById(id);
             g('ipdName').addEventListener('input', e => { ipd.name = e.target.value; });
+            g('ipdPresetLoad').addEventListener('click', () => {   // 2026-10-31: pre-loaded setups
+                const k = g('ipdPresetSel').value, P = IPD_PRESETS[k]; if(!P) return;
+                if((ipd.surfaces.length || ipd.targets.length) && !confirm('Replace the current Surfaces and Targets with "' + k + '"?')) return;
+                ipd.surfaces = P.surfaces.map((r, i) => ({ name:'S' + String(i + 1).padStart(2, '0'), n:r[0], e:r[1], ss:r[2] }));
+                ipd.targets  = P.targets.map((r, i) => ({ name:'T' + String(i + 1).padStart(2, '0'), n:r[0], e:r[1], ss:r[2], inc:r[3], az:r[4] }));
+                ipd.tds = (P.tds || []).map((r, i) => ({ name:'TD' + String(i + 1).padStart(2, '0'), n:r[0], e:r[1], ss:r[2], inc:r[3], az:r[4] }));   // 2026-11-01
+                if(ipd.alignAz) ipdAlignAz();
+                ipd.plotFit = 'slots'; ipd.plotZoom = 1;
+                ipdRender();
+            });
             g('ipdRef').addEventListener('change', e => { ipd.refWell = e.target.value; });
-            g('ipdMode').addEventListener('change', e => { ipd.tpl.mode = e.target.value; });
+            g('ipdMode').addEventListener('change', e => { ipd.tpl.mode = e.target.value; g('ipdBackBox').style.display = e.target.value === 'back' ? 'block' : 'none'; });
+            document.querySelectorAll('#ipdBody [data-tb]').forEach(el => el.addEventListener('input', e => { ipd.tpl[e.target.dataset.tb] = n(e.target.value); }));   // 2026-10-31
+            document.querySelectorAll('#ipdBody [data-tbb]').forEach(el => el.addEventListener('input', e => { ipd.tpl.back[e.target.dataset.tbb] = n(e.target.value); }));
+            document.querySelectorAll('#ipdBody [data-tbc]').forEach(el => el.addEventListener('change', e => { ipd.tpl.back[e.target.dataset.tbc] = e.target.checked; }));   // 2026-10-31
+            document.querySelectorAll('#ipdBody [data-tbo]').forEach(el => el.addEventListener('change', e => { ipd.tpl.back[e.target.dataset.tbo] = e.target.value; }));
             g('ipdTangents').addEventListener('input', e => { ipd.tpl.tangents = e.target.value; });
             document.querySelectorAll('#ipdBody [data-tp]').forEach(el => el.addEventListener('input', e => { ipd.tpl[e.target.dataset.tp] = n(e.target.value); }));
             g('ipsGen').addEventListener('click', () => {
@@ -6415,12 +6771,35 @@ body.light-mode #statusTextbox {
                 ipd.surfaces = r.map((x, i) => ({ name: x.name || ('S' + String(i + 1).padStart(2, '0')), n:x.v[0], e:x.v[1], ss:x.v[2] }));
                 ipdRender();
             });
+            // 2026-10-31: formations table
+            g('ipfLoad').addEventListener('click', () => {
+                const r = ipdParse(g('ipfPaste').value, 2);
+                if(!r.length){ alert('No rows recognised. Expected 2 columns: Formation, Subsea.'); return; }
+                ipd.formations = r.filter(x => x.name).map(x => ({ name: x.name, ss: x.v[0] }));
+                ipdRender();
+            });
+            g('ipfAdd').addEventListener('click', () => { ipd.formations.push({ name: 'NEW', ss: 0 }); ipdRender(); });
+            g('ipfClr').addEventListener('click', () => { ipd.formations = []; ipdRender(); });
+            document.querySelectorAll('#ipdBody [data-f]').forEach(el => el.addEventListener('input', e => { const f0 = ipd.formations[+e.target.dataset.f]; if(f0) f0[e.target.dataset.k] = e.target.dataset.k === 'ss' ? n(e.target.value) : e.target.value; }));
+            document.querySelectorAll('#ipdBody [data-fdel]').forEach(el => el.addEventListener('click', e => { ipd.formations.splice(+e.currentTarget.dataset.fdel, 1); ipdRender(); }));
             g('iptLoad').addEventListener('click', () => {
                 const r = ipdParse(g('iptPaste').value, 6);
                 if(!r.length){ alert('No rows recognised. Expected: Name, N, E, Sub-Sea, Inc, Az (Name optional).'); return; }
                 ipd.targets = r.map((x, i) => ({ name: x.name || ('T' + String(i + 1).padStart(2, '0')), n:x.v[0], e:x.v[1], ss:x.v[2], inc:x.v[3], az:x.v[4] }));
                 ipdRender();
             });
+            // 2026-11-01: TDs table + align ICP azimuth
+            g('ipdTdLoad').addEventListener('click', () => {
+                const r = ipdParse(g('ipdPaste').value, 6);
+                if(!r.length){ alert('No rows recognised. Expected: Name, N, E, Sub-Sea, Inc, Az (Name optional).'); return; }
+                ipd.tds = r.map((x, i) => ({ name: x.name || ('TD' + String(i + 1).padStart(2, '0')), n:x.v[0], e:x.v[1], ss:x.v[2], inc:x.v[3], az:x.v[4] }));
+                if(ipd.alignAz) ipdAlignAz(); ipdRender();
+            });
+            g('ipdTdAdd').addEventListener('click', () => { const L = ipd.tds[ipd.tds.length - 1] || { n:0, e:0, ss:0, inc:90, az:0 }; ipd.tds.push(Object.assign({}, L, { name:'TD' + String(ipd.tds.length + 1).padStart(2, '0') })); ipdRender(); });
+            g('ipdTdClr').addEventListener('click', () => { ipd.tds = []; ipdRender(); });
+            g('ipdAlignAz').addEventListener('change', e => { ipd.alignAz = e.target.checked; if(ipd.alignAz){ ipdAlignAz(); ipdRender(); } });
+            document.querySelectorAll('#ipdBody [data-d]').forEach(el => el.addEventListener('input', e => { const r0 = ipd.tds[+e.target.dataset.d], k = e.target.dataset.k; if(r0) r0[k] = k === 'name' ? e.target.value : n(e.target.value); }));
+            document.querySelectorAll('#ipdBody [data-ddel]').forEach(b => b.addEventListener('click', () => { ipd.tds.splice(+b.dataset.ddel, 1); ipdRender(); }));
             g('ipsAdd').addEventListener('click', () => { const L = ipd.surfaces[ipd.surfaces.length - 1] || { n:0, e:0, ss:0 }; ipd.surfaces.push({ name:'S' + String(ipd.surfaces.length + 1).padStart(2, '0'), n:L.n, e:L.e, ss:L.ss }); ipdRender(); });
             g('iptAdd').addEventListener('click', () => { const L = ipd.targets[ipd.targets.length - 1] || { n:0, e:0, ss:0, inc:90, az:0 }; ipd.targets.push(Object.assign({}, L, { name:'T' + String(ipd.targets.length + 1).padStart(2, '0') })); ipdRender(); });
             g('ipsClr').addEventListener('click', () => { ipd.surfaces = []; ipdRender(); });
@@ -6435,7 +6814,15 @@ body.light-mode #statusTextbox {
                 ipdRender();
             }));
             g('ipdPreview').addEventListener('click', ipdRunPreview);
+            ipdWireRules();   // 2026-11-01
             g('ipsPlotExisting').addEventListener('change', e => { ipd.showExisting = e.target.checked; ipdSlotPlot(); });
+            // 2026-10-31: slot plot zoom
+            const zoom = k => { ipd.plotZoom = Math.min(200, Math.max(0.05, ipd.plotZoom * k)); ipdSlotPlot(); };
+            g('ipsZoomIn').addEventListener('click', () => zoom(1.5));
+            g('ipsZoomOut').addEventListener('click', () => zoom(1 / 1.5));
+            g('ipsFitSlots').addEventListener('click', () => { ipd.plotFit = 'slots'; ipd.plotZoom = 1; ipdSlotPlot(); });
+            g('ipsFitAll').addEventListener('click', () => { ipd.plotFit = 'all'; ipd.plotZoom = 1; ipdSlotPlot(); });
+            g('ipsPlot').addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.25 : 0.8); }, { passive: false });
             ipdSlotPlot();
             document.querySelectorAll('#ipdBody [data-gshow],#ipdBody [data-ghide]').forEach(b => b.addEventListener('click', () => {
                 const name = b.dataset.gshow || b.dataset.ghide, vis = !!b.dataset.gshow;
@@ -6457,47 +6844,518 @@ body.light-mode #statusTextbox {
                 renderList(); renderEditor(); ipdRender();
             }));
         }
-        function ipdRunPreview(){
+        // ADDED 2026-11-01 (John): TDs. Grid azimuth ICP -> TD = atan2(dE, dN) (0-360°), written into the ICP
+        // table when "Align ICP azimuth to the TD" is ticked (also re-applied before each Preview, so edited
+        // TDs / ICPs are honoured). Lateral length to a TD: hold at the ICP attitude, length chosen so the
+        // horizontal advance along the ICP azimuth equals the TD's: L = h / sin(Inc), h = dN cos(Az) + dE sin(Az).
+        // The end point can miss the TD (off-azimuth if not aligned, vertically if TD Sub-Sea != the hold's);
+        // the miss is reported per well ("TD miss") instead of bending the lateral.
+        function ipdAzTo(a, b){ let z = Math.atan2(n(b.e) - n(a.e), n(b.n) - n(a.n)) * 180 / Math.PI; if(z < 0) z += 360; return z; }
+        function ipdAlignAz(){ ipd.targets.forEach((tg, i) => { const td = ipd.tds[i]; if(td) tg.az = +ipdAzTo(tg, td).toFixed(2); }); }
+        function ipdLatOf(i, land){
+            const td = ipd.tds[i]; if(!td) return n(ipd.tpl.lateral);
+            const az = n(land.az) * Math.PI / 180, h = (n(td.n) - n(land.n)) * Math.cos(az) + (n(td.e) - n(land.e)) * Math.sin(az), si = Math.sin(n(land.inc) * Math.PI / 180);
+            return (h > 0 && si > 1e-3) ? h / si : 0;
+        }
+        function ipdTdMiss(w){
+            const td = ipd.tds[w.i]; if(!td || !w.st.length) return null; const p = w.st[w.st.length - 1];
+            return { d: Math.hypot(p.n - n(td.n), p.e - n(td.e), (n(w.s.ss) - p.tvd) - n(td.ss)), dv: (n(w.s.ss) - p.tvd) - n(td.ss) };
+        }
+        // ---------- iPad: Design rules (ADDED 2026-11-01, John) ----------
+        // Used by the "Back-projected" solver as a filter (rule-clean designs first; if none, KOP raised in 10 m steps
+        // down to surface casing + 20; if still none, the design with the fewest violations is kept and flagged red)
+        // and as a checker on every preview well (any template, after Avoidance / lateral avoidance too).
+        function ipdRulesHtml(){
+            const R = ipd.rules, nn = R.noNudge, mt = R.maxTurn;
+            const fOpts = (ipd.formations || []).map((f0, i) => `<option value="${i}">${esc(f0.name)} (${f(n(f0.ss),1)})</option>`).join('');
+            return `<div style="margin:6px 0;border:1px solid var(--wbt-border);border-radius:4px;padding:6px;">
+                <div style="font-weight:700;font-size:11px;margin-bottom:3px;">Design rules</div>
+                <div><label><input type="checkbox" data-rl="noNudge.on" ${nn.on ? 'checked' : ''}> No nudge above</label> <input type="number" step="1" data-rl="noNudge.incMin" value="${nn.incMin}" style="width:50px;">°
+                    <span style="margin-left:6px;" title="Max allowed drop between section ends (2026-11-01: measured per section, so turns that dip Inc inside an arc are not flagged; keep it small, e.g. 0.5)">drop tolerance</span> <input type="number" step="0.5" data-rl="noNudge.tol" value="${nn.tol}" style="width:50px;">°
+                    <span style="margin-left:6px;" title="Peak inclination windows where a nudge IS allowed, e.g. 30-40, 60-65">nudge allowed at Inc</span> <input type="text" id="ipdRlWin" value="${esc((nn.windows || []).map(w => w.a + '-' + w.b).join(', '))}" placeholder="e.g. 30-40" style="width:110px;">
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">(nudge = build, optional tangent, drop; lateral excluded)</span></div>
+                <div style="margin-top:3px;"><label><input type="checkbox" data-rl="maxTurn.on" ${mt.on ? 'checked' : ''}> Max turn</label> <input type="number" step="5" data-rl="maxTurn.deg" value="${mt.deg}" style="width:55px;">° <span style="font-size:10px;color:var(--wbt-text-dim);">(azimuth range from Inc ≥ 3° to the ICP)</span></div>
+                <div style="margin-top:3px;">Formation zones (Sub-Sea) ${fOpts ? `<select id="ipdRlFm"><option value="">+ zone from formation…</option>${fOpts}</select>` : ''} <button type="button" class="wbt-btn" id="ipdRlZoneAdd" style="padding:0 6px;">+ zone</button></div>
+                ${R.zones.length ? `<table style="font-size:11px;margin-top:3px;"><tr><th>On</th><th>Name</th><th>Top SS</th><th>Base SS</th><th>Max DLS</th><th>Inc min</th><th>Inc max</th><th>No drop</th><th></th></tr>` +
+                    R.zones.map((z, i) => `<tr><td><input type="checkbox" data-rz="${i}" data-k="on" ${z.on !== false ? 'checked' : ''}></td><td><input type="text" data-rz="${i}" data-k="name" value="${esc(z.name)}" style="width:110px;"></td>` +
+                        ['top','base','dlsMax','incMin','incMax'].map(k => `<td><input type="number" step="0.1" data-rz="${i}" data-k="${k}" value="${z[k] == null ? '' : esc(z[k])}" style="width:70px;"></td>`).join('') +
+                        `<td><input type="checkbox" data-rz="${i}" data-k="noDrop" ${z.noDrop ? 'checked' : ''}></td><td><button type="button" class="wbt-btn" data-rzdel="${i}" style="padding:0 6px;">&times;</button></td></tr>`).join('') + '</table>' : ''}
+            </div>`;
+        }
+        function ipdWireRules(){
+            const R = ipd.rules, g = id => document.getElementById(id);
+            document.querySelectorAll('#ipdBody [data-rl]').forEach(el => el.addEventListener('change', e => { const [a, k] = e.target.dataset.rl.split('.'); R[a][k] = e.target.type === 'checkbox' ? e.target.checked : n(e.target.value); }));
+            const win = g('ipdRlWin'); if(win) win.addEventListener('change', e => { R.noNudge.windows = String(e.target.value).split(/[,;]/).map(x => x.split('-').map(Number)).filter(a => a.length === 2 && a.every(isFinite)).map(([a, b]) => ({ a: Math.min(a, b), b: Math.max(a, b) })); });
+            document.querySelectorAll('#ipdBody [data-rz]').forEach(el => el.addEventListener('change', e => { const z = R.zones[+e.target.dataset.rz], k = e.target.dataset.k; if(!z) return;
+                z[k] = e.target.type === 'checkbox' ? e.target.checked : k === 'name' ? e.target.value : (e.target.value === '' ? null : n(e.target.value)); }));
+            document.querySelectorAll('#ipdBody [data-rzdel]').forEach(b => b.addEventListener('click', () => { R.zones.splice(+b.dataset.rzdel, 1); ipdRender(); }));
+            if(g('ipdRlZoneAdd')) g('ipdRlZoneAdd').addEventListener('click', () => { R.zones.push({ on:true, name:'Zone ' + (R.zones.length + 1), top:0, base:0, dlsMax:null, incMin:null, incMax:null, noDrop:false }); ipdRender(); });
+            if(g('ipdRlFm')) g('ipdRlFm').addEventListener('change', e => { if(e.target.value === '') return; const F = ipd.formations, i = +e.target.value, f0 = F[i];
+                const below = F.filter(x => n(x.ss) < n(f0.ss)).sort((a, b) => n(b.ss) - n(a.ss))[0];   // next deeper top = base
+                R.zones.push({ on:true, name:f0.name, top:n(f0.ss), base: below ? n(below.ss) : n(f0.ss) - 50, dlsMax:null, incMin:null, incMax:null, noDrop:false }); ipdRender(); });
+        }
+        const ipdRulesForSolver = () => C.padRulesActive(ipd.rules) ? JSON.parse(JSON.stringify(ipd.rules)) : null;
+        async function ipdRunPreview(){   // 2026-10-31: async so the slower "back" template can show progress
             ipdClearGhosts();
             const out = document.getElementById('ipdOut'), t = ipd.tpl;
+            if(ipd.alignAz && ipd.tds.length){ ipdAlignAz(); ipd.targets.forEach((tg, i) => { const el = document.querySelector(`#ipdBody [data-t="${i}"][data-k="az"]`); if(el) el.value = tg.az; }); }   // 2026-11-01
             const N = Math.min(ipd.surfaces.length, ipd.targets.length);
             if(!N){ out.innerHTML = '<span style="color:#ff4c4c;">Add surfaces and targets first.</span>'; return; }
             const wells = [];
             for(let i = 0; i < N; i++){
+                if(t.mode === 'back'){ out.innerHTML = `<span style="color:var(--wbt-text-dim);">Designing well ${i + 1} of ${N}…</span>`; await new Promise(res => setTimeout(res, 0)); }
                 const s = ipd.surfaces[i], tg = ipd.targets[i];
                 const land = { n:n(tg.n), e:n(tg.e), tvd:n(s.ss) - n(tg.ss), inc:n(tg.inc), az:n(tg.az) };
                 const tangents = String(t.tangents || '').split(/[,;]/).map(x => x.split('/').map(Number)).filter(a => a.length === 2 && a.every(isFinite)).map(([inc, L]) => ({ inc, L }));
-                const r = C.padSolveWell({ n:n(s.n), e:n(s.e), rkb:n(s.ss) }, land, { mode:t.mode, kop:t.kop + i * t.kopStep, dls:t.dls, incT:t.incT, lt:t.lt, lateral:t.lateral, tangents });
-                const name = ipd.name + ' W' + String(i + 1).padStart(2, '0');
-                const st = r.sections ? C.computeStations({ md:0, tvd:0, n:n(s.n), e:n(s.e), inc:0, az:0 }, r.sections, STEP).stations : [];
-                const landMd = r.sections ? r.sections.slice(0, t.lateral > 0 ? -1 : undefined).reduce((a, x) => a + x.cl, 0) : null;
-                wells.push({ i, name, s, tg, land, r, st, landMd, tdMd: st.length ? st[st.length - 1].md : null, over: r.maxDls > t.maxDls + 1e-9 });
-                if(st.length > 1){
-                    const g = api.buildWellLine(st.map(p => new THREE.Vector3(p.e, n(s.ss) - p.tvd, -p.n)), (r.ok && !(r.maxDls > t.maxDls + 1e-9)) ? 0xffd060 : 0xff4c4c);
-                    api.getGroup().add(g); ipd.ghosts.push(g);
-                }
+                const r = t.mode === 'back'
+                    ? C.padSolveWell({ n:n(s.n), e:n(s.e), rkb:n(s.ss) }, land, { mode:'back', kop:ipdKopOf(i), lateral:ipdLatOf(i, land), back:Object.assign({}, t.back), rules:ipdRulesForSolver(), kopMin:n(t.sc) + 20 })   // 2026-11-01: design rules
+                    : C.padSolveWell({ n:n(s.n), e:n(s.e), rkb:n(s.ss) }, land, { mode:t.mode, kop:t.kop + i * t.kopStep, dls:t.dls, incT:t.incT, lt:t.lt, lateral:ipdLatOf(i, land), tangents });   // 2026-11-01: lateral to TD
+                wells.push(ipdMakeWell(i, s, tg, land, r));
             }
+            ipd.previewOrig = null; ipd.avoidHtml = '';   // 2026-10-31: a new preview drops any Avoidance result
+            ipd.latOrig = null; ipd.latHtml = '';   // 2026-11-01: ... and any lateral avoidance
+            ipdShowPreview(wells, N);
+        }
+        // 2026-10-31 (refactor for Avoidance): one preview well + its ghost line; preview table + buttons.
+        // ADDED 2026-10-31 (John): KOP of well i for the back template = SC + 20 + automatic stagger
+        // (IPlanCore.padKopStagger: neighbouring slots get different KOP levels, level x step) when the
+        // "Auto KOP stagger step" > 0, else the old linear stagger (i x backKopStep).
+        function ipdKopOf(i){
+            const t = ipd.tpl, base = n(t.sc) + 20, step = n(t.back.autoKopStep);
+            if(step > 0){ const offs = C.padKopStagger(ipd.surfaces.map(s => ({ n:n(s.n), e:n(s.e) })), step); return base + (offs[i] || 0); }
+            return base + i * n(t.backKopStep);
+        }
+        function ipdMakeWell(i, s, tg, land, r){
+            const t = ipd.tpl, name = ipd.name + ' W' + String(i + 1).padStart(2, '0');
+            const st = r.sections ? C.computeStations({ md:0, tvd:0, n:n(s.n), e:n(s.e), inc:0, az:0 }, r.sections, STEP).stations : [];
+            const latL = ipdLatOf(i, land);   // 2026-11-01: per-well lateral (TD) instead of the pad setting
+            const landMd = !r.sections ? null : r.tags ? r.sections.reduce((a, x, k) => a + (r.tags[k] === 'lateral' ? 0 : x.cl), 0)   // 2026-11-01: lateral may be several sections (lateral avoidance)
+                : r.sections.slice(0, latL > 1e-6 ? -1 : undefined).reduce((a, x) => a + x.cl, 0);
+            const viol = (st.length && C.padRulesActive(ipd.rules)) ? C.padRuleCheck(st, ipd.rules, n(s.ss), landMd) : [];   // 2026-11-01: design rules checker
+            return { i, name, s, tg, land, r, st, landMd, viol, tdMd: st.length ? st[st.length - 1].md : null, over: r.maxDls > t.maxDls + 1e-9 };
+        }
+        function ipdShowPreview(wells, N){
+            const out = document.getElementById('ipdOut'), t = ipd.tpl;
+            ipdClearGhosts();
+            wells.forEach(w => { if(w.st.length > 1){
+                const g = api.buildWellLine(w.st.map(p => new THREE.Vector3(p.e, n(w.s.ss) - p.tvd, -p.n)), (w.r.ok && !w.over && !(w.viol || []).length) ? 0xffd060 : 0xff4c4c);   // 2026-11-01: rule violations red
+                ipdScaleGhost(g);   // 2026-10-31: "iPad previews" thickness slider
+                g.userData.ipdWell = wells.indexOf(w);
+                g.userData.pick = () => ({ name: w.name + ' (iPad preview)', color: (w.r.ok && !w.over && !(w.viol || []).length) ? 0xffd060 : 0xff4c4c,   // 2026-11-01: profile panel
+                    rows: (pts => pts.map((p, k) => { let d = p.dls; for(let j = k + 1; (d == null || !isFinite(d)) && j < pts.length; j++) d = pts[j].dls;   // inserted comment points take the next station's DLS
+                        return { md: p.md, inc: p.inc, az: p.az, tvd: p.tvd, ss: n(w.s.ss) - p.tvd, dls: d, n: p.n, e: p.e, comment: p.comment || '' }; }))(ipdCommentedStations(w)),
+                    // AC pseudo-well (same as the Pad separation check: reference well's toolcode / location for magnetics)
+                    ac: () => { const A = window.acpPadApi; if(!A) return null; const ref = A.surfaceLatLon(ipd.refWell);
+                        return { wellName: '__pf__ ' + w.name, toolcode: ref.toolcode, survey: w.st.map(p => ({ md:p.md, incl:p.inc, azim:p.az, tvd:p.tvd, northing:p.n, easting:p.e, subSea:n(w.s.ss) - p.tvd, latitude:ref.lat, longitude:ref.lon })) }; } });
+                api.getGroup().add(g); ipd.ghosts.push(g);
+            } });
             ipd.preview = wells;
+            try { ipdBuildMarkers(wells); } catch(e){ console.warn('iPad markers', e); }   // 2026-10-31: comment markers
             const good = wells.filter(w => w.r.ok && !w.over).length;
             let warn = '';
             if(ipd.surfaces.length !== ipd.targets.length) warn = `<div style="color:#ffd060;">${ipd.surfaces.length} surfaces vs ${ipd.targets.length} targets — only the first ${N} pairs are planned.</div>`;
             out.innerHTML = warn + `<div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);">
-                <tr>${['Well','Surface','Target','Status','KOP','Curve A','DLS 1','DLS 2','Tangent(s)','Tan Az','Landing MD','TD MD','Max DLS'].map(h => `<th style="padding:0 6px;text-align:left;">${h}</th>`).join('')}</tr>` +
-                wells.map(w => { const p = w.r.params || {}, bad = !w.r.ok || w.over;
+                <tr>${['Well','Surface','Target','Status','KOP','Curve A','Hold','DLS 1','DLS 2','Tangent(s)','Tan Az','Landing MD','TD MD','TD miss (m)','Max DLS','Range limits hit','Design rules'].map(h => `<th style="padding:0 6px;text-align:left;">${h}</th>`).join('')}</tr>` +
+                wells.map(w => { const p = w.r.params || {}, bad = !w.r.ok || w.over || (w.viol || []).length;
                     return `<tr style="color:${bad ? '#ff4c4c' : 'inherit'};"><td style="padding:0 6px;">${esc(w.name)}</td><td>${esc(w.s.name)}</td><td>${esc(w.tg.name)}</td>
                     <td title="${esc(w.r.error || '')}">${w.r.ok ? (w.over ? 'DLS > max' : 'OK') : esc(w.r.error || 'failed')}</td>
-                    <td>${f(p.kop,1)}</td><td>${p.incA != null ? f(p.incA,1) + '° / Az ' + f(p.azA,1) + '°' : '—'}</td><td>${f(p.dls1,2)}</td><td>${f(p.dls2,2)}</td>
-                    <td>${p.tangents ? p.tangents.map(x => f(x.inc,0) + '°/' + f(x.L,0)).join(', ') : f(p.lt,1) + ' m @ ' + f(p.incT,1) + '°'}</td><td>${f(p.azT,1)}°</td>
-                    <td>${f(w.landMd,1)}</td><td>${f(w.tdMd,1)}</td><td>${f(w.r.maxDls,2)}</td></tr>`; }).join('') +
+                    <td>${f(p.kop,1)}</td><td>${p.incA != null ? f(p.incA,1) + '° / Az ' + f(p.azA,1) + '°' : '—'}</td><td>${f(p.hold,0)}</td><td>${f(p.dls1,2)}</td><td>${f(p.dls2,2)}</td>
+                    <td>${p.tangents ? p.tangents.map(x => f(x.inc,1) + '°/' + f(x.L,0) + (x.az != null ? ' @' + f(x.az,1) + '°' : '')).join(', ') : f(p.lt,1) + ' m @ ' + f(p.incT,1) + '°'}</td><td>${f(p.azT,1)}°</td>
+                    <td>${f(w.landMd,1)}</td><td>${f(w.tdMd,1)}</td><td>${(m => m ? `<span style="color:${m.d > 5 ? '#ff9f1c' : 'inherit'};" title="3D distance end of lateral → TD (vertical ${f(m.dv,2)} m)">${f(m.d,2)}</span>` : '—')(ipdTdMiss(w))}</td><td>${f(w.r.maxDls,2)}</td><td style="padding:0 6px;color:#ffd060;">${esc((w.r.edges || []).join('; '))}</td><td style="padding:0 6px;white-space:normal;color:${(w.viol || []).length ? '#ff4c4c' : '#00e676'};">${(w.viol || []).length ? (w.viol.map(v => esc(v.msg)).join('<br>') + ' <span style="color:var(--wbt-text-dim);">(fewest violations found)</span>') : (C.padRulesActive(ipd.rules) ? 'OK' : '—')}</td></tr>`; }).join('') +
                 `</table></div>
                 <div style="margin-top:6px;">${good} of ${N} wells OK (yellow ghost lines in 3D; failed / over-DLS wells in red).</div>
                 <button type="button" class="wbt-btn" id="ipdCreate" ${good ? '' : 'disabled'}>Create ${good} scenario(s) in group "${esc(ipd.name)}"</button>
-                <button type="button" class="wbt-btn" id="ipdClearPv">Clear preview</button>` + ipdSepBlock();
+                <button type="button" class="wbt-btn" id="ipdClearPv">Clear preview</button>
+                <button type="button" class="wbt-btn" id="ipdExport" title="All preview wells, including failed / over-DLS (2026-10-31)">&#11015; Export preview (Excel)</button>
+                <button type="button" class="wbt-btn" id="ipdCmpRun" title="Match each iPad well to the existing well on the same slot (2026-10-31)">&#8646; Compare with existing wells</button>
+                <div id="ipdCmpOut" style="margin-top:6px;"></div>` + ipdTunnelBlock() + ipdAvoidBlock() + ipdLatBlock() + ipdSepBlock();   // 2026-11-01: lateral tunnel / avoidance   // 2026-10-31: Tunnel + Avoidance before the SF check
             document.getElementById('ipdClearPv').addEventListener('click', () => { ipdClearGhosts(); out.innerHTML = ''; });
             document.getElementById('ipdCreate').addEventListener('click', ipdCreate);
+            document.getElementById('ipdExport').addEventListener('click', ipdExportXlsx);   // 2026-10-31
+            document.getElementById('ipdCmpRun').addEventListener('click', () => { try { ipdCompareRender(); } catch(err){ document.getElementById('ipdCmpOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; } });
+            document.getElementById('ipdTunRun').addEventListener('click', () => { try { ipdRunTunnels(); } catch(err){ document.getElementById('ipdTunOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; } });
+            document.getElementById('ipdTunClr').addEventListener('click', () => { ipdClearTunnels(); document.getElementById('ipdTunOut').innerHTML = ''; });
+            document.getElementById('ipdAvRun').addEventListener('click', () => { ipdRunAvoid().catch(err => { document.getElementById('ipdAvOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; }); });
+            document.getElementById('ipdAvRevert').addEventListener('click', ipdAvoidRevert);
+            // 2026-11-01: lateral tunnel / avoidance vs offset wells
+            document.getElementById('ipdLatTun').addEventListener('click', () => { try { ipdLatTunnel(); } catch(err){ document.getElementById('ipdLatOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; } });
+            document.getElementById('ipdLatRun').addEventListener('click', () => { try { ipdLatAvoid(); } catch(err){ document.getElementById('ipdLatOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; } });
+            document.getElementById('ipdLatRevert').addEventListener('click', () => { if(!ipd.latOrig) return; const w = ipd.latOrig; ipd.latOrig = null; ipd.latHtml = ''; ipdShowPreview(w, w.length); });
+            document.getElementById('ipdCardsRun').addEventListener('click', () => { try { ipdRunCards(); } catch(err){ document.getElementById('ipdCardsGrid').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; } });   // 2026-11-01
             document.getElementById('ipdSepRun').addEventListener('click', () => { ipdRunSeparation().catch(err => { document.getElementById('ipdSepOut').innerHTML = '<span style="color:#ff4c4c;">' + esc(err.message) + '</span>'; }); });
         }
 
+        // ---------- iPad: export ALL preview wells + compare with existing wells (ADDED 2026-10-31, John) ----------
+        // WHY: "Create scenarios" only keeps wells that solved within limits, so failed / over-DLS wells could
+        // not be exported to compare a pad (e.g. pad 163) with the real hand-designed wells.
+        // Export: every preview well (Status column), summary + 10 m stations (iPad's own computeStations).
+        // Compare: each iPad well is matched to the existing (Planned/Subject) well on the same slot = nearest
+        // first-station N/E to the iPad surface; if several wells share that slot (within 1 m), the one passing
+        // closest to the iPad target wins. Positions compared in Sub-Sea elevation (RKB - TVD) so both use the
+        // same vertical datum. Existing-well DLS = dogleg between consecutive survey stations
+        // (cos b = cos(I2-I1) - sinI1 sinI2 (1 - cos(A2-A1)), Bourgoyne Eq. 8.33) per 30 m. KOP = first station
+        // with Inc >= 1 deg (both wells, same rule). Landing MD = MD of the station closest to the iPad target.
+        const D2R_ = Math.PI / 180;
+        const dogleg30 = (a, b) => { const cl = n(b.md) - n(a.md); if(!(cl > 0)) return 0;
+            const i1 = n(a.inc) * D2R_, i2 = n(b.inc) * D2R_, az1 = n(a.az) * D2R_, az2 = n(b.az) * D2R_;
+            const c = Math.cos(i2 - i1) - Math.sin(i1) * Math.sin(i2) * (1 - Math.cos(az2 - az1));
+            return Math.acos(Math.max(-1, Math.min(1, c))) / D2R_ * 30 / cl; };
+        // existing well -> [{md, inc, az, tvd, n, e, el}] (el = Sub-Sea elevation)
+        const exStations = w => { const rkb = wellRkb(w); return sortedSurvey(w).map(r => ({ md:n(r.md), inc:n(r.incl), az:n(r.azim), tvd:n(r.tvd), n:n(r.northing), e:n(r.easting), el: rkb - n(r.tvd) })); };
+        const ipdStations = w => (w.st || []).map(p => ({ md:p.md, inc:p.inc, az:p.az, tvd:p.tvd, n:p.n, e:p.e, el: n(w.s.ss) - p.tvd, dls:p.dls30 }));
+        const d3 = (a, b) => Math.hypot(a.n - b.n, a.e - b.e, a.el - b.el);
+        // distance from point p to polyline pts (segments, linear between stations)
+        function distToPath(p, pts){
+            let best = Infinity;
+            for(let i = 1; i < pts.length; i++){
+                const a = pts[i-1], b = pts[i], v = [b.n - a.n, b.e - a.e, b.el - a.el], w0 = [p.n - a.n, p.e - a.e, p.el - a.el];
+                const L2 = v[0]*v[0] + v[1]*v[1] + v[2]*v[2]; let t = L2 > 0 ? (w0[0]*v[0] + w0[1]*v[1] + w0[2]*v[2]) / L2 : 0; t = Math.max(0, Math.min(1, t));
+                const d = Math.hypot(w0[0] - t*v[0], w0[1] - t*v[1], w0[2] - t*v[2]); if(d < best) best = d;
+            }
+            return best;
+        }
+        const kopOf = pts => { const s = pts.find(p => p.inc >= 1); return s ? s.md : null; };
+        const maxDlsTo = (pts, mdMax) => { let m = 0; for(let i = 1; i < pts.length && pts[i].md <= mdMax + 1e-6; i++){ m = Math.max(m, pts[i].dls != null ? pts[i].dls : dogleg30(pts[i-1], pts[i])); } return m; };
+        function ipdCompareRows(){
+            const cands = WELLS.map(w => ({ w, pts: exStations(w) })).filter(x => x.pts.length > 1);
+            return (ipd.preview || []).filter(w => w.st && w.st.length > 1).map(w => {
+                const ip = ipdStations(w), tgt = { n:n(w.tg.n), e:n(w.tg.e), el:n(w.tg.ss) };
+                const sd = cands.map(c => ({ c, d: Math.hypot(c.pts[0].n - n(w.s.n), c.pts[0].e - n(w.s.e)) })).sort((a, b) => a.d - b.d);
+                if(!sd.length) return { w, ip, ex: null };
+                const slot = sd.filter(x => x.d <= sd[0].d + 1).map(x => Object.assign(x, { dt: Math.min(...x.c.pts.map(p => d3(p, tgt))) })).sort((a, b) => a.dt - b.dt)[0];
+                const ex = slot.c.pts, exLand = ex.reduce((b, p) => d3(p, tgt) < d3(b, tgt) ? p : b, ex[0]);
+                const ipLandMd = w.landMd != null ? w.landMd : ip[ip.length - 1].md;
+                const ipTo = ip.filter(p => p.md <= ipLandMd + 1e-6), dists = ipTo.map(p => distToPath(p, ex));
+                return { w, ip, ex: slot.c.w, slotD: slot.d, tgtD: slot.dt,
+                    ipKop: kopOf(ip), exKop: kopOf(ex), ipDls: maxDlsTo(ip, ipLandMd), exDls: maxDlsTo(ex, exLand.md),
+                    ipLand: ipLandMd, exLand: exLand.md, ipTd: ip[ip.length - 1].md, exTd: ex[ex.length - 1].md,
+                    maxD: dists.length ? Math.max(...dists) : null, avgD: dists.length ? dists.reduce((a, b) => a + b, 0) / dists.length : null };
+            });
+        }
+        const ipdStatus = w => w.r.ok ? (w.over ? 'DLS > max' : (w.viol || []).length ? 'Rules: ' + w.viol.length + ' violation(s)' : 'OK') : (w.r.error || 'failed');   // 2026-11-01: design rules
+        function ipdCompareRender(){
+            const rows = ipdCompareRows(), out = document.getElementById('ipdCmpOut');
+            const th = h => `<th style="padding:0 6px;text-align:left;white-space:nowrap;">${h}</th>`;
+            const pair = (a, b, d) => `<td style="padding:0 6px;white-space:nowrap;">${f(a,d)} <span style="color:var(--wbt-text-dim);">/ ${f(b,d)}</span></td>`;
+            out.innerHTML = `<div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);">
+                <tr>${['iPad well','Status','Existing well','Slot Δ (m)','KOP iPad / exist.','Max DLS to landing','Landing MD','TD MD','Path Δ max (m)','Path Δ avg (m)'].map(th).join('')}</tr>` +
+                rows.map(x => `<tr style="color:${!x.w.r.ok || x.w.over ? '#ff4c4c' : 'inherit'};"><td style="padding:0 6px;">${esc(x.w.name)}</td><td style="padding:0 6px;">${esc(ipdStatus(x.w))}</td>` +
+                    (x.ex ? `<td style="padding:0 6px;">${esc(x.ex.wellName || x.ex.name || '')}</td><td>${f(x.slotD,1)}</td>` + pair(x.ipKop, x.exKop, 1) + pair(x.ipDls, x.exDls, 2) + pair(x.ipLand, x.exLand, 1) + pair(x.ipTd, x.exTd, 1) +
+                        `<td style="padding:0 6px;">${f(x.maxD,1)}</td><td style="padding:0 6px;">${f(x.avgD,1)}</td>` : `<td colspan="8" style="padding:0 6px;">no existing well found</td>`) + '</tr>').join('') +
+                `</table></div><div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Matched by nearest slot (first-station N/E); if several wells share the slot, the one closest to the iPad target. "Path Δ" = 3D distance from each iPad station (surface → landing) to the existing well path, Sub-Sea datum. KOP = first Inc ≥ 1°. Existing DLS = station-to-station dogleg per 30 m.</div>`;
+            return rows;
+        }
+        // ADDED 2026-10-31 (John): Compass-style comments for the export "Stations" sheet.
+        // Design points (same names as John's Compass wells, which the Trajectories accordion also reads):
+        //   SurfaceCasing (back template: surface casing TVD; vertical there, so MD = TVD), KickOff,
+        //   Start/End Steamflood Tang (upper tangent T1), Start/End Tang (lower tangent T2),
+        //   IntermediateCasing (ICP / landing), TD.
+        // Formation tops: names + Sub-Sea taken from the matched existing well (same slot, see Compare) —
+        // the comments of its survey that are not design points (same rule as the 3D formations:
+        // WBT reserved keywords) — and placed where THIS well's path crosses that Sub-Sea
+        // (bisection on min-curvature interpolation, IPlanCore.interpolateSurveyAtMD). Formations are
+        // treated as flat at the matched well's top Sub-Sea (as the 3D formation planes are).
+        const IPD_RESERVED = ['SURFACECASING','KICKOFF','INTERMEDIATECASING','LANDING','STK','START TANG','END TANG','STEAMFLOOD','TD'];
+        function ipdCommentedStations(w, cmp){
+            const pts = ipdStations(w); if(pts.length < 2) return pts;
+            const surv = pts.map(p => ({ md:p.md, incl:p.inc, azim:p.az, tvd:p.tvd, northing:p.n, easting:p.e }));
+            const ss = n(w.s.ss), at = md => { const q = C.interpolateSurveyAtMD(surv, md); return q ? { md:q.md, inc:q.inc, az:q.az, tvd:q.tvd, n:q.n, e:q.e, el:ss - q.tvd, dls:null } : null; };
+            const ev = [];   // {md, comment}
+            const tags = w.r.tags || [];
+            if(w.r.sections){
+                let md = 0; const bounds = w.r.sections.map((sec, i) => { const a = md; md += sec.cl; return { tag: tags[i] || '', a, b: md }; });
+                const first = t => bounds.find(x => x.tag === t);
+                if(ipd.tpl.mode === 'back' && n(ipd.tpl.sc) > 0) ev.push({ md: n(ipd.tpl.sc), comment: 'SurfaceCasing' });
+                const pn = w.r.params && w.r.params.nudge;   // 2026-10-31: AC nudge -> "Nudge" at its KOP, KickOff stays at the main KOP
+                if(pn) ev.push({ md: pn.kop, comment: 'Nudge' });
+                const kop = (!pn && first('kop')) || (w.r.params && w.r.params.kop ? { b: w.r.params.kop } : null); if(kop) ev.push({ md: kop.b, comment: 'KickOff' });
+                const t1 = first('t1'); if(t1){ ev.push({ md: t1.a, comment: 'Start Steamflood Tang' }); ev.push({ md: t1.b, comment: 'End Steamflood Tang' }); }
+                const t2 = first('t2'); if(t2){ ev.push({ md: t2.a, comment: 'Start Tang' }); ev.push({ md: t2.b, comment: 'End Tang' }); }
+                if(w.landMd != null) ev.push({ md: w.landMd, comment: 'IntermediateCasing' });
+                (w.r.latAv || []).forEach(m0 => { ev.push({ md: m0.a, comment: 'Start Lateral Avoidance' }); if(m0.b != null) ev.push({ md: m0.b, comment: 'End Lateral Avoidance' }); });   // 2026-11-01
+            }
+            // formation tops: ONLY the pasted Formation/Subsea table (CHANGED 2026-10-31, John: no table -> no
+            // formation comments; the earlier fallback to the matched existing well's tops was removed).
+            const tops = (ipd.formations || []).filter(f0 => String(f0.name || '').trim()).map(f0 => ({ name: String(f0.name).trim(), ss: n(f0.ss) }));
+            tops.forEach(tp => {
+                const name = tp.name, S = tp.ss;
+                for(let i = 1; i < pts.length; i++){
+                    if(pts[i - 1].el > S && pts[i].el <= S){
+                        let lo = pts[i - 1].md, hi = pts[i].md;
+                        for(let k = 0; k < 40; k++){ const m = (lo + hi) / 2, q = at(m); if(!q) break; if(q.el > S) lo = m; else hi = m; }
+                        ev.push({ md: hi, comment: name }); break;
+                    }
+                }
+            });
+            const out = pts.map(p => Object.assign({}, p));
+            ev.forEach(e => {
+                const hit = out.find(p => Math.abs(p.md - e.md) < 0.005);
+                if(hit){ hit.comment = hit.comment ? hit.comment + '; ' + e.comment : e.comment; return; }
+                const q = at(e.md); if(q){ q.comment = e.comment; out.push(q); }
+            });
+            out.sort((a, b) => a.md - b.md);
+            const last = out[out.length - 1]; last.comment = last.comment ? last.comment + '; TD' : 'TD';
+            return out;
+        }
+        function ipdExportXlsx(){
+            if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
+            const wells = (ipd.preview || []); if(!wells.length) return;
+            const wb = XLSX.utils.book_new();
+            const sum = [['Well','Surface','Target','Status','Error','KOP','Curve A Inc','Curve A Az','DLS 1','DLS 2','Tangents (inc/L)','Tan Az','Landing MD','TD MD','Max DLS','Surface N','Surface E','RKB (SS)','Target N','Target E','Target SS','Target Inc','Target Az','Hold (m)','Delta TVD T2 (m)','Delta TVD T1 (m)','Range limits hit','Design rule violations']]
+                .concat(wells.map(w => { const p = w.r.params || {}, r = v => (v == null || !isFinite(v)) ? '' : +Number(v).toFixed(3);
+                    return [w.name, w.s.name, w.tg.name, ipdStatus(w), w.r.error || '', r(p.kop), r(p.incA), r(p.azA), r(p.dls1), r(p.dls2),
+                        p.tangents ? p.tangents.map(x => +Number(x.inc).toFixed(2) + '/' + x.L + (x.az != null ? '@' + (+Number(x.az).toFixed(1)) : '')).join(', ') : '', r(p.azT), r(w.landMd), r(w.tdMd), r(w.r.maxDls),
+                        r(n(w.s.n)), r(n(w.s.e)), r(n(w.s.ss)), r(n(w.tg.n)), r(n(w.tg.e)), r(n(w.tg.ss)), r(n(w.tg.inc)), r(n(w.tg.az)), r(p.hold), r(p.dTvd), r(p.dTvd1), (w.r.edges || []).join('; '), (w.viol || []).map(v => v.msg).join('; ')]; }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), 'Summary');
+            // CHANGED 2026-10-31 (John): Comments column like his Compass exports — design points + formation tops.
+            const st = [['Well','Status','MD','Inc','Az','TVD','SubSea','N','E','DLS/30m','Comments']];
+            const cmpRows = ipdCompareRows();
+            wells.forEach((w, wi) => ipdCommentedStations(w, cmpRows.find(x => x.w === w)).forEach(p => st.push([w.name, ipdStatus(w), +p.md.toFixed(2), +p.inc.toFixed(3), +p.az.toFixed(3), +p.tvd.toFixed(2), +p.el.toFixed(2), +p.n.toFixed(2), +p.e.toFixed(2), +n(p.dls).toFixed(3), p.comment || ''])));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(st), 'Stations');
+            const rows = ipdCompareRows();
+            const cmp = [['iPad well','Status','Existing well','Slot dist (m)','Dist to target (m)','KOP iPad','KOP existing','Max DLS iPad','Max DLS existing','Landing MD iPad','Landing MD existing','TD MD iPad','TD MD existing','Path dist max (m)','Path dist avg (m)']]
+                .concat(rows.map(x => { const r = v => (v == null || !isFinite(v)) ? '' : +Number(v).toFixed(3);
+                    return [x.w.name, ipdStatus(x.w), x.ex ? (x.ex.wellName || x.ex.name || '') : '', r(x.slotD), r(x.tgtD), r(x.ipKop), r(x.exKop), r(x.ipDls), r(x.exDls), r(x.ipLand), r(x.exLand), r(x.ipTd), r(x.exTd), r(x.maxD), r(x.avgD)]; }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cmp), 'Compare existing');
+            // 2026-11-01: design rules sheet (settings + every violation)
+            const R0 = ipd.rules, rs = [['Design rules'], ['No nudge above (deg)', R0.noNudge.on ? R0.noNudge.incMin : 'off', 'drop tol (deg)', R0.noNudge.tol, 'allowed windows', (R0.noNudge.windows || []).map(w0 => w0.a + '-' + w0.b).join(', ')],
+                ['Max turn (deg)', R0.maxTurn.on ? R0.maxTurn.deg : 'off']].concat(R0.zones.map(z => ['Zone', z.name, 'top SS', z.top, 'base SS', z.base, 'max DLS', z.dlsMax == null ? '' : z.dlsMax, 'Inc min', z.incMin == null ? '' : z.incMin, 'Inc max', z.incMax == null ? '' : z.incMax, 'no drop', z.noDrop ? 'yes' : 'no', z.on === false ? 'OFF' : '']))
+                .concat([[], ['Well', 'Rule', 'MD', 'Violation']]).concat([].concat(...wells.map(w => (w.viol || []).map(v => [w.name, v.rule, +(+v.md).toFixed(1), v.msg]))));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rs), 'Design rules');
+            XLSX.writeFile(wb, (ipd.name || 'pad').replace(/[^\w\- ]+/g, '_') + '_iPad_preview.xlsx');
+        }
+        // ---------- iPad: Tunnel (ADDED 2026-10-31, John) ----------
+        // One tube ("tunnel") per preview well, centred on its trajectory, radius R (default 10 m, user-set),
+        // cross-sections perpendicular to the path. Two tunnels touch / overlap where the centre-to-centre
+        // distance between their trajectories is <= 2R; those parts are drawn red, the rest translucent blue.
+        // Distance = from each tunnel ring centre to the nearest point of every other pad well's path
+        // (3D, Sub-Sea datum, straight segments between 10 m stations). Geometric only — NOT an
+        // uncertainty / SF check (that is the "Pad separation check" below).
+        ipd.tunnels = [];
+        function ipdClearTunnels(){ (ipd.tunnels || []).forEach(m => { api.getGroup().remove(m); m.geometry.dispose(); m.material.dispose(); }); ipd.tunnels = []; }
+        function ipdTunnelBlock(){
+            return `<div class="ipl-h" style="margin-top:10px;">Tunnel (geometric clearance)</div>
+            <div class="ipl-sec" style="display:block;">
+                <span title="Clearance between well centres (2026-10-31, John: (b)). Tunnel radius drawn = half of it.">Min C2C clearance (m)</span> <input type="number" step="0.5" min="0.5" id="ipdTunR" value="${ipd.tunR || 10}" style="width:70px;">
+                <span style="margin-left:10px;">Depth</span> <select id="ipdTunDepth"><option value="icp" ${ipd.tunDepth !== 'full' ? 'selected' : ''}>Surface → ICP / landing</option><option value="full" ${ipd.tunDepth === 'full' ? 'selected' : ''}>Full well</option></select>
+                <span style="margin-left:10px;">From MD (m)</span> <input type="number" step="10" min="0" id="ipdTunFrom" value="${ipd.tunFrom || 0}" style="width:70px;" title="Skip the top of the wells (e.g. the vertical section where slots are close)">
+                <button type="button" class="wbt-btn" id="ipdTunRun" style="margin-left:8px;">&#9711; Tunnel</button>
+                <button type="button" class="wbt-btn" id="ipdTunClr">Clear tunnels</button>
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">One tunnel per well, radius = half the clearance. <span style="color:#ff4c4c;">Red</span> = centre-to-centre distance below the clearance (tunnels overlap). Geometric only — no uncertainty (see the SF check below).</div>
+                <div id="ipdTunOut" style="margin-top:6px;"></div>
+            </div>`;
+        }
+        function ipdRunTunnels(){
+            ipdClearTunnels();
+            // CHANGED 2026-10-31 (John, option b): the input is the min centre-to-centre CLEARANCE; tunnel radius = clearance / 2.
+            const clr = Math.max(0.1, n(document.getElementById('ipdTunR').value)), R = clr / 2, full = document.getElementById('ipdTunDepth').value === 'full', from = Math.max(0, n(document.getElementById('ipdTunFrom').value));
+            ipd.tunR = clr; ipd.tunDepth = full ? 'full' : 'icp'; ipd.tunFrom = from;
+            const wells = (ipd.preview || []).filter(w => w.st && w.st.length > 1).map(w => {
+                const end = full || w.landMd == null ? Infinity : w.landMd + 1e-6;
+                const pts = ipdStations(w).filter(p => p.md >= from - 1e-6 && p.md <= end);
+                return { w, pts, v: pts.map(p => new THREE.Vector3(p.e, p.el, -p.n)) };
+            }).filter(x => x.pts.length > 1);
+            const segDist = (p, pts) => { let b = Infinity, bi = -1; for(let i = 1; i < pts.length; i++){ const a = pts[i-1], c = pts[i];
+                const vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z, wx = p.x - a.x, wy = p.y - a.y, wz = p.z - a.z, L2 = vx*vx + vy*vy + vz*vz;
+                let t = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; t = Math.max(0, Math.min(1, t));
+                const d = Math.hypot(wx - t*vx, wy - t*vy, wz - t*vz); if(d < b){ b = d; bi = i; } } return b; };
+            const red = new THREE.Color(0xff3030), ok = new THREE.Color(0x3aa0ff), report = [];
+            wells.forEach((x, wi) => {
+                const curve = new THREE.CatmullRomCurve3(x.v), segs = Math.max(8, x.v.length * 2), radial = 14;
+                const geo = new THREE.TubeGeometry(curve, segs, R, radial, false);
+                const total = x.pts[x.pts.length - 1].md - x.pts[0].md, cols = [], ranges = {};
+                let minD = Infinity, minWith = '';
+                for(let i = 0; i <= segs; i++){
+                    const c = curve.getPointAt(i / segs), md = x.pts[0].md + total * i / segs;
+                    let hit = false;
+                    wells.forEach((y, wj) => { if(wj === wi) return; const d = segDist(c, y.v);
+                        if(d < minD){ minD = d; minWith = y.w.name; }
+                        if(d < 2 * R - 1e-6){ hit = true; const r0 = ranges[y.w.name] = ranges[y.w.name] || { a: md, b: md, min: d }; r0.a = Math.min(r0.a, md); r0.b = Math.max(r0.b, md); r0.min = Math.min(r0.min, d); } });
+                    const col = hit ? red : ok;
+                    for(let j = 0; j <= radial; j++) cols.push(col.r, col.g, col.b);
+                }
+                geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+                const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+                api.getGroup().add(mesh); ipd.tunnels.push(mesh);
+                report.push({ name: x.w.name, minD, minWith, ranges });
+            });
+            const nHit = report.filter(r => Object.keys(r.ranges).length).length;
+            document.getElementById('ipdTunOut').innerHTML = `<div style="margin-bottom:4px;">${wells.length} tunnel(s), clearance ${f(clr,1)} m (radius ${f(R,1)} m) — <span style="color:${nHit ? '#ff4c4c' : '#00e676'};">${nHit} well(s) with overlaps</span></div>
+                <div style="max-height:260px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Min C2C (m)</th><th>Closest well</th><th>Overlaps (with: MD from–to, min C2C)</th></tr>` +
+                report.map(r => `<tr style="color:${Object.keys(r.ranges).length ? '#ff4c4c' : 'inherit'};"><td>${esc(r.name)}</td><td>${f(r.minD,1)}</td><td>${esc(r.minWith)}</td><td style="white-space:normal;">${Object.keys(r.ranges).map(k => esc(k) + ': ' + f(r.ranges[k].a,0) + '–' + f(r.ranges[k].b,0) + ' (' + f(r.ranges[k].min,1) + ')').join('<br>') || '—'}</td></tr>`).join('') + '</table></div>';
+        }
+        // ---------- iPad: Avoidance (ADDED 2026-10-31, John) ----------
+        // Re-designs the preview wells so their tunnels never touch (IPlanCore.padAvoid — see its comment):
+        // same Tunnel radius / From MD / Depth as the Tunnel section; levers = other designs inside the
+        // Design freedoms ranges, KOP stagger (free, step / max here), ICP tolerance (Design freedoms).
+        // Only the new pad wells (offsets later). If not everything clears, the best combination is shown.
+        function ipdAvoidBlock(){
+            return `<div class="ipl-h" style="margin-top:10px;">Avoidance (tunnels never touch)</div>
+            <div class="ipl-sec" style="display:block;">
+                <span>KOP stagger step (m)</span> <input type="number" step="5" min="5" id="ipdAvKopStep" value="${ipd.avKopStep || 20}" style="width:60px;">
+                <span style="margin-left:8px;">max (m)</span> <input type="number" step="10" min="0" id="ipdAvKopMax" value="${ipd.avKopMax != null ? ipd.avKopMax : 300}" style="width:60px;">
+                <span style="margin-left:8px;">Time limit (s)</span> <input type="number" step="10" min="10" id="ipdAvTime" value="${ipd.avTime || 120}" style="width:60px;">
+                <!-- ADDED 2026-10-31 (John): "Safest" goal = after removing touching pairs, keep raising the pad-wide min C2C (safest first, then shortest MD). See padAvoid o.safest in iplanCore.js. -->
+                <span style="margin-left:8px;">Goal</span> <select id="ipdAvGoal"><option value="clear"${ipd.avGoal !== 'safest' ? ' selected' : ''}>No touching (clearance)</option><option value="safest"${ipd.avGoal === 'safest' ? ' selected' : ''}>Safest (maximize min C2C)</option></select>
+                <button type="button" class="wbt-btn" id="ipdAvRun" style="margin-left:8px;">&#10227; Run avoidance</button>
+                <button type="button" class="wbt-btn" id="ipdAvRevert" ${ipd.previewOrig ? '' : 'disabled'}>Revert to original</button>
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Uses the Tunnel radius, Depth and From MD above. Every new design stays inside the Design freedoms ranges and lands on the ICP (or inside its tolerance box). Levers, cheapest first: another design in the ranges → extra KOP stagger → AC nudge (Design freedoms) → ICP tolerance. "Back-projected" template only. Note: at From MD the wells are still as close as their slots — start the tunnels below where the wells can separate.</div>
+                <div id="ipdAvOut" style="margin-top:6px;">${ipd.avoidHtml || ''}</div>
+            </div>`;
+        }
+        // ---------- iPad: Lateral tunnel + avoidance vs OFFSET wells (ADDED 2026-11-01, John) ----------
+        // Lateral clearance (default 15 m, build section uses the Tunnel clearance, default 10 m). Tunnel only on the
+        // iPad laterals (ICP -> TD), radius = clearance; red where an OFFSET well's centre line is inside it (no
+        // tunnels for offsets). Avoidance = IPlanCore.padLateralAvoid (John's Compass TF-DLS-CL manoeuvre: out,
+        // back to the original line and azimuth; start point found automatically; see its comment).
+        // SAGD tick: an offset running alongside the iPad lateral (>= 40 % of its lateral stations within the
+        // lateral clearance) is taken as its SAGD pair: not avoided, flagged only when closer than the SAGD
+        // clearance (default 5 m). Only offset wells (Standard colour "offset", red), per John.
+        function ipdLatBlock(){
+            const L = ipd.lat || (ipd.lat = { clr: 15, dlsMax: 5, prefer: 'backoff', sagd: false, sagdClr: 5 });
+            return `<div class="ipl-h" style="margin-top:10px;">Lateral tunnel &amp; avoidance (offset wells)</div>
+            <div class="ipl-sec" style="display:block;">
+                <span>Lateral C2C clearance (m)</span> <input type="number" step="0.5" min="0.5" id="ipdLatClr" value="${L.clr}" style="width:60px;">
+                <span style="margin-left:8px;">Max lateral DLS (°/30m)</span> <input type="number" step="0.5" min="0.5" id="ipdLatDls" value="${L.dlsMax}" style="width:55px;">
+                <span style="margin-left:8px;">Prefer</span> <select id="ipdLatPrefer"><option value="backoff" ${L.prefer !== 'dls' ? 'selected' : ''}>Shortest back-off</option><option value="dls" ${L.prefer === 'dls' ? 'selected' : ''}>Lowest DLS</option></select>
+                <label style="margin-left:8px;"><input type="checkbox" id="ipdLatSagd" ${L.sagd ? 'checked' : ''}> SAGD pairs</label>
+                <span>clearance (m)</span> <input type="number" step="0.5" min="0" id="ipdLatSagdClr" value="${L.sagdClr}" style="width:50px;">
+                <div style="margin-top:4px;">
+                    <button type="button" class="wbt-btn" id="ipdLatTun">&#9711; Lateral tunnel</button>
+                    <button type="button" class="wbt-btn" id="ipdLatRun">&#10227; Avoid in lateral</button>
+                    <button type="button" class="wbt-btn" id="ipdLatRevert" ${ipd.latOrig ? '' : 'disabled'}>Revert lateral</button>
+                </div>
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Manoeuvre (Compass TF-DLS-CL): TF ∓90 / DLS / CL a → TF ±90 / 2a (or a, hold, a) → TF ∓90 / a — out and back to the original line and azimuth, then on to the TD. Start point, side, DLS (≤ max) and a are found automatically. Sideways only: an offset crossing at the same depth cannot be passed sideways and is listed as unresolved. Run after the build-section Avoidance (a new Preview / Avoidance rebuilds the laterals).</div>
+                <div id="ipdLatOut" style="margin-top:6px;">${ipd.latHtml || ''}</div>
+            </div>`;
+        }
+        function ipdLatRead(){
+            const g = id => document.getElementById(id), L = ipd.lat;
+            L.clr = Math.max(0.5, n(g('ipdLatClr').value)); L.dlsMax = Math.max(0.5, n(g('ipdLatDls').value)); L.prefer = g('ipdLatPrefer').value;
+            L.sagd = g('ipdLatSagd').checked; L.sagdClr = Math.max(0, n(g('ipdLatSagdClr').value)); return L;
+        }
+        function ipdOffsetWells(){
+            const A = window.acpPadApi; if(!A) throw new Error('Anti-collision module not loaded on this page.');
+            return A.baseWells().filter(x => x.cat === 'offset').map(x => ({ name: x.well.wellName || x.well.name || 'offset',
+                pts: (x.well.survey || []).map(p => ({ md: n(p.md), n: n(p.northing), e: n(p.easting), el: n(p.subSea) })).filter(p => isFinite(p.n) && isFinite(p.e) && isFinite(p.el)).sort((a, b) => a.md - b.md) })).filter(x => x.pts.length > 1);
+        }
+        const ipdSegD = (p, pts) => { let b = Infinity; for(let i = 1; i < pts.length; i++){ const a = pts[i-1], c = pts[i];
+            const vx = c.n - a.n, vy = c.e - a.e, vz = c.el - a.el, wx = p.n - a.n, wy = p.e - a.e, wz = p.el - a.el, L2 = vx*vx + vy*vy + vz*vz;
+            let t = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; t = Math.max(0, Math.min(1, t)); const d = Math.hypot(wx - t*vx, wy - t*vy, wz - t*vz); if(d < b) b = d; } return b; };
+        function ipdLatPts(w){ return w.landMd == null ? [] : ipdStations(w).filter(p => p.md >= w.landMd - 1e-6); }
+        // offsets near this lateral (bounding box prefilter) + SAGD twin flag
+        function ipdLatOffsets(w, offs, L){
+            const lp = ipdLatPts(w); if(lp.length < 2) return [];
+            const pad = L.clr + 100, bb = lp.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e)], [Infinity, -Infinity, Infinity, -Infinity]);
+            return offs.map(o => ({ name: o.name, pts: o.pts.filter(p => p.n > bb[0] - pad && p.n < bb[1] + pad && p.e > bb[2] - pad && p.e < bb[3] + pad) })).filter(o => o.pts.length > 1)
+                .map(o => { const near = lp.filter(p => ipdSegD(p, o.pts) < L.clr).length; return Object.assign(o, { twin: L.sagd && near >= 0.4 * lp.length }); });
+        }
+        function ipdLatTunnel(){
+            const L = ipdLatRead(), offs = ipdOffsetWells(), wells = (ipd.preview || []).filter(w => w.st && w.st.length > 1 && w.landMd != null);
+            if(!wells.length) throw new Error('Run the Preview first.');
+            ipdClearTunnels();
+            const red = new THREE.Color(0xff3030), ok = new THREE.Color(0x3aa0ff), orange = new THREE.Color(0xff9f1c), rep = [];
+            wells.forEach(w => {
+                const lp = ipdLatPts(w); if(lp.length < 2) return;
+                const near = ipdLatOffsets(w, offs, L), v = lp.map(p => new THREE.Vector3(p.e, p.el, -p.n));
+                const curve = new THREE.CatmullRomCurve3(v), segs = Math.max(8, v.length), radial = 14, total = lp[lp.length - 1].md - lp[0].md;
+                const geo = new THREE.TubeGeometry(curve, segs, L.clr, radial, false), cols = [], hits = {};
+                let minD = Infinity, minWith = '';
+                for(let i = 0; i <= segs; i++){
+                    const c = curve.getPointAt(i / segs), md = lp[0].md + total * i / segs, P = { n: -c.z, e: c.x, el: c.y };
+                    let col = ok;
+                    near.forEach(o => { const d = ipdSegD(P, o.pts), lim = o.twin ? L.sagdClr : L.clr;
+                        if(!o.twin && d < minD){ minD = d; minWith = o.name; }
+                        if(d < lim - 1e-6){ col = o.twin ? (col === red ? red : orange) : red; const h = hits[o.name] = hits[o.name] || { a: md, b: md, min: d, twin: o.twin }; h.a = Math.min(h.a, md); h.b = Math.max(h.b, md); h.min = Math.min(h.min, d); } });
+                    for(let j = 0; j <= radial; j++) cols.push(col.r, col.g, col.b);
+                }
+                geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+                const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
+                api.getGroup().add(mesh); ipd.tunnels.push(mesh);
+                rep.push({ w, minD, minWith, hits, twins: near.filter(o => o.twin).map(o => o.name) });
+            });
+            const nHit = rep.filter(r => Object.values(r.hits).some(h => !h.twin)).length;
+            document.getElementById('ipdLatOut').innerHTML = `<div style="margin-bottom:4px;">${rep.length} lateral tunnel(s), radius = clearance ${f(L.clr,1)} m vs ${offs.length} offset well(s) — <span style="color:${nHit ? '#ff4c4c' : '#00e676'};">${nHit} lateral(s) with an offset centre inside</span>${L.sagd ? ` · SAGD pairs checked at ${f(L.sagdClr,1)} m (orange)` : ''}</div>
+                <div style="max-height:260px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Min C2C to offsets (m)</th><th>Closest</th><th>Inside tunnel (offset: MD from–to, min C2C)</th><th>SAGD pair</th></tr>` +
+                rep.map(r => { const bad = Object.values(r.hits).some(h => !h.twin); return `<tr style="color:${bad ? '#ff4c4c' : 'inherit'};"><td>${esc(r.w.name)}</td><td>${isFinite(r.minD) ? f(r.minD,1) : '—'}</td><td>${esc(r.minWith || '—')}</td><td style="white-space:normal;">${Object.keys(r.hits).map(k => (r.hits[k].twin ? '<span style="color:#ff9f1c;">SAGD </span>' : '') + esc(k) + ': ' + f(r.hits[k].a,0) + '–' + f(r.hits[k].b,0) + ' (' + f(r.hits[k].min,1) + ')').join('<br>') || '—'}</td><td>${esc(r.twins.join(', ') || '—')}</td></tr>`; }).join('') + '</table></div>';
+        }
+        function ipdLatAvoid(){
+            const L = ipdLatRead(), offs = ipdOffsetWells(), base = ipd.latOrig || ipd.preview || [];
+            if(!base.length) throw new Error('Run the Preview first.');
+            const out = [], rows = [];
+            base.forEach(w => {
+                if(!w.r || !w.r.sections || w.landMd == null || !w.st.length){ out.push(w); return; }
+                const tags = w.r.tags || w.r.sections.map((x, k) => k === w.r.sections.length - 1 && ipdLatOf(w.i, w.land) > 1e-6 ? 'lateral' : '');
+                const pre = w.r.sections.filter((x, k) => tags[k] !== 'lateral'), preTags = tags.filter(t0 => t0 !== 'lateral');
+                const latL = w.r.sections.filter((x, k) => tags[k] === 'lateral').reduce((a, x) => a + x.cl, 0);
+                const icpSt = C.computeStations({ md:0, tvd:0, n:n(w.s.n), e:n(w.s.e), inc:0, az:0 }, pre, STEP).stations.slice(-1)[0];
+                if(!(latL > 1) || !icpSt){ out.push(w); return; }
+                const near = ipdLatOffsets(w, offs, L);
+                const res = C.padLateralAvoid({ icp: { n: icpSt.n, e: icpSt.e, el: n(w.s.ss) - icpSt.tvd, inc: icpSt.inc, az: icpSt.az }, L: latL, offsets: near, clr: L.clr, dlsMax: L.dlsMax, prefer: L.prefer, sagdClr: L.sagdClr });
+                if(!res.maneuvers.length){ out.push(w); rows.push({ w, res }); return; }
+                // MDs of the manoeuvres (Start / End Lateral Avoidance comments)
+                let md = icpSt.md; const marks = [];
+                res.sections.forEach(x => { if(x._lat === 'start') marks.push({ a: md }); md += x.cl; if(x._lat === 'end') marks[marks.length - 1].b = md; });
+                const secs = res.sections.map(x => { const y = Object.assign({}, x); delete y._lat; return y; });
+                const r2 = Object.assign({}, w.r, { sections: pre.concat(secs), tags: preTags.concat(secs.map(() => 'lateral')), latAv: marks.map((m0, k) => Object.assign({}, res.maneuvers[k], m0)),
+                    maxDls: Math.max(n(w.r.maxDls), ...res.maneuvers.map(m0 => m0.dls)) });
+                const nw = ipdMakeWell(w.i, w.s, w.tg, w.land, r2); nw.avoid = w.avoid; out.push(nw); rows.push({ w: nw, res, marks });
+            });
+            ipd.latOrig = base;
+            const nM = rows.reduce((a, r) => a + r.res.maneuvers.length, 0), nU = rows.reduce((a, r) => a + r.res.unresolved.length, 0);
+            ipd.latHtml = `<div style="margin-bottom:4px;">${nM} manoeuvre(s) on ${rows.filter(r => r.res.maneuvers.length).length} lateral(s) · clearance ${f(L.clr,1)} m · max DLS ${f(L.dlsMax,1)}${nU ? ` · <b style="color:#ff4c4c;">${nU} unresolved</b>` : ''}</div>
+                <div style="max-height:260px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Avoids</th><th>Side</th><th>Start MD</th><th>Back-off (m)</th><th>TF / DLS / CL</th><th>Peak shift (m)</th><th>End MD</th><th>Min C2C after (m)</th><th>Unresolved / SAGD</th></tr>` +
+                rows.filter(r => r.res.maneuvers.length || r.res.unresolved.length || r.res.twins.length).map(r => {
+                    const ms = r.res.maneuvers, tf = m0 => m0.side === 'right' ? 90 : -90, seq = m0 => m0.P > 1e-6 ? `${tf(m0)}/${f(m0.dls,1)}/${m0.a} → ${-tf(m0)}/${f(m0.dls,1)}/${m0.a} → hold ${f(m0.P,0)} → ${-tf(m0)}/${f(m0.dls,1)}/${m0.a} → ${tf(m0)}/${f(m0.dls,1)}/${m0.a}` : `${tf(m0)}/${f(m0.dls,1)}/${m0.a} → ${-tf(m0)}/${f(m0.dls,1)}/${2 * m0.a} → ${tf(m0)}/${f(m0.dls,1)}/${m0.a}`;
+                    const extra = r.res.unresolved.map(u0 => `<span style="color:#ff4c4c;" title="${esc(u0.why || '')}">${esc(u0.with)} (C2C ${f(u0.d,1)}) — ${esc(u0.why || 'unresolved')}</span>`).concat(r.res.twins.map(t0 => `<span style="color:${t0.ok ? '#00e676' : '#ff9f1c'};">SAGD ${esc(t0.name)} ${f(t0.min,1)} m</span>`)).join('<br>') || '—';
+                    if(!ms.length) return `<tr><td>${esc(r.w.name)}</td><td colspan="8">—</td><td>${extra}</td></tr>`;
+                    return ms.map((m0, k) => `<tr><td>${k ? '' : esc(r.w.name)}</td><td>${esc(m0.with)}</td><td>${m0.side}</td><td>${f(r.marks[k].a,0)}</td><td>${f(m0.backoff,0)}</td><td>${seq(m0)}</td><td>${f(m0.peak,1)}</td><td>${f(r.marks[k].b,0)}</td><td>${k ? '' : (isFinite(r.res.minC2C) ? f(r.res.minC2C,1) : '—')}</td><td>${k ? '' : extra}</td></tr>`).join('');
+                }).join('') + '</table></div>';
+            ipdShowPreview(out, out.length);
+            try { ipdLatTunnel(); } catch(e){}
+        }
+        function ipdAvoidRevert(){
+            if(!ipd.previewOrig) return;
+            const w = ipd.previewOrig; ipd.previewOrig = null; ipd.avoidHtml = '';
+            ipdShowPreview(w, w.length);
+        }
+        async function ipdRunAvoid(){
+            const outEl = () => document.getElementById('ipdAvOut');
+            if(ipd.tpl.mode !== 'back'){ outEl().innerHTML = '<span style="color:#ff4c4c;">Avoidance needs the "Back-projected from ICP" template — run the Preview with it first.</span>'; return; }
+            const base = ipd.previewOrig || ipd.preview || [];
+            if(base.length < 2){ outEl().innerHTML = '<span style="color:#ff4c4c;">Run the Preview first (2 or more wells).</span>'; return; }
+            const clr = Math.max(0.1, n(document.getElementById('ipdTunR').value)), R = clr / 2, full = document.getElementById('ipdTunDepth').value === 'full', from = Math.max(0, n(document.getElementById('ipdTunFrom').value));
+            ipd.tunR = clr; ipd.tunDepth = full ? 'full' : 'icp'; ipd.tunFrom = from;
+            ipd.avKopStep = Math.max(5, n(document.getElementById('ipdAvKopStep').value)); ipd.avKopMax = Math.max(0, n(document.getElementById('ipdAvKopMax').value)); ipd.avTime = Math.max(10, n(document.getElementById('ipdAvTime').value)); ipd.avGoal = document.getElementById('ipdAvGoal').value;
+            const t = ipd.tpl, btn = document.getElementById('ipdAvRun'); btn.disabled = true;
+            const input = base.map((w, i) => ({ surf: { n:n(w.s.n), e:n(w.s.e) }, ss: n(w.s.ss), land: Object.assign({}, w.land),
+                tpl: { mode:'back', kop: (w.r.params && w.r.params.kop > 0) ? w.r.params.kop : ipdKopOf(w.i), lateral: ipdLatOf(w.i, w.land), back: Object.assign({}, t.back, (w.r.edges || []).some(e => /T1 raised/.test(e)) && w.r.params ? { t1Min: w.r.params.incT, t1Max: w.r.params.incT } : {}), rules: ipdRulesForSolver(), kopMin: n(t.sc) + 20, rkb: n(w.s.ss), _noKopRetry: true } }));   // 2026-11-01: keep a T1 the rules raised for this well   // 2026-11-01: start from the preview's KOP (already raised by the rules if needed); Avoidance's own KOP lever only adds depth, so no KOP retry inside it (speed)   // 2026-11-01: lateral to TD; design rules   // 2026-11-01: lateral to TD
+            let res;
+            try {
+                res = await C.padAvoid(input, { R, fromMd: from, full, nudge: t.back.nudgeOn ? { kop: n(t.back.nudgeKop), dls: n(t.back.nudgeDls), incMax: n(t.back.nudgeIncMax) } : null, kopStep: ipd.avKopStep, kopMax: ipd.avKopMax, tolAlong: n(t.back.icpAlong), tolAcross: n(t.back.icpAcross), timeMs: ipd.avTime * 1000, safest: ipd.avGoal === 'safest' },
+                    async msg => { const el = outEl(); if(el) el.innerHTML = '<span style="color:var(--wbt-text-dim);">' + esc(msg) + '…</span>'; await new Promise(r => setTimeout(r, 0)); });
+            } finally { btn.disabled = false; }
+            const orig = base, wells = orig.map((w, i) => {
+                const c = res.wells[i]; if(!c) return w;
+                const tg = Object.assign({}, w.tg, { n: +c.land.n.toFixed(3), e: +c.land.e.toFixed(3) });
+                const nw = ipdMakeWell(w.i, w.s, tg, c.land, c.r); nw.avoid = c; return nw;
+            });
+            const rows = wells.map((w, i) => { const o0 = orig[i], c = w.avoid, p = (w.r.params || {}), q = (o0.r.params || {});
+                const ch = [];
+                if(c){ if(c.kopAdd) ch.push('KOP +' + c.kopAdd + ' m'); if(c.nudge) ch.push('AC nudge ' + f(c.nudge.inc,1) + '° @' + f(c.nudge.az,0) + '° from ' + f(c.nudge.kop,0) + ' m'); if(c.shift[0] || c.shift[1]) ch.push('ICP ' + (c.shift[0] ? (c.shift[0] > 0 ? '+' : '') + c.shift[0] + ' along ' : '') + (c.shift[1] ? (c.shift[1] > 0 ? '+' : '') + c.shift[1] + ' across' : ''));
+                    if(Math.abs((p.azT || 0) - (q.azT || 0)) > 0.5) ch.push('T1 Az ' + f(q.azT,1) + '→' + f(p.azT,1) + '°');
+                    if(p.incT !== q.incT) ch.push('T1 Inc ' + f(q.incT,1) + '→' + f(p.incT,1) + '°');
+                    if(p.tangents && q.tangents && p.tangents[1].inc !== q.tangents[1].inc) ch.push('T2 Inc ' + f(q.tangents[1].inc,1) + '→' + f(p.tangents[1].inc,1) + '°');
+                    if(p.dls1 !== q.dls1) ch.push('DLS ' + f(q.dls1,1) + '→' + f(p.dls1,1)); if(p.dls2 !== q.dls2) ch.push('final DLS ' + f(q.dls2,1) + '→' + f(p.dls2,1)); }
+                const touching = res.pairs.filter(x => x.i === i || x.j === i).map(x => base[x.i === i ? x.j : x.i].name.split(' ').pop() + ' (' + f(x.d,1) + ')');
+                return `<tr style="color:${touching.length ? '#ff4c4c' : 'inherit'};"><td>${esc(w.name)}</td><td style="white-space:normal;">${c ? esc(ch.join('; ') || 'no change') : '<span style="color:#ff4c4c;">no valid design with these levers — kept the original</span>'}</td><td>${f(w.landMd,0)}</td><td>${w.landMd != null && o0.landMd != null ? (w.landMd - o0.landMd >= 0 ? '+' : '') + f(w.landMd - o0.landMd,0) : '—'}</td><td>${c ? f(c.minC2C,1) : '—'}</td><td>${esc(touching.join(', ') || '—')}</td></tr>`; }).join('');
+            ipd.previewOrig = orig;
+            ipd.latOrig = null; ipd.latHtml = '';   // 2026-11-01: build-section avoidance rebuilds the laterals
+            ipd.avoidHtml = `<div style="margin-bottom:4px;">Touching pairs: <b>${res.start.pairs}</b> → <b style="color:${res.end.pairs ? '#ff4c4c' : '#00e676'};">${res.end.pairs}</b>${res.end.pairs ? ' (best combination found — widen the ranges / ICP tolerance, lower the radius or start the tunnels deeper)' : ' — all tunnels clear'} · clearance ${f(clr,1)} m from MD ${f(from,0)} · ${f(res.ms / 1000,1)} s${res.minBefore != null ? ` · Safest: pad min C2C <b>${isFinite(res.minBefore) ? f(res.minBefore,1) : '&gt;' + f(6*R,0)}</b> → <b style="color:#00e676;">${isFinite(res.minAfter) ? f(res.minAfter,1) : '&gt;' + f(6*R,0)}</b> m (${res.safeMoves} move(s))` : ''}</div>
+                <div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Changes vs original</th><th>Landing MD</th><th>Δ MD</th><th>Min C2C (m)</th><th>Still touching (C2C)</th></tr>${rows}</table></div>`;
+            ipdShowPreview(wells, wells.length);
+            try { ipdRunTunnels(); } catch(e){}
+        }
         // ---------- iPad phase 2: pad separation check (ADDED 2026-10-12) ----------
         // Min SF per pair via window.acpPadApi (the Anti-collision module's own SF
         // code — see its comment). New wells = this preview; each is checked from
@@ -6520,7 +7378,38 @@ body.light-mode #statusTextbox {
                 <span id="ipdSepProg" style="margin-left:8px;font-size:11px;color:var(--wbt-text-dim);"></span>
                 <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Same SF as the Anti-collision Plots (ISCWSA, per-well toolcode, Confidence K from that panel). New wells use the reference planned well's toolcode and location for magnetics.</div>
                 <div id="ipdSepOut" style="margin-top:6px;"></div>
+            </div>
+            <!-- ADDED 2026-11-01 (John): iPad preview score cards = same cards as the Score Cards module, marked WORK IN PROGRESS -->
+            <div class="ipl-h" style="margin-top:10px;">Preview score cards (work in progress)</div>
+            <div class="ipl-sec" style="display:block;">
+                <button type="button" class="wbt-btn" id="ipdCardsRun">&#9776; Generate score cards</button>
+                <button type="button" class="wbt-btn wbt-btn-excel" id="ipdCardsXls" style="display:none;">Download (Excel)</button>
+                <span style="font-size:10px;color:var(--wbt-text-dim);margin-left:6px;">Same cards as Score Cards, from the current preview wells and their export comments. Min SF row comes from the last Pad separation check. Nothing is saved to the job.</span>
+                <div class="wbt-pad-summary" id="ipdCardsSummary" style="margin-top:6px;"></div>
+                <div class="wbt-dash-grid" id="ipdCardsGrid"></div>
             </div>`;
+        }
+        // Score cards for the iPad preview wells (ADDED 2026-11-01). Survey rows built from ipdCommentedStations
+        // (same comments as the Excel export) in the field names the Score Cards code reads. Inserted comment
+        // points have no DLS of their own -> they take the DLS of the next station (same interval).
+        function ipdRunCards(){
+            const wells = ipd.preview || [], grid = document.getElementById('ipdCardsGrid');
+            if(!wells.length){ grid.innerHTML = '<span style="color:#ff4c4c;">Run the Preview first.</span>'; return; }
+            if(typeof window.wbtRenderDashboard !== 'function'){ grid.innerHTML = '<span style="color:#ff4c4c;">Score Cards module not loaded on this page.</span>'; return; }
+            const pal = [0xffd060, 0x00e5ff, 0xff9800, 0x76ff03, 0xe040fb, 0x40c4ff, 0xff4081, 0xb2ff59];
+            const list = wells.filter(w => w.st && w.st.length > 1).map((w, i) => {
+                const pts = ipdCommentedStations(w);
+                const survey = pts.map((p, k) => { let d = p.dls; for(let j = k + 1; (d == null || !isFinite(d)) && j < pts.length; j++) d = pts[j].dls;
+                    return { md:p.md, incl:p.inc, azim:p.az, tvd:p.tvd, northing:p.n, easting:p.e, dogleg: (d != null && isFinite(d)) ? d : 0, comments: p.comment || '' }; });
+                return { name: w.name, survey, color: pal[i % pal.length] };
+            });
+            const sep = {}; (ipd.sepSumm || []).forEach(x => { if(x && x.a) sep[x.a.label] = x; });
+            const red = n((document.getElementById('ipdSepRed') || {}).value) || 1, orange = n((document.getElementById('ipdSepOrange') || {}).value) || 1.25;
+            window.wbtRenderDashboard(list, { containerId:'ipdCardsGrid', summaryId:'ipdCardsSummary', exportBtnId:'ipdCardsXls', noSave:true, wip:true,
+                extraRows: name => { const x = Object.keys(sep).find(k => k === name || k.endsWith(' ' + name) || k.endsWith(name)); const s0 = x ? sep[x] : null;
+                    if(!s0 || !s0.b) return [['Min SF (iPad AC)', ipd.sepSumm ? '—' : 'run Pad separation check']];
+                    return [['Min SF (iPad AC)', f(s0.b.sf, 2) + ' vs ' + s0.other + ' (C2C ' + f(s0.b.c2c, 1) + ' m @ MD ' + f(s0.b.refMd, 0) + ')', s0.b.sf < red ? '#ff4c4c' : s0.b.sf < orange ? '#ff9f1c' : '#4caf50']]; } });
+            document.getElementById('ipdCardsXls').style.display = '';
         }
         async function ipdRunSeparation(){
             const A = window.acpPadApi, out = document.getElementById('ipdSepOut'), prog = document.getElementById('ipdSepProg');
@@ -6573,6 +7462,7 @@ body.light-mode #statusTextbox {
                 res[i].forEach((r, j) => { if(r && (!b || r.sf < b.sf)){ b = r; bj = j; } });
                 return { a, b, other: bj >= 0 ? cols[bj].label : '—' };
             });
+            ipd.sepSumm = summ;   // 2026-11-01: Min SF row on the iPad preview score cards
             const nRed = summ.filter(x => x.b && x.b.sf < red).length, nOr = summ.filter(x => x.b && x.b.sf >= red && x.b.sf < orange).length;
             let html = `<div style="margin-bottom:4px;">${nRed ? `<b style="color:#ff4c4c;">${nRed} well(s) below SF ${red}</b> · ` : ''}${nOr ? `<b style="color:#ff9f1c;">${nOr} well(s) below SF ${orange}</b> · ` : ''}${(!nRed && !nOr) ? '<b style="color:#00e676;">All new wells ≥ SF ' + orange + '</b>' : ''}</div>`;
             html += `<table style="font-size:11px;font-family:var(--wbt-mono);"><tr>${['Well','Min SF','Against','C2C (m)','at MD','offset MD'].map(h => `<th style="padding:0 8px 0 0;text-align:left;">${h}</th>`).join('')}</tr>` +
@@ -9726,6 +10616,17 @@ body.light-mode #statusTextbox {
             prof.forEach(function(p){ if(p.sf != null && isFinite(p.sf) && (!best || p.sf < best.sf)) best = p; });
             if(!best) prof.forEach(function(p){ if(!best || p.c2c < best.c2c) best = p; });
             return best ? { sf: best.sf, c2c: best.c2c, refMd: best.md, offMd: best.offMd, real: !!(refCov && offCov) } : null;
+        },
+        // ADDED 2026-11-01 (John: profile panel "Separation vs MD" tab): the whole C2C / SF profile of refWell
+        // (each of its stations) against offWell — same computeC2CProfile / ISCWSA covariance / K as pairMinSF.
+        pairProfile: function(refWell, offWell){
+            var kInput = document.getElementById('acpKSF');
+            var kVal = kInput ? parseFloat(kInput.value) : NaN;
+            K_SF = (!isNaN(kVal) && kVal > 0) ? kVal : 2;
+            var refPts = wellPoints(refWell), offPts = wellPoints(offWell);
+            if(refPts.length < 1 || offPts.length < 2) return null;
+            var refCov = computeWellCov(refWell, wellToolcode(refWell)), offCov = computeWellCov(offWell, wellToolcode(offWell));
+            return { real: !!(refCov && offCov), prof: computeC2CProfile(refPts, offPts, refCov, offCov).map(function(p){ return { md: p.md, c2c: p.c2c, sf: p.sf, offMd: p.offMd }; }) };
         },
         // drop cached covariance/magnetics for temporary preview wells
         forget: function(prefix){

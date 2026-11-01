@@ -1223,8 +1223,590 @@ function padSolveTurn(surf, land, tpl){
            error: best ? null : 'Landing not reachable with this KOP / tangents (closest miss ' + pick.m.toFixed(2) + ' m) — try a shallower KOP or shorter tangents' };
 }
 
+/* ============================================================
+   iPad template "Back-projected from ICP" (ADDED 2026-10-31, John)
+   WHY: validation against John's hand-designed pad 163 (P3-2316, 25 wells)
+   showed the "turn early" template has no free length, so far step-outs
+   (W20-W25) could not land (miss 6-147 m). John designs in Compass BACKWARDS
+   from the ICP; this template reproduces his procedure:
+     vertical to KOP (surface casing + 20 m)
+     -> "optimum align": curve (from vertical) - HOLD (free length) - curve, one DLS
+     -> tangent 1 (Inc range, length >= min, azimuth FREE)
+     -> curve (build + turn) -> tangent 2 (Inc range, length >= min, ON lateral az)
+     -> final curve (own DLS range) to the ICP attitude (landing Inc / lateral Az).
+   Tangents 1/2 and the curves between them are back-projected from the ICP
+   (minimum-curvature arcs, Eqs. 8.33-8.37, run in reverse: start = end - displacement).
+   The optimum align is solved forward (3 unknowns: curve Inc, curve Az, hold
+   length; 3 equations: N, E, TVD of the top of tangent 1) by damped Gauss-Newton.
+   Ranges (min-max) are the "design freedoms"; the free values are searched on a
+   grid (Inc ranges at min/mid/max, DLS every 0.5 deg/30 m, tangent-1 azimuth
+   every 5 deg then refined to 0.5 deg) and the result is picked by tpl.objective:
+     'short'   = shortest MD to the ICP (then lowest DLS)
+     'smooth'  = lowest max DLS (then shortest MD)
+     'typical' = closest to the middle of every range (then shortest MD)
+   Tangent lengths use their minimum (longer tangents only lengthen the well).
+   Delta TVD (ICP TVD - TVD at the bottom of tangent 2) must fall in its range.
+   Prototype result on pad 163 (John's KOPs, DLS 7-9, final 5, T1 70-75, T2 80-85,
+   'short'): all 25 wells land exactly (W20-W25 included); average distance to his
+   hand path 5-26 m (far wells 10-20 m, was 46-131 m with "turn early").
+   ============================================================ */
+function padBackChain(icp, lat, landInc, p){
+  const back = (P, a0, a1, cl) => { if (!(cl > 0)) return Object.assign({}, P);
+    const m = minimumCurvature(a0.inc, a0.az, a1.inc, a1.az, cl); return { n:P.n - m.dN, e:P.e - m.dE, tvd:P.tvd - m.dTVD }; };
+  const aI = { inc:landInc, az:lat }, aT2 = { inc:p.t2inc, az:lat }, aT1 = { inc:p.t1inc, az:p.t1az };
+  const clF = impliedBetaDeg(aT2.inc, aT2.az, aI.inc, aI.az) * 30 / p.dF;
+  const B2 = back(icp, aT2, aI, clF);           // bottom of tangent 2 (start of final curve)
+  const T2 = back(B2, aT2, aT2, p.L2);           // top of tangent 2
+  const clM = impliedBetaDeg(aT1.inc, aT1.az, aT2.inc, aT2.az) * 30 / p.dM;
+  const B1 = back(T2, aT1, aT2, clM);            // bottom of tangent 1
+  const A  = back(B1, aT1, aT1, p.L1);           // top of tangent 1
+  return { A, B1, B2, clF, clM, len: clF + p.L2 + clM + p.L1 };
+}
+// optimum align: from (kop point, vertical) to A with attitude aT1; x = [incH, azH, hold]
+// 2026-10-31: kopPt may carry inc/az (AC nudge: the well is already inclined at KOP); default vertical.
+function padAlign(kopPt, A, aT1, d, x0){
+  const i0 = kopPt.inc || 0, a0 = kopPt.az || 0;
+  const run = x => {
+    if (!(x[0] > 0.2) || x[0] > 100 || x[2] < 0) return null;
+    const arcs = [{ inc1:x[0], az1:x[1], cl: impliedBetaDeg(i0, a0, x[0], x[1]) * 30 / d }, { inc1:x[0], az1:x[1], cl:x[2] },
+                  { inc1:aT1.inc, az1:aT1.az, cl: impliedBetaDeg(x[0], x[1], aT1.inc, aT1.az) * 30 / d }];
+    const st = chainArcs({ md:0, tvd:kopPt.tvd, n:kopPt.n, e:kopPt.e, inc:i0, az:a0 }, arcs), e = st[st.length - 1];
+    return { f:[e.n - A.n, e.e - A.e, e.tvd - A.tvd], len:e.md };
+  };
+  const nrm = v => Math.hypot(v[0], v[1], v[2]);
+  const lm = x => { let R = run(x); if (!R) return null; let f = R.f, lam = 1e-3;
+    for (let it = 0; it < 60 && nrm(f) > 1e-7; it++){
+      const J = [[],[],[]];
+      for (let j = 0; j < 3; j++){ const xp = x.slice(); xp[j] += 1e-6; const Rp = run(xp); if (!Rp) return null; for (let i = 0; i < 3; i++) J[i][j] = (Rp.f[i] - f[i]) / 1e-6; }
+      const JTJ = [0,1,2].map(a => [0,1,2].map(b => J[0][a]*J[0][b] + J[1][a]*J[1][b] + J[2][a]*J[2][b]));
+      const JTr = [0,1,2].map(a => J[0][a]*f[0] + J[1][a]*f[1] + J[2][a]*f[2]);
+      let ok = false;
+      for (let t = 0; t < 10 && !ok; t++){
+        const M = JTJ.map((row, a) => row.map((v, b) => v + (a === b ? lam * (v || 1) : 0)));
+        const dx = solveLinear(M, JTr.map(v => -v)); if (!dx){ lam *= 10; continue; }
+        const xn = x.map((v, i) => v + dx[i]), Rn = run(xn);
+        if (Rn && nrm(Rn.f) < nrm(f)){ x = xn; f = Rn.f; lam = Math.max(1e-12, lam / 10); ok = true; } else lam *= 10;
+      }
+      if (!ok) break;
+    }
+    return nrm(f) < 1e-5 ? { x, len: run(x).len } : null; };
+  if (x0){ const r = lm(x0.slice()); if (r) return r; }
+  const brg = (((Math.atan2(A.e - kopPt.e, A.n - kopPt.n) * R2D) % 360) + 360) % 360;
+  let best = null;
+  for (const g0 of [35, 60]) for (const da of [0]) for (const H0 of [0, 150, 400]){
+    const r = lm([g0, brg + da, H0]); if (r && (!best || r.len < best.len)) best = r;
+  }
+  return best;
+}
+// opts.collect = K (ADDED 2026-10-31, iPad Avoidance): instead of the single best design, return up to K
+// valid alternative designs (all inside the same ranges, all landing exactly on the ICP), best first by the
+// objective, made diverse (distinct T1 Inc / T2 Inc / DLS / final DLS / T1 azimuth to 5 deg).
+
+/* ADDED 2026-11-01 (John): DESIGN RULES — restrictions on the trajectory itself (not ranges of a template).
+   John's rules (2026-11-01):
+   - NO NUDGE above incMin (default ON, 10 deg): a nudge = build, optional tangent, then drop. Above near-vertical
+     the inclination may only build or hold down to the ICP; a drop of more than tol (0.5 deg) after a peak
+     above incMin is a violation, unless the peak lies inside a user window [a, b] where nudges are allowed.
+     Near-vertical nudges (peak <= incMin, e.g. the AC nudge) are allowed. The LATERAL is excluded (lateral
+     avoidance turns in azimuth at 90 deg and is allowed — John).
+   - MAX TURN (default ON, 90 deg): azimuth range (unwrapped max - min) from where Inc >= 3 deg to the ICP.
+     Turning at high inclination is allowed within it.
+   - FORMATION ZONES (Sub-Sea top / base, any number): max DLS, min / max Inc, optional no-drop, whole well.
+   When no design satisfies them the solver keeps the design with the FEWEST violations and flags it (John).
+   rules = { noNudge:{on, incMin, tol, windows:[{a,b}]}, maxTurn:{on, deg}, zones:[{name, top, base, dlsMax, incMin, incMax, noDrop}] }
+   st = stations [{md, inc, az, tvd, dls30}], ss = surface Sub-Sea (RKB elev.; Sub-Sea = ss - TVD), landMd = ICP MD. */
+function padRulesActive(R){ return !!R && ((R.noNudge && R.noNudge.on) || (R.maxTurn && R.maxTurn.on) || (R.zones || []).some(z => z && z.on !== false)); }
+function padRuleCheck(st, R, ss, landMd){
+  const out = []; if (!R || !st || !st.length) return out;
+  const end = landMd != null ? landMd + 1e-6 : Infinity, build = st.filter(p => p.md <= end);
+  const nn = R.noNudge;
+  if (nn && nn.on){
+    const incMin = nn.incMin != null ? +nn.incMin : 10, tol = nn.tol != null ? +nn.tol : 0.5, W = nn.windows || [];
+    // CHANGED 2026-11-01 (John: W24 88 -> 80 -> 90 passed with "drop tolerance" 10): the drop is now measured
+    // at SECTION ENDS (stations carry .section), not station by station. A pure turn at constant DLS dips Inc
+    // inside the arc (~2 deg on pad 163 W2) but ends where it should, so it is not seen as a drop; a real
+    // drop (build / hold, then a section that ENDS lower) is. So the tolerance can stay small (default 0.5 deg).
+    // Fallback when stations have no .section: station by station as before.
+    const pts = [];
+    if (build.some(p => p.section != null)){
+      for (let i = 0; i < build.length; i++){ const nx = build[i + 1]; if (!nx || nx.section !== build[i].section) pts.push(build[i]); }
+    } else build.forEach(p => pts.push(p));
+    let peak = -1, peakMd = 0, low = null;
+    const flush = () => { if (low && !W.some(w => peak >= +w.a - 1e-6 && peak <= +w.b + 1e-6))
+      out.push({ rule:'noNudge', md: low.startMd, msg: 'Nudge at high Inc: ' + peak.toFixed(1) + '° → ' + low.inc.toFixed(1) + '° (MD ' + peakMd.toFixed(0) + '–' + low.md.toFixed(0) + ')' }); low = null; };
+    pts.forEach(p => {
+      if (p.inc > peak + 1e-9){ if (low){ flush(); } peak = p.inc; peakMd = p.md; return; }
+      if (peak > incMin && p.inc < peak - tol){ if (!low) low = { startMd: p.md, inc: p.inc, md: p.md }; else if (p.inc < low.inc){ low.inc = p.inc; low.md = p.md; } }
+    });
+    flush();
+  }
+  const mt = R.maxTurn;
+  if (mt && mt.on){
+    let prev = null, acc = 0, mn = 0, mx = 0, at = null;
+    build.forEach(p => { if (p.inc < 3) return; if (prev == null){ prev = p.az; at = p.md; return; }
+      let d = p.az - prev; d = ((d + 540) % 360) - 180; acc += d; prev = p.az; mn = Math.min(mn, acc); mx = Math.max(mx, acc); });
+    if (mx - mn > (+mt.deg || 90) + 1e-6) out.push({ rule:'maxTurn', md: at || 0, msg: 'Turn ' + (mx - mn).toFixed(1) + '° > max ' + (+mt.deg || 90) + '°' });
+  }
+  (R.zones || []).forEach(z => {
+    if (!z || z.on === false) return;
+    const hi = Math.max(+z.top, +z.base), lo = Math.min(+z.top, +z.base), nm = z.name || 'Zone';
+    const inZ = st.filter(p => { const el = ss - p.tvd; return el <= hi + 1e-6 && el >= lo - 1e-6; });
+    if (!inZ.length) return;
+    const tol = 0.5;
+    if (z.dlsMax != null && z.dlsMax !== '' && isFinite(+z.dlsMax)){ const b = inZ.find(p => (p.dls30 || 0) > +z.dlsMax + 0.01); if (b) out.push({ rule:'zoneDls', md:b.md, msg: nm + ': DLS ' + b.dls30.toFixed(2) + ' > ' + (+z.dlsMax) + ' at MD ' + b.md.toFixed(0) }); }
+    if (z.incMin != null && z.incMin !== '' && isFinite(+z.incMin)){ const b = inZ.find(p => p.inc < +z.incMin - 0.05); if (b) out.push({ rule:'zoneInc', md:b.md, msg: nm + ': Inc ' + b.inc.toFixed(1) + ' < ' + (+z.incMin) + ' at MD ' + b.md.toFixed(0) }); }
+    if (z.incMax != null && z.incMax !== '' && isFinite(+z.incMax)){ const b = inZ.find(p => p.inc > +z.incMax + 0.05); if (b) out.push({ rule:'zoneInc', md:b.md, msg: nm + ': Inc ' + b.inc.toFixed(1) + ' > ' + (+z.incMax) + ' at MD ' + b.md.toFixed(0) }); }
+    if (z.noDrop){ let pk = -1; const b = inZ.find(p => { if (p.inc > pk) pk = p.inc; return p.inc < pk - tol; }); if (b) out.push({ rule:'zoneDrop', md:b.md, msg: nm + ': Inc drop at MD ' + b.md.toFixed(0) }); }
+  });
+  return out;
+}
+// ADDED 2026-11-01 (John: no nudge above 10 deg). Pad 163 test (SC 130, KOP 150 + stagger 40): with the
+// rules on, the far-west wells (W19-W25) had no rule-clean design — from a 150-190 m KOP the align curve must
+// overshoot T1 (e.g. 85 -> 75 deg) to reach their ICP displacement. Tried first: lengthening T1 (it is
+// "length >=") — made it WORSE (T1 start moves up, align gets steeper; W24: 85 -> 100 deg), removed.
+// What works is a SHALLOWER KOP (W19: KOP 190 -> 150 gives a clean design; W24 needs ~100 m).
+// So when the rules are on and the design breaks them, the KOP is raised in 10 m steps down to tpl.kopMin
+// (iPad passes surface casing + 20 m); the first clean design wins, else the fewest violations (flagged).
+function padSolveBack(surf, land, tpl, opts){
+  const one = padSolveBackOne(surf, land, tpl, opts);
+  if (!padRulesActive(tpl.rules) || tpl._noKopRetry) return one;   // 2026-11-01: T1 lever works without a kopMin too
+  const K = opts && opts.collect ? +opts.collect : 0, clean = r => r && r.ok && !(r.violations || []).length;
+  let res = K ? one.slice() : one;
+  const enough = () => K ? res.filter(clean).length >= Math.min(K, 5) : clean(res);
+  if (enough()) return res;
+  // ADDED 2026-11-01 (John: "yes please add that lever"): T1 Inc raised for THIS well only, in 2.5 deg steps
+  // above the T1 max, never above T2 min (T1 > T2 would itself be a drop = nudge), each tried at the template KOP
+  // and then with the KOP raise. Tested pad 163 W22-W25: T1 75 -> 80 makes all four rule-clean.
+  const bk = Object.assign({ t1Min:70, t1Max:75, t2Min:80 }, tpl.back || {}), t1s = [null];
+  for (let v = +bk.t1Max + 2.5; v <= +bk.t2Min + 1e-6; v += 2.5) t1s.push(+v.toFixed(2));
+  if (t1s[t1s.length - 1] !== null && t1s[t1s.length - 1] < +bk.t2Min - 1e-6) t1s.push(+bk.t2Min);
+  const tries = []; t1s.forEach(v => { if (v != null) tries.push({ kop: tpl.kop, t1: v }); for (let kop = tpl.kop - 10; kop >= tpl.kopMin - 1e-6; kop -= 10) tries.push({ kop, t1: v }); });
+  for (const tr of tries){
+    const kop = tr.kop, tb = tr.t1 != null ? Object.assign({}, tpl.back || {}, { t1Min: tr.t1, t1Max: tr.t1 }) : tpl.back;
+    const r = padSolveBackOne(surf, land, Object.assign({}, tpl, { kop, back: tb, _noKopRetry: true }), opts);
+    const tagE = x => { if (x && x.ok) x.edges = (x.edges || []).concat([(tr.t1 != null ? 'T1 raised to ' + tr.t1 + '° ' : '') + (kop !== tpl.kop ? 'KOP raised to ' + kop.toFixed(0) + ' m ' : '') + '(design rules)']); return x; };
+    if (K){ const add = r.filter(clean).map(tagE); res = res.filter(clean).concat(add, res.filter(x => !clean(x))).slice(0, K); }
+    else if (clean(r)) res = tagE(r);
+    else if (r && r.ok && (!res.ok || (r.violations || []).length < (res.violations || []).length)) res = tagE(r);
+    if (enough()) break;
+  }
+  return res;
+}
+function padSolveBackOne(surf, land, tpl, opts){
+  // 2026-11-01: design rules (tpl.rules) — candidates are checked on their stations; the pool is always kept then
+  const useRules = padRulesActive(tpl.rules), rulesSS = surf.rkb != null ? +surf.rkb : (+tpl.rkb || 0);
+  const collectK = opts && opts.collect ? +opts.collect : 0, pool = [], keepPool = collectK || useRules;
+  // CHANGED 2026-10-31 (John): each pump tangent has its own Delta TVD range (ICP TVD - TVD at the BOTTOM
+  // of that tangent): lower tangent T2 (near ICP, e.g. 80-85 deg) 5-8 m, upper tangent T1 (70-75 deg) 28-38 m.
+  // Confirmed on his pad 163 wells: bottom of the 80 deg tangent 5.0-6.5 m, of the 75 deg tangent 25-36 m.
+  // Replaces the single dTvdMin/Max (applied to T2 only), still accepted for older settings.
+  const b = Object.assign({ t1Min:70, t1Max:75, t2Min:80, t2Max:85, L1:30, L2:30, dMin:6, dMax:9, dFMin:4, dFMax:6,
+                            dTvd1Min:28, dTvd1Max:38, dTvd2Min:5, dTvd2Max:8, objective:'short' }, tpl.back || {});
+  if (tpl.back && tpl.back.dTvdMin != null && tpl.back.dTvd2Min == null){ b.dTvd2Min = tpl.back.dTvdMin; b.dTvd2Max = tpl.back.dTvdMax; }
+  const lat = land.az, landInc = land.inc || 90, kop = tpl.kop;
+  const icp = { n:land.n, e:land.e, tvd:land.tvd };
+  // ADDED 2026-10-31 (John): AC nudge (Design Codes "AC Nudges": KOP ~50 m TVD, build & hold, 4 deg/30 m):
+  // tpl.nudge = {kop, dls, inc, az}: vertical to nudge KOP -> build to (inc, az) at dls -> hold to the main
+  // KOP; the optimum align then starts from that inclined state instead of vertical.
+  let pre = null, kopPt = { n:surf.n, e:surf.e, tvd:kop, inc:0, az:0 };
+  const nd = tpl.nudge;
+  if (nd && nd.inc > 0){
+    const bl = nd.inc * 30 / nd.dls, hold = kop - nd.kop - bl;
+    if (!(nd.kop >= 0) || hold < -1e-6) return opts && opts.collect ? [] : { ok:false, sections:null, error:'Nudge does not fit above the KOP' };
+    pre = [{ tag:'kop', sec:{ kind:'direct', inc:0, az:0, cl:nd.kop } }, { tag:'nudge', sec:{ kind:'direct', inc:nd.inc, az:nd.az, cl:bl } }];
+    if (hold > 1e-6) pre.push({ tag:'nudgeHold', sec:{ kind:'direct', inc:nd.inc, az:nd.az, cl:hold } });
+    const st = chainArcs({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, pre.map(x => ({ inc1:x.sec.inc, az1:x.sec.az, cl:x.sec.cl })));
+    const e = st[st.length - 1]; kopPt = { n:e.n, e:e.e, tvd:e.tvd, inc:nd.inc, az:nd.az };
+  }
+  const span = (a, z, k) => { a = +a; z = +z; if (!(z > a)) return [a]; const out = []; for (let i = 0; i < k; i++) out.push(a + (z - a) * i / (k - 1)); return out; };
+  const steps = (a, z, s) => { a = +a; z = +z; if (!(z > a)) return [a]; const out = []; for (let v = a; v < z - 1e-9; v += s) out.push(v); out.push(z); return out; };
+  const T1 = span(b.t1Min, b.t1Max, 3), T2 = span(b.t2Min, b.t2Max, 3), DC = steps(b.dMin, b.dMax, 1), DF = span(b.dFMin, b.dFMax, 3);
+  const mid = (a, z) => (+a + +z) / 2, rng = (a, z) => Math.max(1e-9, +z - +a);
+  const score = c => b.objective === 'smooth' ? [Math.max(c.p.dC, c.p.dF), c.md]
+                   : b.objective === 'typical' ? [Math.abs(c.p.t1inc - mid(b.t1Min, b.t1Max)) / rng(b.t1Min, b.t1Max) + Math.abs(c.p.t2inc - mid(b.t2Min, b.t2Max)) / rng(b.t2Min, b.t2Max)
+                                                  + Math.abs(c.p.dC - mid(b.dMin, b.dMax)) / rng(b.dMin, b.dMax) + Math.abs(c.p.dF - mid(b.dFMin, b.dFMax)) / rng(b.dFMin, b.dFMax), c.md]
+                   : [c.md, Math.max(c.p.dC, c.p.dF)];
+  const better = (c, o) => { if (!o) return true; const s1 = score(c), s2 = score(o); return s1[0] < s2[0] - 1e-6 || (Math.abs(s1[0] - s2[0]) <= 1e-6 && s1[1] < s2[1] - 1e-6); };
+  let best = null, reasons = { dtvd:0, align:0 };
+  const tryOne = (p0, x0) => {
+    const p = Object.assign({}, p0);
+    let bc = padBackChain(icp, lat, landInc, p);
+    const dTvd = icp.tvd - bc.B2.tvd;                                   // lower tangent T2: set by the final curve only
+    if (dTvd < b.dTvd2Min - 1e-6 || dTvd > b.dTvd2Max + 1e-6){ reasons.dtvd++; return null; }
+    let dTvd1 = icp.tvd - bc.B1.tvd;                                    // upper tangent T1
+    if (dTvd1 < b.dTvd1Min - 1e-6){                                     // too shallow: lengthen T2 (lengths are "min only");
+      const c2 = Math.cos(p.t2inc * D2R); if (!(c2 > 1e-6)){ reasons.dtvd++; return null; }   // each m of T2 adds cos(Inc2) m of TVD
+      p.L2 = p.L2 + (b.dTvd1Min - dTvd1) / c2; bc = padBackChain(icp, lat, landInc, p); dTvd1 = icp.tvd - bc.B1.tvd;
+    }
+    if (dTvd1 > b.dTvd1Max + 1e-6){ reasons.dtvd++; return null; }
+    const al = padAlign(kopPt, bc.A, { inc:p.t1inc, az:p.t1az }, p.dC, x0); if (!al){ reasons.align++; return null; }
+    return { p, bc, al, dTvd, dTvd1, md: kop + al.len + bc.len };
+  };
+  for (const t1inc of T1) for (const t2inc of T2) for (const dC of DC) for (const dF of DF){
+    // 2026-10-31 speed: tangent-1 azimuth every 15 deg (warm-started), then golden-section refine to ~0.2 deg
+    let local = null, prevX = null;
+    for (let az = 0; az < 360; az += 15){
+      const c = tryOne({ t1inc, t1az:az, t2inc, L1:+b.L1, L2:+b.L2, dC, dM:dC, dF }, prevX);
+      if (c){ prevX = c.al.x; if (!local || c.md < local.md) local = c; if (keepPool) pool.push(c); }
+    }
+    if (!local) continue;
+    const at = az => tryOne(Object.assign({}, local.p, { t1az:((az % 360) + 360) % 360 }), local.al.x);
+    let lo = local.p.t1az - 15, hi = local.p.t1az + 15, gr = 0.618;
+    for (let k = 0; k < 12; k++){
+      const a1 = hi - gr * (hi - lo), a2 = lo + gr * (hi - lo), c1 = at(a1), c2 = at(a2);
+      if (c1 && c1.md < local.md) local = c1; if (c2 && c2.md < local.md) local = c2;
+      if (!c1 && !c2) break;
+      if (!c2 || (c1 && c1.md < c2.md)) hi = a2; else lo = a1;
+    }
+    if (keepPool) pool.push(local);
+    if (better(local, best)) best = local;
+  }
+  // 2026-11-01: rules — walk the candidates best-first, keep rule-clean ones; if none (within 400 checks), the
+  // fewest-violation ones are used and carry r.violations (flagged red in iPad).
+  const ruleEval = r => { if (!useRules || !r.ok) return r;
+    const st = computeStations({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, r.sections, 10).stations;
+    const landMd = r.sections.reduce((a, x, i) => a + (r.tags[i] === 'lateral' ? 0 : x.cl), 0);
+    r.violations = padRuleCheck(st, tpl.rules, rulesSS, landMd); return r; };
+  if (collectK || useRules){
+    const sorted = pool.slice().sort((c1, c2) => better(c1, c2) ? -1 : better(c2, c1) ? 1 : 0), seen = {}, out = [], worse = [];
+    const K = collectK || 1; let checks = 0;
+    for (const c of sorted){
+      const k = [c.p.t1inc, c.p.t2inc, c.p.dC, c.p.dF, Math.round((((c.p.t1az % 360) + 360) % 360) / 5)].join('|');
+      if (seen[k]) continue; seen[k] = 1;
+      const r = ruleEval(buildRes(c));
+      if (!useRules || !(r.violations || []).length){ out.push(r); if (out.length >= K) break; }
+      else { worse.push(r); if (++checks >= 400 && out.length) break; if (checks >= 400) break; }
+    }
+    if (out.length < K && worse.length){ worse.sort((a, z) => a.violations.length - z.violations.length); out.push(...worse.slice(0, K - out.length)); }
+    if (collectK) return out;
+    if (out.length) return out[0];
+  }
+  if (!best) return { ok:false, miss:null, sections:null, error: 'No design inside the ranges' + (reasons.dtvd && !reasons.align ? ' (Delta TVD out of range — widen the T1/T2 Delta TVD, tangent Inc or final DLS ranges)' : reasons.align ? ' (KOP-to-tangent connection not possible — try a shallower KOP, a higher max DLS or a lower tangent-1 Inc)' : '') };
+  return buildRes(best);
+  function buildRes(best){
+  const p = best.p, x = best.al.x, azH = ((x[1] % 360) + 360) % 360;
+  // tags[i] names sections[i] (2026-10-31: used for the Compass-style comments in the iPad export)
+  const sections = [], tags = [];
+  const add = (tag, sec) => { sections.push(sec); tags.push(tag); };
+  if (pre) pre.forEach(x => add(x.tag, x.sec));
+  else if (kop > 1e-6) add('kop', { kind:'direct', inc:0, az:0, cl:kop });
+  add('align1', { kind:'direct', inc:x[0], az:azH, cl: impliedBetaDeg(kopPt.inc, kopPt.az, x[0], azH) * 30 / p.dC });
+  if (x[2] > 1e-6) add('alignHold', { kind:'direct', inc:x[0], az:azH, cl:x[2] });
+  const c2 = impliedBetaDeg(x[0], azH, p.t1inc, p.t1az) * 30 / p.dC; if (c2 > 1e-6) add('align2', { kind:'direct', inc:p.t1inc, az:p.t1az, cl:c2 });
+  if (p.L1 > 1e-6) add('t1', { kind:'direct', inc:p.t1inc, az:p.t1az, cl:p.L1 });
+  if (best.bc.clM > 1e-6) add('mid', { kind:'direct', inc:p.t2inc, az:lat, cl:best.bc.clM });
+  if (p.L2 > 1e-6) add('t2', { kind:'direct', inc:p.t2inc, az:lat, cl:p.L2 });
+  if (best.bc.clF > 1e-6) add('final', { kind:'direct', inc:landInc, az:lat, cl:best.bc.clF });
+  if ((tpl.lateral || 0) > 1e-6) add('lateral', { kind:'direct', inc:landInc, az:lat, cl:tpl.lateral });
+  const edges = [];
+  const edge = (lbl, v, a, z, d) => { if (+z > +a){ if (Math.abs(v - a) < 1e-6) edges.push(lbl + ' at min ' + (+a).toFixed(d)); else if (Math.abs(v - z) < 1e-6) edges.push(lbl + ' at max ' + (+z).toFixed(d)); } };
+  if (p.L2 > +b.L2 + 1e-3) edges.push('T2 lengthened to ' + p.L2.toFixed(1) + ' m for T1 Delta TVD');
+  edge('T1 Inc', p.t1inc, b.t1Min, b.t1Max, 1);
+  const edgeD = (lbl, v, a, z) => { if (+z > +a){ if (Math.abs(v - a) < 0.05) edges.push(lbl + ' at min ' + (+a).toFixed(1)); else if (Math.abs(v - z) < 0.05) edges.push(lbl + ' at max ' + (+z).toFixed(1)); } };
+  edgeD('T1 Delta TVD', best.dTvd1, b.dTvd1Min, b.dTvd1Max); edgeD('T2 Delta TVD', best.dTvd, b.dTvd2Min, b.dTvd2Max); edge('T2 Inc', p.t2inc, b.t2Min, b.t2Max, 1); edge('DLS', p.dC, b.dMin, b.dMax, 1); edge('Final DLS', p.dF, b.dFMin, b.dFMax, 1);
+  return { ok:true, miss:0, sections, tags, maxDls: Math.max(p.dC, p.dF), edges,
+           params: { kop, incA:x[0], azA:azH, hold:x[2], dls1:p.dC, dls2:p.dF, incT:p.t1inc, lt:p.L1, azT:p.t1az, dTvd:best.dTvd, dTvd1:best.dTvd1, nudge: (pre && nd) ? { kop:nd.kop, dls:nd.dls, inc:nd.inc, az:nd.az } : null,
+                     tangents:[{ inc:p.t1inc, L:p.L1, az:p.t1az }, { inc:p.t2inc, L:p.L2, az:lat }] }, error:null, md: best.md };
+  }
+}
+
+/* ============================================================
+   iPad "Avoidance" (ADDED 2026-10-31, John): change the pad's designs so that
+   the TUNNELS (radius R around each trajectory, below "From MD") of the new
+   pad wells never touch: centre-to-centre distance > 2R between every pair.
+   Every alternative still satisfies the "Back-projected from ICP" ranges
+   (padSolveBack, opts.collect) and lands on the ICP; the levers, cheapest first:
+     1. another design inside the ranges (T1 azimuth / Inc, T2 Inc, DLS, final DLS)
+     2. KOP stagger (KOP deeper by kopStep, up to kopMax — John: "free")
+     3. ICP moved inside its tolerance box (along / across the lateral, Sub-Sea fixed)
+   Search = min-conflicts local search: start from each well's best design; while
+   pairs touch, take the well in the most conflicts and give it the alternative
+   with the fewest conflicts against the others' current designs (then least
+   overlap, then shortest MD); when its alternatives are exhausted, generate the
+   next lever level for it (lazy). Keeps the best combination seen (fewest
+   touching pairs, then least total overlap, then shortest total MD) — if not
+   everything can be cleared, that best combination is returned (John's choice).
+   Distance = each 10 m station of one path to the straight segments of the other
+   (Sub-Sea datum), pairs pruned by bounding boxes. Geometric only (no uncertainty).
+   ============================================================ */
+// ADDED 2026-10-31 (John): automatic KOP stagger, like his hand designs (pad 163 KOPs 120-250 m):
+// neighbouring slots (closer than nbrDist; default 1.5 x the smallest slot spacing) get different KOP
+// levels — greedy graph colouring in slot order — and KOP offset = level x step. Returns offsets (m).
+function padKopStagger(slots, step, nbrDist){
+  const nS = slots.length; if (!nS) return [];
+  let minSp = Infinity;
+  for (let i = 0; i < nS; i++) for (let j = i + 1; j < nS; j++){ const d = Math.hypot(slots[i].n - slots[j].n, slots[i].e - slots[j].e); if (d > 0.5 && d < minSp) minSp = d; }
+  const lim = nbrDist > 0 ? nbrDist : (isFinite(minSp) ? 1.5 * minSp : 0);
+  const lvl = new Array(nS).fill(-1);
+  for (let i = 0; i < nS; i++){
+    const used = new Set();
+    for (let j = 0; j < nS; j++) if (lvl[j] >= 0 && Math.hypot(slots[i].n - slots[j].n, slots[i].e - slots[j].e) <= lim) used.add(lvl[j]);
+    let k = 0; while (used.has(k)) k++; lvl[i] = k;
+  }
+  return lvl.map(k => k * step);
+}
+async function padAvoid(wells, o, progress){
+  o = Object.assign({ R:10, fromMd:0, full:false, kopStep:20, kopMax:300, tolAlong:0, tolAcross:0, K:40, maxIter:600, timeMs:120000, step:10, nudge:null }, o || {});
+  const T0 = Date.now(), lim = 2 * o.R, lim0 = lim, nW = wells.length;
+  const shifts = [[0, 0]];
+  if (o.tolAlong > 0) shifts.push([o.tolAlong, 0], [-o.tolAlong, 0]);
+  if (o.tolAcross > 0) shifts.push([0, o.tolAcross], [0, -o.tolAcross]);
+  if (o.tolAlong > 0 && o.tolAcross > 0) shifts.push([o.tolAlong, o.tolAcross], [o.tolAlong, -o.tolAcross], [-o.tolAlong, o.tolAcross], [-o.tolAlong, -o.tolAcross]);
+  // CHANGED 2026-10-31 (John): lever order = designs -> KOP stagger -> AC nudge (o.nudge = {kop, dls, incMax}:
+  // inc incMax/2 and incMax, 8 azimuths) -> ICP tolerance.
+  const levels = [];
+  for (let k = 0; k <= o.kopMax + 1e-9; k += o.kopStep) levels.push({ kopAdd:k, shift:[0, 0], nudge:null });
+  if (o.nudge && o.nudge.incMax > 0) [o.nudge.incMax / 2, o.nudge.incMax].forEach(inc => { for (let az = 0; az < 360; az += 45) levels.push({ kopAdd:0, shift:[0, 0], nudge:{ kop:o.nudge.kop, dls:o.nudge.dls, inc, az } }); });
+  shifts.slice(1).forEach(sh => levels.push({ kopAdd:0, shift:sh, nudge:null }));
+  const pathOf = (W, r) => {
+    const st = computeStations({ md:0, tvd:0, n:W.surf.n, e:W.surf.e, inc:0, az:0 }, r.sections, o.step).stations;
+    const landMd = r.sections.reduce((a, x, i) => a + ((r.tags || [])[i] === 'lateral' ? 0 : x.cl), 0);
+    const pts = st.filter(p => p.md >= o.fromMd - 1e-6 && (o.full || p.md <= landMd + 1e-6)).map(p => ({ n:p.n, e:p.e, z:-p.tvd + (W.ss || 0) }));
+    const bb = pts.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e), Math.min(b[4], p.z), Math.max(b[5], p.z)], [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]);
+    return { pts, bb };
+  };
+  const genLevel = (i, li) => {
+    const W = wells[i], L = levels[li], az = W.land.az * D2R, [da, dc] = L.shift;
+    const land = Object.assign({}, W.land, { n: W.land.n + da * Math.cos(az) - dc * Math.sin(az), e: W.land.e + da * Math.sin(az) + dc * Math.cos(az) });
+    const rs = padSolveBack(W.surf, land, Object.assign({}, W.tpl, { kop: W.tpl.kop + L.kopAdd, nudge: L.nudge || W.tpl.nudge || null }), { collect: o.K }) || [];
+    // 2026-11-01: nv = design-rule violations of the candidate (padSolveBack with tpl.rules); rules come FIRST
+    return rs.map(r => Object.assign({ r, kopAdd: L.kopAdd, shift: L.shift, nudge: L.nudge, land, md: r.md, nv: (r.violations || []).length }, pathOf(W, r)));
+  };
+  // CHANGED 2026-10-31 (John, "Safest" goal): optional cap (default = clearance lim) so the Safest phase can
+  // measure separations above the clearance; > cap still returns Infinity (bounding-box prune).
+  const minDist = (A, B, cap) => {
+    const lim = cap || lim0;
+    const a = A.bb, b = B.bb, gap = Math.max(0, a[0] - b[1], b[0] - a[1]) ** 2 + Math.max(0, a[2] - b[3], b[2] - a[3]) ** 2 + Math.max(0, a[4] - b[5], b[4] - a[5]) ** 2;
+    if (Math.sqrt(gap) > lim) return Infinity;
+    let best = Infinity; const P = A.pts, Q = B.pts;
+    for (const p of P){
+      if (p.n < b[0] - lim || p.n > b[1] + lim || p.e < b[2] - lim || p.e > b[3] + lim) continue;
+      for (let j = 1; j < Q.length; j++){
+        const s = Q[j - 1], t = Q[j], vx = t.n - s.n, vy = t.e - s.e, vz = t.z - s.z, wx = p.n - s.n, wy = p.e - s.e, wz = p.z - s.z, L2 = vx*vx + vy*vy + vz*vz;
+        let u = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; u = u < 0 ? 0 : u > 1 ? 1 : u;
+        const d = Math.hypot(wx - u*vx, wy - u*vy, wz - u*vz); if (d < best) best = d;
+      }
+    }
+    return best;
+  };
+  const cands = [], lvl = [], cache = new Map();
+  for (let i = 0; i < nW; i++){
+    cands[i] = []; lvl[i] = -1;
+    while (!cands[i].length && lvl[i] < levels.length - 1){ lvl[i]++; cands[i] = genLevel(i, lvl[i]); }
+    if (progress) await progress('Designing alternatives ' + (i + 1) + '/' + nW);
+  }
+  const dist = (i, ci, j, cj) => { const k = i < j ? i + ':' + ci + '|' + j + ':' + cj : j + ':' + cj + '|' + i + ':' + ci;
+    let d = cache.get(k); if (d === undefined){ d = minDist(cands[i][ci], cands[j][cj]); cache.set(k, d); } return d; };
+  const assign = cands.map(c => c.length ? 0 : -1);
+  const evalAll = a => { let pairs = 0, sev = 0, md = 0, nv = 0; const per = new Array(nW).fill(0);
+    for (let i = 0; i < nW; i++){ if (a[i] < 0) continue; md += cands[i][a[i]].md; nv += cands[i][a[i]].nv || 0;
+      for (let j = i + 1; j < nW; j++){ if (a[j] < 0) continue; const d = dist(i, a[i], j, a[j]); if (d < lim - 1e-6){ pairs++; sev += lim - d; per[i]++; per[j]++; } } }
+    return { pairs, sev, md, per, nv }; };
+  const betterE = (x, y) => (x.nv || 0) < (y.nv || 0) || ((x.nv || 0) === (y.nv || 0) && x.pairs < y.pairs) || ((x.nv || 0) === (y.nv || 0) && x.pairs === y.pairs && (x.sev < y.sev - 1e-6 || (Math.abs(x.sev - y.sev) <= 1e-6 && x.md < y.md - 1e-6)));
+  let cur = evalAll(assign), best = { a: assign.slice(), e: cur }; const start = cur;
+  const tabu = new Map();
+  for (let it = 0; it < o.maxIter && cur.pairs > 0 && Date.now() - T0 < o.timeMs; it++){
+    const order = cur.per.map((c, i) => [c, i]).filter(x => x[0] > 0 && !((tabu.get(x[1]) || -1) > it)).sort((x, y) => y[0] - x[0]);
+    if (!order.length){ tabu.clear(); continue; }
+    const i = order[0][1];
+    let moved = false;
+    for (let pass = 0; pass < 2 && !moved; pass++){
+      let bestC = -1, bestS = null;
+      for (let ci = 0; ci < cands[i].length; ci++){
+        let pairs = 0, sev = 0;
+        for (let j = 0; j < nW; j++){ if (j === i || assign[j] < 0) continue; const d = dist(i, ci, j, assign[j]); if (d < lim - 1e-6){ pairs++; sev += lim - d; } }
+        const sc = { pairs, sev, md: cands[i][ci].md, nv: cands[i][ci].nv || 0 };
+        if (sc.nv > (cands[i][assign[i]] ? cands[i][assign[i]].nv || 0 : 0)) continue;   // 2026-11-01: never trade a rule-clean design for a violating one
+        if (!bestS || sc.pairs < bestS.pairs || (sc.pairs === bestS.pairs && (sc.sev < bestS.sev - 1e-6 || (Math.abs(sc.sev - bestS.sev) <= 1e-6 && sc.md < bestS.md)))) { bestS = sc; bestC = ci; }
+      }
+      if (bestS && bestS.pairs < cur.per[i]){ assign[i] = bestC; moved = true; }
+      else if (lvl[i] < levels.length - 1){ lvl[i]++; const more = genLevel(i, lvl[i]); cands[i] = cands[i].concat(more); }   // next lever for this well
+      else break;
+    }
+    if (!moved){ tabu.set(i, it + 5); }
+    cur = evalAll(assign);
+    if (betterE(cur, best.e)) best = { a: assign.slice(), e: cur };
+    if (progress && it % 5 === 0) await progress('Avoidance: ' + cur.pairs + ' touching pair(s) — iteration ' + (it + 1));
+  }
+  // ADDED 2026-10-31 (John: 'continue with the "Safest" objective - optimize for separation directly').
+  // Optional phase after the no-touching search (o.safest). Priority: safest first, then shortest MD.
+  // Repeatedly takes the pad-wide closest pair (centre-to-centre, same geometry as the clearance check) and,
+  // for each of its two wells, looks for an alternative design whose closest approach to every other well is
+  // > that minimum + 0.05 m without adding touching pairs for that well; the shortest-MD such candidate is
+  // applied. Every accepted move keeps all other pairs unchanged, so the pad minimum never decreases.
+  // Separations above o.safeCap (default 3x clearance) count as "far enough" (also keeps it fast).
+  let minBefore = null, minAfter = null, safeMoves = 0;
+  if (o.safest){
+    const cap = o.safeCap || 3 * lim, c2 = new Map(), a = best.a.slice();
+    const dS = (i, ci, j, cj) => { const k = i < j ? i + ':' + ci + '|' + j + ':' + cj : j + ':' + cj + '|' + i + ':' + ci;
+      let d = c2.get(k); if (d === undefined){ d = minDist(cands[i][ci], cands[j][cj], cap); c2.set(k, d); } return d; };
+    const gMin = () => { let m = { d: Infinity, i: -1, j: -1 };
+      for (let i = 0; i < nW; i++) for (let j = i + 1; j < nW; j++){ if (a[i] < 0 || a[j] < 0) continue; const d = dS(i, a[i], j, a[j]); if (d < m.d) m = { d, i, j }; }
+      return m; };
+    const wellStat = (i, ci) => { let m = Infinity, p = 0; for (let j = 0; j < nW; j++){ if (j === i || a[j] < 0) continue; const d = dS(i, ci, j, a[j]); if (d < m) m = d; if (d < lim - 1e-6) p++; } return { m, p }; };
+    let g = gMin(); minBefore = g.d;
+    for (let it = 0; it < 2000 && isFinite(g.d) && Date.now() - T0 < o.timeMs; it++){
+      let pick = null;
+      for (const w of [g.i, g.j]){
+        const p0 = wellStat(w, a[w]).p;
+        for (;;){
+          for (let ci = 0; ci < cands[w].length; ci++){
+            if (ci === a[w]) continue; const s = wellStat(w, ci);
+            if (s.m > g.d + 0.05 && s.p <= p0 && (cands[w][ci].nv || 0) <= (cands[w][a[w]].nv || 0) && (!pick || cands[w][ci].md < pick.md)) pick = { w, ci, md: cands[w][ci].md };
+          }
+          if (pick && pick.w === w) break;
+          if (lvl[w] >= levels.length - 1 || Date.now() - T0 > o.timeMs) break;
+          lvl[w]++; cands[w] = cands[w].concat(genLevel(w, lvl[w]));   // next lever for this well
+        }
+      }
+      if (!pick) break;
+      a[pick.w] = pick.ci; safeMoves++; g = gMin();
+      if (progress && it % 3 === 0) await progress('Safest: pad min C2C ' + (isFinite(g.d) ? g.d.toFixed(1) + ' m' : '> ' + cap.toFixed(0) + ' m') + ' — move ' + safeMoves);
+    }
+    minAfter = g.d; best = { a, e: evalAll(a) };
+  }
+  const pairsOut = [];
+  for (let i = 0; i < nW; i++) for (let j = i + 1; j < nW; j++){ if (best.a[i] < 0 || best.a[j] < 0) continue; const d = dist(i, best.a[i], j, best.a[j]); if (d < lim - 1e-6) pairsOut.push({ i, j, d }); }
+  const minC2C = i => { let m = Infinity; for (let j = 0; j < nW; j++) if (j !== i && best.a[i] >= 0 && best.a[j] >= 0) m = Math.min(m, minDist(cands[i][best.a[i]], cands[j][best.a[j]], o.safest ? (o.safeCap || 3 * lim) : 0)); return m; };
+  return { start, end: best.e, pairs: pairsOut, ms: Date.now() - T0, minBefore, minAfter, safeMoves,
+           wells: best.a.map((ci, i) => ci < 0 ? null : Object.assign({}, cands[i][ci], { alt: ci, minC2C: minC2C(i) })) };
+}
+
+
+/* ADDED 2026-11-01 (John): lateral avoidance with his Compass TF-DLS-CL manoeuvre.
+   John's pattern at Inc 90: TF -90 / DLS 5 / CL 50 -> TF +90 / DLS 5 / CL 100 -> TF -90 / DLS 5 / CL 50.
+   Verified with computeStations (minimum curvature): it goes out to the left, peaks at 2R(1-cos t)
+   = 7.26 m half way (R = 30/(DLS in rad) = 343.8 m, t = DLS*CL/30 = 8.33 deg) and ends back ON the original
+   line and azimuth. Generalised here as: hold S -> [TF s, a] [TF -s, a] -> hold P (plateau, optional)
+   -> [TF -s, a] [TF s, a] -> hold to the original lateral end (abreast of the TD), s = +90 right / -90 left.
+   Peak shift D = 2R(1-cos t), t = DLS*a/30 (pure geometry of two equal opposite circular arcs).
+   Search (planar, in the lateral's own frame u = along, v = across, z = Sub-Sea): offset well points are
+   turned into a lower / upper bound on v(u) for each side (point within clearance horizontally+vertically
+   -> v must pass it by sqrt(clr^2 - du^2 - dz^2)); for every DLS (step 0.5 up to dlsMax) and leg a (10 m
+   steps) the latest start S whose ramp + plateau + return stay inside the bounds is found, then the shortest
+   plateau. prefer 'dls' = lowest DLS first, then least back-off; 'backoff' = least back-off first.
+   Several conflicts along a lateral are handled one after another. Only OFFSET wells (John, 2026-11-01).
+   Offsets flagged twin (SAGD pair) are not avoided: checked against sagdClr only and reported.
+   in:  o = { icp:{n,e,el,inc,az}, L (lateral MD of the straight hold), offsets:[{name, pts:[{n,e,el}], twin}],
+              clr, dlsMax, prefer, sagdClr }
+   out: { sections:[...], maneuvers:[{side, dls, a, P, sMd, eMd, backoff, peak, conflictU, with}], unresolved:[...] } */
+// 2026-11-01: wrapper — the search is planar on a 1 m grid, so the real minimum-curvature path can come out
+// slightly inside the clearance on oblique crossings (test: 13.9 m vs 15). Re-check with real stations and
+// re-run with a search margin (+0.5 m steps, up to +3 m) until the real clearance holds.
+function padLateralAvoid(o){
+  const real = r => { const st = computeStations({ md:0, tvd:0, n:o.icp.n, e:o.icp.e, inc:o.icp.inc, az:o.icp.az }, r.sections, 2).stations; let m = Infinity;
+    (o.offsets || []).forEach(off => { if (off.twin) return; const P = off.pts || [];
+      st.forEach(p => { const el = o.icp.el - p.tvd;
+        for (let i = 1; i < P.length; i++){ const a = P[i-1], b = P[i], vx = b.n-a.n, vy = b.e-a.e, vz = b.el-a.el, wx = p.n-a.n, wy = p.e-a.e, wz = el-a.el, L2 = vx*vx+vy*vy+vz*vz;
+          let t = L2 > 0 ? (wx*vx+wy*vy+wz*vz)/L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const d = Math.hypot(wx-t*vx, wy-t*vy, wz-t*vz); if (d < m) m = d; } }); });
+    return m; };
+  let best = null;
+  for (let mg = 0; mg <= 3 + 1e-9; mg += 0.5){
+    const r = padLateralAvoidCore(Object.assign({}, o, { clr: o.clr + mg })); r.minC2C = real(r); r.margin = mg;
+    if (!best || (r.unresolved.length < best.unresolved.length) || (r.unresolved.length === best.unresolved.length && r.minC2C > best.minC2C)) best = r;
+    if (!r.maneuvers.length || r.minC2C >= o.clr - 1e-6) return r;
+  }
+  return best;
+}
+function padLateralAvoidCore(o){
+  const D2 = Math.PI / 180, inc = o.icp.inc * D2, az = o.icp.az * D2, sinI = Math.max(1e-3, Math.sin(inc)), cotI = Math.cos(inc) / sinI;
+  const Lu = o.L * sinI, clr = o.clr, step = 1, NU = Math.ceil(Lu) + 1;
+  const toUV = p => { const dn = p.n - o.icp.n, de = p.e - o.icp.e; return { u: dn * Math.cos(az) + de * Math.sin(az), v: -dn * Math.sin(az) + de * Math.cos(az), z: p.el }; };
+  const zPath = u => o.icp.el - u * cotI;   // hold at the ICP Inc (Sub-Sea up = +)
+  // CHANGED 2026-11-01 (John: offsets entering the lateral tunnel from above / the side were left red): each
+  // offset point now forbids an INTERVAL of across-offsets [sv - r, sv + r] at that u (was: a one-sided lower /
+  // upper bound, which could not pass a point on the far side by going around it). forb[side][u] = [[lo, hi], ...]
+  const forb = { 1: Array.from({ length: NU }, () => []), [-1]: Array.from({ length: NU }, () => []) };
+  const bad = (sd, i, v) => { const F = forb[sd][i]; for (let k = 0; k < F.length; k++) if (v > F[k][0] + 1e-6 && v < F[k][1] - 1e-6) return true; return false; };
+  const hitAt = new Array(NU).fill(null), twins = [];
+  (o.offsets || []).forEach(off => {
+    const P = []; const pts = off.pts || [];
+    for (let i = 0; i < pts.length; i++){   // densify to <= 2 m
+      const a = toUV(pts[i]); if (i === 0){ P.push(a); continue; }
+      const b = P[P.length - 1], L = Math.hypot(a.u - b.u, a.v - b.v, a.z - b.z), k = Math.max(1, Math.ceil(L / 2));
+      for (let j = 1; j <= k; j++) P.push({ u: b.u + (a.u - b.u) * j / k, v: b.v + (a.v - b.v) * j / k, z: b.z + (a.z - b.z) * j / k });
+    }
+    if (off.twin){ twins.push({ name: off.name, P }); return; }
+    P.forEach(q => {
+      if (q.u < -clr || q.u > Lu + clr || Math.abs(q.v) > clr + 80) return;
+      const i0 = Math.max(0, Math.ceil(q.u - clr)), i1 = Math.min(NU - 1, Math.floor(q.u + clr));
+      for (let i = i0; i <= i1; i++){
+        const du = i - q.u, dz = zPath(i) - q.z, r2 = clr * clr - du * du - dz * dz; if (r2 <= 0) continue;
+        const r = Math.sqrt(r2);
+        if (Math.abs(q.v) < r && (!hitAt[i] || Math.abs(q.v) < hitAt[i].d)) hitAt[i] = { d: Math.abs(q.v), name: off.name };
+        // side +1 (right, v >= 0 grows): pass a point on the left (v<=0) on its right, a point on the right... below it
+        [1, -1].forEach(sd => { const sv = sd * q.v; if (sv + r > 0) forb[sd][i].push([sv - r, sv + r]); });
+      }
+    });
+  });
+  // ramp profile (up) for DLS d, leg a: arc out + arc back, sampled per 1 m along u
+  const ramp = (d, a) => { const k = d * D2 / 30, ys = [0]; let x = 0, y = 0, ph = 0, ds = 0.25;
+    for (let s0 = 0; s0 < 2 * a - 1e-9; s0 += ds){ const sgn = s0 < a ? 1 : -1, ph2 = ph + sgn * k * ds;
+      x += Math.cos((ph + ph2) / 2) * ds * sinI; y += Math.sin((ph + ph2) / 2) * ds * sinI; ph = ph2;
+      while (ys.length <= Math.floor(x)) ys.push(y); }
+    return { ys, w: ys.length - 1, wx: x, D: y }; };   // wx = exact along advance of one ramp
+  const maneuvers = [], unresolved = [];
+  let uFrom = 0, mdSecs = [];
+  const zones = []; { let inZ = false;
+    for (let i = 0; i < NU; i++){ const h = !!hitAt[i]; if (h && !inZ){ zones.push({ a: i, b: i, with: hitAt[i].name, d: hitAt[i].d }); inZ = true; } else if (h){ const z = zones[zones.length - 1]; z.b = i; if (hitAt[i].d < z.d){ z.d = hitAt[i].d; z.with = hitAt[i].name; } } else inZ = false; } }
+  const vAt = new Float64Array(NU);   // final across offset (signed), for the report
+  for (const Z of zones){
+    if (Z.b < uFrom) continue;   // already covered by the previous manoeuvre's plateau / return
+    let best = null;
+    for (const sd of [1, -1]) for (let d = 0.5; d <= o.dlsMax + 1e-9; d += 0.5) for (let a = 10; a <= 300; a += 10){
+      const R = ramp(d, a); if (R.D < 0.5) continue;
+      let dOk = true; for (let i = Z.a; i <= Z.b && dOk; i++) if (bad(sd, i, R.D)) dOk = false; if (!dOk) continue;   // plateau shift must be clear over the zone
+      // latest start S: ramp up must stay inside the bounds and be at full shift by the time lower bound needs it
+      let S = -1;
+      for (let s0 = Math.min(Z.a, NU - 1 - 2 * R.w); s0 >= uFrom; s0 -= 2){
+        let ok = true;
+        for (let i = s0; i <= Math.min(NU - 1, s0 + R.w) && ok; i++){ if (bad(sd, i, R.ys[i - s0])) ok = false; }
+        if (ok){ S = s0; break; }
+      }
+      if (S < 0) continue;
+      // shortest plateau P, then the return ramp
+      let Pz = -1;
+      for (let P = 0; S + 2 * R.w + P <= NU - 1; P += 2){
+        let ok = true; const p0 = S + R.w, r0 = p0 + P;
+        for (let i = p0; i < r0 && ok; i++) if (bad(sd, i, R.D)) ok = false;
+        if (!ok) continue;
+        for (let i = r0; i <= r0 + R.w && ok; i++){ if (bad(sd, i, R.ys[R.w - (i - r0)])) ok = false; }
+        // after the return the straight line must be clear up to the next zone start handled later: only check that this zone is passed
+        if (ok && r0 + R.w < Z.b){ ok = false; }
+        if (ok){ Pz = P; break; }
+      }
+      if (Pz < 0) continue;
+      const c = { sd, d, a, S, P: Pz, R, back: Z.a - S };
+      const better = !best || (o.prefer === 'backoff' ? (c.back < best.back - 1e-9 || (Math.abs(c.back - best.back) < 1e-9 && c.d < best.d)) : (c.d < best.d - 1e-9 || (Math.abs(c.d - best.d) < 1e-9 && c.back < best.back)));
+      if (better) best = c;
+      break;   // larger legs for this DLS only push the start earlier
+    }
+    if (!best){ unresolved.push({ u: Z.a, with: Z.with, d: Z.d, why: Z.a < 60 ? 'too close to the ICP to back off (use the build-section levers / ICP tolerance)' : 'no manoeuvre within max DLS' }); continue; }
+    const end = best.S + 2 * best.R.w + best.P;
+    for (let i = best.S; i <= end && i < NU; i++){ const x = i - best.S; vAt[i] = best.sd * (x <= best.R.w ? best.R.ys[x] : x <= best.R.w + best.P ? best.R.D : best.R.ys[Math.max(0, best.R.w - (x - best.R.w - best.P))]); }
+    maneuvers.push({ side: best.sd > 0 ? 'right' : 'left', dls: best.d, a: best.a, P: best.P / sinI, S: best.S, uEnd: end, uEndX: best.S + 2 * best.R.wx + best.P, backoff: best.back, peak: best.R.D, conflictU: Z.a, with: Z.with });
+    uFrom = end;
+  }
+  // sections: hold / legs / hold ... (MD; hold along u -> MD = du / sin Inc)
+  const secs = []; let u = 0;
+  maneuvers.forEach(m => {
+    if (m.S - u > 1e-6) secs.push({ kind:'hold', cl:(m.S - u) / sinI, _lat:'hold' });
+    const tf = m.side === 'right' ? 90 : -90;
+    secs.push({ kind:'dlstf', dls:m.dls, tf, cl:m.a, _lat:'start' });
+    if (m.P > 1e-6){ secs.push({ kind:'dlstf', dls:m.dls, tf:-tf, cl:m.a }); secs.push({ kind:'hold', cl:m.P }); secs.push({ kind:'dlstf', dls:m.dls, tf:-tf, cl:m.a }); }
+    else secs.push({ kind:'dlstf', dls:m.dls, tf:-tf, cl:2 * m.a });   // John's a / 2a / a form
+    secs.push({ kind:'dlstf', dls:m.dls, tf, cl:m.a, _lat:'end' });
+    u = m.uEndX;   // exact along position (the 1 m grid end is only used for the search)
+  });
+  if (Lu - u > 1e-6) secs.push({ kind:'hold', cl:(Lu - u) / sinI });
+  // twins (SAGD pair): min distance to the final planar path, flagged against sagdClr
+  const twinRep = twins.map(t => { let m = Infinity; t.P.forEach(q => { const i = Math.round(q.u); if (i < 0 || i >= NU) return; m = Math.min(m, Math.hypot(q.v - vAt[i], zPath(i) - q.z)); }); return { name: t.name, min: m, ok: m >= (o.sagdClr || 0) - 1e-6 }; });
+  return { sections: secs, maneuvers, unresolved, twins: twinRep };
+}
+
 function padSolveWell(surf, land, tpl){
   if ((tpl.mode || 'turn') === 'turn') return padSolveTurn(surf, land, tpl);   // 2026-10-12: new default template
+  if (tpl.mode === 'back') return padSolveBack(surf, land, tpl);   // 2026-10-31: back-projected from ICP (John's Compass method)
   // surf {n,e,rkb}; land {n,e,tvd,inc,az}; tpl {mode, kop, dls, incT, lt, lateral}
   const mode = tpl.mode;
   const keys = { kop_dls_len: ['azT','dls','lt'], kop_dls12: ['azT','dls1','dls2'], dls_kop_len: ['azT','kop','lt'] }[mode];
@@ -1319,6 +1901,8 @@ root.IPlanCore = {
   planBuildHold, planHbhbh, planCurveHoldCurve,
   toolfaceBetween, toArcs, arcsToSections, chainArcs, pointOnArc, findAnchor, insertTangent,
   padSections, padLanding, padSolveWell, padSlotPattern, padTargetPattern,
-  padTurnSections, padSolveTurn
+  padTurnSections, padSolveTurn,
+  padBackChain, padAlign, padSolveBack, padAvoid, padKopStagger, padRuleCheck, padRulesActive,   // 2026-10-31; rules 2026-11-01
+  padLateralAvoid   // 2026-11-01
 };
 })(typeof window !== 'undefined' ? window : globalThis);
