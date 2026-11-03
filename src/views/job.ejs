@@ -3262,6 +3262,7 @@ body.light-mode #statusTextbox {
 
                 // Track tube mesh for raycasting tooltip
                 wbtTubeMeshData.push({ mesh, name: well.wellName, colorHex: well.colorHex, survey });
+                mesh.userData.pickName = well.wellName;   // 2026-11-02: profile panel dropdown
                 mesh.userData.pick = () => ({ name: well.wellName, color: well.colorHex || color, rows: wbtPfRowsFromSurvey(survey),   // 2026-11-01: profile panel
                     ac: () => { const A = window.acpPadApi; const x = A && A.baseWells().find(b => String(b.well._id) === String(well._id) || b.well.wellName === well.wellName); return x ? x.well : null; } });
 
@@ -5168,6 +5169,13 @@ body.light-mode #statusTextbox {
                 wbtPfRender();
             });
         }
+        // ADDED 2026-11-02: every pickable trajectory in the scene, sorted by name (iPad previews first)
+        function wbtPfPickList(){
+            const L = []; group.traverse(o => { if(o.isMesh && o.visible && o.userData && typeof o.userData.pick === 'function') L.push(o); });
+            const key = m => (/iPad preview/.test(m.userData.pickName || '') ? '0' : /scenario/.test(m.userData.pickName || '') ? '1' : '2') + String(m.userData.pickName || '');
+            L.sort((a, b) => key(a).localeCompare(key(b), undefined, { numeric: true }));
+            wbtPf.pickList = L; return L;
+        }
         function wbtPfClose(){ if(wbtPf.el) wbtPf.el.style.display = 'none'; wbtPf.wells = []; wbtPf.sepCache = null; wbtPfSphere(null); }
         function wbtPfSphere(row, color){
             if(!row){ if(wbtPf.sphere) wbtPf.sphere.visible = false; return; }
@@ -5189,6 +5197,7 @@ body.light-mode #statusTextbox {
             const tabs = [['inc','Inclination'],['az','Azimuth'],['dls','DLS'],['sep','Separation']];   // 2026-11-01: Separation tab
             el.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
                 ${tabs.map(([k, l]) => `<button type="button" class="wbt-btn" data-pftab="${k}" style="padding:2px 8px;${wbtPf.tab === k ? 'border-color:#00c8ff;color:#00c8ff;' : ''}">${l}</button>`).join('')}
+                <select data-pfsel style="max-width:230px;font-size:11px;" title="Trajectory to evaluate (replaces the reference; Shift+click in 3D still overlays)">${wbtPfPickList().map((m, i) => `<option value="${i}" ${wbtPf.wells[0] && wbtPf.wells[0].mesh === m ? 'selected' : ''}>${String(m.userData.pickName || 'trajectory ' + (i + 1)).replace(/</g,'&lt;')}</option>`).join('')}</select>
                 <span style="flex:1;"></span>
                 ${wbtPf.wells.map(w => `<span style="white-space:nowrap;"><span style="display:inline-block;width:10px;height:3px;background:${w.color};vertical-align:middle;margin-right:3px;"></span>${(w.name || '').replace(/</g,'&lt;')}</span>`).join(' ')}
                 <button type="button" class="wbt-btn" data-pfclose style="padding:0 7px;" title="Close">&times;</button></div>
@@ -5196,6 +5205,10 @@ body.light-mode #statusTextbox {
                 <div data-pfread style="font-family:var(--wbt-mono,monospace);min-height:15px;color:var(--wbt-text-dim,#8aa);">Hover the chart · Shift+click another trajectory to overlay (max 4)</div>`;
             el.querySelectorAll('[data-pftab]').forEach(b => b.addEventListener('click', () => { wbtPf.tab = b.dataset.pftab; wbtPfRender(); }));
             el.querySelector('[data-pfclose]').addEventListener('click', wbtPfClose);
+            el.querySelector('[data-pfsel]').addEventListener('change', e => {   // 2026-11-02 (John): pick the trajectory from a list
+                const m = wbtPf.pickList[+e.target.value]; if(!m) return; let info = null; try { info = m.userData.pick(); } catch(err){ return; }
+                if(!info || !info.rows || info.rows.length < 2) return; info.color = wbtPfColor(info.color); info.mesh = m; wbtPf.sepCache = null;
+                wbtPf.wells = [info].concat(wbtPf.wells.slice(1).filter(w => w.name !== info.name)); wbtPfRender(); });
             if(wbtPf.tab === 'sep') wbtPfSep(el.querySelector('[data-pfchart]'), el.querySelector('[data-pfread]'));
             else wbtPfChart(el.querySelector('[data-pfchart]'), el.querySelector('[data-pfread]'));
         }
@@ -5874,6 +5887,7 @@ body.light-mode #statusTextbox {
             mesh.geometry.dispose();
             mesh.geometry = new THREE.TubeGeometry(ud.curve, ud.tubularSegments, ud.baseRadius * k, 6, false);
             mesh.userData.iplan = sc.id;
+            mesh.userData.pickName = (sc.name || 'Scenario') + ' (scenario)';   // 2026-11-02
             mesh.userData.pick = () => ({ name: sc.name || 'Scenario', color: GREEN, rows: (sc._calc && sc._calc.stations || []).map(s0 => ({ md: s0.md, inc: s0.inc, az: s0.az, tvd: s0.tvd, ss: s0.subSea, dls: s0.dls30, n: s0.n, e: s0.e, comment: '' })),   // 2026-11-01: profile panel
                 ac: () => { const A = window.acpPadApi; return A ? (A.scenarioWells().find(x => x.scenarioId === sc.id) || null) : null; } });
             api.getGroup().add(mesh);
@@ -6941,6 +6955,7 @@ body.light-mode #statusTextbox {
                 const g = api.buildWellLine(w.st.map(p => new THREE.Vector3(p.e, n(w.s.ss) - p.tvd, -p.n)), (w.r.ok && !w.over && !(w.viol || []).length) ? 0xffd060 : 0xff4c4c);   // 2026-11-01: rule violations red
                 ipdScaleGhost(g);   // 2026-10-31: "iPad previews" thickness slider
                 g.userData.ipdWell = wells.indexOf(w);
+                g.userData.pickName = w.name + ' (iPad preview)';   // 2026-11-02
                 g.userData.pick = () => ({ name: w.name + ' (iPad preview)', color: (w.r.ok && !w.over && !(w.viol || []).length) ? 0xffd060 : 0xff4c4c,   // 2026-11-01: profile panel
                     rows: (pts => pts.map((p, k) => { let d = p.dls; for(let j = k + 1; (d == null || !isFinite(d)) && j < pts.length; j++) d = pts[j].dls;   // inserted comment points take the next station's DLS
                         return { md: p.md, inc: p.inc, az: p.az, tvd: p.tvd, ss: n(w.s.ss) - p.tvd, dls: d, n: p.n, e: p.e, comment: p.comment || '' }; }))(ipdCommentedStations(w)),
@@ -7467,19 +7482,26 @@ body.light-mode #statusTextbox {
             let html = `<div style="margin-bottom:4px;">${nRed ? `<b style="color:#ff4c4c;">${nRed} well(s) below SF ${red}</b> · ` : ''}${nOr ? `<b style="color:#ff9f1c;">${nOr} well(s) below SF ${orange}</b> · ` : ''}${(!nRed && !nOr) ? '<b style="color:#00e676;">All new wells ≥ SF ' + orange + '</b>' : ''}</div>`;
             html += `<table style="font-size:11px;font-family:var(--wbt-mono);"><tr>${['Well','Min SF','Against','C2C (m)','at MD','offset MD'].map(h => `<th style="padding:0 8px 0 0;text-align:left;">${h}</th>`).join('')}</tr>` +
                 summ.map(x => `<tr><td style="padding-right:8px;">${esc(x.a.label)}</td><td style="color:${col(x.b && x.b.sf)};font-weight:700;">${x.b ? f(Math.min(x.b.sf, 99), 2) : '—'}</td><td>${esc(x.other)}</td><td>${x.b ? f(x.b.c2c, 2) : '—'}</td><td>${x.b ? f(x.b.refMd, 1) : '—'}</td><td>${x.b ? f(x.b.offMd, 1) : '—'}</td></tr>`).join('') + '</table>';
-            // matrix
+            // matrix — CHANGED 2026-11-02 (John: with the existing wells as vertical column headers the long
+            // names filled the scroll box and the rows could not be seen). TRANSPOSED: rows = existing / other wells
+            // (full names readable, horizontal), columns = the new pad wells (short names); header row and name column
+            // are sticky; rows sorted by their lowest SF; filter "only rows below the orange SF". Excel unchanged.
             const cc = c => c.cat === 'planned' ? '#0066ff' : c.cat === 'offset' ? '#ff4c4c' : c.cat === 'scenario' ? '#00e676' : 'var(--wbt-text)';
-            html += `<details style="margin-top:6px;" open><summary style="cursor:pointer;">Matrix (rows = new wells, hover a cell for C2C / MDs)</summary><div style="max-height:360px;max-width:100%;overflow:auto;">
-                <table style="font-size:10px;font-family:var(--wbt-mono);border-collapse:collapse;"><tr><th></th>${cols.map(c => `<th style="writing-mode:vertical-rl;transform:rotate(180deg);padding:2px;color:${cc(c)};white-space:nowrap;">${esc(c.label)}</th>`).join('')}</tr>` +
-                news.map((a, i) => `<tr><th style="text-align:left;padding-right:6px;white-space:nowrap;">${esc(a.label)}</th>` + cols.map((c, j) => {
+            const mRows = cols.map((c, j) => { let mn = Infinity; news.forEach((a, i) => { const r = res[i][j]; if(r && !(c.isNew && j === i) && r.sf < mn) mn = r.sf; }); return { c, j, mn }; }).sort((x, y) => x.mn - y.mn);
+            html += `<details style="margin-top:6px;" open><summary style="cursor:pointer;">Matrix (rows = wells checked against, columns = new wells; sorted by lowest SF; hover a cell for C2C / MDs)</summary>
+                <label style="font-size:11px;"><input type="checkbox" id="ipdSepOnlyBad"> only rows with SF &lt; ${orange}</label>
+                <div style="max-height:420px;max-width:100%;overflow:auto;margin-top:3px;">
+                <table style="font-size:10px;font-family:var(--wbt-mono);border-collapse:separate;border-spacing:0;"><tr><th style="position:sticky;top:0;left:0;z-index:3;background:var(--wbt-panel,#0d131b);text-align:left;padding:2px 6px;">Well \ new well</th>${news.map(a => `<th style="position:sticky;top:0;z-index:2;background:var(--wbt-panel,#0d131b);padding:2px 4px;white-space:nowrap;">${esc(String(a.label).split(' ').pop())}</th>`).join('')}<th style="position:sticky;top:0;z-index:2;background:var(--wbt-panel,#0d131b);padding:2px 4px;">Min</th></tr>` +
+                mRows.map(({ c, j, mn }) => `<tr data-ipdmn="${isFinite(mn) ? mn : 99}"><th style="position:sticky;left:0;z-index:1;background:var(--wbt-panel,#0d131b);text-align:left;padding:1px 6px;white-space:nowrap;color:${cc(c)};font-weight:400;">${esc(c.label)}</th>` + news.map((a, i) => {
                     const r = res[i][j];
                     if(c.isNew && j === i) return '<td style="background:#222;"></td>';
-                    if(!r) return '<td style="padding:1px 3px;color:var(--wbt-text-dim);">—</td>';
+                    if(!r) return '<td style="padding:1px 3px;color:var(--wbt-text-dim);text-align:center;">—</td>';
                     const bg = r.sf < red ? 'rgba(255,76,76,.35)' : r.sf < orange ? 'rgba(255,159,28,.35)' : 'rgba(0,230,118,.12)';
-                    return `<td title="${esc(a.label)} vs ${esc(c.label)}: SF ${f(r.sf,2)}, C2C ${f(r.c2c,2)} m at MD ${f(r.refMd,1)} (offset MD ${f(r.offMd,1)})${r.real ? '' : ' — simplified model (no toolcode/magnetics)'}" style="padding:1px 3px;text-align:center;background:${bg};">${f(Math.min(r.sf, 99), 2)}</td>`;
-                }).join('') + '</tr>').join('') + '</table></div></details>';
+                    return `<td title="${esc(a.label)} vs ${esc(c.label)}: SF ${f(r.sf,2)}, C2C ${f(r.c2c,2)} m at MD ${f(r.refMd,1)} (offset MD ${f(r.offMd,1)})${r.real ? '' : ' — simplified model (no toolcode/magnetics)'}" style="padding:1px 4px;text-align:center;background:${bg};">${f(Math.min(r.sf, 99), 2)}</td>`;
+                }).join('') + `<td style="padding:1px 4px;text-align:center;color:${col(mn)};font-weight:700;">${isFinite(mn) ? f(Math.min(mn, 99), 2) : '—'}</td></tr>`).join('') + '</table></div></details>';
             html += `<button type="button" class="wbt-btn" id="ipdSepXls" style="margin-top:6px;">&#11015; Download Excel</button>`;
             out.innerHTML = html;
+            document.getElementById('ipdSepOnlyBad').addEventListener('change', e => { out.querySelectorAll('tr[data-ipdmn]').forEach(tr => { tr.style.display = (e.target.checked && +tr.dataset.ipdmn >= orange) ? 'none' : ''; }); });   // 2026-11-02
             document.getElementById('ipdSepXls').addEventListener('click', () => {
                 if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
                 const wb = XLSX.utils.book_new();
