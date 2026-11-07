@@ -2291,10 +2291,27 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     padding-bottom:3px;
                 }
                 .gantt-sidebar h6:first-child { margin-top:0; }
-                .gantt-filter-group { margin-bottom:4px; max-height:calc(5 * 22px); overflow-y:auto; }
+                .gantt-filter-group { margin-bottom:4px; }   /* CHANGED 2026-11-04 (John): full lists, no inner scroll ... */
+                #gfPrimaryZone2 { max-height:calc(5 * 22px); overflow-y:auto; }   /* ... except Primary Zone (formations, long list) */
                 .gantt-filter-group label { display:flex; align-items:center; gap:5px; margin:3px 0; cursor:pointer; font-size:10.5px; }
                 .gantt-filter-group input[type=checkbox] { cursor:pointer; flex-shrink:0; }
                 .gantt-plot-wrap { flex:1; min-width:0; overflow-x:auto; }
+                /* ADDED 2026-11-04 (John: on the phone the filter column squeezed the chart to one side).
+                   <= 768 px: the filter sidebar becomes a slide-in drawer from the left, opened with the
+                   "Filters" button above the chart (hidden on desktop); the chart gets the full width. */
+                .gantt-filter-toggle, .gantt-drawer-close, .gantt-drawer-backdrop { display:none; }
+                @media (max-width: 768px){
+                    .gantt-outer { margin:8px 4px 14px; }
+                    .gantt-sidebar { position:fixed; top:0; left:0; height:100vh; width:260px; min-width:260px; z-index:1060;
+                                     transform:translateX(-105%); transition:transform .25s ease; box-shadow:4px 0 16px rgba(0,0,0,.5); }
+                    .gantt-sidebar.open { transform:translateX(0); }
+                    #gfPrimaryZone2 { max-height:calc(7 * 26px); }
+                    .gantt-filter-group label { font-size:13px; margin:6px 0; }
+                    .gantt-filter-toggle { display:inline-block; }
+                    .gantt-drawer-close { display:block; margin-left:auto; }
+                    .gantt-drawer-backdrop.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1055; }
+                    .gantt-plot-wrap .m-2 { flex-wrap:wrap; gap:6px; }
+                }
                 .gantt-reset-btn {
                     width:100%; margin-top:8px;
                     font-family:var(--an-cond,sans-serif); font-size:10px;
@@ -2310,7 +2327,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             <% if (newSchedule && newSchedule.headers && newSchedule.headers.length) { %>
             <!-- ── New Schedule Gantt chart with filter sidebar ── -->
             <div class="gantt-outer" id="ganttOuter2" style="margin-top:14px;">
+                <div class="gantt-drawer-backdrop" id="ganttDrawerBackdrop2"></div>
                 <div class="gantt-sidebar" id="ganttSidebar2">
+                    <button type="button" class="gantt-reset-btn gantt-drawer-close" id="ganttDrawerClose2" style="width:auto;padding:2px 10px;margin:0 0 6px auto;">&times; Close</button>
                     <h6>VP</h6>
                     <div class="gantt-filter-group" id="gfVP2"></div>
                     <h6>Year</h6>
@@ -2334,11 +2353,25 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <h6>D.E</h6>
                     <div class="gantt-filter-group" id="gfDE2"></div>
                     <button class="gantt-reset-btn" id="ganttResetBtn2">Reset Filters</button>
+                    <%# ADDED 2026-11-04 (John): save the filters for this user (this browser); applied automatically next time %>
+                    <button class="gantt-reset-btn" id="ganttSaveFilters2">&#128190; Save filters</button>
+                    <button class="gantt-reset-btn" id="ganttClearSaved2" title="Forget the saved filters (back to defaults next time)">Clear saved</button>
+                    <div id="ganttSavedNote2" style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;"></div>
                 </div>
                 <div class="gantt-plot-wrap">
                     <!-- ADDED 2026-09-25: exports the currently filtered Gantt bars
                          (lastFilteredBars2) to .xlsx — see ganttExportExcel2(). -->
                     <div class="m-2" style="display:flex;justify-content:flex-end;">
+                        <button type="button" class="gantt-reset-btn gantt-filter-toggle" id="ganttFilterToggle2" style="width:auto;padding:4px 12px;">&#9776; Filters</button>
+                        <%# ADDED 2026-11-04 (John): move the Gantt window to the past / future (drag also pans), window length %>
+                        <span style="display:inline-flex;gap:4px;margin-right:auto;margin-left:6px;flex-wrap:wrap;">
+                            <button type="button" class="gantt-reset-btn" data-gnav="-1" style="width:auto;padding:4px 10px;" title="Earlier (half a window)">&#9664;</button>
+                            <button type="button" class="gantt-reset-btn" data-gnav="0" style="width:auto;padding:4px 10px;">Today</button>
+                            <button type="button" class="gantt-reset-btn" data-gnav="1" style="width:auto;padding:4px 10px;" title="Later (half a window)">&#9654;</button>
+                            <button type="button" class="gantt-reset-btn" data-gwin="3" style="width:auto;padding:4px 8px;">3M</button>
+                            <button type="button" class="gantt-reset-btn" data-gwin="6" style="width:auto;padding:4px 8px;">6M</button>
+                            <button type="button" class="gantt-reset-btn" data-gwin="12" style="width:auto;padding:4px 8px;">1Y</button>
+                        </span>
                         <button type="button" class="gantt-reset-btn" id="ganttExportExcelBtn2" style="width:auto;padding:4px 12px;">&#11015; Download Excel</button>
                         <!-- ADDED 2026-10-06: one slide per area (East/Central/West/Thermal) — see ganttExportPptx2(). -->
                         <button type="button" class="gantt-reset-btn" id="ganttExportPptxBtn2" style="width:auto;padding:4px 12px;margin-left:6px;">&#11015; Download PowerPoint</button>
@@ -2369,6 +2402,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         <div id="snapshotChartTypeToggle" class="btn-group btn-group-sm mb-2" role="group" aria-label="Snapshot chart type">
                             <button type="button" class="btn btn-outline-primary active" id="snapshotChartTypePie" data-chart-type="pie">Pie</button>
                             <button type="button" class="btn btn-outline-primary" id="snapshotChartTypeBar" data-chart-type="bar">Stacked Bars</button>
+                        </div>
+                        <%# ADDED 2026-11-04 (John): pie size Big (as before) / Medium / Small; remembered in this browser %>
+                        <div id="snapshotPieSize" class="btn-group btn-group-sm mb-2 ms-2" role="group" aria-label="Pie size">
+                            <button type="button" class="btn btn-outline-primary" data-pie-size="big">Big</button>
+                            <button type="button" class="btn btn-outline-primary" data-pie-size="medium">Medium</button>
+                            <button type="button" class="btn btn-outline-primary" data-pie-size="small">Small</button>
                         </div>
                         <div id="snapshotYearTicks" class="mb-2"></div>
                         <div id="snapshotContainer"></div>
@@ -2411,6 +2450,32 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
 
 
+<script>
+// ADDED 2026-11-04 (John): Gantt filter drawer on phones (see the .gantt-sidebar media query).
+(function(){
+    const sb = document.getElementById('ganttSidebar2'), bd = document.getElementById('ganttDrawerBackdrop2');
+    const tg = document.getElementById('ganttFilterToggle2'), cl = document.getElementById('ganttDrawerClose2');
+    if(!sb || !tg) return;
+    const set = o => { sb.classList.toggle('open', o); if(bd) bd.classList.toggle('open', o); };
+    tg.addEventListener('click', () => set(true));
+    if(cl) cl.addEventListener('click', () => set(false));
+    if(bd) bd.addEventListener('click', () => set(false));
+    document.addEventListener('keydown', e => { if(e.key === 'Escape') set(false); });
+})();
+// ADDED 2026-11-04 (John): ◀ Today ▶ and 3M / 6M / 1Y on the Gantt (current chart = last of chartInstances2).
+(function(){
+    const DAY = 864e5;
+    const cur = () => (window.chartInstances2Ref && window.chartInstances2Ref.length) ? window.chartInstances2Ref[window.chartInstances2Ref.length - 1] : null;
+    const setWin = (a, b) => { const ch = cur(); if(!ch) return; const lo = Date.now() - 366 * DAY, hi = Date.now() + 731 * DAY;   // same limits as the chart (today -1 y / +2 y)
+        if(a < lo){ b += lo - a; a = lo; } if(b > hi){ a -= b - hi; b = hi; }
+        ch.options.scales.x.min = a; ch.options.scales.x.max = b; ch.update('none'); window.ganttView2 = { min: a, max: b }; };
+    document.querySelectorAll('[data-gnav]').forEach(btn => btn.addEventListener('click', () => { const ch = cur(); if(!ch) return;
+        const a = ch.scales.x.min, b = ch.scales.x.max, w = b - a, k = +btn.dataset.gnav;
+        if(k === 0){ const t = Date.now() - 7 * DAY; setWin(t, t + w); } else setWin(a + k * w / 2, b + k * w / 2); }));
+    document.querySelectorAll('[data-gwin]').forEach(btn => btn.addEventListener('click', () => { const ch = cur(); if(!ch) return;
+        const d = new Date(ch.scales.x.min), e = new Date(d); e.setMonth(e.getMonth() + (+btn.dataset.gwin)); setWin(d.getTime(), e.getTime()); }));
+})();
+</script>
 <!-- ganttNotesMap data: stored in a non-executable script tag so special
      characters in project names cannot break the surrounding JS -->
 <script type="application/json" id="ganttNotesMapData"><%- JSON.stringify(notes.reduce((m,n)=>{ if(n.project){ m[n.project.slice(0,14)]={ id:String(n._id), de:String(n.poc||''), batchDays:Number(n.batchDays)||0, mtx:String(n.mtxJobId||'') /* 2026-10-27: MTX ID for the Handover table */, img: n.path ? 1 : 0 /* 2026-10-28: job has a picture (Handover .eml) */, dc: String(n.designCode||''), ntv: String(n.notesToVendor||'') /* 2026-10-28: Handover e-mail, per well */, fu: String(n.folderUrl||'') /* 2026-10-28: Notification e-mail */, hc: n.handoverChecklist || [] /* 2026-10-29: Handover checklist */ }; } return m; },{})).replace(/</g, '\\u003c') /* 2026-10-29: escape '<' (free text inside) */ %></script>
@@ -2887,6 +2952,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         });
     }
 
+    let ganttSavedApplied2 = false;   // 2026-11-04: saved filters applied once
+    window.MTX_USER_ID = <%- JSON.stringify(String((user && (user.id || user._id)) || '')) %>;
     function ganttBuildAllFilters2(){
         const uniqWithBlank = f => {
             const vals = new Set(ganttAllBars2.map(b => b[f]).filter(Boolean));
@@ -2912,6 +2979,29 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         ganttBuildFilterGroup2('gfRig2',       'rig',       uniqWithBlank('rig'),       defaultAll);
         ganttBuildFilterGroup2('gfDE2',        'de',        uniqWithBlank('de'),        defaultAll);
 
+        // ADDED 2026-11-04 (John): saved filters (per user, this browser) — stored as the UNticked values per filter,
+        // so values that appear later (new rigs, new years) come in ticked. Applied once, on the first build only
+        // (Reset Filters still goes back to the defaults).
+        const SAVE_KEY = 'mtxGanttFilters:' + (window.MTX_USER_ID || 'anon');
+        const note = document.getElementById('ganttSavedNote2');
+        if(!ganttSavedApplied2){
+            ganttSavedApplied2 = true;
+            let saved = null; try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch(e){}
+            if(saved && saved.off){
+                Object.keys(saved.off).forEach(f => document.querySelectorAll(`#ganttSidebar2 input[type=checkbox][data-gfield="${f}"]`).forEach(cb => { cb.checked = !saved.off[f].includes(cb.value); }));
+                if(note) note.textContent = 'Saved filters applied (' + (saved.at || '') + ')';
+            }
+        }
+        const saveBtn = document.getElementById('ganttSaveFilters2'), clrBtn = document.getElementById('ganttClearSaved2');
+        if(saveBtn && !saveBtn.dataset.wired){
+            saveBtn.dataset.wired = '1';
+            saveBtn.addEventListener('click', () => {
+                const off = {}; document.querySelectorAll('#ganttSidebar2 input[type=checkbox][data-gfield]').forEach(cb => { if(!cb.checked) (off[cb.dataset.gfield] = off[cb.dataset.gfield] || []).push(cb.value); });
+                const at = new Date().toLocaleString();
+                try { localStorage.setItem(SAVE_KEY, JSON.stringify({ off, at })); if(note) note.textContent = 'Filters saved (' + at + ')'; } catch(e){ if(note) note.textContent = 'Could not save in this browser.'; }
+            });
+            clrBtn.addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch(e){} if(note) note.textContent = 'Saved filters cleared.'; });
+        }
         ganttFiltersBuilt2 = true;
 
         const resetBtn = document.getElementById('ganttResetBtn2');
@@ -3792,6 +3882,24 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         });
     });
 
+    // ADDED 2026-11-04 (John): 3 pie sizes for the Snapshot pies. Big = the original layout (unchanged values).
+    const SNAP_PIE_SIZES = {
+        big:    { col: 'flex:1 1 0;min-width:320px;max-width:520px;', title: 30, label: 22.5, th: null,  td: null },   // table: as before
+        medium: { col: 'flex:0 0 260px;width:260px;',                title: 18, label: 14,   th: '1.1rem', td: '1.05rem' },
+        small:  { col: 'flex:0 0 170px;width:170px;',                title: 12, label: 10,   th: '0.72rem', td: '0.8rem' }
+    };
+    let snapPieSize = (() => { try { return localStorage.getItem('mtxSnapPieSize') || 'big'; } catch(e){ return 'big'; } })();
+    if(!SNAP_PIE_SIZES[snapPieSize]) snapPieSize = 'big';
+    function snapPie(){ return SNAP_PIE_SIZES[snapPieSize]; }
+    (function wireSnapPieSize(){
+        const g = document.getElementById('snapshotPieSize'); if(!g) return;
+        const mark = () => g.querySelectorAll('[data-pie-size]').forEach(b => b.classList.toggle('active', b.dataset.pieSize === snapPieSize));
+        mark();
+        g.querySelectorAll('[data-pie-size]').forEach(b => b.addEventListener('click', () => {
+            snapPieSize = b.dataset.pieSize; try { localStorage.setItem('mtxSnapPieSize', snapPieSize); } catch(e){}
+            mark(); renderSnapshotSection();
+        }));
+    })();
     function renderSnapshotSection(){
         // ADDED 2026-09-14: read the module-scoped toggle state at the top of
         // the render, per spec, so the branch below picks pies vs. one
@@ -3927,7 +4035,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     // pies above are unaffected.
                     const col = document.createElement('div');
                     col.className = 'snapshot-pie-col';
-                    col.style.cssText = 'flex:1 1 0;min-width:320px;max-width:520px;';
+                    col.style.cssText = snapPie().col;   // 2026-11-04: pie size
                     const canvas = document.createElement('canvas');
                     canvas.className = 'snapshot-pie-chart';
                     col.appendChild(canvas);
@@ -3948,7 +4056,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         options: {
                             layout: { padding: 0 },
                             plugins: {
-                                title: { display:true, text:`${area}: ${total} Wells`, color: anChartColor(), font:{size:30,weight:"normal"} },
+                                title: { display:true, text:`${area}: ${total} Wells`, color: anChartColor(), font:{size:snapPie().title,weight:"normal"} },
                                 legend: { display:false },
                                 datalabels: {
                                     color: (ctx) => {
@@ -3956,7 +4064,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                         const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#00FFFF"]; // Vendor On It: #ff8c00 (2026-09-24) -> #00FFFF (2026-10-05)
                                         return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                                     },
-                                    font:{weight:"bold",size:22.5},
+                                    font:{weight:"bold",size:snapPie().label},
                                     formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
                                 }
                             }
@@ -4076,7 +4184,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         totalRow.className = 'snapshot-pie-row';
         const totalCol = document.createElement('div');
         totalCol.className = 'snapshot-pie-col';
-        totalCol.style.cssText = 'flex:1 1 0;min-width:320px;max-width:520px;';
+        totalCol.style.cssText = snapPie().col;   // 2026-11-04: pie size
         const totalCanvas = document.createElement('canvas');
         totalCanvas.className = 'snapshot-pie-chart';
         totalCol.appendChild(totalCanvas);
@@ -4099,7 +4207,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             options: {
                 layout: { padding: 0 },
                 plugins: {
-                    title: { display:true, text:`TOTAL (${yearsText}): ${grandTotal} Wells`, color: anChartColor(), font:{size:30,weight:"normal"} },
+                    title: { display:true, text:`TOTAL (${yearsText}): ${grandTotal} Wells`, color: anChartColor(), font:{size:snapPie().title,weight:"normal"} },
                     legend: { display:false },
                     datalabels: {
                         color: (ctx) => {
@@ -4107,12 +4215,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#00FFFF"]; // 2026-10-05: Vendor On It orange -> cyan
                             return lightBgs.some(col => bg.toLowerCase() === col.toLowerCase()) ? "#000" : "#fff";
                         },
-                        font:{weight:"bold",size:22.5},
+                        font:{weight:"bold",size:snapPie().label},
                         formatter:(v,ctx)=>{ const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); return (v&&t)?Math.round(v/t*100)+"%":""; }
                     }
                 }
             }
         }));
+        // ADDED 2026-11-04 (John): the per-year tables follow the pie size too. Their header / cell sizes are inline
+        // "!important" (see the round-3 note above), so they are overridden the same way, per element.
+        const ps = snapPie();
+        if(ps.th) container.querySelectorAll('table th').forEach(el => { el.style.setProperty('font-size', ps.th, 'important'); el.style.setProperty('padding', '2px 4px'); });
+        if(ps.td) container.querySelectorAll('table td').forEach(el => { el.style.setProperty('font-size', ps.td, 'important'); el.style.setProperty('padding', '2px 4px'); });
     }
 
     function ganttApplyAndRender2(){
@@ -4399,7 +4512,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             // CHANGED 2026-10-06: default visible window now ends 1 year from today
             // (was today + 5 months). Start (today - 7 days) and the 2-year pan/zoom
             // limit (absoluteMax) are unchanged.
-            const defaultMax  = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()); // default visible window
+            // CHANGED 2026-11-04 (John): phones open on a 3-month window (bars readable); the window the user panned /
+            // zoomed to (or chose with the ◀ Today ▶ / 3M 6M 1Y buttons) is kept across filter changes (ganttView2).
+            const isPhone = window.innerWidth <= 768;
+            let defaultMax  = isPhone ? new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+                                      : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()); // default visible window
+            const absoluteMin = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()); // 2026-11-04: pan into the past (1 year)
             const absoluteMax = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // full range for zoom/pan
 
             const canvasH = Math.max(200, rigSet.length * 40);
@@ -4461,14 +4579,16 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         x: {
                             type: "time",
                             time: { unit: "day", stepSize: 1, tooltipFormat: "dd-MMM-yyyy", displayFormats: { day: "dd-MMM-yy" } },
-                            min: minDate, max: defaultMax,
+                            min: (!isExport && window.ganttView2) ? window.ganttView2.min : minDate, max: (!isExport && window.ganttView2) ? window.ganttView2.max : defaultMax,   // 2026-11-04
                             ticks: { color: (lightLook ? '#333' : '#fff') },
                             grid:  { color: (lightLook ? '#ccc' : '#333') }
                         },
                         y: {
                             type: "category",
                             labels: rigSet,
-                            ticks: { color: (lightLook ? '#333' : '#fff'), font: { weight: "bold" } },
+                            // CHANGED 2026-11-04 (John): rig names shown max 16 characters (15 + '…'); full name stays in the data / tooltip
+                            ticks: { color: (lightLook ? '#333' : '#fff'), font: { weight: "bold" },
+                                     callback: function(v){ const l = String(this.getLabelForValue(v) || ''); return l.length > 16 ? l.slice(0, 15) + '…' : l; } },
                             grid:  { color: (lightLook ? '#ccc' : '#333') }
                         }
                     },
@@ -4585,15 +4705,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             pan: {
                                 enabled: true,
                                 mode: "x",
+                                onPanComplete: ({ chart }) => { window.ganttView2 = { min: chart.scales.x.min, max: chart.scales.x.max }; },   // 2026-11-04
                             },
                             zoom: {
                                 wheel: { enabled: true },
                                 pinch: { enabled: true },
                                 mode: "x",
+                                onZoomComplete: ({ chart }) => { window.ganttView2 = { min: chart.scales.x.min, max: chart.scales.x.max }; },   // 2026-11-04
                             },
                             limits: {
                                 x: {
-                                    min: minDate.getTime(),
+                                    min: absoluteMin.getTime(),   // 2026-11-04: was minDate (today - 7 days) — John: pan to the past too
                                     max: absoluteMax.getTime(),
                                     minRange: 7 * 24 * 60 * 60 * 1000,
                                 },
@@ -4639,6 +4761,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             });
 
             if(!isExport) chartInstances2.push(chart);
+            window.chartInstances2Ref = chartInstances2;   // 2026-11-04: for the Gantt ◀ Today ▶ buttons
 
 
             // REMOVED 2026-09-24: the status summary table (summaryTable2) and
@@ -5050,7 +5173,14 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     }
 
     // ── DP Wellbore Backlog per month (Wellbores Received − Wellbores Requested) ──
+    // 2026-11-04: Open DP wellbores toggle (trace 3 of the backlog plot), remembered in this browser
+    function dptsWireOpenBacklogToggle(){ const cb = document.getElementById('dpOpenBacklogToggle'); if(!cb || cb.dataset.wired) return; cb.dataset.wired = '1';   // wired on first render (the tick sits below this script)
+        try { cb.checked = localStorage.getItem('mtxOpenDpBacklog') !== '0'; } catch(e){}
+        cb.addEventListener('change', () => { try { localStorage.setItem('mtxOpenDpBacklog', cb.checked ? '1' : '0'); } catch(e){}
+            const el = document.getElementById('dpWellboresBacklogPlot'); if(el && el.data && el.data.length > 3) Plotly.restyle(el, { visible: cb.checked ? true : 'legendonly' }, [3]); });
+    }
     function dptsRenderWellboresBacklogPlot(rows){
+        dptsWireOpenBacklogToggle();   // 2026-11-04
         const { labels, reqVals, recVals } = dptsBucketWellboresByMonth(rows);
 
         const monthlyDelta = labels.map((_, i) => recVals[i] - reqVals[i]);
@@ -5102,6 +5232,17 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 fillcolor: 'rgba(255,64,96,0.25)',
                 connectgaps: false,
                 visible: 'legendonly',
+            },
+            // ADDED 2026-11-04 (John): the real backlog = wellbores requested and not yet received at the end of each
+            // month = −(cumulative received − requested). Always ≥ 0 (a DP can't be received before it is requested),
+            // which is why the green "Cumulative (+)" trace never showed. Includes requested-only rows (no received date).
+            // On/off with the "Open DP wellbores" tick above the plot (remembered in this browser) or the legend.
+            {
+                x: labels, y: cumulative.map(v => Math.max(0, -v)), type: 'scatter', mode: 'lines', name: 'Open DP wellbores (requested, not yet received)',
+                line: { color: '#ffb300', width: 2.5 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(255,179,0,0.18)',
+                visible: (() => { try { return localStorage.getItem('mtxOpenDpBacklog') === '0' ? 'legendonly' : true; } catch(e){ return true; } })(),
             },
         ], {
             title: { text: `DP Wellbore Backlog by Month (Received − Requested)`, font: { color: fontColor, size: 14 } },
@@ -5224,7 +5365,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 <div class="dpts-plot-wrap">
                     <div id="dpBoxPlot" style="width:100%;"></div>
                     <div id="dpWellboresMonthlyPlot" style="width:100%;margin-top:18px;"></div>
-                    <div id="dpWellboresBacklogPlot" style="width:100%;margin-top:18px;"></div>
+                    <%# ADDED 2026-11-04 (John): toggle for the "Open DP wellbores" trace (index 3) %>
+                    <label style="display:block;margin-top:18px;font-size:12px;cursor:pointer;"><input type="checkbox" id="dpOpenBacklogToggle" checked> Open DP wellbores (requested, not yet received)</label>
+                    <div id="dpWellboresBacklogPlot" style="width:100%;margin-top:4px;"></div>
                 </div>
             </div>
 </div>

@@ -814,6 +814,22 @@ body.light-mode #statusTextbox {
                         .ipl-root.open .ipl-body{ display:flex; gap:12px; flex-wrap:wrap; }
                         .ipl-col-list{ width:240px; min-width:220px; }
                         .ipl-col-edit{ flex:1; min-width:520px; }
+                        /* ADDED 2026-11-06 (John): Compass-style plan grid to the right of the editor (below it when narrow) */
+                        .ipl-ed-wrap{ display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start; }
+                        .ipl-ed-left{ flex:1 1 520px; min-width:0; }
+                        .ipl-ed-right{ flex:1 1 900px; min-width:0; }
+                        /* CHANGED 2026-11-06 (John): one text size everywhere in the grid (inputs included), every cell and header centred */
+                        .ipl-grid-tbl{ border-collapse:collapse; font-family:var(--wbt-mono); font-size:12px; width:100%; }
+                        .ipl-grid-tbl th{ position:sticky; top:0; background:var(--wbt-panel,#111820); color:var(--wbt-text-dim); font-weight:600; font-size:12px; padding:3px 4px; border:1px solid var(--wbt-border); white-space:nowrap; z-index:1; text-align:center; vertical-align:middle; }
+                        .ipl-grid-tbl td{ border:1px solid var(--wbt-border); padding:0 4px; text-align:center; vertical-align:middle; white-space:nowrap; height:22px; font-size:12px; background:rgba(128,128,128,.12); }
+                        .ipl-grid-tbl td.in{ background:var(--wbt-input-bg,#fff); padding:0; }
+                        .ipl-root .ipl-grid-tbl td.in input{ width:100%; min-width:58px; border:0 !important; background:transparent !important; text-align:center; font-family:var(--wbt-mono); font-size:12px !important; color:#000 !important; padding:2px 4px; }
+                        .ipl-grid-tbl td.bad{ color:#ff4c4c; font-weight:700; }
+                        .ipl-grid-tbl tr.sel td{ outline:1px solid #00c8ff; }
+                        .ipl-grid-tbl td.rn{ text-align:center; cursor:pointer; color:var(--wbt-text-dim); }
+                        .ipl-grid-tbl td.tg{ color:#00e676; }
+                        .ipl-pm{ border:1px solid var(--wbt-border); border-radius:3px; padding:6px; margin-top:6px; }
+                        .ipl-pm label{ margin-right:10px; white-space:nowrap; }
                         .ipl-root input[type=number], .ipl-root input[type=text], .ipl-root select{
                             background:var(--wbt-panel2); color:var(--wbt-text); border:1px solid var(--wbt-border);
                             border-radius:3px; padding:2px 5px; font-size:12px; font-family:var(--wbt-mono);
@@ -842,6 +858,8 @@ body.light-mode #statusTextbox {
                             <span style="font-size:11px;color:var(--wbt-text-dim);" id="iplHeadInfo">click to open</span>
                         </div>
                         <div class="ipl-body">
+                            <%# CHANGED 2026-11-06 (John: "at the right is too tight ... below the 3D viewer"): plan grid + Planning Methods full width, first thing under the viewer %>
+                            <div id="iplGridHost" style="flex:1 1 100%;min-width:0;"><div class="ipl-h" style="margin-top:0;">Stations Grid</div><div id="iplGridBox"><div style="color:var(--wbt-text-dim);">Select a scenario.</div></div><div id="iplPmBox"></div></div>
                             <div class="ipl-col-list">
                                 <button type="button" class="wbt-btn" id="iplNewBtn" style="width:100%;margin-bottom:6px;">+ New Scenario</button>
                                 <div id="iplList"></div>
@@ -5276,6 +5294,9 @@ body.light-mode #statusTextbox {
             const bb = rows.reduce((b, r) => [Math.min(b[0], r.n), Math.max(b[1], r.n), Math.min(b[2], r.e), Math.max(b[3], r.e)], [Infinity, -Infinity, Infinity, -Infinity]), pad = 300;
             const cand = [];
             others.forEach(m => { let info; try { info = m.userData.pick(); } catch(e){ return; } if(!info || !info.rows || info.rows.length < 2 || info.name === ref.name) return;
+                // 2026-11-04 (John, SD9 "[01]ETS 140030_L01 0.0 m"): a trajectory starting within 3 m of the reference's
+                // surface is another version of the same well (e.g. the planned well an iPad preview redesigns) — skipped.
+                const r0 = info.rows.slice().sort((a, b) => a.md - b.md)[0]; if(r0 && rows[0] && Math.hypot(r0.n - rows[0].n, r0.e - rows[0].e) < 3) return;
                 const P = info.rows.filter(r => isFinite(r.n) && isFinite(r.e) && isFinite(r.ss) && r.n > bb[0] - pad && r.n < bb[1] + pad && r.e > bb[2] - pad && r.e < bb[3] + pad).sort((a, b) => a.md - b.md);
                 if(P.length < 2) return;
                 const d = rows.map(r => { let best = Infinity;
@@ -5812,7 +5833,8 @@ body.light-mode #statusTextbox {
             const rkb = wellRkb(w);
             const push = (type, r) => PAD_TARGETS.push({
                 key: PAD_TARGETS.length, well: w.wellName, type,
-                md: n(r.md), n: n(r.northing), e: n(r.easting), tvd: n(r.tvd), rkb
+                md: n(r.md), n: n(r.northing), e: n(r.easting), tvd: n(r.tvd), rkb,
+                inc: n(r.incl), az: n(r.azim)   // 2026-11-06: attitude at the point (Optimum Align "Final Target" Inc / Azi)
             });
             TARGET_TYPES.forEach(([type, pat]) => {
                 const r = sv.find(x => String(x.comments || '').toUpperCase().includes(pat));
@@ -5866,6 +5888,7 @@ body.light-mode #statusTextbox {
         function compute(sc){
             const st = resolveStart(sc);
             if(st.error){ sc._calc = { error: st.error }; return; }
+            try { solveOaGroups(sc, st); } catch(e){ sc._oaErr = e.message; }   // 2026-11-06: live Optimum Align groups (Compass)
             const res = C.computeStations({ md:st.md, tvd:st.tvd, n:st.n, e:st.e, inc:st.inc, az:st.az }, sc.sections, STEP);
             res.stations.forEach(s => { s.subSea = st.rkb - s.tvd; });
             sc._calc = { start: st, stations: res.stations, sections: res.sections };
@@ -5964,9 +5987,10 @@ body.light-mode #statusTextbox {
         function renderEditor(){
             const ed = document.getElementById('iplEditor');
             const sc = scenarios.find(s => s.id === selId);
-            if(!sc){ ed.innerHTML = '<div style="color:var(--wbt-text-dim);">Create or select a scenario.</div>'; return; }
+            if(!sc){ ed.innerHTML = '<div style="color:var(--wbt-text-dim);">Create or select a scenario.</div>';
+                const gb = document.getElementById('iplGridBox'), pb = document.getElementById('iplPmBox'); if(gb) gb.innerHTML = '<div style="color:var(--wbt-text-dim);">Select a scenario.</div>'; if(pb) pb.innerHTML = ''; return; }
             const s0 = sc.start;
-            ed.innerHTML = `
+            ed.innerHTML = `<div class="ipl-ed-wrap"><div class="ipl-ed-left">
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <label style="color:var(--wbt-text-dim);">Name</label>
                     <input type="text" id="iplName" value="${esc(sc.name)}" style="width:220px;">
@@ -6021,7 +6045,7 @@ body.light-mode #statusTextbox {
                     ${(sc._undo && sc._undo.length) ? '<button type="button" class="wbt-btn" id="iplUndo" title="Undo the last wizard on this scenario (this session only)">&#8630; Undo last wizard</button>' : ''}
                 </div>
                 <div id="iplWiz"></div>
-                <div class="ipl-sum" id="iplSummary"></div>`;
+                <div class="ipl-sum" id="iplSummary"></div></div></div>`;
 
             document.getElementById('iplName').addEventListener('input', e => { sc.name = e.target.value; renderListNamesOnly(); markDirty(sc); window.dispatchEvent(new CustomEvent('iplanScenariosChanged', { detail: { id: sc.id } })); });
             document.getElementById('iplToolcode').addEventListener('change', e => {
@@ -6061,7 +6085,7 @@ body.light-mode #statusTextbox {
             document.getElementById('iplPadTarget').addEventListener('change', e => {
                 const pt = PAD_TARGETS[parseInt(e.target.value, 10)];
                 if(!pt) return;
-                sc.targets.push({ name: pt.well + ' ' + pt.type, n: pt.n, e: pt.e, ss: Math.round((pt.rkb - pt.tvd) * 100) / 100, r: 15 });
+                sc.targets.push({ name: pt.well + ' ' + pt.type, n: pt.n, e: pt.e, ss: Math.round((pt.rkb - pt.tvd) * 100) / 100, r: 15, inc: pt.inc, az: pt.az });   // 2026-11-06: + inc/az
                 e.target.value = '';
                 refresh(sc); renderTargets(sc); renderSections(sc); updateResults(sc);
             });
@@ -6079,7 +6103,486 @@ body.light-mode #statusTextbox {
             });
             renderTargets(sc);
             renderSections(sc);
+            renderPlanMethods(sc);   // 2026-11-06
             updateResults(sc);
+        }
+
+        // ================= ADDED 2026-11-06 (John): Compass-style plan grid + Planning Methods =================
+        // One row per SECTION END (row 0 = start / tie-on), the same sections as the list on the left (one data
+        // model: editing either updates both). White cells = the inputs of that row's method (C.KIND_FIELDS of its
+        // kind), grey = computed by IPlanCore.computeStations (minimum curvature, Bourgoyne Eqs. 8.33-8.37, as before).
+        // Edit a white cell + Enter/Tab -> that row and everything below recalculate; Enter / arrows move down / up.
+        // NS / EW are relative to the planned well's surface (or the start point when not available).
+        // V.Sec = NS cos(VSaz) + EW sin(VSaz); VS azimuth default = start -> last target, else the final azimuth.
+        // T.Face: the input TF for DLS+TF rows; for other rows the toolface of the section's arc from its start to
+        // its end attitude: TF = atan2(sin I2 sin dA, sin I2 cos I1 cos dA - cos I2 sin I1) (direction of the end
+        // tangent seen from the start tangent, measured from high side; = end azimuth when the start is vertical).
+        const GRID_COLS = [['md','MD<br>(m)'],['cl','CL<br>(m)'],['inc','Inc<br>(°)'],['az','Azi<br>(°)'],['tvd','TVD<br>(m)'],['dtvd','DTVD<br>(m)'],['tvdss','TVDSS<br>(m)'],
+            ['ns','NS<br>(m)'],['ew','EW<br>(m)'],['n','Northing<br>(m)'],['e','Easting<br>(m)'],['vs','V.Sec<br>(m)'],['dls','Dogleg<br>(°/30m)'],['tf','T.Face<br>(°)']];
+        const GRID_IN = {   // column -> section parameter, per kind
+            direct:{cl:'cl',inc:'inc',az:'az'}, hold:{cl:'cl'}, dlstf:{cl:'cl',dls:'dls',tf:'tf'},
+            dlstf_inc:{inc:'targetInc',dls:'dls',tf:'tf'}, dlstf_az:{az:'targetAz',dls:'dls',tf:'tf'}, dlstf_tvd:{tvd:'targetTvd',dls:'dls',tf:'tf'},
+            md_inc_az:{md:'targetMd',inc:'inc',az:'az'}, tvd_inc_az:{tvd:'targetTvd',inc:'inc',az:'az'}, dls_inc_az:{inc:'inc',az:'az',dls:'dls'},
+            hold_tvd:{tvd:'targetTvd'}, build_turn_cl:{cl:'cl'}, tvd_dls_az:{tvd:'targetTvd',az:'targetAz',dls:'dls'}
+        };
+        const gridSel = {};   // scenario id -> selected section index (insert after it)
+        // ADDED 2026-11-06 (John): display precision (default 2 decimals everywhere; values are kept at full precision,
+        // only shown rounded — an input is applied only if you change what is shown). Settings ⚙ above the grid,
+        // remembered in this browser. Units (m / ft) not yet — planned in the same Settings.
+        const GRID_DEC = Object.assign({ len: 2, ang: 2, dls: 2, coord: 2 }, (() => { try { return JSON.parse(localStorage.getItem('mtxGridDec') || '{}'); } catch(e){ return {}; } })());
+        const GRID_DEC_OF = { md:'len', cl:'len', tvd:'len', dtvd:'len', tvdss:'len', ns:'len', ew:'len', vs:'len', n:'coord', e:'coord', inc:'ang', az:'ang', tf:'ang', dls:'dls' };
+        function gridToolface(i1, a1, i2, a2){
+            if(Math.abs(i1 - i2) < 1e-9 && Math.abs(((a2 - a1 + 540) % 360) - 180) < 1e-9) return 0;
+            const I1 = i1 * Math.PI / 180, I2 = i2 * Math.PI / 180, dA = (a2 - a1) * Math.PI / 180;
+            let t = Math.atan2(Math.sin(I2) * Math.sin(dA), Math.sin(I2) * Math.cos(I1) * Math.cos(dA) - Math.cos(I2) * Math.sin(I1)) * 180 / Math.PI;
+            return t;
+        }
+        function gridRows(sc){
+            const c = sc._calc; if(!c || c.error || !c.stations || !c.stations.length) return null;
+            const st = c.stations, rkb = scenarioRkb(sc), s0 = st[0];
+            const w = wellById(sc.wellId), sv = w ? sortedSurvey(w) : [], o = sv.length ? { n: n(sv[0].northing), e: n(sv[0].easting) } : { n: s0.n, e: s0.e };
+            const lastT = sc.targets.length ? sc.targets[sc.targets.length - 1] : null, L = st[st.length - 1];
+            let vsAz = sc.vsAz;
+            if(vsAz == null || vsAz === ''){ vsAz = lastT ? (Math.atan2(n(lastT.e) - o.e, n(lastT.n) - o.n) * 180 / Math.PI + 360) % 360 : L.az; }
+            const mk = (p, extra) => { const ns = p.n - o.n, ew = p.e - o.e, va = vsAz * Math.PI / 180;
+                return Object.assign({ md: p.md, inc: p.inc, az: p.az, tvd: p.tvd, tvdss: -(rkb - p.tvd), ns, ew, n: p.n, e: p.e, vs: ns * Math.cos(va) + ew * Math.sin(va) }, extra); };
+            const rows = [mk(s0, { i: -1, cl: null, dtvd: null, dls: 0, tf: 0 })];
+            let prev = s0;
+            sc.sections.forEach((sec, i) => {
+                const pts = st.filter(p => p.section === i + 1), end = pts.length ? pts[pts.length - 1] : prev, r = (c.sections || [])[i] || {};
+                // 2026-11-06: rows of an Optimum Align group (see solveOaGroups)
+                const dls = pts.length ? pts[pts.length - 1].dls30 : 0;
+                const tf = (sec.tf !== undefined) ? n(sec.tf) : (dls > 1e-6 ? gridToolface(prev.inc, prev.az, end.inc, end.az) : 0);
+                const tgt = sc.targets.find(t => Math.hypot(end.n - n(t.n), end.e - n(t.e), (rkb - end.tvd) - n(t.ss)) <= (n(t.r) || 0));
+                rows.push(mk(end, { i, cl: end.md - prev.md, dtvd: end.tvd - prev.tvd, dls, tf, kind: sec.kind, warn: r.warning || '', target: tgt ? tgt.name : '' }));
+                prev = end;
+            });
+            return { rows, vsAz };
+        }
+        function renderGrid(sc){
+            const box = document.getElementById('iplGridBox'); if(!box) return;
+            const G = gridRows(sc), c = sc._calc || {};
+            if(!G){ box.innerHTML = `<div style="color:${c.error ? '#ff4c4c' : 'var(--wbt-text-dim)'};">${esc(c.error || 'No stations yet.')}</div>`; return; }
+            const maxD = (() => { const el = document.getElementById('ipdMaxDls'); return 10; })(), sel = gridSel[sc.id];
+            const fmt = (k, v) => v == null || v === '' || !isFinite(v) ? '' : (+v).toFixed(GRID_DEC[GRID_DEC_OF[k] || 'len']);
+            let h = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:11px;">
+                <span>V.Sec azimuth (°)</span><input type="number" step="0.1" id="iplVsAz" value="${sc.vsAz != null && sc.vsAz !== '' ? sc.vsAz : ''}" placeholder="${(+G.vsAz).toFixed(2)} (auto)" style="width:110px;">
+                <button type="button" class="wbt-btn" id="iplGridSet" style="padding:1px 8px;" title="Settings: decimal places">&#9881; Settings</button>
+                <span style="color:var(--wbt-text-dim);">White = inputs of the row's method (Enter to apply) · click a row # to insert the next method after it</span></div>
+                <div id="iplGridSetBox" style="display:${window.__iplGridSetOpen ? 'flex' : 'none'};gap:10px;flex-wrap:wrap;align-items:center;font-size:11px;margin-bottom:4px;border:1px solid var(--wbt-border);border-radius:3px;padding:4px 6px;">
+                    <b>Decimal places</b>${[['len','Depths / lengths (MD, TVD, NS, EW, V.Sec)'],['coord','Northing / Easting'],['ang','Inc / Azi / T.Face'],['dls','Dogleg']].map(([k, l]) => `<span>${l} <input type="number" min="0" max="6" step="1" data-gdec="${k}" value="${GRID_DEC[k]}" style="width:50px;"></span>`).join('')}
+                    <span style="color:var(--wbt-text-dim);">Units (m / ft): coming here next.</span></div>
+                <div style="max-height:520px;overflow:auto;"><table class="ipl-grid-tbl"><tr><th>#</th>${GRID_COLS.map(c0 => `<th>${c0[1]}</th>`).join('')}<th>Method</th><th>Target</th><th></th></tr>`;
+            G.rows.forEach((r, ri) => {
+                const sec = r.i >= 0 ? sc.sections[r.i] : null;
+                // 2026-11-06: Optimum Align groups — align rows are solved (no white cells; edit in the panel), Project Back
+                // rows show their own inputs (CL / TVD / Inc / Azi + Dogleg = the chain item's DLS)
+                const head = sec && sec.oaG ? oaGroupHead(sc, sec.oaG) : null, pb = head && sec.oaPart === 'pb' ? (head.oaDef.back || [])[sec.oaPb] : null;
+                const map = !sec || sec.thG ? {} : head ? (pb ? ({ cl:{cl:'cl',dls:'dls'}, tvd:{tvd:'tvd',dls:'dls'}, inc:{inc:'inc',dls:'dls'}, incazi:{inc:'inc',az:'az',dls:'dls'} }[pb.mode] || {}) : {}) : (GRID_IN[sec.kind] || {});
+                const src = pb || sec;
+                h += `<tr class="${sel === r.i && r.i >= 0 ? 'sel' : ''}"><td class="rn" data-gsel="${r.i}" title="Select: the next Planning Method is inserted after this row">${ri + 1}</td>` + GRID_COLS.map(([k]) => {
+                    if(map[k]) return `<td class="in"><input data-gi="${r.i}" data-gk="${map[k]}" data-gc="${k}" ${pb ? 'data-gpb="1"' : ''} value="${esc(fmt(k, src[map[k]]))}" data-shown="${esc(fmt(k, src[map[k]]))}" title="${esc(String(src[map[k]]))}"></td>`;
+                    const bad = (k === 'dls' && r.dls > 10 + 1e-9) ? ' bad' : '';
+                    return `<td class="${bad}">${fmt(k, r[k])}</td>`;
+                }).join('') + `<td style="color:${head || (sec && sec.thG) ? '#ffd060' : 'var(--wbt-text-dim)'};" title="${esc(r.warn || '')}">${sec ? (head ? (pb ? 'Project Back · ' + PB_LABEL(pb) : sec.oaPart === 'ah' ? 'Hold to ' + esc((head.oaDef.alignOn || {}).name || '') : 'Optimum Align') : sec.thG ? 'Thread · ' + esc((TH_METHODS.find(m => m[0] === ((sc.sections.find(x => x.thG === sec.thG && x.thDef) || {}).thDef || {}).method) || ['', ''])[1]) : esc(C.KIND_LABEL[sec.kind] || sec.kind)) + (r.warn ? ' <span style="color:#ff4c4c;">&#9888;</span>' : '') : (sc.startMode === 'tieon' ? 'Tie-on' : 'Start')}</td>
+                    <td class="tg">${esc((sec && sec.thT) || (sec && sec.oaPart === 'ah' && head ? (head.oaDef.alignOn || {}).name : '') || r.target || '')}</td><td>${sec ? `<button type="button" class="wbt-btn" data-gdel="${r.i}" style="padding:0 5px;" title="Delete this row (section)">&times;</button>` : ''}</td></tr>`;
+            });
+            h += '</table></div>';
+            box.innerHTML = h;
+            document.getElementById('iplGridSet').addEventListener('click', () => { window.__iplGridSetOpen = !window.__iplGridSetOpen; renderGrid(sc); });
+            box.querySelectorAll('[data-gdec]').forEach(inp => inp.addEventListener('change', e => { GRID_DEC[e.target.dataset.gdec] = Math.max(0, Math.min(6, Math.round(n(e.target.value))));
+                try { localStorage.setItem('mtxGridDec', JSON.stringify(GRID_DEC)); } catch(err){} renderGrid(sc); }));
+            const vs = document.getElementById('iplVsAz');
+            vs.addEventListener('change', e => { sc.vsAz = e.target.value === '' ? null : n(e.target.value); markDirty(sc); renderGrid(sc); });
+            box.querySelectorAll('[data-gsel]').forEach(td => td.addEventListener('click', () => { const i = +td.dataset.gsel; gridSel[sc.id] = (gridSel[sc.id] === i || i < 0) ? undefined : i;
+                const s1 = sc.sections[gridSel[sc.id]];   // 2026-11-06: a row of an Optimum Align group opens it in the panel
+                if(s1 && s1.oaG && oaGroupHead(sc, s1.oaG)){ pmState.m = 'oa'; oaLoad(sc, s1.oaG); } else oaState.editG = null;
+                renderGrid(sc); renderPlanMethods(sc); }));
+            box.querySelectorAll('[data-gdel]').forEach(b => b.addEventListener('click', () => { const k = +b.dataset.gdel, s1 = sc.sections[k];
+                if(s1 && s1.oaG){ const h = oaGroupHead(sc, s1.oaG);   // 2026-11-06: Project Back row -> remove that chain item; align row -> remove the whole group
+                    if(h && s1.oaPart === 'pb'){ h.oaDef.back.splice(s1.oaPb, 1); }
+                    else if(h && s1.oaPart === 'ah'){ h.oaDef.alignOn = null; }   // 2026-11-06: delete the Align-on hold -> Freehand (Inc / Azi kept)
+                    else { const g = s1.oaG; sc.sections = sc.sections.filter(x => x.oaG !== g); } }
+                else if(s1 && s1.thG){ const g = s1.thG; sc.sections = sc.sections.filter(x => x.thG !== g); }   // 2026-11-06: Thread group -> remove it whole
+                else sc.sections.splice(k, 1);
+                gridSel[sc.id] = undefined; oaState.editG = null; refresh(sc); renderEditor(); }));
+            const inputs = [...box.querySelectorAll('input[data-gi]')];
+            inputs.forEach(inp => {
+                const apply = () => { let sec = sc.sections[+inp.dataset.gi]; if(!sec) return; if(inp.value === inp.dataset.shown) return false;   // unchanged display -> keep full precision
+                    if(inp.dataset.gpb){ const h = oaGroupHead(sc, sec.oaG); sec = h && h.oaDef.back[sec.oaPb]; if(!sec) return false; }   // 2026-11-06: Project Back item value
+                    const v = n(inp.value); if(String(sec[inp.dataset.gk]) === String(v)) return false; sec[inp.dataset.gk] = v; return true; };
+                const go = dir => {   // same column, next / previous input row
+                    const col = inp.dataset.gc, gi = +inp.dataset.gi;
+                    const same = [...document.querySelectorAll('#iplGridBox input[data-gc="' + col + '"]')], k = same.findIndex(x => +x.dataset.gi === gi);
+                    const nx = same[k + dir]; if(nx){ nx.focus(); nx.select(); }
+                };
+                inp.addEventListener('keydown', e => {
+                    if(e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+                        e.preventDefault(); const dir = e.key === 'ArrowUp' ? -1 : 1, col = inp.dataset.gc, gi = +inp.dataset.gi;
+                        if(apply()){ refresh(sc); renderSections(sc); updateResults(sc);
+                            const same = [...document.querySelectorAll('#iplGridBox input[data-gc="' + col + '"]')], k = same.findIndex(x => +x.dataset.gi === gi);
+                            const nx = same[k + dir] || same[k]; if(nx){ nx.focus(); nx.select(); } }
+                        else go(dir);
+                    }
+                });
+                inp.addEventListener('change', () => { if(apply()){ refresh(sc); renderSections(sc); updateResults(sc); } });
+                inp.addEventListener('focus', () => inp.select());
+            });
+        }
+        // Planning Methods (Compass layout): each method adds section(s) of the existing kinds after the selected row
+        // (or at the end). Slant / S Well / Optimum Align open the existing target wizards (Build & Hold, BHBH, CHC).
+        const PM = {
+            dt:   { label: 'Dogleg Toolface', subs: [['dlstf','DLS, TF, CL'],['dlstf_inc','DLS, TF, until Inc'],['dlstf_az','DLS, TF, until Azi'],['dlstf_tvd','DLS, TF, until TVD']] },
+            curve:{ label: 'Curve', subs: [['md_inc_az','MD, INC, AZI'],['tvd_inc_az','TVD, INC, AZI'],['dls_inc_az','DLS, INC, AZI'],['tvd_dls_az','TVD, DLS, AZI'],['direct','INC, AZI, CL']] },
+            hold: { label: 'Hold', subs: [['hold','CL'],['hold_tvd','to TVD'],['hold_md','to MD']] },
+            bt:   { label: 'Build Turn', subs: [['build_turn_cl','Build, Turn, CL']] },
+            nudge:{ label: 'Nudge', subs: [['nudge','Build, Hold, Drop']] },
+            slant:{ label: 'Slant (to target)', wiz: 'bh' }, swell:{ label: 'S Well (to target)', wiz: 'hbhbh' }, oa:{ label: 'Optimum Align', oa: true },
+            th:{ label: 'Thread Targets', th: true }   // 2026-11-06 (John: Compass "Thread Targets")
+        };
+        const pmState = { m: 'dt', sub: 'dlstf', v: {} };
+        // ADDED 2026-11-06 (John: Compass "Optimum Align" — Type Curve-Hold-Curve / Curve-Curve; Doglegs 1,2 or
+        // Tangent Length; Final Target = a scenario target or freehand TVD / N/S / E/W (relative to the planned well's
+        // surface, like the grid NS / EW) + final Inc and Azi). Solver: IPlanCore.planOptimumAlign (see its comment).
+        // CHANGED 2026-11-06 (John): Final Target lists the scenario targets AND the pad wells' points (ICP, TD,
+        // comment points of every planned well) and fills TVD, Sub-Sea, N/S, E/W, Inc, Azi; Sub-Sea shown and
+        // editable (TVD = scenario RKB - Sub-Sea, same convention as the targets table).
+        const oaState = { type: 'chc', mode: 'dls', dls1: 6, dls2: 6, L: 30, tgt: '', tvd: 0, ss: 0, ns: 0, ew: 0, inc: 90, az: 0 };
+        function gridOrigin(sc){ const w = wellById(sc.wellId), sv = w ? sortedSurvey(w) : []; const c = sc._calc, s0 = c && c.stations && c.stations[0];
+            return sv.length ? { n: n(sv[0].northing), e: n(sv[0].easting) } : { n: s0 ? s0.n : 0, e: s0 ? s0.e : 0 }; }
+        // CHANGED 2026-11-06 (John's Compass clip "how to use optimum align 1.mp4"): an Optimum Align is a LIVE GROUP,
+        // like in Compass — its definition (oaDef on the group's first section: type / mode / doglegs / TVDs / tangent,
+        // final target {n, e, ss, inc, az} and the Project Back chain) is stored with the sections, and the group is
+        // re-solved on every recalculation (solveOaGroups, called by compute): editing anything above it, or a Project
+        // Back value, re-solves the align. Project Back items chain ("nest"): from the target backwards, each item is
+        // one curve (or, CL with DLS 0, a hold) — e.g. the clip: hold 10 m to the ICP, then a DLS 6 curve back to
+        // 80° / 310°, then a 30 m hold; the align lands on the start of the chain. Sections of a group carry oaG (group
+        // id), oaPart ('oa' = the align, 'pb' = a projected-back piece) and oaPb (chain index).
+        Object.assign(oaState, { ccMode: 'eq', tvd1: 0, tvd2: 0, last: null, chain: [], nb: { mode: 'cl', cl: 10, tvd: 0, inc: 90, az: 0, dls: 0 }, editG: null, tname: '', al: '', alPt: null });
+        // ADDED 2026-11-06 (John's Compass clip, 0:12-0:26): "Align on" — picking a second point (there: 148514 TD)
+        // sets the Final Target Inc / Azi to the direction of the straight line Final Target -> that point
+        // (Compass showed Inc 89.76, Azi 316.27 for ICP -> TD); typing an Inc / Azi by hand returns it to
+        // "No Target (Freehand)", as in Compass. Pure geometry: Azi = atan2(dE, dN), Inc = atan2(horizontal, dTVD).
+        // Stored as oaDef.alignOn {name, n, e, ss}; re-applied on every re-solve, so if the target moves, the
+        // alignment follows.
+        function oaAlignDir(T, P, rkb){   // T, P: {n, e, ss} -> {inc, az} or null (same point)
+            const dN = n(P.n) - n(T.n), dE = n(P.e) - n(T.e), dV = (rkb - n(P.ss)) - (rkb - n(T.ss)), h = Math.hypot(dN, dE);
+            if(h < 1e-6 && Math.abs(dV) < 1e-6) return null;
+            return { inc: Math.atan2(h, dV) * 180 / Math.PI, az: ((Math.atan2(dE, dN) * 180 / Math.PI) % 360 + 360) % 360 };
+        }
+        function oaPoint(sc, key){   // 's:i' / 'p:k' -> {name, n, e, ss, inc, az}
+            if(!key) return null;
+            if(key.startsWith('s:')){ const t = sc.targets[+key.slice(2)]; return t ? { name: t.name, n: n(t.n), e: n(t.e), ss: n(t.ss), inc: t.inc, az: t.az, r: n(t.r) } : null; }
+            if(key.startsWith('p:')){ const t = PAD_TARGETS[+key.slice(2)]; return t ? { name: t.well + ' ' + t.type, n: t.n, e: t.e, ss: t.rkb - t.tvd, inc: t.inc, az: t.az } : null; }
+            return null;
+        }
+        function oaApplyAlign(sc){   // panel: re-derive Inc / Azi from Final Target + Align on point
+            const O = oaState; if(!O.alPt) return; const o0 = gridOrigin(sc);
+            const d = oaAlignDir({ n: o0.n + O.ns, e: o0.e + O.ew, ss: O.ss }, O.alPt, scenarioRkb(sc));
+            if(d){ O.inc = +d.inc.toFixed(2); O.az = +d.az.toFixed(2); }
+        }
+        function oaGroupHead(sc, gid){ return sc.sections.find(x => x.oaG === gid && x.oaDef); }
+        function solveOaGroups(sc, st){
+            const secs = sc.sections; sc._oaErr = null; let i = 0;
+            while(i < secs.length){
+                const h = secs[i];
+                if(h.thDef){   // 2026-11-06: live Thread Targets group (thBuild)
+                    const tg = h.thG; let j = i + 1; while(j < secs.length && secs[j].thG === tg && !secs[j].thDef) j++;
+                    const pre = C.computeStations({ md:st.md, tvd:st.tvd, n:st.n, e:st.e, inc:st.inc, az:st.az }, secs.slice(0, i), 1e6).stations;
+                    const r = thBuild(sc, h.thDef, pre[pre.length - 1], tg);
+                    if(r.error){ sc._oaErr = 'Thread Targets: ' + r.error; i = j; continue; }
+                    secs.splice(i, j - i, ...r.sections); i += r.sections.length; continue;
+                }
+                if(!h.oaDef){ i++; continue; }
+                const gid = h.oaG; let j = i + 1; while(j < secs.length && secs[j].oaG === gid && !secs[j].oaDef) j++;
+                const pre = C.computeStations({ md:st.md, tvd:st.tvd, n:st.n, e:st.e, inc:st.inc, az:st.az }, secs.slice(0, i), 1e6).stations, end = pre[pre.length - 1];
+                const r = oaBuild(sc, h.oaDef, end, gid);
+                if(r.error){ sc._oaErr = 'Optimum Align: ' + r.error; i = j; continue; }
+                secs.splice(i, j - i, ...r.sections); i += r.sections.length;
+            }
+        }
+        function oaBuild(sc, D, end, gid){
+            const rkb = scenarioRkb(sc); if(D.alignOn){ const d = oaAlignDir(D.target, D.alignOn, rkb); if(d){ D.target.inc = d.inc; D.target.az = d.az; } }   // "Align on" (see oaAlignDir)
+            let T = { n: n(D.target.n), e: n(D.target.e), tvd: rkb - n(D.target.ss) }, inc = n(D.target.inc), az = n(D.target.az); const back = [];
+            for(let k = 0; k < (D.back || []).length; k++){
+                const pr = C.projectBack(T, inc, az, D.back[k]); if(pr.error) return { error: 'Project Back #' + (k + 1) + ': ' + pr.error };
+                back.push({ sec: pr.sec, k, cl: pr.cl, P: pr.P }); T = { n: pr.P.n, e: pr.P.e, tvd: pr.P.tvd }; inc = pr.P.inc; az = pr.P.az;
+            }
+            const r = C.planOptimumAlign({ md: end.md, tvd: end.tvd, n: end.n, e: end.e, inc: end.inc, az: end.az }, T, inc, az,
+                { type: D.type, mode: D.type === 'cc' ? D.ccMode : D.mode, dls1: D.dls1, dls2: D.dls2, L: D.L, tvd1: D.tvd1, tvd2: D.tvd2 });
+            if(r.error) return r;
+            const out = r.sections.map(x => Object.assign(x, { oaG: gid, oaPart: 'oa' }));
+            if(!out.length) out.push({ kind: 'hold', cl: 0, oaG: gid, oaPart: 'oa' });
+            for(let k = back.length - 1; k >= 0; k--) out.push(Object.assign({}, back[k].sec || { kind: 'hold', cl: 0 }, { oaG: gid, oaPart: 'pb', oaPb: back[k].k }));
+            // ADDED 2026-11-06 (COMPASS Training Manual 2003.5 p.183: "Line up on target ... This target is remembered in
+            // the plan, and a hold is computed between the two targets"): with Align on, a hold from the Final Target to
+            // that point (the arrival direction already points at it, oaAlignDir).
+            if(D.alignOn){ const A = D.alignOn, L = Math.hypot(n(A.n) - n(D.target.n), n(A.e) - n(D.target.e), n(A.ss) - n(D.target.ss));
+                if(L > 1e-6) out.push({ kind: 'hold', cl: L, oaG: gid, oaPart: 'ah' }); }
+            D.last = r.solved; out[0].oaDef = D;
+            return { sections: out };
+        }
+        function oaLoad(sc, gid){   // selected group -> panel
+            const h = oaGroupHead(sc, gid); if(!h) return; const D = h.oaDef, O = oaState, o0 = gridOrigin(sc), rkb = scenarioRkb(sc);
+            Object.assign(O, { type: D.type, mode: D.mode, ccMode: D.ccMode || 'eq', dls1: D.dls1, dls2: D.dls2, L: D.L, tvd1: D.tvd1, tvd2: D.tvd2, last: D.last || null,
+                chain: JSON.parse(JSON.stringify(D.back || [])), editG: gid, tname: D.target.name || '', tgt: '',
+                ss: +n(D.target.ss).toFixed(2), tvd: +(rkb - n(D.target.ss)).toFixed(2), ns: +(n(D.target.n) - o0.n).toFixed(2), ew: +(n(D.target.e) - o0.e).toFixed(2), inc: n(D.target.inc), az: n(D.target.az), al: '', alPt: D.alignOn || null });
+        }
+        const PB_LABEL = b => b.mode === 'cl' ? `CL ${f(b.cl,2)} m` : b.mode === 'tvd' ? `TVD ${f(b.tvd,2)}` : b.mode === 'inc' ? `Inc ${f(b.inc,2)}°` : `Inc/Azi ${f(b.inc,2)}° / ${f(b.az,2)}°`;
+        function oaHtml(sc){
+            const O = oaState, NB = O.nb, S = O.last || {}, num = (k, v, w, dis) => `<input type="number" step="0.1" data-oa="${k}" value="${v}" style="width:${w || 80}px;${dis ? 'opacity:.55;' : ''}" ${dis ? 'title="solved (last Calculate)"' : ''}>`;
+            const sv = (k, v) => (S[k] != null && isFinite(S[k])) ? (+S[k]).toFixed(2) : v, chc = O.type === 'chc';
+            return `${O.editG ? `<div style="margin-top:4px;color:#ffd060;">Editing the selected Optimum Align — Calculate updates it (it re-solves by itself when anything above changes). <button type="button" class="wbt-btn" id="iplOaNew" style="padding:0 6px;">New one instead</button></div>` : ''}
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
+                <div class="ipl-pm" style="margin:0;">
+                    <div><b>Type:</b> <label><input type="radio" name="iplOaType" value="chc" ${chc ? 'checked' : ''}> Curve-Hold-Curve</label><label><input type="radio" name="iplOaType" value="cc" ${!chc ? 'checked' : ''}> Curve-Curve</label></div>
+                    ${chc ? `
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaMode" value="dls" ${O.mode === 'dls' ? 'checked' : ''}> Doglegs</label> 1: ${num('dls1', O.mode === 'dls' ? O.dls1 : sv('d1', O.dls1), 70, O.mode !== 'dls')} 2: ${num('dls2', O.mode === 'dls' ? O.dls2 : sv('d2', O.dls2), 70, O.mode !== 'dls')} °/30m</div>
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaMode" value="tvd" ${O.mode === 'tvd' ? 'checked' : ''}> TVD</label> 1: ${num('tvd1', O.mode === 'tvd' ? O.tvd1 : sv('tvd1', O.tvd1), 80, O.mode !== 'tvd')} 2: ${num('tvd2', O.mode === 'tvd' ? O.tvd2 : sv('tvd2', O.tvd2), 80, O.mode !== 'tvd')} m <span style="font-size:10px;color:var(--wbt-text-dim);">(end of curve 1 / end of hold)</span></div>
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaMode" value="tan" ${O.mode === 'tan' ? 'checked' : ''}> Tangent Length</label> ${num('L', O.mode === 'tan' ? O.L : sv('L', O.L), 80, O.mode !== 'tan')} m <span style="font-size:10px;color:var(--wbt-text-dim);">(one DLS for both curves)</span></div>`
+                    : `
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaCc" value="eq" ${O.ccMode === 'eq' ? 'checked' : ''}> Same DLS on both curves (solved)</label></div>
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaCc" value="d1" ${O.ccMode === 'd1' ? 'checked' : ''}> DLS 1 given</label> ${num('dls1', O.ccMode === 'd1' ? O.dls1 : sv('d1', O.dls1), 70, O.ccMode !== 'd1')} <span style="font-size:10px;color:var(--wbt-text-dim);">→ DLS 2 solved</span></div>
+                    <div style="margin-top:4px;"><label><input type="radio" name="iplOaCc" value="d2" ${O.ccMode === 'd2' ? 'checked' : ''}> DLS 2 given</label> ${num('dls2', O.ccMode === 'd2' ? O.dls2 : sv('d2', O.dls2), 70, O.ccMode !== 'd2')} <span style="font-size:10px;color:var(--wbt-text-dim);">→ DLS 1 solved</span></div>`}
+                    ${S.d1 != null ? `<div style="font-size:10px;color:var(--wbt-text-dim);margin-top:4px;">Last solve: DLS ${f(S.d1,2)} / ${f(S.d2,2)} · hold ${f(S.L,2)} m · TVD ${f(S.tvd1,2)} / ${f(S.tvd2,2)}</div>` : ''}
+                </div>
+                <div class="ipl-pm" style="margin:0;">
+                    <div><b>Project Back</b> <span style="font-size:10px;color:var(--wbt-text-dim);">chain, from the Final Target backwards (each item = one curve; CL with DLS 0 = a hold)</span></div>
+                    ${O.chain.length ? `<table style="font-size:11px;margin-top:3px;"><tr><th>#</th><th>To</th><th>DLS</th><th></th></tr>${O.chain.map((b, k) => `<tr><td>${k + 1}</td><td>${PB_LABEL(b)}</td><td>${f(b.dls,2)}</td><td><button type="button" class="wbt-btn" data-pbdel="${k}" style="padding:0 5px;">&times;</button></td></tr>`).join('')}</table>` : '<div style="font-size:11px;color:var(--wbt-text-dim);margin-top:3px;">No Project Back — the align lands on the Final Target.</div>'}
+                    <div style="margin-top:5px;">${[['cl','CL'],['tvd','TVD'],['inc','Inc'],['incazi','IncAzi']].map(([k, l]) => `<label><input type="radio" name="iplNbMode" value="${k}" ${NB.mode === k ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;align-items:center;">
+                        ${NB.mode === 'cl' ? `<span>CL</span><input type="number" step="1" data-nb="cl" value="${NB.cl}" style="width:70px;">` : ''}
+                        ${NB.mode === 'tvd' ? `<span>TVD</span><input type="number" step="0.1" data-nb="tvd" value="${NB.tvd}" style="width:80px;">` : ''}
+                        ${NB.mode === 'inc' || NB.mode === 'incazi' ? `<span>Inc</span><input type="number" step="0.1" data-nb="inc" value="${NB.inc}" style="width:60px;">` : ''}
+                        ${NB.mode === 'incazi' ? `<span>Azi</span><input type="number" step="0.1" data-nb="az" value="${NB.az}" style="width:65px;">` : ''}
+                        <span>DLS</span><input type="number" step="0.1" data-nb="dls" value="${NB.dls}" style="width:55px;">
+                        <button type="button" class="wbt-btn" id="iplNbAdd" style="padding:1px 8px;">+ Project Back</button>
+                    </div>
+                </div>
+                <div class="ipl-pm" style="margin:0;">
+                    <div><b>Final Target:</b> <select id="iplOaTgt" style="max-width:520px;"><option value="">${O.tname ? esc(O.tname) : 'No Target (Freehand)'}</option>
+                        ${sc.targets.length ? `<optgroup label="Scenario targets">${sc.targets.map((t, i) => `<option value="s:${i}" ${O.tgt === 's:' + i ? 'selected' : ''}>T${i + 1} ${esc(t.name)} — Sub-Sea ${f(n(t.ss),2)}</option>`).join('')}</optgroup>` : ''}
+                        ${(() => { const by = {}; PAD_TARGETS.forEach(t => (by[t.well] = by[t.well] || []).push(t));
+                            return Object.keys(by).map(wn => `<optgroup label="${esc(wn)}">` + by[wn].map(t => `<option value="p:${t.key}" ${O.tgt === 'p:' + t.key ? 'selected' : ''}>${esc(t.type)} — MD ${f(t.md,1)} · Sub-Sea ${f(t.rkb - t.tvd,2)} · Inc ${f(t.inc,1)} · Az ${f(t.az,1)}</option>`).join('') + '</optgroup>').join(''); })()}
+                    </select></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center;">
+                        <span>TVD</span>${num('tvd', O.tvd, 85)} <span>Sub-Sea</span>${num('ss', O.ss, 85)} <span>N/S</span>${num('ns', O.ns, 85)} <span>E/W</span>${num('ew', O.ew, 85)} <span>Inc</span>${num('inc', O.inc, 65)} <span>Azi</span>${num('az', O.az, 65)}
+                    </div>
+                    <div style="margin-top:4px;"><b>Align on:</b> <select id="iplOaAl" style="max-width:520px;"><option value="">${O.alPt ? esc(O.alPt.name) : 'No Target (Freehand)'}</option>${O.alPt ? '<option value="-">No Target (Freehand)</option>' : ''}
+                        ${sc.targets.length ? `<optgroup label="Scenario targets">${sc.targets.map((t, i) => `<option value="s:${i}">T${i + 1} ${esc(t.name)} — Sub-Sea ${f(n(t.ss),2)}</option>`).join('')}</optgroup>` : ''}
+                        ${(() => { const by = {}; PAD_TARGETS.forEach(t => (by[t.well] = by[t.well] || []).push(t));
+                            return Object.keys(by).map(wn => `<optgroup label="${esc(wn)}">` + by[wn].map(t => `<option value="p:${t.key}">${esc(t.type)} — MD ${f(t.md,1)} · Sub-Sea ${f(t.rkb - t.tvd,2)}</option>`).join('') + '</optgroup>').join(''); })()}
+                    </select> <span style="font-size:10px;color:var(--wbt-text-dim);">sets Inc / Azi along the line Final Target → that point (typing Inc / Azi = Freehand)</span></div>
+                    <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:2px;">N/S, E/W from the planned well's surface (same as the grid). Inc / Azi = attitude when arriving at the target.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;justify-content:center;">
+                    <button type="button" class="wbt-btn" id="iplOaCalc">Calculate</button>
+                    <button type="button" class="wbt-btn" id="iplOaNext">Calculate + Next</button>
+                </div></div><div id="iplOaMsg" style="font-size:11px;margin-top:4px;">${sc._oaErr ? '<span style="color:#ff4c4c;">' + esc(sc._oaErr) + '</span>' : ''}</div>`;
+        }
+        function wireOa(sc, box, sel){
+            const O = oaState, NB = O.nb;
+            const on = (q, ev, fn) => box.querySelectorAll(q).forEach(el => el.addEventListener(ev, fn));
+            on('input[name=iplOaType]', 'change', e => { O.type = e.target.value; renderPlanMethods(sc); });
+            on('input[name=iplOaMode]', 'change', e => { O.mode = e.target.value; renderPlanMethods(sc); });
+            on('input[name=iplOaCc]', 'change', e => { O.ccMode = e.target.value; renderPlanMethods(sc); });
+            on('input[name=iplNbMode]', 'change', e => { NB.mode = e.target.value; renderPlanMethods(sc); });
+            on('[data-nb]', 'input', e => { NB[e.target.dataset.nb] = n(e.target.value); });
+            on('[data-pbdel]', 'click', e => { O.chain.splice(+e.currentTarget.dataset.pbdel, 1); renderPlanMethods(sc); });
+            document.getElementById('iplNbAdd').addEventListener('click', () => { O.chain.push(Object.assign({}, NB)); renderPlanMethods(sc); });
+            const nw = document.getElementById('iplOaNew'); if(nw) nw.addEventListener('click', () => { O.editG = null; renderPlanMethods(sc); });
+            const rkb = scenarioRkb(sc);
+            on('[data-oa]', 'change', e => { const k = e.target.dataset.oa;   // Align on: typed Inc/Azi -> Freehand; moved target -> re-aligned
+                if(k === 'inc' || k === 'az'){ if(O.alPt){ O.alPt = null; renderPlanMethods(sc); } }
+                else if(O.alPt && ['tvd','ss','ns','ew'].includes(k)){ oaApplyAlign(sc); renderPlanMethods(sc); } });
+            on('[data-oa]', 'input', e => { const k = e.target.dataset.oa; O[k] = n(e.target.value);
+                if(k === 'tvd' || k === 'ss'){ if(k === 'tvd') O.ss = +(rkb - O.tvd).toFixed(2); else O.tvd = +(rkb - O.ss).toFixed(2);
+                    const other = box.querySelector(`[data-oa="${k === 'tvd' ? 'ss' : 'tvd'}"]`); if(other) other.value = k === 'tvd' ? O.ss : O.tvd; } });
+            document.getElementById('iplOaTgt').addEventListener('change', e => { O.tgt = e.target.value; const o0 = gridOrigin(sc);
+                let Q = null;
+                if(O.tgt.startsWith('s:')){ const t = sc.targets[+O.tgt.slice(2)]; if(t) Q = { name: t.name, n: n(t.n), e: n(t.e), ss: n(t.ss), inc: t.inc, az: t.az }; }
+                else if(O.tgt.startsWith('p:')){ const t = PAD_TARGETS[+O.tgt.slice(2)]; if(t) Q = { name: t.well + ' ' + t.type, n: t.n, e: t.e, ss: t.rkb - t.tvd, inc: t.inc, az: t.az }; }
+                if(Q){ O.tname = Q.name; O.ss = +Q.ss.toFixed(2); O.tvd = +(rkb - Q.ss).toFixed(2); O.ns = +(Q.n - o0.n).toFixed(2); O.ew = +(Q.e - o0.e).toFixed(2);
+                    if(Q.inc != null && isFinite(Q.inc)) O.inc = +(+Q.inc).toFixed(2); if(Q.az != null && isFinite(Q.az)) O.az = +(+Q.az).toFixed(2); }
+                oaApplyAlign(sc); renderPlanMethods(sc); });
+            document.getElementById('iplOaAl').addEventListener('change', e => { const v = e.target.value;
+                if(v === '-'){ O.alPt = null; renderPlanMethods(sc); return; }
+                const P = oaPoint(sc, v); if(!P) return; const o0 = gridOrigin(sc);
+                if(!oaAlignDir({ n: o0.n + O.ns, e: o0.e + O.ew, ss: O.ss }, P, scenarioRkb(sc))){ const m = document.getElementById('iplOaMsg'); if(m) m.innerHTML = '<span style="color:#ff4c4c;">Align on: that point is the Final Target itself.</span>'; return; }
+                O.alPt = { name: P.name, n: P.n, e: P.e, ss: P.ss }; oaApplyAlign(sc); renderPlanMethods(sc); });
+            const go = next => {
+                const o0 = gridOrigin(sc);
+                const D = { type: O.type, mode: O.mode, ccMode: O.ccMode, dls1: O.dls1, dls2: O.dls2, L: O.L, tvd1: O.tvd1, tvd2: O.tvd2,
+                    target: { name: O.tname || 'Freehand', n: o0.n + O.ns, e: o0.e + O.ew, ss: O.ss, inc: O.inc, az: O.az }, alignOn: O.alPt ? Object.assign({}, O.alPt) : null, back: JSON.parse(JSON.stringify(O.chain)) };
+                const before = JSON.parse(JSON.stringify(sc.sections));
+                let gid = O.editG;
+                if(gid && oaGroupHead(sc, gid)){ oaGroupHead(sc, gid).oaDef = D; }
+                else {
+                    gid = 'g' + Date.now().toString(36);
+                    const pos = sel != null ? sel + 1 : sc.sections.length;
+                    sc.sections.splice(pos, 0, { kind: 'hold', cl: 0, oaG: gid, oaPart: 'oa', oaDef: D });
+                }
+                refresh(sc);
+                if(sc._oaErr){ sc.sections = before; refresh(sc); renderEditor(); const m = document.getElementById('iplOaMsg'); if(m) m.innerHTML = '<span style="color:#ff4c4c;">' + esc(sc._oaErr) + '</span>'; return; }
+                sc._undo = sc._undo || []; sc._undo.push(before);
+                O.editG = gid; O.last = D.last;
+                const idx = sc.sections.map((x, k) => x.oaG === gid ? k : -1).filter(k => k >= 0);
+                gridSel[sc.id] = (next ? idx[idx.length - 1] : idx[0]);
+                if(next){ O.editG = null; }
+                renderEditor();
+                const m2 = document.getElementById('iplOaMsg'); const S = D.last || {};
+                if(m2) m2.innerHTML = `<span style="color:#00e676;">Optimum Align: DLS ${f(S.d1,2)} / ${f(S.d2,2)}, hold ${f(S.L,2)} m, TVD ${f(S.tvd1,2)} / ${f(S.tvd2,2)}${D.back.length ? ' · ' + D.back.length + ' Project Back item(s)' : ''}. It re-solves by itself when anything above changes. Undo with "Undo last wizard".</span>`;
+            };
+            document.getElementById('iplOaCalc').addEventListener('click', () => go(false));
+            document.getElementById('iplOaNext').addEventListener('click', () => go(true));
+        }
+        // ADDED 2026-11-06 (John: Compass "Thread Targets" dialog, screenshots 2026-11-06). Pick targets (Available ->
+        // Targets To), sort them (Displacement from the well's surface / Descending TVD / Ascending TVD / Name — the
+        // sort is the threading order, John's answer), choose the Thread Method and "Dogleg to"; OK inserts a LIVE group
+        // (thDef on the first section; sections carry thG, thT = target name on the section ending at it) that is
+        // re-solved on every recalculation like Optimum Align. Methods: Curve Only (DLS solved), Curve-Hold (DLS =
+        // "Dogleg to"), Straight Line (station dogleg + hold) — IPlanCore.threadToPoint; Optimum Align =
+        // IPlanCore.planOptimumAlign Curve-Hold-Curve with both doglegs = "Dogleg to" and the target's Inc / Azi.
+        // Least Turn: not implemented (John: skip for now).
+        const TH_METHODS = [['curve','Curve Only'],['curvehold','Curve-Hold'],['oa','Optimum Align'],['line','Straight Line']];
+        const thState = { sort: 'disp', to: [], method: 'curvehold', dls: 3, pick: null, pickTo: null };
+        function thSort(sc, keys){
+            const o0 = gridOrigin(sc), rkb = scenarioRkb(sc), P = keys.map(k => ({ k, p: oaPoint(sc, k) })).filter(x => x.p);
+            const disp = p => Math.hypot(p.n - o0.n, p.e - o0.e), tvd = p => rkb - p.ss, S = thState.sort;
+            // FIXED 2026-11-06 (COMPASS Training Manual 2003.5 p.190-191): "Descending" = shallowest target first then
+            // deeper (was deepest first); "Ascending" = deepest first (up-dip); "Name" = the order the targets were put in
+            // the thread list (was alphabetical). Displacement = increasing horizontal displacement from the slot.
+            if(S === 'name') return P;   // keys already in list order
+            P.sort((a, b) => S === 'disp' ? disp(a.p) - disp(b.p) : S === 'dtvd' ? tvd(a.p) - tvd(b.p) : tvd(b.p) - tvd(a.p));
+            return P;
+        }
+        // REWRITTEN 2026-11-06 per the COMPASS Training Manual 2003.5 (ch. 5 Thread Targets, p.190-191):
+        //  - "Dogleg to" too small -> raised automatically to the smallest workable DLS (IPlanCore.withDoglegIncrease;
+        //    was: error). Not for Curve Only (DLS solved). The DLS used per target is kept in D.used and shown.
+        //  - Optimum Align: "three sections per target ... and connects the last two targets via a straight line":
+        //    each target is reached curve-hold-curve LINED UP ON THE NEXT target, the last one by a hold (was: each
+        //    target's own Inc / Azi). One target only: its own Inc / Azi (as Optimum Align freehand).
+        //  - Straight Line: "best straight line through the targets, optimum align to get to the first" ->
+        //    IPlanCore.fitTargetLine (my interpretation of the fit, see there) + Optimum Align (curve-hold-curve at
+        //    "Dogleg to") onto the line's start with the line's attitude, then a hold along the line; targets off the
+        //    line beyond their radius are reported (D.missed). Was: a station dogleg + hold to each target (wrong).
+        function thBuild(sc, D, end, gid){
+            const rkb = scenarioRkb(sc), out = []; let cur = { md: end.md, tvd: end.tvd, n: end.n, e: end.e, inc: end.inc, az: end.az };
+            const P = D.targets.map(t => ({ name: t.name || 'target', n: n(t.n), e: n(t.e), tvd: rkb - n(t.ss), r: n(t.r), inc: t.inc, az: t.az }));
+            const used = []; D.missed = [];
+            const push = (secs, name) => { secs = secs.length ? secs : [{ kind: 'hold', cl: 0 }]; secs.forEach(x => Object.assign(x, { thG: gid })); if(name != null) secs[secs.length - 1].thT = name;
+                out.push(...secs); const s2 = C.computeStations(cur, secs, 1e6).stations, E = s2[s2.length - 1]; cur = { md: E.md, tvd: E.tvd, n: E.n, e: E.e, inc: E.inc, az: E.az }; };
+            const oaTo = (T, inc, az, nm) => { const r = C.withDoglegIncrease(D.dls, d => C.planOptimumAlign(cur, T, inc, az, { type: 'chc', mode: 'dls', dls1: d, dls2: d }));
+                if(r.error) return nm + ': ' + r.error; used.push({ name: nm, dls: r.dlsUsed, raised: r.raised }); push(r.sections, nm); return null; };
+            const dir = (A, B) => { const dN = B.n - A.n, dE = B.e - A.e, dV = B.tvd - A.tvd; return { inc: Math.atan2(Math.hypot(dN, dE), dV) * 180 / Math.PI, az: ((Math.atan2(dE, dN) * 180 / Math.PI) % 360 + 360) % 360, L: Math.hypot(dN, dE, dV) }; };
+            if(D.method === 'line'){
+                if(P.length < 2) return { error: 'Straight Line needs at least 2 targets.' };
+                const Lf = C.fitTargetLine(P, D.sort === 'disp'); if(Lf.error) return Lf;
+                const e = oaTo(Lf.a, Lf.inc, Lf.az, 'line start'); if(e) return { error: e };
+                push([{ kind: 'hold', cl: Math.hypot(Lf.b.n - Lf.a.n, Lf.b.e - Lf.a.e, Lf.b.tvd - Lf.a.tvd) }], P[P.length - 1].name);
+                D.missed = Lf.miss.filter(m => m.missed).map(m => ({ name: P[m.i].name, dist: m.dist, r: m.r }));
+            } else if(D.method === 'oa'){
+                for(let i = 0; i < P.length; i++){
+                    if(i > 0 && i === P.length - 1){ const d = dir(cur, P[i]); push([{ kind: 'hold', cl: d.L }], P[i].name); break; }   // last two joined by a straight line
+                    let inc, az;
+                    if(i + 1 < P.length){ const d = dir(P[i], P[i + 1]); inc = d.inc; az = d.az; }
+                    else { if(P[i].inc == null || P[i].inc === '' || !isFinite(P[i].inc) || P[i].az == null || P[i].az === '' || !isFinite(P[i].az)) return { error: P[i].name + ' has no Inc / Azi — with one target, Optimum Align needs them.' }; inc = n(P[i].inc); az = n(P[i].az); }
+                    const e = oaTo(P[i], inc, az, P[i].name); if(e) return { error: e };
+                }
+            } else {
+                for(const T of P){
+                    const r = D.method === 'curve' ? C.threadToPoint(cur, T, 'curve') : C.withDoglegIncrease(D.dls, d => C.threadToPoint(cur, T, 'curvehold', d));
+                    if(r.error) return { error: T.name + ': ' + r.error };
+                    if(D.method !== 'curve') used.push({ name: T.name, dls: r.dlsUsed, raised: r.raised });
+                    push(r.sections, T.name);
+                }
+            }
+            D.used = used;
+            if(!out.length) out.push({ kind: 'hold', cl: 0, thG: gid });
+            out[0].thDef = D; return { sections: out };
+        }
+        function thHtml(sc){
+            const T = thState, rkb = scenarioRkb(sc);
+            const all = sc.targets.map((t, i) => 's:' + i).concat(PAD_TARGETS.map(t => 'p:' + t.key));
+            const avail = thSort(sc, all.filter(k => !T.to.includes(k))), to = thSort(sc, T.to);
+            const row = (x, attr, selk) => `<div ${attr}="${x.k}" style="cursor:pointer;padding:1px 4px;display:flex;justify-content:space-between;gap:10px;${selk === x.k ? 'background:rgba(0,150,255,.35);' : ''}"><span>${esc(x.p.name)}</span><span>${f(rkb - x.p.ss, 2)}</span></div>`;
+            const list = (arr, attr, selk) => `<div style="border:1px solid var(--wbt-border);height:150px;overflow:auto;min-width:260px;font-size:11px;"><div style="display:flex;justify-content:space-between;padding:1px 4px;color:var(--wbt-text-dim);"><span>Name</span><span>TVD (m)</span></div>${arr.map(x => row(x, attr, selk)).join('')}</div>`;
+            return `<div class="ipl-pm" style="margin-top:6px;">
+                <div><b>Sort Targets</b> ${[['disp','Displacement'],['dtvd','Descending TVD'],['atvd','Ascending TVD'],['name','Name']].map(([k, l]) => `<label><input type="radio" name="iplThSort" value="${k}" ${T.sort === k ? 'checked' : ''}> ${l}</label>`).join('')}
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">(also the threading order)</span></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+                    <div><div style="text-align:center;">Available</div>${list(avail, 'data-tha', T.pick)}</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;"><button type="button" class="wbt-btn" id="iplThAdd">==&gt;</button><button type="button" class="wbt-btn" id="iplThRem">&lt;==</button></div>
+                    <div><div style="text-align:center;">Targets To</div>${list(to, 'data-tht', T.pickTo)}</div>
+                </div>
+                <div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><b>Thread Method</b>
+                    <select id="iplThM">${TH_METHODS.map(([k, l]) => `<option value="${k}" ${T.method === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                    <span>Dogleg to</span><input type="number" step="0.1" id="iplThDls" value="${T.dls}" style="width:70px;" ${T.method === 'curve' || T.method === 'line' ? 'disabled title="not used by this method"' : ''}> °/30m
+                    <button type="button" class="wbt-btn" id="iplThOk">OK</button></div>
+                <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Curve Only: one arc, DLS solved · Curve-Hold: arc at "Dogleg to" + hold · Optimum Align: curve-hold-curve per target lined up on the next target, last two joined by a hold · Straight Line: best-fit line through the targets (weighted to small targets), optimum align onto it, then hold. "Dogleg to" too small → raised automatically (shown after OK); a very small value gives the minimum. Double-click a name to move it. Least Turn: not yet.</div>
+                <div id="iplThMsg" style="font-size:11px;margin-top:4px;">${sc._oaErr ? '<span style="color:#ff4c4c;">' + esc(sc._oaErr) + '</span>' : ''}</div></div>`;
+        }
+        function wireTh(sc, box, sel){
+            const T = thState, re = () => renderPlanMethods(sc);
+            box.querySelectorAll('input[name=iplThSort]').forEach(r => r.addEventListener('change', e => { T.sort = e.target.value; re(); }));
+            box.querySelectorAll('[data-tha]').forEach(d => { d.addEventListener('click', () => { T.pick = d.dataset.tha; re(); }); d.addEventListener('dblclick', () => { T.to.push(d.dataset.tha); T.pick = null; re(); }); });
+            box.querySelectorAll('[data-tht]').forEach(d => { d.addEventListener('click', () => { T.pickTo = d.dataset.tht; re(); }); d.addEventListener('dblclick', () => { T.to = T.to.filter(k => k !== d.dataset.tht); T.pickTo = null; re(); }); });
+            document.getElementById('iplThAdd').addEventListener('click', () => { if(T.pick && !T.to.includes(T.pick)) T.to.push(T.pick); T.pick = null; re(); });
+            document.getElementById('iplThRem').addEventListener('click', () => { T.to = T.to.filter(k => k !== T.pickTo); T.pickTo = null; re(); });
+            document.getElementById('iplThM').addEventListener('change', e => { T.method = e.target.value; re(); });
+            document.getElementById('iplThDls').addEventListener('input', e => { T.dls = n(e.target.value); });
+            document.getElementById('iplThOk').addEventListener('click', () => {
+                const msg = t => { const m = document.getElementById('iplThMsg'); if(m) m.innerHTML = t; };
+                if(!T.to.length){ msg('<span style="color:#ff4c4c;">Move at least one target to "Targets To".</span>'); return; }
+                const D = { method: T.method, dls: T.dls, sort: T.sort,
+                    targets: thSort(sc, T.to).map(x => ({ name: x.p.name, n: x.p.n, e: x.p.e, ss: x.p.ss, inc: x.p.inc, az: x.p.az, r: x.p.r })) };
+                const before = JSON.parse(JSON.stringify(sc.sections)), gid = 't' + Date.now().toString(36);
+                sc.sections.splice(sel != null ? sel + 1 : sc.sections.length, 0, { kind: 'hold', cl: 0, thG: gid, thDef: D });
+                refresh(sc);
+                if(sc._oaErr){ const e0 = sc._oaErr; sc.sections = before; refresh(sc); renderEditor(); msg('<span style="color:#ff4c4c;">' + esc(e0) + '</span>'); return; }
+                sc._undo = sc._undo || []; sc._undo.push(before);
+                const idx = sc.sections.map((x, k) => x.thG === gid ? k : -1).filter(k => k >= 0); gridSel[sc.id] = idx[idx.length - 1];
+                T.to = []; renderEditor();
+                msg(`<span style="color:#00e676;">Threaded ${D.targets.length} target(s) — ${TH_METHODS.find(m => m[0] === D.method)[1]}. Re-solves by itself when anything above changes. Undo with "Undo last wizard".</span>`
+                    + ((D.used || []).some(u => u.raised) ? `<br><span style="color:#ffd060;">Dogleg raised to hit: ${D.used.filter(u => u.raised).map(u => esc(u.name) + ' ' + f(u.dls, 2) + '°/30m').join(', ')}</span>` : '')
+                    + ((D.missed || []).length ? `<br><span style="color:#ff4c4c;">Missed by the line: ${D.missed.map(m => esc(m.name) + ' (' + f(m.dist, 2) + ' m, radius ' + f(m.r, 2) + ')').join(', ')}</span>` : ''));
+            });
+        }
+        function renderPlanMethods(sc){
+            const box = document.getElementById('iplPmBox'); if(!box) return;
+            const M = PM[pmState.m], sel = gridSel[sc.id];
+            if(M.subs && !M.subs.some(x => x[0] === pmState.sub)) pmState.sub = M.subs[0][0];
+            const L = sc._calc && sc._calc.stations && sc._calc.stations.length ? sc._calc.stations[sc._calc.stations.length - 1] : { inc: 0, az: 0, md: 0, tvd: 0 };
+            const fields = !M.subs ? [] : pmState.sub === 'nudge' ? [['dls','DLS (°/30m)',2],['inc','Inc (°)',5],['az','Azi (°)',0],['cl','Hold CL (m)',100],['dls2','Drop DLS (°/30m)',2]]
+                : pmState.sub === 'hold_md' ? [['targetMd','MD (m)',Math.round(L.md + 100)]] : (C.KIND_FIELDS[pmState.sub] || []);
+            const val = (k, d) => pmState.v[pmState.sub + '.' + k] != null ? pmState.v[pmState.sub + '.' + k] : d;
+            box.innerHTML = `<div class="ipl-pm"><div style="font-weight:600;margin-bottom:4px;">Planning Methods <span style="font-weight:400;color:var(--wbt-text-dim);font-size:10px;">— inserted ${sel != null ? 'after row ' + (sel + 2) : 'at the end'}</span></div>
+                <div>${Object.keys(PM).map(k => `<label><input type="radio" name="iplPm" value="${k}" ${pmState.m === k ? 'checked' : ''}> ${PM[k].label}</label>`).join('')}</div>
+                ${M.subs ? `<div style="margin-top:4px;">${M.subs.map(([k, l]) => `<label><input type="radio" name="iplPmSub" value="${k}" ${pmState.sub === k ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;align-items:center;">${fields.map(([k, l, d]) => `<span class="fld"><span>${l}</span> <input type="number" step="0.1" data-pmk="${k}" value="${val(k, d)}" style="width:80px;"></span>`).join('')}
+                    <button type="button" class="wbt-btn" id="iplPmCalc">Calculate</button> <button type="button" class="wbt-btn" id="iplPmNext" title="Calculate and keep adding after the new row">Calculate + Next</button></div>`
+                : M.oa ? oaHtml(sc)
+                : M.th ? thHtml(sc)
+                : `<div style="margin-top:4px;"><button type="button" class="wbt-btn" id="iplPmWiz">Open ${M.label} wizard</button> <span style="font-size:10px;color:var(--wbt-text-dim);">Uses the scenario targets (left).</span></div>`}</div>`;
+            if(M.oa) wireOa(sc, box, sel);
+            if(M.th) wireTh(sc, box, sel);
+            box.querySelectorAll('input[name=iplPm]').forEach(r => r.addEventListener('change', e => { pmState.m = e.target.value; renderPlanMethods(sc); }));
+            box.querySelectorAll('input[name=iplPmSub]').forEach(r => r.addEventListener('change', e => { pmState.sub = e.target.value; renderPlanMethods(sc); }));
+            box.querySelectorAll('[data-pmk]').forEach(inp => inp.addEventListener('input', e => { pmState.v[pmState.sub + '.' + e.target.dataset.pmk] = n(e.target.value); }));
+            const wz = document.getElementById('iplPmWiz'); if(wz) wz.addEventListener('click', () => { openWizard(sc, M.wiz); const w0 = document.getElementById('iplWiz'); if(w0) w0.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+            const add = next => {
+                const get = k => n(box.querySelector(`[data-pmk="${k}"]`).value);
+                let secs;
+                if(pmState.sub === 'nudge') secs = [{ kind:'dls_inc_az', dls:get('dls'), inc:get('inc'), az:get('az') }, { kind:'hold', cl:get('cl') }, { kind:'dls_inc_az', dls:get('dls2'), inc:0, az:get('az') }];
+                else if(pmState.sub === 'hold_md'){ const at = sel != null ? gridRows(sc).rows[sel + 1] : L; secs = [{ kind:'md_inc_az', targetMd:get('targetMd'), inc:at.inc, az:at.az }]; }
+                else { const s1 = { kind: pmState.sub }; (C.KIND_FIELDS[pmState.sub] || []).forEach(([k]) => { s1[k] = get(k); }); secs = [s1]; }
+                const at = sel != null ? sel + 1 : sc.sections.length;
+                sc.sections.splice(at, 0, ...secs);
+                gridSel[sc.id] = next ? at + secs.length - 1 : (sel != null ? at + secs.length - 1 : undefined);
+                refresh(sc); renderSections(sc); updateResults(sc); renderPlanMethods(sc);
+            };
+            const cb = document.getElementById('iplPmCalc'), nb = document.getElementById('iplPmNext');
+            if(cb) cb.addEventListener('click', () => add(false)); if(nb) nb.addEventListener('click', () => add(true));
         }
 
         function padTargetOptions(){
@@ -6393,6 +6896,7 @@ body.light-mode #statusTextbox {
 
         // Updates only result text (keeps input focus while typing).
         function updateResults(sc){
+            try { renderGrid(sc); } catch(e){ console.warn('iPlan grid', e); }   // 2026-11-06: keep the plan grid in sync
             const c = sc._calc || {};
             const tie = document.getElementById('iplTieInfo');
             if(tie){
@@ -7083,7 +7587,8 @@ body.light-mode #statusTextbox {
                 if(ipd.tpl.mode === 'back' && n(ipd.tpl.sc) > 0) ev.push({ md: n(ipd.tpl.sc), comment: 'SurfaceCasing' });
                 const pn = w.r.params && w.r.params.nudge;   // 2026-10-31: AC nudge -> "Nudge" at its KOP, KickOff stays at the main KOP
                 if(pn) ev.push({ md: pn.kop, comment: 'Nudge' });
-                const kop = (!pn && first('kop')) || (w.r.params && w.r.params.kop ? { b: w.r.params.kop } : null); if(kop) ev.push({ md: kop.b, comment: 'KickOff' });
+                const fp = first('pre');   // 2026-11-06: Deep search well — KickOff where its first tree row starts (params.kop is the tree's end there)
+                const kop = fp ? { b: fp.a } : ((!pn && first('kop')) || (w.r.params && w.r.params.kop ? { b: w.r.params.kop } : null)); if(kop) ev.push({ md: kop.b, comment: 'KickOff' });
                 const t1 = first('t1'); if(t1){ ev.push({ md: t1.a, comment: 'Start Steamflood Tang' }); ev.push({ md: t1.b, comment: 'End Steamflood Tang' }); }
                 const t2 = first('t2'); if(t2){ ev.push({ md: t2.a, comment: 'Start Tang' }); ev.push({ md: t2.b, comment: 'End Tang' }); }
                 if(w.landMd != null) ev.push({ md: w.landMd, comment: 'IntermediateCasing' });
@@ -7156,9 +7661,40 @@ body.light-mode #statusTextbox {
                 <span style="margin-left:10px;">From MD (m)</span> <input type="number" step="10" min="0" id="ipdTunFrom" value="${ipd.tunFrom || 0}" style="width:70px;" title="Skip the top of the wells (e.g. the vertical section where slots are close)">
                 <button type="button" class="wbt-btn" id="ipdTunRun" style="margin-left:8px;">&#9711; Tunnel</button>
                 <button type="button" class="wbt-btn" id="ipdTunClr">Clear tunnels</button>
+                <%# ADDED 2026-11-04 (John, SD9): offsets / planned wells as obstacles in Tunnel + Avoidance, with his zones %>
+                <div style="margin-top:4px;">
+                    <label><input type="checkbox" id="ipdObsOn" ${ipd.obsOn !== false ? 'checked' : ''}> Include offsets &amp; planned wells</label>
+                    <span style="margin-left:8px;" title="From the slot down to this MD: 'as close to the clearance as the slot allows' (= min(clearance, distance at the slot))">Near-surface to MD</span> <input type="number" step="10" min="0" id="ipdObsNear" value="${ipd.obsNear != null ? ipd.obsNear : 200}" style="width:60px;">
+                    <span style="margin-left:8px;" title="Last part of the build before the ICP where the SAGD clearance applies">ICP zone (m)</span> <input type="number" step="10" min="0" id="ipdObsIcpZone" value="${ipd.obsIcpZone != null ? ipd.obsIcpZone : 100}" style="width:60px;">
+                    <span>ICP clearance (m)</span> <input type="number" step="0.5" min="0" id="ipdObsIcpClr" value="${ipd.obsIcpClr != null ? ipd.obsIcpClr : 5}" style="width:55px;">
+                    <span style="font-size:10px;color:var(--wbt-text-dim);">Planned wells starting within 3 m of an iPad slot are the wells being redesigned — left out.</span>
+                </div>
                 <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">One tunnel per well, radius = half the clearance. <span style="color:#ff4c4c;">Red</span> = centre-to-centre distance below the clearance (tunnels overlap). Geometric only — no uncertainty (see the SF check below).</div>
                 <div id="ipdTunOut" style="margin-top:6px;"></div>
             </div>`;
+        }
+        // ADDED 2026-11-04 (John, SD9): obstacles for Tunnel / Avoidance = planned + offset wells of the job
+        // (AC module's base wells), minus the ones being redesigned (surface within 3 m of an iPad slot), only near the pad.
+        function ipdObsSettings(){
+            const g = id => document.getElementById(id);
+            ipd.obsOn = g('ipdObsOn') ? g('ipdObsOn').checked : true;
+            ipd.obsNear = g('ipdObsNear') ? Math.max(0, n(g('ipdObsNear').value)) : 200;
+            ipd.obsIcpZone = g('ipdObsIcpZone') ? Math.max(0, n(g('ipdObsIcpZone').value)) : 100;
+            ipd.obsIcpClr = g('ipdObsIcpClr') ? Math.max(0, n(g('ipdObsIcpClr').value)) : 5;
+            return { on: ipd.obsOn, nearMd: ipd.obsNear, icpZone: ipd.obsIcpZone, icpClr: ipd.obsIcpClr };
+        }
+        function ipdObstacles(wells){
+            const A = window.acpPadApi; if(!A) return [];
+            const slots = ipd.surfaces.map(s0 => ({ n: n(s0.n), e: n(s0.e) }));
+            const pts = []; (wells || []).forEach(w => (w.st || []).forEach(p => pts.push(p)));
+            const bb = pts.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e)], [Infinity, -Infinity, Infinity, -Infinity]), pad = 400;
+            return A.baseWells().map(x => {
+                const P = (x.well.survey || []).map(p => ({ md: n(p.md), n: n(p.northing), e: n(p.easting), z: n(p.subSea) })).filter(p => isFinite(p.n) && isFinite(p.e) && isFinite(p.z)).sort((a, b) => a.md - b.md);
+                if(P.length < 2) return null;
+                if(slots.some(s0 => Math.hypot(s0.n - P[0].n, s0.e - P[0].e) < 3)) return null;   // the well being redesigned
+                if(!P.some(p => p.n > bb[0] - pad && p.n < bb[1] + pad && p.e > bb[2] - pad && p.e < bb[3] + pad)) return null;
+                return { name: x.well.wellName || 'well', cat: x.cat, pts: P };
+            }).filter(Boolean);
         }
         function ipdRunTunnels(){
             ipdClearTunnels();
@@ -7175,7 +7711,12 @@ body.light-mode #statusTextbox {
                 let t = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; t = Math.max(0, Math.min(1, t));
                 const d = Math.hypot(wx - t*vx, wy - t*vy, wz - t*vz); if(d < b){ b = d; bi = i; } } return b; };
             const red = new THREE.Color(0xff3030), ok = new THREE.Color(0x3aa0ff), report = [];
+            // 2026-11-04: offsets / planned wells (fixed), required clearance by zone (same rule as padAvoid's obstacles)
+            const OS = ipdObsSettings(), obs = OS.on ? ipdObstacles(wells.map(x => x.w)).map(o0 => ({ name: o0.name, P: o0.pts, v: o0.pts.map(p => new THREE.Vector3(p.e, p.z, -p.n)) })) : [];
+            const obsBB = obs.map(o0 => o0.P.reduce((b, p) => [Math.min(b[0], p.e), Math.max(b[1], p.e), Math.min(b[2], -p.n), Math.max(b[3], -p.n)], [Infinity, -Infinity, Infinity, -Infinity]));
             wells.forEach((x, wi) => {
+                const s0 = new THREE.Vector3(n(x.w.s.e), n(x.w.s.ss), -n(x.w.s.n)), slotD = obs.map(o0 => segDist(s0, o0.v)), landMd = x.w.landMd != null ? x.w.landMd : Infinity;
+                const obsRanges = {};
                 const curve = new THREE.CatmullRomCurve3(x.v), segs = Math.max(8, x.v.length * 2), radial = 14;
                 const geo = new THREE.TubeGeometry(curve, segs, R, radial, false);
                 const total = x.pts[x.pts.length - 1].md - x.pts[0].md, cols = [], ranges = {};
@@ -7186,18 +7727,24 @@ body.light-mode #statusTextbox {
                     wells.forEach((y, wj) => { if(wj === wi) return; const d = segDist(c, y.v);
                         if(d < minD){ minD = d; minWith = y.w.name; }
                         if(d < 2 * R - 1e-6){ hit = true; const r0 = ranges[y.w.name] = ranges[y.w.name] || { a: md, b: md, min: d }; r0.a = Math.min(r0.a, md); r0.b = Math.max(r0.b, md); r0.min = Math.min(r0.min, d); } });
+                    obs.forEach((o0, k) => {   // 2026-11-04
+                        const req = md < OS.nearMd ? Math.min(clr, slotD[k] - 0.3) : (md >= landMd - OS.icpZone ? Math.min(clr, OS.icpClr) : clr), b0 = obsBB[k];
+                        if(c.x < b0[0] - req || c.x > b0[1] + req || c.z < b0[2] - req || c.z > b0[3] + req) return;
+                        const d = segDist(c, o0.v);
+                        if(d < req - 1e-6){ hit = true; const r0 = obsRanges[o0.name] = obsRanges[o0.name] || { a: md, b: md, min: d, req }; r0.a = Math.min(r0.a, md); r0.b = Math.max(r0.b, md); if(d < r0.min){ r0.min = d; r0.req = req; } }
+                    });
                     const col = hit ? red : ok;
                     for(let j = 0; j <= radial; j++) cols.push(col.r, col.g, col.b);
                 }
                 geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
                 const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
                 api.getGroup().add(mesh); ipd.tunnels.push(mesh);
-                report.push({ name: x.w.name, minD, minWith, ranges });
+                report.push({ name: x.w.name, minD, minWith, ranges, obsRanges });
             });
-            const nHit = report.filter(r => Object.keys(r.ranges).length).length;
-            document.getElementById('ipdTunOut').innerHTML = `<div style="margin-bottom:4px;">${wells.length} tunnel(s), clearance ${f(clr,1)} m (radius ${f(R,1)} m) — <span style="color:${nHit ? '#ff4c4c' : '#00e676'};">${nHit} well(s) with overlaps</span></div>
-                <div style="max-height:260px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Min C2C (m)</th><th>Closest well</th><th>Overlaps (with: MD from–to, min C2C)</th></tr>` +
-                report.map(r => `<tr style="color:${Object.keys(r.ranges).length ? '#ff4c4c' : 'inherit'};"><td>${esc(r.name)}</td><td>${f(r.minD,1)}</td><td>${esc(r.minWith)}</td><td style="white-space:normal;">${Object.keys(r.ranges).map(k => esc(k) + ': ' + f(r.ranges[k].a,0) + '–' + f(r.ranges[k].b,0) + ' (' + f(r.ranges[k].min,1) + ')').join('<br>') || '—'}</td></tr>`).join('') + '</table></div>';
+            const nHit = report.filter(r => Object.keys(r.ranges).length).length, nObs = report.filter(r => Object.keys(r.obsRanges).length).length;
+            document.getElementById('ipdTunOut').innerHTML = `<div style="margin-bottom:4px;">${wells.length} tunnel(s), clearance ${f(clr,1)} m (radius ${f(R,1)} m) — <span style="color:${nHit ? '#ff4c4c' : '#00e676'};">${nHit} well(s) with overlaps between pad wells</span> · ${OS.on ? `<span style="color:${nObs ? '#ff4c4c' : '#00e676'};">${nObs} well(s) too close to offsets / planned wells</span> (${obs.length} checked; near-surface to MD ${f(OS.nearMd,0)} = as the slot allows, last ${f(OS.icpZone,0)} m before the ICP = ${f(OS.icpClr,1)} m)` : 'offsets not checked'}</div>
+                <div style="max-height:260px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Min C2C pad (m)</th><th>Closest pad well</th><th>Overlaps pad wells (MD from–to, min)</th><th>Offsets / planned too close (MD from–to, min / required)</th></tr>` +
+                report.map(r => `<tr style="color:${Object.keys(r.ranges).length || Object.keys(r.obsRanges).length ? '#ff4c4c' : 'inherit'};"><td>${esc(r.name)}</td><td>${f(r.minD,1)}</td><td>${esc(r.minWith)}</td><td style="white-space:normal;">${Object.keys(r.ranges).map(k => esc(k) + ': ' + f(r.ranges[k].a,0) + '–' + f(r.ranges[k].b,0) + ' (' + f(r.ranges[k].min,1) + ')').join('<br>') || '—'}</td><td style="white-space:normal;">${Object.keys(r.obsRanges).sort((a, b) => r.obsRanges[a].min - r.obsRanges[b].min).map(k => esc(k) + ': ' + f(r.obsRanges[k].a,0) + '–' + f(r.obsRanges[k].b,0) + ' (' + f(r.obsRanges[k].min,1) + ' / ' + f(r.obsRanges[k].req,1) + ')').join('<br>') || '—'}</td></tr>`).join('') + '</table></div>';
         }
         // ---------- iPad: Avoidance (ADDED 2026-10-31, John) ----------
         // Re-designs the preview wells so their tunnels never touch (IPlanCore.padAvoid — see its comment):
@@ -7212,6 +7759,9 @@ body.light-mode #statusTextbox {
                 <span style="margin-left:8px;">Time limit (s)</span> <input type="number" step="10" min="10" id="ipdAvTime" value="${ipd.avTime || 120}" style="width:60px;">
                 <!-- ADDED 2026-10-31 (John): "Safest" goal = after removing touching pairs, keep raising the pad-wide min C2C (safest first, then shortest MD). See padAvoid o.safest in iplanCore.js. -->
                 <span style="margin-left:8px;">Goal</span> <select id="ipdAvGoal"><option value="clear"${ipd.avGoal !== 'safest' ? ' selected' : ''}>No touching (clearance)</option><option value="safest"${ipd.avGoal === 'safest' ? ' selected' : ''}>Safest (maximize min C2C)</option></select>
+                <!-- ADDED 2026-11-06 (John): Deep search (RRT) for wells still in conflict after the normal search — IPlanCore.padDeepAvoid -->
+                <label style="margin-left:8px;" title="For wells still in conflict after the normal search: random-tree search of the shallow hole (any drillable shape inside the nudge / DLS limits), connected to the ICP by the back-projected template, then smoothed. Slower; results vary run to run."><input type="checkbox" id="ipdAvDeep" ${ipd.avDeep ? 'checked' : ''}> Deep search (RRT)</label>
+                <span>s / well</span> <input type="number" step="10" min="15" id="ipdAvDeepS" value="${ipd.avDeepS || 60}" style="width:55px;">
                 <button type="button" class="wbt-btn" id="ipdAvRun" style="margin-left:8px;">&#10227; Run avoidance</button>
                 <button type="button" class="wbt-btn" id="ipdAvRevert" ${ipd.previewOrig ? '' : 'disabled'}>Revert to original</button>
                 <div style="font-size:10px;color:var(--wbt-text-dim);margin-top:3px;">Uses the Tunnel radius, Depth and From MD above. Every new design stays inside the Design freedoms ranges and lands on the ICP (or inside its tolerance box). Levers, cheapest first: another design in the ranges → extra KOP stagger → AC nudge (Design freedoms) → ICP tolerance. "Back-projected" template only. Note: at From MD the wells are still as close as their slots — start the tunnels below where the wells can separate.</div>
@@ -7341,14 +7891,20 @@ body.light-mode #statusTextbox {
             if(base.length < 2){ outEl().innerHTML = '<span style="color:#ff4c4c;">Run the Preview first (2 or more wells).</span>'; return; }
             const clr = Math.max(0.1, n(document.getElementById('ipdTunR').value)), R = clr / 2, full = document.getElementById('ipdTunDepth').value === 'full', from = Math.max(0, n(document.getElementById('ipdTunFrom').value));
             ipd.tunR = clr; ipd.tunDepth = full ? 'full' : 'icp'; ipd.tunFrom = from;
-            ipd.avKopStep = Math.max(5, n(document.getElementById('ipdAvKopStep').value)); ipd.avKopMax = Math.max(0, n(document.getElementById('ipdAvKopMax').value)); ipd.avTime = Math.max(10, n(document.getElementById('ipdAvTime').value)); ipd.avGoal = document.getElementById('ipdAvGoal').value;
+            ipd.avKopStep = Math.max(5, n(document.getElementById('ipdAvKopStep').value)); ipd.avKopMax = Math.max(0, n(document.getElementById('ipdAvKopMax').value)); ipd.avTime = Math.max(10, n(document.getElementById('ipdAvTime').value)); ipd.avGoal = document.getElementById('ipdAvGoal').value; ipd.avDeep = document.getElementById('ipdAvDeep').checked; ipd.avDeepS = Math.max(15, n(document.getElementById('ipdAvDeepS').value));
             const t = ipd.tpl, btn = document.getElementById('ipdAvRun'); btn.disabled = true;
             const input = base.map((w, i) => ({ surf: { n:n(w.s.n), e:n(w.s.e) }, ss: n(w.s.ss), land: Object.assign({}, w.land),
                 tpl: { mode:'back', kop: (w.r.params && w.r.params.kop > 0) ? w.r.params.kop : ipdKopOf(w.i), lateral: ipdLatOf(w.i, w.land), back: Object.assign({}, t.back, (w.r.edges || []).some(e => /T1 raised/.test(e)) && w.r.params ? { t1Min: w.r.params.incT, t1Max: w.r.params.incT } : {}), rules: ipdRulesForSolver(), kopMin: n(t.sc) + 20, rkb: n(w.s.ss), _noKopRetry: true } }));   // 2026-11-01: keep a T1 the rules raised for this well   // 2026-11-01: start from the preview's KOP (already raised by the rules if needed); Avoidance's own KOP lever only adds depth, so no KOP retry inside it (speed)   // 2026-11-01: lateral to TD; design rules   // 2026-11-01: lateral to TD
             let res;
             try {
-                res = await C.padAvoid(input, { R, fromMd: from, full, nudge: t.back.nudgeOn ? { kop: n(t.back.nudgeKop), dls: n(t.back.nudgeDls), incMax: n(t.back.nudgeIncMax) } : null, kopStep: ipd.avKopStep, kopMax: ipd.avKopMax, tolAlong: n(t.back.icpAlong), tolAcross: n(t.back.icpAcross), timeMs: ipd.avTime * 1000, safest: ipd.avGoal === 'safest' },
+                const OS = ipdObsSettings();   // 2026-11-04: offsets / planned wells as fixed obstacles
+                res = await C.padAvoid(input, { R, fromMd: from, full, obstacles: OS.on ? ipdObstacles(base) : null, obsClr: clr, nearMd: OS.nearMd, icpZone: OS.icpZone, icpClr: OS.icpClr, nudge: t.back.nudgeOn ? { kop: n(t.back.nudgeKop), dls: n(t.back.nudgeDls), incMax: n(t.back.nudgeIncMax) } : null, kopStep: ipd.avKopStep, kopMax: ipd.avKopMax, tolAlong: n(t.back.icpAlong), tolAcross: n(t.back.icpAcross), timeMs: ipd.avTime * 1000, safest: ipd.avGoal === 'safest' },
                     async msg => { const el = outEl(); if(el) el.innerHTML = '<span style="color:var(--wbt-text-dim);">' + esc(msg) + '…</span>'; await new Promise(r => setTimeout(r, 0)); });
+                // ADDED 2026-11-06: Deep search (RRT) for the wells still in conflict (offsets / planned or pad pairs)
+                if(ipd.avDeep && ((res.end.oh || 0) + (res.end.pairs || 0)) > 0){
+                    await C.padDeepAvoid(input, res, { R, fromMd: from, obstacles: OS.on ? ipdObstacles(base) : null, obsClr: clr, nearMd: OS.nearMd, icpZone: OS.icpZone, icpClr: OS.icpClr, nudge: t.back.nudgeOn ? { kop: n(t.back.nudgeKop), dls: n(t.back.nudgeDls), incMax: n(t.back.nudgeIncMax) } : null, tolAlong: n(t.back.icpAlong), deepMs: ipd.avDeepS * 1000, rounds: 2 },
+                        async msg => { const el = outEl(); if(el) el.innerHTML = '<span style="color:var(--wbt-text-dim);">' + esc(msg) + '…</span>'; await new Promise(r => setTimeout(r, 0)); });
+                }
             } finally { btn.disabled = false; }
             const orig = base, wells = orig.map((w, i) => {
                 const c = res.wells[i]; if(!c) return w;
@@ -7357,17 +7913,19 @@ body.light-mode #statusTextbox {
             });
             const rows = wells.map((w, i) => { const o0 = orig[i], c = w.avoid, p = (w.r.params || {}), q = (o0.r.params || {});
                 const ch = [];
+                if(c && c.deep) ch.push('Deep search (RRT): ' + c.deep.nPre + ' shallow row(s)' + (c.deep.smoothed ? ' (smoothed from ' + c.deep.smoothed.before + ')' : ''));   // 2026-11-06
                 if(c){ if(c.kopAdd) ch.push('KOP +' + c.kopAdd + ' m'); if(c.nudge) ch.push('AC nudge ' + f(c.nudge.inc,1) + '° @' + f(c.nudge.az,0) + '° from ' + f(c.nudge.kop,0) + ' m'); if(c.shift[0] || c.shift[1]) ch.push('ICP ' + (c.shift[0] ? (c.shift[0] > 0 ? '+' : '') + c.shift[0] + ' along ' : '') + (c.shift[1] ? (c.shift[1] > 0 ? '+' : '') + c.shift[1] + ' across' : ''));
                     if(Math.abs((p.azT || 0) - (q.azT || 0)) > 0.5) ch.push('T1 Az ' + f(q.azT,1) + '→' + f(p.azT,1) + '°');
                     if(p.incT !== q.incT) ch.push('T1 Inc ' + f(q.incT,1) + '→' + f(p.incT,1) + '°');
                     if(p.tangents && q.tangents && p.tangents[1].inc !== q.tangents[1].inc) ch.push('T2 Inc ' + f(q.tangents[1].inc,1) + '→' + f(p.tangents[1].inc,1) + '°');
                     if(p.dls1 !== q.dls1) ch.push('DLS ' + f(q.dls1,1) + '→' + f(p.dls1,1)); if(p.dls2 !== q.dls2) ch.push('final DLS ' + f(q.dls2,1) + '→' + f(p.dls2,1)); }
-                const touching = res.pairs.filter(x => x.i === i || x.j === i).map(x => base[x.i === i ? x.j : x.i].name.split(' ').pop() + ' (' + f(x.d,1) + ')');
+                const touching = res.pairs.filter(x => x.i === i || x.j === i).map(x => base[x.i === i ? x.j : x.i].name.split(' ').pop() + ' (' + f(x.d,1) + ')')
+                    .concat(((c && c.obs) || []).map(x => x.name + ' (' + f(x.d,1) + ' / ' + f(x.req,1) + ' @ MD ' + f(x.md,0) + ')'));   // 2026-11-04: offsets / planned (min / required)
                 return `<tr style="color:${touching.length ? '#ff4c4c' : 'inherit'};"><td>${esc(w.name)}</td><td style="white-space:normal;">${c ? esc(ch.join('; ') || 'no change') : '<span style="color:#ff4c4c;">no valid design with these levers — kept the original</span>'}</td><td>${f(w.landMd,0)}</td><td>${w.landMd != null && o0.landMd != null ? (w.landMd - o0.landMd >= 0 ? '+' : '') + f(w.landMd - o0.landMd,0) : '—'}</td><td>${c ? f(c.minC2C,1) : '—'}</td><td>${esc(touching.join(', ') || '—')}</td></tr>`; }).join('');
             ipd.previewOrig = orig;
             ipd.latOrig = null; ipd.latHtml = '';   // 2026-11-01: build-section avoidance rebuilds the laterals
-            ipd.avoidHtml = `<div style="margin-bottom:4px;">Touching pairs: <b>${res.start.pairs}</b> → <b style="color:${res.end.pairs ? '#ff4c4c' : '#00e676'};">${res.end.pairs}</b>${res.end.pairs ? ' (best combination found — widen the ranges / ICP tolerance, lower the radius or start the tunnels deeper)' : ' — all tunnels clear'} · clearance ${f(clr,1)} m from MD ${f(from,0)} · ${f(res.ms / 1000,1)} s${res.minBefore != null ? ` · Safest: pad min C2C <b>${isFinite(res.minBefore) ? f(res.minBefore,1) : '&gt;' + f(6*R,0)}</b> → <b style="color:#00e676;">${isFinite(res.minAfter) ? f(res.minAfter,1) : '&gt;' + f(6*R,0)}</b> m (${res.safeMoves} move(s))` : ''}</div>
-                <div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Changes vs original</th><th>Landing MD</th><th>Δ MD</th><th>Min C2C (m)</th><th>Still touching (C2C)</th></tr>${rows}</table></div>`;
+            ipd.avoidHtml = `<div style="margin-bottom:4px;">Offset / planned conflicts: <b>${res.start.oh || 0}</b> → <b style="color:${res.end.oh ? '#ff4c4c' : '#00e676'};">${res.end.oh || 0}</b> · Touching pairs: <b>${res.start.pairs}</b> → <b style="color:${res.end.pairs ? '#ff4c4c' : '#00e676'};">${res.end.pairs}</b>${(res.end.pairs || res.end.oh) ? ' (best combination found — widen the ranges / ICP tolerance / nudge, or accept the listed wells)' : ' — all clear'} · clearance ${f(clr,1)} m from MD ${f(from,0)} · ${f(res.ms / 1000,1)} s${res.minBefore != null ? ` · Safest: pad min C2C <b>${isFinite(res.minBefore) ? f(res.minBefore,1) : '&gt;' + f(6*R,0)}</b> → <b style="color:#00e676;">${isFinite(res.minAfter) ? f(res.minAfter,1) : '&gt;' + f(6*R,0)}</b> m (${res.safeMoves} move(s))` : ''}</div>
+                <div style="max-height:300px;overflow:auto;"><table style="font-size:11px;font-family:var(--wbt-mono);"><tr><th>Well</th><th>Changes vs original</th><th>Landing MD</th><th>Δ MD</th><th>Min C2C pad (m)</th><th>Still too close (C2C / required)</th></tr>${rows}</table></div>`;
             ipdShowPreview(wells, wells.length);
             try { ipdRunTunnels(); } catch(e){}
         }
@@ -7522,7 +8080,11 @@ body.light-mode #statusTextbox {
             const items = wells.map(w => ({
                 name: w.name, group, startMode: 'surface', wellId: ref ? String(ref._id) : '', tieMd: 0,
                 start: { md:0, tvd:0, n:n(w.s.n), e:n(w.s.e), inc:0, az:0, rkb:n(w.s.ss) },
-                sections: w.r.sections,
+                // CHANGED 2026-11-06 (John): a back-projected iPad well is stored as an iPlan Optimum Align LIVE GROUP
+                // (KOP / nudge rows, then the align + Project Back chain to the ICP, then the lateral) when the core
+                // confirmed it with the Compass-validated solver (w.r.oaPlan); otherwise the plain sections (fallback).
+                sections: w.r.oaPlan ? (() => { const g = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), P = w.r.oaPlan;
+                    return P.pre.map(x => Object.assign({}, x)).concat([{ kind: 'hold', cl: 0, oaG: g, oaPart: 'oa', oaDef: JSON.parse(JSON.stringify(P.def)) }], P.post.map(x => Object.assign({}, x))); })() : w.r.sections,
                 targets: [{ name: w.tg.name, n:n(w.tg.n), e:n(w.tg.e), ss:n(w.tg.ss), r:15 }],
                 toolcode: null
             }));

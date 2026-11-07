@@ -12,6 +12,8 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <%# ADDED 2026-11-04: Hammer.js — chartjs-plugin-zoom needs it for drag-to-pan and pinch (Gantt past/future on phones). Must load before the plugin. %>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>

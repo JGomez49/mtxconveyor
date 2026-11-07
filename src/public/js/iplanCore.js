@@ -672,6 +672,396 @@ function planCurveHoldCurve(end, t, incT, azT, dls1, dls2){
   return { sections: out, solved: { inc1, az1, L } };
 }
 
+
+/* ADDED 2026-11-06 (John: Compass "Optimum Align" panel), EXTENDED same day (John: TVD mode, Curve-Curve form,
+   Project Back). Curve 1 (DLS d1) -> hold L -> curve 2 (DLS d2) from the current end to a point t, arriving with
+   the final attitude (incT, azT). Unknowns / givens by mode (always 3 position equations N, E, TVD at the end):
+     CHC 'dls': d1, d2 given            -> solve inc1, az1, L      (= the existing planCurveHoldCurve, used first)
+     CHC 'tvd': TVD1 (end of curve 1), TVD2 (end of hold = start of curve 2) given
+                                        -> solve inc1, az1, L, d1, d2   (5 eq.: N, E, TVD + TVD1 + TVD2)
+     CHC 'tan': L given                 -> solve inc1, az1, d (d1 = d2 = d)
+     CC  (L = 0) 'eq' / 'd1' / 'd2'     -> solve inc1, az1 + the common DLS / DLS2 (DLS1 given) / DLS1 (DLS2 given)
+   Forward model = the same sections and minimum-curvature chain (computeStations, chcCurveCL). Solver: damped
+   Newton, finite-difference Jacobian, Gaussian elimination, several starting points. No new formulas.
+   Returns { sections, solved:{inc1, az1, L, d1, d2, tvd1, tvd2} } (all values, for the panel's grey fields) or { error }. */
+function oaChain(end, inc1, az1, L, d1, d2, incT, azT){
+  const cl1 = chcCurveCL(end.inc, end.az, inc1, az1, d1), cl2 = chcCurveCL(inc1, az1, incT, azT, d2), secs = [];
+  if (cl1 > 1e-6) secs.push({ kind:'direct', inc: inc1, az: az1, cl: cl1 });
+  if (L > 1e-6) secs.push({ kind:'hold', cl: L });
+  if (cl2 > 1e-6) secs.push({ kind:'direct', inc: incT, az: azT, cl: cl2 });
+  if (!secs.length) return null;
+  const st = computeStations({ md: end.md || 0, tvd: end.tvd, n: end.n, e: end.e, inc: end.inc, az: end.az }, secs, 1e6).stations;
+  // station after each section (step 1e6 -> one station per section)
+  let k = 1; const at = {};
+  if (cl1 > 1e-6) at.c1 = st[k++]; else at.c1 = st[0];
+  if (L > 1e-6) at.h = st[k++]; else at.h = at.c1;
+  return { secs, end: st[st.length - 1], tvd1: at.c1.tvd, tvd2: at.h.tvd };
+}
+function solveNewton(F, x0, nEq){
+  const nrm = r => Math.sqrt(r.reduce((a, v) => a + v * v, 0));
+  let x = x0.slice(), r = F(x); if (!r) return null;
+  for (let it = 0; it < 80 && nrm(r) > 1e-3; it++){
+    const J = x.map((_, k) => { const x2 = x.slice(), h = 1e-4 * Math.max(1, Math.abs(x[k])); x2[k] += h; const r2 = F(x2); return r2 ? r2.map((v, q) => (v - r[q]) / h) : null; });
+    if (J.some(c => !c)) return { x, r: nrm(r) };
+    // A (nEq x n) dx = -r ; square here -> Gaussian elimination with partial pivoting
+    const n = x.length, A = []; for (let q = 0; q < nEq; q++){ A.push(J.map(c => c[q]).concat([-r[q]])); }
+    for (let c = 0; c < n; c++){ let p = c; for (let q = c + 1; q < n; q++) if (Math.abs(A[q][c]) > Math.abs(A[p][c])) p = q;
+      if (Math.abs(A[p][c]) < 1e-14) return { x, r: nrm(r) }; [A[c], A[p]] = [A[p], A[c]];
+      for (let q = c + 1; q < n; q++){ const f = A[q][c] / A[c][c]; for (let k = c; k <= n; k++) A[q][k] -= f * A[c][k]; } }
+    const dx = new Array(n).fill(0); for (let c = n - 1; c >= 0; c--){ let v = A[c][n]; for (let k = c + 1; k < n; k++) v -= A[c][k] * dx[k]; dx[c] = v / A[c][c]; }
+    let lam = 1, ok = false;
+    for (let ls = 0; ls < 14; ls++){ const xn = x.map((v, k) => v + lam * dx[k]), rn = F(xn); if (rn && nrm(rn) < nrm(r)){ x = xn; r = rn; ok = true; break; } lam /= 2; }
+    if (!ok) break;
+  }
+  return { x, r: nrm(r) };
+}
+function planOptimumAlign(end, t, incT, azT, o){
+  o = o || {};
+  const type = o.type || 'chc', mode = o.mode || (type === 'cc' ? 'eq' : 'dls');
+  const brg = (Math.atan2(t.e - end.e, t.n - end.n) * R2D + 360) % 360;
+  // unknown layout per mode -> [inc1, az1, L, d1, d2]
+  const spec = {
+    'chc:dls': { free:['inc1','az1','L'], fix:{ d1:+o.dls1, d2:+o.dls2 } },
+    'chc:tvd': { free:['inc1','az1','L','d1','d2'], fix:{}, tvd:true },
+    'chc:tan': { free:['inc1','az1','d'], fix:{ L:+o.L } },
+    'cc:eq':   { free:['inc1','az1','d'], fix:{ L:0 } },
+    'cc:d1':   { free:['inc1','az1','d2'], fix:{ L:0, d1:+o.dls1 } },
+    'cc:d2':   { free:['inc1','az1','d1'], fix:{ L:0, d2:+o.dls2 } }
+  }[type + ':' + mode];
+  if (!spec) return { error:'Unknown Optimum Align mode.' };
+  const full = x => { const v = Object.assign({ L:0, d1:0, d2:0 }, spec.fix); spec.free.forEach((k, i) => { v[k] = x[i]; }); if (v.d != null){ v.d1 = v.d; v.d2 = v.d; } return v; };
+  const F = x => { const v = full(x); if (!(v.d1 > 0.05) || !(v.d2 > 0.05) || v.d1 > 60 || v.d2 > 60 || v.L < -1e-6 || v.inc1 < 0 || v.inc1 > 180) return null;
+    const c = oaChain(end, v.inc1, ((v.az1 % 360) + 360) % 360, Math.max(0, v.L), v.d1, v.d2, incT, azT); if (!c) return null;
+    const r = [c.end.n - t.n, c.end.e - t.e, c.end.tvd - t.tvd];
+    if (spec.tvd){ r.push(c.tvd1 - (+o.tvd1), c.tvd2 - (+o.tvd2)); }
+    return r; };
+  // starts: the existing CHC solution (dls mode, a few DLS) gives inc1 / az1 / L
+  const starts = [];
+  for (const dd of [+o.dls1 || 6, 3, 6, 9]){ const r0 = planCurveHoldCurve(end, t, incT, azT, dd, (+o.dls2 || dd)); if (r0 && r0.solved) starts.push({ inc1: r0.solved.inc1, az1: r0.solved.az1, L: r0.solved.L, d: dd }); }
+  for (const i0 of [Math.max(1, (end.inc + incT) / 2), incT, 30, 60]) for (const d0 of [2, 5, 9]) starts.push({ inc1: i0, az1: brg, L: 100, d: d0 });
+  let best = null;
+  for (const s0 of starts){
+    const x0 = spec.free.map(k => k === 'd' || k === 'd1' || k === 'd2' ? s0.d : s0[k]);
+    const sol = solveNewton(F, x0, spec.free.length + (spec.tvd ? 2 : 0) - (spec.tvd ? 0 : 0));
+    if (sol && (!best || sol.r < best.r)) best = sol;
+    if (best && best.r < 1e-3) break;
+  }
+  if (!best || best.r > 0.05) return { error:'No solution found for this mode / target / attitude — try other values.' };
+  const v = full(best.x), az1 = ((v.az1 % 360) + 360) % 360, c = oaChain(end, v.inc1, az1, Math.max(0, v.L), v.d1, v.d2, incT, azT);
+  return { sections: c.secs, solved:{ inc1: v.inc1, az1, L: Math.max(0, v.L), d1: v.d1, d2: v.d2, tvd1: c.tvd1, tvd2: c.tvd2, miss: best.r } };
+}
+/* ADDED 2026-11-06 (John: Compass "Project Back To"). From the final target T (position + arrival attitude incT /
+   azT) go BACKWARDS along one curve of DLS d to a point P; the plan then aligns to P (with P's attitude) and the
+   curve P -> T is appended. P = T - (displacement of the min-curvature arc from attitude(P) to attitude(T)), i.e.
+   the same arc the forward plan will drill. Modes (as in Compass):
+     'incazi': P attitude (inc, az) given;  'inc': P inc given, az = azT (curve in the vertical plane);
+     'cl': curve length given (vertical plane, incP = incT - d*CL/30);  'tvd': P TVD given (vertical plane, CL solved).
+   Compass's "Target" and "Surface" options are not implemented. Returns { P:{n,e,tvd,inc,az}, sec, cl } or { error }. */
+function projectBack(T, incT, azT, o){
+  const d = +o.dls;
+  // 2026-11-06 (John's Compass clip: "CL 10, DLS 0" = a straight 10 m hold ending at the target): CL mode with DLS 0
+  // projects back along the target attitude (hold). Other modes need a DLS > 0.
+  if (!(d > 0)){
+    if (o.mode !== 'cl') return { error:'Project Back: DLS must be > 0 for ' + o.mode + ' (DLS 0 is only for CL = a hold).' };
+    const cl = Math.max(0, +o.cl || 0); if (cl < 1e-6) return { P:{ n:T.n, e:T.e, tvd:T.tvd, inc:incT, az:azT }, cl:0, sec:null };
+    const st = computeStations({ md:0, tvd:0, n:0, e:0, inc:incT, az:azT }, [{ kind:'hold', cl }], 1e6).stations, D = st[st.length - 1];
+    return { P:{ n:T.n - D.n, e:T.e - D.e, tvd:T.tvd - D.tvd, inc:incT, az:azT }, cl, sec:{ kind:'hold', cl } };
+  }
+  const arc = (incP, azP) => { const beta = impliedBetaDeg(incP, azP, incT, azT), cl = beta / d * 30;
+    if (cl < 1e-6) return { P:{ n:T.n, e:T.e, tvd:T.tvd, inc:incT, az:azT }, cl:0, sec:null };
+    const st = computeStations({ md:0, tvd:0, n:0, e:0, inc:incP, az:azP }, [{ kind:'direct', inc:incT, az:azT, cl }], 1e6).stations, D = st[st.length - 1];
+    return { P:{ n:T.n - D.n, e:T.e - D.e, tvd:T.tvd - D.tvd, inc:incP, az:azP }, cl, sec:{ kind:'direct', inc:incT, az:azT, cl } }; };
+  if (o.mode === 'incazi') return arc(+o.inc, +o.az);
+  if (o.mode === 'inc') return arc(+o.inc, azT);
+  if (o.mode === 'cl'){ const incP = incT - d * (+o.cl) / 30; if (incP < 0) return { error:'Project Back: CL too long for this DLS (inclination would go below 0).' }; return arc(incP, azT); }
+  if (o.mode === 'tvd'){ let lo = 0, hi = Math.min(incT, 180) * 30 / d, f = cl => arc(incT - d * cl / 30, azT).P.tvd - (+o.tvd);
+    if (f(lo) * f(hi) > 0) return { error:'Project Back: that TVD cannot be reached by a vertical-plane curve of this DLS.' };
+    for (let k = 0; k < 60; k++){ const m = (lo + hi) / 2; if (f(lo) * f(m) <= 0) hi = m; else lo = m; }
+    return arc(incT - d * ((lo + hi) / 2) / 30, azT); }
+  return { error:'Project Back: unknown mode.' };
+}
+
+/* ADDED 2026-11-06 (John: Compass "Thread Targets" dialog — Thread Method Curve Only / Curve-Hold / Optimum Align /
+   Straight Line + "Dogleg to"). Hits a target POINT T = {n, e, tvd} from the plan's last station `end` (attitude kept,
+   no step). Geometry only — circular arcs (= one minimum-curvature section 'direct') and straight holds:
+     'curve'  (Curve Only): the one circular arc tangent to the current direction t that passes through T. With chord
+              d = T - start, the arc's total dogleg is beta = 2 * angle(t, d) and the exit direction is t reflected
+              about d: t2 = 2 (d^.t) d^ - t; arc length = |d| * beta / (2 sin(beta/2)). DLS is whatever it needs to be
+              (John 2026-11-06: "DLS solved"; "Dogleg to" not used).
+     'curvehold' (Curve-Hold): arc at the given DLS (radius R = 30*180/(pi*DLS), r1FromDls) in the plane of t and d,
+              then a hold to T. In that plane (x along t, y across), the exit angle b solves
+              x sin b - (y - R) cos b = R (the hold line from the arc end passes through T); hold = projection of the
+              remaining vector on the exit direction. Unreachable if T is inside the turning circle.
+     'line'   (Straight Line): the attitude changes AT the station (CL 0 section = a station dogleg, like Compass's
+              straight line) and a hold along the chord to T.
+   'Optimum Align' is planOptimumAlign (CHC, both doglegs = "Dogleg to") with the target's Inc / Azi — done by the caller.
+   'Least Turn' not implemented (Compass behaviour not confirmed). Returns { sections, info } or { error }. */
+function threadToPoint(end, T, method, dls){
+  const vec = (i, a) => attitudeVector(i, a);
+  const toIA = v => { const L = Math.hypot(v[0], v[1], v[2]) || 1, u = [v[0] / L, v[1] / L, v[2] / L];
+    return { inc: Math.acos(Math.max(-1, Math.min(1, u[2]))) * R2D, az: ((Math.atan2(u[1], u[0]) * R2D) % 360 + 360) % 360 }; };
+  const d = [T.n - end.n, T.e - end.e, T.tvd - end.tvd], D = Math.hypot(d[0], d[1], d[2]);
+  if (D < 1e-6) return { sections: [], info: { cl: 0 } };
+  const t = vec(end.inc, end.az), dh = [d[0] / D, d[1] / D, d[2] / D], c = Math.max(-1, Math.min(1, t[0] * dh[0] + t[1] * dh[1] + t[2] * dh[2]));
+  if (method === 'line'){
+    const a = toIA(d); return { sections: [{ kind:'direct', inc:a.inc, az:a.az, cl:0 }, { kind:'hold', cl:D }], info: { cl: D, stationDogleg: impliedBetaDeg(end.inc, end.az, a.inc, a.az) } };
+  }
+  if (c > 1 - 1e-12) return { sections: [{ kind:'hold', cl:D }], info: { cl: D, dls: 0 } };   // already on line
+  if (method === 'curve'){
+    const half = Math.acos(c), beta = 2 * half;
+    if (beta > Math.PI * 2 - 1e-9) return { error: 'Target is directly behind the bit.' };
+    const t2 = [2 * c * dh[0] - t[0], 2 * c * dh[1] - t[1], 2 * c * dh[2] - t[2]], a = toIA(t2), cl = D * beta / (2 * Math.sin(half));
+    return { sections: [{ kind:'direct', inc:a.inc, az:a.az, cl }], info: { cl, dls: beta * R2D / cl * 30 } };
+  }
+  if (method === 'curvehold'){
+    if (!(+dls > 0)) return { error: 'Curve-Hold: "Dogleg to" must be > 0.' };
+    const R = r1FromDls(+dls), x = d[0] * t[0] + d[1] * t[1] + d[2] * t[2];
+    const vp = [d[0] - x * t[0], d[1] - x * t[1], d[2] - x * t[2]], y = Math.hypot(vp[0], vp[1], vp[2]), v = [vp[0] / y, vp[1] / y, vp[2] / y];
+    const Dc = Math.hypot(x, y - R);
+    if (Dc < R - 1e-9) return { error: 'Curve-Hold: target is inside the turning circle at ' + (+dls) + '°/30m — raise "Dogleg to" or use Curve Only.' };
+    const phi = Math.atan2(y - R, x), as = Math.asin(Math.min(1, R / Dc));
+    let best = null;
+    for (const b0 of [phi + as, phi + Math.PI - as]){
+      const b = ((b0 % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const qx = R * Math.sin(b), qy = R * (1 - Math.cos(b)), L = (x - qx) * Math.cos(b) + (y - qy) * Math.sin(b);
+      if (L >= -1e-6 && (!best || b < best.b)) best = { b, L: Math.max(0, L) };
+    }
+    if (!best) return { error: 'Curve-Hold: no solution.' };
+    const ex = [Math.cos(best.b) * t[0] + Math.sin(best.b) * v[0], Math.cos(best.b) * t[1] + Math.sin(best.b) * v[1], Math.cos(best.b) * t[2] + Math.sin(best.b) * v[2]], a = toIA(ex);
+    const cl1 = best.b * R, secs = [];
+    if (cl1 > 1e-6) secs.push({ kind:'direct', inc:a.inc, az:a.az, cl:cl1 });
+    if (best.L > 1e-6) secs.push({ kind:'hold', cl:best.L });
+    return { sections: secs, info: { cl: cl1 + best.L, curve: cl1, hold: best.L, dls: +dls } };
+  }
+  return { error: 'Unknown thread method.' };
+}
+
+/* ADDED 2026-11-06 (COMPASS Training Manual 2003.5, ch. 5 "Thread Targets", p.191: "Straight Line — Finds the best
+   straight line to thread through the targets. It uses optimum align to get to the first target. Normally the line
+   starts and ends with the vertical depth of the first and last target, but if the targets are near horizontal or
+   'sort by displacement' is chosen, then the line is limited by displacement. The best-fit line is weighted to hit
+   targets with smaller dimensions ... a message is reported if a target has been missed.")
+   The manual gives no formula for the fit. Used here (standard weighted orthogonal least squares, i.e. the principal
+   axis of the weighted point cloud): weight w = 1 / max(r, 1 m)^2 (r = target radius; points without a size -> 1 m);
+   line through the weighted centroid along the eigenvector of the largest eigenvalue of the weighted scatter
+   matrix (power iteration), oriented from the first to the last target. Ends: at the TVDs of the first and last
+   target, or (line within 5° of horizontal, or byDisp) the orthogonal projections of the first and last target.
+   Each target's distance to the line is reported (miss when > r). THIS IS MY INTERPRETATION — to be checked against
+   a Compass run. Returns { a:{n,e,tvd}, b:{n,e,tvd}, inc, az, miss:[{i, dist, r, missed}] } or { error }. */
+function fitTargetLine(pts, byDisp){
+  if (!pts || pts.length < 2) return { error: 'Straight Line needs at least 2 targets.' };
+  const P = pts.map(p => [p.n, p.e, p.tvd]), w = pts.map(p => 1 / Math.pow(Math.max(+p.r || 0, 1), 2)), W = w.reduce((a, b) => a + b, 0);
+  const c = [0, 1, 2].map(k => P.reduce((a, q, i) => a + w[i] * q[k], 0) / W);
+  const S = [[0,0,0],[0,0,0],[0,0,0]];
+  P.forEach((q, i) => { const d = [q[0] - c[0], q[1] - c[1], q[2] - c[2]]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) S[a][b] += w[i] * d[a] * d[b]; });
+  let u = [P[P.length - 1][0] - P[0][0], P[P.length - 1][1] - P[0][1], P[P.length - 1][2] - P[0][2]];
+  for (let it = 0; it < 200; it++){ const v = [0, 1, 2].map(a => S[a][0] * u[0] + S[a][1] * u[1] + S[a][2] * u[2]); const L = Math.hypot(v[0], v[1], v[2]); if (L < 1e-12) break; u = v.map(x => x / L); }
+  const L0 = Math.hypot(u[0], u[1], u[2]); if (L0 < 1e-12) return { error: 'Straight Line: targets coincide.' }; u = u.map(x => x / L0);
+  const f0 = P[0], f1 = P[P.length - 1];
+  if ((f1[0] - f0[0]) * u[0] + (f1[1] - f0[1]) * u[1] + (f1[2] - f0[2]) * u[2] < 0) u = u.map(x => -x);
+  const at = s => ({ n: c[0] + s * u[0], e: c[1] + s * u[1], tvd: c[2] + s * u[2] }), proj = q => (q[0] - c[0]) * u[0] + (q[1] - c[1]) * u[1] + (q[2] - c[2]) * u[2];
+  const flat = Math.abs(u[2]) < Math.sin(5 * D2R);
+  const sA = (flat || byDisp) ? proj(f0) : (f0[2] - c[2]) / u[2], sB = (flat || byDisp) ? proj(f1) : (f1[2] - c[2]) / u[2];
+  const miss = P.map((q, i) => { const s = proj(q), x = at(s), dist = Math.hypot(q[0] - x.n, q[1] - x.e, q[2] - x.tvd); return { i, dist, r: +pts[i].r || 0, missed: dist > (+pts[i].r || 0) + 1e-6 }; });
+  return { a: at(sA), b: at(sB), inc: Math.acos(Math.max(-1, Math.min(1, u[2]))) * R2D, az: ((Math.atan2(u[1], u[0]) * R2D) % 360 + 360) % 360, miss };
+}
+/* ADDED 2026-11-06 (COMPASS Training Manual 2003.5 p.191: "If the dogleg severity is insufficient, then a better
+   dogleg is suggested and the path computed"; Exercise Book p.169: "Enter 1 for the dogleg. This will be increased
+   to hit the target. A 1.46 dogleg is used."). Calls solve(dls) with the given DLS, then increases it in 1 %
+   steps (minimum 0.01°/30m) up to 60°/30m until a solution exists; then refines down by bisection to 0.01°/30m.
+   The manual does not give Compass's increment — the result is the smallest workable DLS to 0.01. */
+function withDoglegIncrease(dls0, solve){
+  let d = Math.max(+dls0 || 0, 0.01), r = solve(d);
+  if (!r.error) return Object.assign(r, { dlsUsed: d, raised: false });
+  let lo = d, hi = d;
+  while (hi < 60){ lo = hi; hi = Math.min(60, Math.max(hi * 1.01, hi + 0.01)); r = solve(hi); if (!r.error) break; }
+  if (r.error) return r;
+  let best = r, bd = hi;
+  for (let k = 0; k < 30 && bd - lo > 0.005; k++){ const m = (lo + bd) / 2, rm = solve(m); if (rm.error) lo = m; else { best = rm; bd = m; } }
+  return Object.assign(best, { dlsUsed: bd, raised: true });
+}
+
+/* ADDED 2026-11-06 (John: "the big challenge in iPad is the anti-collision phase … probably the RRT approach").
+   iPad DEEP SEARCH — kinodynamic RRT (LaValle, "Rapidly-exploring random trees", lavalle.pl/rrt) for the shallow
+   hole + iPad's own back-projected solver as the connector. No new drilling formulas: every edge is an existing
+   'dlstf' section (minimum curvature), the connector is padSolveBack (tpl.preSecs), clearances are padAvoid's zones.
+   - Tree states (MD, N, E, TVD, Inc, Az) from the slot; edges = 30 m DLS-TF sections, best of 8 random controls toward
+     a random sample (TVD < handTvd). Above the template KOP: DLS <= nudge DLS and Inc <= nudge Inc max (AC nudge
+     limits); below: DLS <= dMax; Inc <= 60 in the tree; no drop > 0.5 deg once Inc > 10 deg (John's no-nudge rule).
+   - Every new branch is clearance-checked (30 m spatial grid of obstacle segments). ~8 % of branches below 150 m MD
+     are connected: padSolveBack(collect 20, design rules) from the branch end to the ICP shifted along the lateral
+     by one of o.shifts (smallest first preferred); each design is scored on its whole path (surface -> ICP):
+     obstacle hits (offsets / planned: padAvoid zones; other pad wells: the pad clearance from fromMd), shortfall, MD.
+   - Restarts with a new seed until timeMs; keeps the best (fewest hits, then shortfall, then MD).
+   - SMOOTHING (shortcut, standard RRT post-processing): the tree part is a string of 30 m DLS-TF steps; greedily
+     replace node i..j by ONE curve-hold-curve (padAlign: same end position AND attitude, DLS as low as possible within
+     the zone limits) when that stays clear and rule-clean — the connector part is unchanged.
+   Results are stochastic (seeded). Validated offline on SD9 2026-11-06 (see claude/ipad-rrt-prototype.md). */
+function padDeepSearch(W, ctx){
+  const C0 = Object.assign({ timeMs:60000, seed:1, handTvd:350, dMax:9, nudgeDls:5, nudgeInc:15, shifts:[0], obstacles:[], clr:10, nearMd:200, icpZone:100, icpClr:5, padClr:10, fromMd:0, latAz:null }, ctx || {});
+  const surf = W.surf, ss = W.ss || 0, tpl = W.tpl, kopLim = +tpl.kop || 120, T0 = Date.now();
+  const OB = C0.obstacles.map(x => ({ name:x.name, pad:!!x.pad, P:x.pts.filter(p => isFinite(p.n) && isFinite(p.e) && isFinite(p.z)) })).filter(x => x.P.length > 1);
+  const CELL = 30, G = new Map(), K3 = (a, b, c) => a + ',' + b + ',' + c, fl = Math.floor;
+  OB.forEach((o, oi) => { for (let j = 1; j < o.P.length; j++){ const a = o.P[j - 1], c = o.P[j];
+    for (let x = fl(Math.min(a.n, c.n) / CELL); x <= fl(Math.max(a.n, c.n) / CELL); x++) for (let y = fl(Math.min(a.e, c.e) / CELL); y <= fl(Math.max(a.e, c.e) / CELL); y++) for (let z = fl(Math.min(a.z, c.z) / CELL); z <= fl(Math.max(a.z, c.z) / CELL); z++){
+      const k = K3(x, y, z); if (!G.has(k)) G.set(k, []); G.get(k).push([oi, a, c]); } } });
+  const near = (n, e, z) => { const cx = fl(n / CELL), cy = fl(e / CELL), cz = fl(z / CELL), best = new Map();
+    for (let x = cx - 1; x <= cx + 1; x++) for (let y = cy - 1; y <= cy + 1; y++) for (let w = cz - 1; w <= cz + 1; w++){ const L = G.get(K3(x, y, w)); if (!L) continue;
+      for (const [oi, a, c] of L){ const vx = c.n - a.n, vy = c.e - a.e, vz = c.z - a.z, wx = n - a.n, wy = e - a.e, wz = z - a.z, LL = vx*vx + vy*vy + vz*vz;
+        let t = LL ? (wx*vx + wy*vy + wz*vz) / LL : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const d = Math.hypot(wx - t*vx, wy - t*vy, wz - t*vz); if (!best.has(oi) || d < best.get(oi)) best.set(oi, d); } }
+    return best; };
+  const segMin = (p, P) => { let b = Infinity; for (let j = 1; j < P.length; j++){ const a = P[j - 1], c = P[j], vx = c.n - a.n, vy = c.e - a.e, vz = c.z - a.z, wx = p.n - a.n, wy = p.e - a.e, wz = p.z - a.z, L2 = vx*vx + vy*vy + vz*vz;
+    let u = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; u = u < 0 ? 0 : u > 1 ? 1 : u; const d = Math.hypot(wx - u*vx, wy - u*vy, wz - u*vz); if (d < b) b = d; } return b; };
+  const sc = new Map(), vc = new Map();
+  const slotD = oi => { if (!sc.has(oi)) sc.set(oi, segMin({ n:surf.n, e:surf.e, z:ss }, OB[oi].P)); return sc.get(oi); };
+  const vertD = (oi, z) => { const k = oi + '|' + Math.round(z); if (!vc.has(k)) vc.set(k, segMin({ n:surf.n, e:surf.e, z }, OB[oi].P)); return vc.get(k); };
+  // shortfall at a station (same zones as padAvoid obsEval; pad wells: pad clearance below fromMd)
+  const reqOf = (oi, p, z, landMd) => { if (OB[oi].pad) return p.md >= C0.fromMd ? C0.padClr : 0;
+    return p.md < C0.nearMd ? Math.min(C0.clr, slotD(oi) - 0.3, vertD(oi, z) - 0.3) : (p.md >= landMd - C0.icpZone ? Math.min(C0.clr, C0.icpClr) : C0.clr); };
+  const shortAt = (p, landMd) => { const z = ss - p.tvd; let w = 0, who = -1; for (const [oi, d] of near(p.n, p.e, z)){ const r = reqOf(oi, p, z, landMd) - d; if (r > w){ w = r; who = oi; } } return [w, who]; };
+  const evalPath = (st, landMd) => { const hits = new Map(); let sev = 0;
+    for (const p of st){ if (p.md > landMd + 1e-6) break; const z = ss - p.tvd;
+      for (const [oi, d] of near(p.n, p.e, z)){ const req = reqOf(oi, p, z, landMd); if (d < req - 1e-6){ sev += req - d; const h = hits.get(oi); if (!h || req - d > h.req - h.d) hits.set(oi, { name:OB[oi].name, pad:OB[oi].pad, d, req, md:p.md }); } } }
+    const L = [...hits.values()], ph = L.filter(x => x.pad).length;
+    return { hits: hits.size, padHits: ph, score: hits.size + ph, sev, list: L }; };   // score: a touching pad well counts double (it blocks the joint pass)
+  const better = (a, b) => !b || a.score < b.score || (a.score === b.score && (a.sev < b.sev - 1e-6 || (Math.abs(a.sev - b.sev) <= 1e-6 && a.landMd < b.landMd)));
+  const ruleOk = (st, peak0) => { let peak = peak0 || 0; for (const p of st){ peak = Math.max(peak, p.inc); if (peak > 10 && p.inc < peak - 0.5) return false; } return true; };
+  const latAz = C0.latAz != null ? C0.latAz : W.land.az, la = latAz * D2R;
+  let best = null, seed = C0.seed, conn = 0, iters = 0, trees = 0;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  while (Date.now() - T0 < C0.timeMs){
+    trees++; seed = (C0.seed * 7919 + trees * 104729) % 2147483647 || 1;
+    const nodes = [{ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0, parent:null, sec:null, peak:0 }];
+    const tEnd = Math.min(C0.timeMs, (Date.now() - T0) + Math.max(15000, C0.timeMs / 3));
+    const lo = { n:Math.min(surf.n, W.land.n) - 100, e:Math.min(surf.e, W.land.e) - 150 }, span = { n:Math.abs(surf.n - W.land.n) + 200, e:Math.abs(surf.e - W.land.e) + 300 };
+    while (Date.now() - T0 < tEnd){
+      iters++;
+      const q = { n:lo.n + rnd() * span.n, e:lo.e + rnd() * span.e, tvd:40 + rnd() * (C0.handTvd - 60) };
+      let nb = null, bd = Infinity; for (const nd of nodes){ if (nd.tvd > C0.handTvd - 20) continue; const d = Math.hypot(nd.n - q.n, nd.e - q.e, nd.tvd - q.tvd); if (d < bd){ bd = d; nb = nd; } }
+      if (!nb) continue;
+      let be = null;
+      for (let k = 0; k < 8; k++){ const sh = nb.md < kopLim, sec = { kind:'dlstf', dls: rnd() < 0.3 ? 0 : rnd() * (sh ? C0.nudgeDls : C0.dMax), tf: rnd() * 360, cl:30 };
+        const st = computeStations(nb, [sec], 10).stations, e = st[st.length - 1];
+        if ((sh && e.inc > C0.nudgeInc) || e.inc > 60 || (nb.inc > 10 && e.inc < nb.inc - 0.5)) continue;
+        const d = Math.hypot(e.n - q.n, e.e - q.e, e.tvd - q.tvd); if (!be || d < be.d) be = { d, sec, st, e }; }
+      if (!be || be.st.slice(1).some(p => shortAt(p, 1e9)[0] > 1e-6)) continue;
+      const e = be.e, nd = { md:e.md, tvd:e.tvd, n:e.n, e:e.e, inc:e.inc, az:e.az, parent:nb, sec:be.sec, peak:Math.max(nb.peak, e.inc) }; nodes.push(nd);
+      if (nd.md < 150 || rnd() > 0.08) continue;
+      conn++;
+      const preSecs = []; for (let x = nd; x && x.sec; x = x.parent) preSecs.unshift(x.sec);
+      const shf = C0.shifts[fl(rnd() * C0.shifts.length)] || 0;
+      const L2 = Object.assign({}, W.land, { n: W.land.n + shf * Math.cos(la), e: W.land.e + shf * Math.sin(la) });
+      const tp = Object.assign({}, tpl, { kop: nd.md, preSecs, nudge:null, _noKopRetry:true });
+      const r = padSolveBack(surf, L2, tp, { collect:20 });
+      for (const d of (Array.isArray(r) ? r : [r])){
+        if (!d || !d.ok || (d.violations || []).length) continue;
+        const st = computeStations({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, d.sections, 10).stations;
+        const landMd = d.sections.reduce((a, x, i) => a + ((d.tags || [])[i] === 'lateral' ? 0 : x.cl), 0);
+        if (best && best.score === 0 && landMd >= best.landMd) continue;
+        const ev = evalPath(st, landMd), cand = Object.assign(ev, { landMd, r:d, land:L2, shift:shf, nPre:preSecs.length });
+        if (better(cand, best)) best = cand;
+      }
+    }
+  }
+  if (best && best.r){ best.r = padOaFinalize(Object.assign({}, best.r)); best = padDeepSmooth(W, best, C0, { shortAt, evalPath, ruleOk, kopLim }); }   // iPlan Optimum Align group, then smoothing
+  return best ? Object.assign(best, { ms: Date.now() - T0, iters, trees, conn }) : { hits: Infinity, ms: Date.now() - T0, iters, trees, conn };
+}
+// Shortcut smoothing of the tree rows (see padDeepSearch). Keeps the connector rows and the end state of the tree.
+function padDeepSmooth(W, best, C0, F){
+  const r = best.r, tags = r.tags || [], surf = W.surf;
+  const preIdx = tags.map((t, i) => t === 'pre' ? i : -1).filter(i => i >= 0); if (preIdx.length < 2) return best;
+  const preSecs = preIdx.map(i => r.sections[i]);
+  const states = computeStations({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, preSecs, 1e6).stations;   // node k = states[k]
+  const out = []; let i = 0;
+  while (i < preSecs.length){
+    let done = false;
+    for (let j = preSecs.length; j > i + 1 && !done; j--){
+      const A = states[i], B = states[j];
+      for (const d of [2, 3, 4, 5, 6, 7.5, 9]){
+        if (d > C0.dMax + 1e-9) break;
+        const al = padAlign({ n:A.n, e:A.e, tvd:A.tvd, inc:A.inc, az:A.az }, { n:B.n, e:B.e, tvd:B.tvd }, { inc:B.inc, az:B.az }, d);
+        if (!al) continue;
+        const x = al.x, azH = ((x[1] % 360) + 360) % 360, segs = [];
+        const c1 = impliedBetaDeg(A.inc, A.az, x[0], azH) * 30 / d; if (c1 > 1e-6) segs.push({ kind:'direct', inc:x[0], az:azH, cl:c1 });
+        if (x[2] > 1e-6) segs.push({ kind:'direct', inc:x[0], az:azH, cl:x[2] });
+        const c2 = impliedBetaDeg(x[0], azH, B.inc, B.az) * 30 / d; if (c2 > 1e-6) segs.push({ kind:'direct', inc:B.inc, az:B.az, cl:c2 });
+        const st = computeStations({ md:A.md, tvd:A.tvd, n:A.n, e:A.e, inc:A.inc, az:A.az }, segs, 10).stations;
+        if (st.some(p => p.md < F.kopLim && (p.inc > C0.nudgeInc + 1e-6 || p.dls30 > C0.nudgeDls + 1e-6)) || st.some(p => p.inc > 60)) continue;
+        const peak0 = states.slice(0, i + 1).reduce((m, p) => Math.max(m, p.inc), 0);
+        if (!F.ruleOk(st, peak0) || st.slice(1).some(p => F.shortAt(p, best.landMd)[0] > 1e-6)) continue;
+        // the shortcut has another length: shift MDs (zones depend on MD) — re-checked on the whole path below
+        out.push(...segs); i = j; done = true; break;
+      }
+    }
+    if (!done){ out.push(preSecs[i]); i++; }
+  }
+  const nonPre = r.sections.filter((_, k) => tags[k] !== 'pre'), nonTags = tags.filter(t => t !== 'pre');
+  const sections = out.concat(nonPre), tg = out.map(() => 'pre').concat(nonTags);
+  const st = computeStations({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, sections, 10).stations;
+  const landMd = sections.reduce((a, x, k) => a + (tg[k] === 'lateral' ? 0 : x.cl), 0), ev = F.evalPath(st, landMd);
+  if (ev.score > best.score || (ev.score === best.score && ev.sev > best.sev + 0.05)) return best;   // smoothing must not make it worse
+  const r2 = Object.assign({}, r, { sections, tags: tg, oaPlan:null, oaFallback:null, smoothed: { before: preSecs.length, after: out.length } });
+  if (r.oaPlan) r2.oaPlan = { pre: out.slice(), def: r.oaPlan.def, post: r.oaPlan.post };
+  r2.maxDls = Math.max(+r.maxDls || 0, ...st.map(p => p.dls30 || 0));
+  return Object.assign({}, best, ev, { landMd, r: r2, nPre: out.length });
+}
+/* Deep search over a whole pad after padAvoid (o = padAvoid options + deepMs per well, rounds). Wells still in conflict
+   (offset / planned hits or touching pad pairs) are re-planned one at a time against the offsets + every other pad well's
+   CURRENT path (JOINT pass: when a well's remaining conflict is another pad well, that well is queued next, so the pair is
+   solved together over the rounds). A new design is kept only if it lowers that well's conflicts (pad pairs included).
+   Mutates and returns res (same shape as padAvoid's result; changed wells carry deep:{ms, nPre, smoothed}). */
+async function padDeepAvoid(wells, res, o, progress){
+  o = Object.assign({ deepMs:60000, rounds:3, nearMd:200, icpZone:100, icpClr:5, R:10, fromMd:0 }, o || {});
+  const lim = 2 * o.R, nW = wells.length, T0 = Date.now();
+  const path = i => { const c = res.wells[i]; if (!c) return null; const W = wells[i];
+    const st = computeStations({ md:0, tvd:0, n:W.surf.n, e:W.surf.e, inc:0, az:0 }, c.r.sections, 10).stations;
+    const landMd = c.r.sections.reduce((a, x, k) => a + ((c.r.tags || [])[k] === 'lateral' ? 0 : x.cl), 0);
+    return st.filter(p => p.md <= landMd + 1e-6).map(p => ({ n:p.n, e:p.e, z:(W.ss || 0) - p.tvd, md:p.md })); };
+  const pairD = (A, B) => { let m = Infinity; for (const p of A){ if (p.md < o.fromMd) continue; for (let j = 1; j < B.length; j++){ if (B[j].md < o.fromMd) continue; const a = B[j - 1], c = B[j], vx = c.n - a.n, vy = c.e - a.e, vz = c.z - a.z, wx = p.n - a.n, wy = p.e - a.e, wz = p.z - a.z, L2 = vx*vx + vy*vy + vz*vz;
+    let u = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; u = u < 0 ? 0 : u > 1 ? 1 : u; const d = Math.hypot(wx - u*vx, wy - u*vy, wz - u*vz); if (d < m) m = d; } } return m; };
+  const recount = () => { const P = wells.map((_, i) => path(i)); const pairs = [];
+    for (let i = 0; i < nW; i++) for (let j = i + 1; j < nW; j++){ if (!P[i] || !P[j]) continue; const d = pairD(P[i], P[j]); if (d < lim - 1e-6) pairs.push({ i, j, d }); }
+    res.pairs = pairs; res.end = Object.assign({}, res.end, { pairs: pairs.length, oh: res.wells.reduce((a, c) => a + (c && c.obs ? c.obs.length : 0), 0) }); return P; };
+  let P = recount(); const queue = [];
+  const conflicts = i => (res.wells[i] && res.wells[i].obs ? res.wells[i].obs.length : 0) + res.pairs.filter(x => x.i === i || x.j === i).length;
+  for (let i = 0; i < nW; i++) if (conflicts(i)) queue.push(i);
+  let rounds = 0; const tried = new Map(); res.deep = { wells: [], ms: 0 };
+  while (queue.length && rounds < o.rounds * nW){
+    rounds++;
+    const i = queue.shift(), W = wells[i], cur = res.wells[i]; if (!cur) continue;
+    const k = (tried.get(i) || 0) + 1; tried.set(i, k); if (k > o.rounds) continue;
+    if (progress) await progress('Deep search: well ' + (i + 1) + ' (try ' + k + ')');
+    const obstacles = (o.obstacles || []).map(x => ({ name:x.name, pts:x.pts })).concat(P.map((pp, j) => j === i || !pp ? null : { name:'pad#' + j, pad:true, pts:pp }).filter(Boolean));
+    const shifts = [0]; [0.25, 0.5, 0.75, 1].forEach(f => { if (o.tolAlong > 0) shifts.push(f * o.tolAlong, -f * o.tolAlong); });
+    // yield to the UI between trees: run in slices
+    let bestD = null; const slices = Math.max(1, Math.round(o.deepMs / 15000));
+    for (let s0 = 0; s0 < slices; s0++){
+      const d = padDeepSearch(W, { timeMs: o.deepMs / slices, seed: 1 + i * 31 + k * 7 + s0 * 101, obstacles, clr: o.obsClr != null ? o.obsClr : lim, nearMd:o.nearMd, icpZone:o.icpZone, icpClr:o.icpClr, padClr: lim, fromMd:o.fromMd,
+        nudgeDls: o.nudge ? o.nudge.dls : 5, nudgeInc: o.nudge ? o.nudge.incMax : 15, dMax: Math.max(9, +(W.tpl.back || {}).dMax || 9), shifts, latAz: W.land.az });
+      if (d && isFinite(d.hits) && (!bestD || d.score < bestD.score || (d.score === bestD.score && d.sev < bestD.sev))) bestD = d;
+      if (progress) await progress('Deep search: well ' + (i + 1) + ' — best so far ' + (bestD ? bestD.hits + ' conflict(s)' : 'none'));
+      if (bestD && bestD.score === 0) break;
+    }
+    if (!bestD) continue;
+    // accept only if it lowers this well's conflicts AND does not touch more pad wells than now
+    const padNow = new Set(res.pairs.filter(x => x.i === i || x.j === i).map(x => x.i === i ? x.j : x.i));
+    const padNew = bestD.list.filter(x => x.pad).map(x => +x.name.slice(4));
+    if (bestD.hits < conflicts(i) && padNew.every(j => padNow.has(j))){   // may only touch pad wells it already touched
+      const obsList = bestD.list.filter(x => !x.pad).map(x => ({ name:x.name, d:x.d, req:x.req, md:x.md }));
+      res.wells[i] = Object.assign({}, cur, { r: bestD.r, land: bestD.land, shift:[bestD.shift, 0], kopAdd:0, nudge:null, obs: obsList, deep:{ ms:bestD.ms, nPre:bestD.nPre, smoothed:bestD.r.smoothed || null } });
+      res.deep.wells.push(i);
+      P = recount();
+      // joint pass: a pad well still blocking this one is re-planned next
+      bestD.list.filter(x => x.pad).forEach(x => { const j = +x.name.slice(4); if (!queue.includes(j)) queue.push(j); });
+    }
+    if (conflicts(i) && !queue.includes(i)) queue.push(i);
+  }
+  P = recount();
+  res.wells.forEach((c, i) => { if (c){ let m = Infinity; P.forEach((q, j) => { if (j !== i && q && P[i]) m = Math.min(m, pairD(P[i], q)); }); c.minC2C = m; } });
+  res.deep.ms = Date.now() - T0;
+  return res;
+}
+
 /* ============================================================
    NEW for iPlan (2026-10-10) — no new physics: these only chain the
    functions above the same way quickPlan.ejs computeTrajectory() does.
@@ -1315,6 +1705,41 @@ function padAlign(kopPt, A, aT1, d, x0){
    When no design satisfies them the solver keeps the design with the FEWEST violations and flags it (John).
    rules = { noNudge:{on, incMin, tol, windows:[{a,b}]}, maxTurn:{on, deg}, zones:[{name, top, base, dlsMax, incMin, incMax, noDrop}] }
    st = stations [{md, inc, az, tvd, dls30}], ss = surface Sub-Sea (RKB elev.; Sub-Sea = ss - TVD), landMd = ICP MD. */
+// ADDED 2026-11-06: applies padOaGroup to a back-projected result carrying r._oaIn (in place; returns r).
+function padOaFinalize(r){
+  if (!r || !r._oaIn || r.oaPlan || r.oaFallback) return r;
+  const I = r._oaIn, oaRes = padOaGroup(I.kopPt, I.p, I.x, I.azH, I.icp, I.landInc, I.lat, I.surf), tags = r.tags, sections = r.sections;
+  if (oaRes.ok){
+    const isPre = t => t === 'kop' || t === 'nudge' || t === 'nudgeHold' || t === 'pre';   // 'pre' = Deep search tree rows
+    const preS = sections.filter((_, i) => isPre(tags[i])), latS = sections.filter((_, i) => tags[i] === 'lateral');
+    r.sections = preS.concat(oaRes.sections, latS);
+    r.tags = tags.filter(isPre).concat(oaRes.tags, tags.filter(t => t === 'lateral'));
+    r.oaPlan = { pre: preS, def: oaRes.def, post: latS };
+  } else r.oaFallback = oaRes.why;
+  delete r._oaIn; return r;
+}
+// ADDED 2026-11-06: iPad back-projected design -> iPlan Optimum Align group (see buildRes in padSolveBackOne).
+function padOaGroup(kopPt, p, x, azH, icp, landInc, lat, surf){
+  const def = { type:'chc', mode:'dls', ccMode:'eq', dls1:p.dC, dls2:p.dC, L:0, tvd1:0, tvd2:0,
+    target:{ name:'ICP', n:icp.n, e:icp.e, ss:(+surf.rkb || 0) - icp.tvd, inc:landInc, az:lat },
+    back:[ { mode:'incazi', inc:p.t2inc, az:lat, dls:p.dF }, { mode:'cl', cl:p.L2, dls:0 }, { mode:'incazi', inc:p.t1inc, az:p.t1az, dls:p.dM }, { mode:'cl', cl:p.L1, dls:0 } ] };
+  let T = { n:icp.n, e:icp.e, tvd:icp.tvd }, inc = landInc, az = lat; const back = [];
+  for (const b of def.back){ const pr = projectBack(T, inc, az, b); if (pr.error) return { ok:false, why:'project back: ' + pr.error }; back.push(pr); T = { n:pr.P.n, e:pr.P.e, tvd:pr.P.tvd }; inc = pr.P.inc; az = pr.P.az; }
+  const r = planOptimumAlign({ md:0, tvd:kopPt.tvd, n:kopPt.n, e:kopPt.e, inc:kopPt.inc || 0, az:kopPt.az || 0 }, T, inc, az, { type:'chc', mode:'dls', dls1:p.dC, dls2:p.dC });
+  if (r.error) return { ok:false, why:'optimum align: ' + r.error };
+  const S = r.solved, dAz = Math.abs(((S.az1 - azH) % 360 + 540) % 360 - 180);
+  if (Math.abs(S.inc1 - x[0]) > 0.5 || dAz > 0.5 || Math.abs(S.L - x[2]) > 1) return { ok:false, why:'optimum align found another solution (Inc ' + S.inc1.toFixed(1) + ' / Az ' + S.az1.toFixed(1) + ' / hold ' + S.L.toFixed(1) + ')' };
+  const secs = r.sections.slice(), tags = [];
+  // tags for the export comments: same names as before
+  const nA = secs.length; secs.forEach((s0, i) => tags.push(nA === 3 ? ['align1','alignHold','align2'][i] : s0.kind === 'hold' ? 'alignHold' : i === 0 ? 'align1' : 'align2'));
+  const tagB = ['final','t2','mid','t1'];
+  for (let k = back.length - 1; k >= 0; k--) if (back[k].sec && back[k].cl > 1e-6){ secs.push(back[k].sec); tags.push(tagB[k]); }
+  const st = computeStations({ md:0, tvd:kopPt.tvd, n:kopPt.n, e:kopPt.e, inc:kopPt.inc || 0, az:kopPt.az || 0 }, secs, 1e6).stations, E = st[st.length - 1];
+  const miss = Math.hypot(E.n - icp.n, E.e - icp.e, E.tvd - icp.tvd);
+  if (miss > 0.05) return { ok:false, why:'misses the ICP by ' + miss.toFixed(3) + ' m' };
+  def.last = S;
+  return { ok:true, def, sections: secs, tags };
+}
 function padRulesActive(R){ return !!R && ((R.noNudge && R.noNudge.on) || (R.maxTurn && R.maxTurn.on) || (R.zones || []).some(z => z && z.on !== false)); }
 function padRuleCheck(st, R, ss, landMd){
   const out = []; if (!R || !st || !st.length) return out;
@@ -1418,6 +1843,13 @@ function padSolveBackOne(surf, land, tpl, opts){
     const st = chainArcs({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, pre.map(x => ({ inc1:x.sec.inc, az1:x.sec.az, cl:x.sec.cl })));
     const e = st[st.length - 1]; kopPt = { n:e.n, e:e.e, tvd:e.tvd, inc:nd.inc, az:nd.az };
   }
+  // ADDED 2026-11-06 (iPad Deep search, RRT): tpl.preSecs = an arbitrary drilled path from surface (the tree's
+  // branch); the back-projected design starts at its end state (kopPt) instead of the vertical KOP / nudge.
+  if (tpl.preSecs && tpl.preSecs.length){
+    pre = tpl.preSecs.map(x => ({ tag:'pre', sec:x }));
+    const st = computeStations({ md:0, tvd:0, n:surf.n, e:surf.e, inc:0, az:0 }, tpl.preSecs, 1e6).stations, e = st[st.length - 1];
+    kopPt = { n:e.n, e:e.e, tvd:e.tvd, inc:e.inc, az:e.az };
+  }
   const span = (a, z, k) => { a = +a; z = +z; if (!(z > a)) return [a]; const out = []; for (let i = 0; i < k; i++) out.push(a + (z - a) * i / (k - 1)); return out; };
   const steps = (a, z, s) => { a = +a; z = +z; if (!(z > a)) return [a]; const out = []; for (let v = a; v < z - 1e-9; v += s) out.push(v); out.push(z); return out; };
   const T1 = span(b.t1Min, b.t1Max, 3), T2 = span(b.t2Min, b.t2Max, 3), DC = steps(b.dMin, b.dMax, 1), DF = span(b.dFMin, b.dFMax, 3);
@@ -1479,10 +1911,10 @@ function padSolveBackOne(surf, land, tpl, opts){
     }
     if (out.length < K && worse.length){ worse.sort((a, z) => a.violations.length - z.violations.length); out.push(...worse.slice(0, K - out.length)); }
     if (collectK) return out;
-    if (out.length) return out[0];
+    if (out.length) return padOaFinalize(out[0]);   // 2026-11-06
   }
   if (!best) return { ok:false, miss:null, sections:null, error: 'No design inside the ranges' + (reasons.dtvd && !reasons.align ? ' (Delta TVD out of range — widen the T1/T2 Delta TVD, tangent Inc or final DLS ranges)' : reasons.align ? ' (KOP-to-tangent connection not possible — try a shallower KOP, a higher max DLS or a lower tangent-1 Inc)' : '') };
-  return buildRes(best);
+  return padOaFinalize(buildRes(best));   // 2026-11-06
   function buildRes(best){
   const p = best.p, x = best.al.x, azH = ((x[1] % 360) + 360) % 360;
   // tags[i] names sections[i] (2026-10-31: used for the Compass-style comments in the iPad export)
@@ -1504,7 +1936,21 @@ function padSolveBackOne(surf, land, tpl, opts){
   edge('T1 Inc', p.t1inc, b.t1Min, b.t1Max, 1);
   const edgeD = (lbl, v, a, z) => { if (+z > +a){ if (Math.abs(v - a) < 0.05) edges.push(lbl + ' at min ' + (+a).toFixed(1)); else if (Math.abs(v - z) < 0.05) edges.push(lbl + ' at max ' + (+z).toFixed(1)); } };
   edgeD('T1 Delta TVD', best.dTvd1, b.dTvd1Min, b.dTvd1Max); edgeD('T2 Delta TVD', best.dTvd, b.dTvd2Min, b.dTvd2Max); edge('T2 Inc', p.t2inc, b.t2Min, b.t2Max, 1); edge('DLS', p.dC, b.dMin, b.dMax, 1); edge('Final DLS', p.dF, b.dFMin, b.dFMax, 1);
-  return { ok:true, miss:0, sections, tags, maxDls: Math.max(p.dC, p.dF), edges,
+  // ADDED 2026-11-06 (John: "iPad uses the iPlan algorithms, keep the current iPad solver as a fallback"):
+  // the same design re-expressed as an iPlan Optimum Align live group — target = ICP (landInc / lat), Project Back
+  // chain = final curve to T2 (IncAzi, DLS dF), T2 hold (CL L2, DLS 0), mid curve to T1 (IncAzi, DLS dM), T1 hold
+  // (CL L1, DLS 0) — and re-solved with the Compass-validated planOptimumAlign + projectBack. Accepted only when
+  // it is the SAME solution as padAlign (first-curve Inc / Azi within 0.5 deg, hold within 1 m, ICP hit < 0.05 m):
+  // then r.sections come from the validated solver and r.oaPlan lets iPlan store the well as a live group.
+  // Otherwise (no solution / other branch) the padAlign sections stay (fallback) and r.oaFallback says why.
+  // 2026-11-06 speed: in collect mode (Avoidance alternatives, hundreds per well) the conversion is deferred —
+  // r._oaIn is kept and padOaFinalize(r) runs it on the designs actually returned (padAvoid's result wells).
+  if (keepPool){ return { ok:true, miss:0, sections, tags, maxDls: Math.max(p.dC, p.dF), edges, _oaIn:{ kopPt, p, x, azH, icp, landInc, lat, surf },
+           params: { kop, incA:x[0], azA:azH, hold:x[2], dls1:p.dC, dls2:p.dF, incT:p.t1inc, lt:p.L1, azT:p.t1az, dTvd:best.dTvd, dTvd1:best.dTvd1, nudge: (pre && nd) ? { kop:nd.kop, dls:nd.dls, inc:nd.inc, az:nd.az } : null,
+                     tangents:[{ inc:p.t1inc, L:p.L1, az:p.t1az }, { inc:p.t2inc, L:p.L2, az:lat }] }, error:null, md: best.md }; }
+  const fin = padOaFinalize({ sections, tags, _oaIn:{ kopPt, p, x, azH, icp, landInc, lat, surf } });
+  const outSecs = fin.sections, oaPlan = fin.oaPlan || null, oaFallback = fin.oaFallback || null;
+  return { ok:true, miss:0, sections: outSecs, tags: fin.tags, maxDls: Math.max(p.dC, p.dF), edges, oaPlan, oaFallback,
            params: { kop, incA:x[0], azA:azH, hold:x[2], dls1:p.dC, dls2:p.dF, incT:p.t1inc, lt:p.L1, azT:p.t1az, dTvd:best.dTvd, dTvd1:best.dTvd1, nudge: (pre && nd) ? { kop:nd.kop, dls:nd.dls, inc:nd.inc, az:nd.az } : null,
                      tangents:[{ inc:p.t1inc, L:p.L1, az:p.t1az }, { inc:p.t2inc, L:p.L2, az:lat }] }, error:null, md: best.md };
   }
@@ -1546,25 +1992,69 @@ function padKopStagger(slots, step, nbrDist){
   return lvl.map(k => k * step);
 }
 async function padAvoid(wells, o, progress){
-  o = Object.assign({ R:10, fromMd:0, full:false, kopStep:20, kopMax:300, tolAlong:0, tolAcross:0, K:40, maxIter:600, timeMs:120000, step:10, nudge:null }, o || {});
+  o = Object.assign({ R:10, fromMd:0, full:false, kopStep:20, kopMax:300, tolAlong:0, tolAcross:0, K:40, maxIter:600, timeMs:120000, step:10, nudge:null,
+                      obstacles:null, obsClr:null, nearMd:200, icpZone:100, icpClr:5, nudgeAzStep:15 }, o || {});
   const T0 = Date.now(), lim = 2 * o.R, lim0 = lim, nW = wells.length;
+  // CHANGED 2026-11-04 (John, SD9: "minimise the displacement of the ICP"): ICP shifts in growing steps
+  // (25 / 50 / 75 / 100 % of the tolerance), ALONG the lateral first, across only after (smallest move first).
+  // Was: only the full ±tolerance (and the corner combinations).
   const shifts = [[0, 0]];
-  if (o.tolAlong > 0) shifts.push([o.tolAlong, 0], [-o.tolAlong, 0]);
-  if (o.tolAcross > 0) shifts.push([0, o.tolAcross], [0, -o.tolAcross]);
-  if (o.tolAlong > 0 && o.tolAcross > 0) shifts.push([o.tolAlong, o.tolAcross], [o.tolAlong, -o.tolAcross], [-o.tolAlong, o.tolAcross], [-o.tolAlong, -o.tolAcross]);
+  [0.25, 0.5, 0.75, 1].forEach(f => { if (o.tolAlong > 0) shifts.push([f * o.tolAlong, 0], [-f * o.tolAlong, 0]); });
+  [0.25, 0.5, 0.75, 1].forEach(f => { if (o.tolAcross > 0) shifts.push([0, f * o.tolAcross], [0, -f * o.tolAcross]); });
   // CHANGED 2026-10-31 (John): lever order = designs -> KOP stagger -> AC nudge (o.nudge = {kop, dls, incMax}:
   // inc incMax/2 and incMax, 8 azimuths) -> ICP tolerance.
   const levels = [];
   for (let k = 0; k <= o.kopMax + 1e-9; k += o.kopStep) levels.push({ kopAdd:k, shift:[0, 0], nudge:null });
-  if (o.nudge && o.nudge.incMax > 0) [o.nudge.incMax / 2, o.nudge.incMax].forEach(inc => { for (let az = 0; az < 360; az += 45) levels.push({ kopAdd:0, shift:[0, 0], nudge:{ kop:o.nudge.kop, dls:o.nudge.dls, inc, az } }); });
+  // CHANGED 2026-11-04 (John's SD9 hand designs nudge 2.5-12 deg toward 90 / 60 / 30 deg, from 30 m): nudge
+  // inclination in thirds of the max and azimuth every o.nudgeAzStep (15) deg — was max/2 and max, every 45 deg.
+  if (o.nudge && o.nudge.incMax > 0) [o.nudge.incMax / 3, 2 * o.nudge.incMax / 3, o.nudge.incMax].forEach(inc => { for (let az = 0; az < 360; az += o.nudgeAzStep) levels.push({ kopAdd:0, shift:[0, 0], nudge:{ kop:o.nudge.kop, dls:o.nudge.dls, inc: +inc.toFixed(2), az } }); });
   shifts.slice(1).forEach(sh => levels.push({ kopAdd:0, shift:sh, nudge:null }));
   const pathOf = (W, r) => {
     const st = computeStations({ md:0, tvd:0, n:W.surf.n, e:W.surf.e, inc:0, az:0 }, r.sections, o.step).stations;
     const landMd = r.sections.reduce((a, x, i) => a + ((r.tags || [])[i] === 'lateral' ? 0 : x.cl), 0);
     const pts = st.filter(p => p.md >= o.fromMd - 1e-6 && (o.full || p.md <= landMd + 1e-6)).map(p => ({ n:p.n, e:p.e, z:-p.tvd + (W.ss || 0) }));
     const bb = pts.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e), Math.min(b[4], p.z), Math.max(b[5], p.z)], [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]);
-    return { pts, bb };
+    const ob = obsEval(W, st, landMd);   // 2026-11-04: offsets / planned wells
+    return { pts, bb, landMd, oh: ob.hits, osev: ob.sev, obs: ob.list };
   };
+  /* ADDED 2026-11-04 (John, SD9: iPad said "no touching" while the offsets were inside 10 m — Tunnel / Avoidance only
+     looked at the pad's own wells). o.obstacles = fixed wells (offsets + planned wells not being redesigned):
+     [{ name, pts:[{n, e, z}] }] (z = Sub-Sea), polylines. Each candidate is checked from surface to its ICP
+     (stations every o.step m, point-to-segment, 3D) with John's required clearance by zone:
+       - MD < o.nearMd (200): "as close to the clearance as the slot allows" -> min(clr, distance at the slot - 0.3)
+       - MD >= ICP - o.icpZone (100): o.icpClr (5 m, SAGD — John: "for the ICP they were aiming close to 5 m")
+       - otherwise: o.obsClr (default = the build clearance, 10 m)
+     hits = number of obstacles violated, sev = sum of the shortfalls (m). Avoidance ranks: design rules ->
+     obstacle hits -> pad touching pairs -> shortfall -> MD. */
+  const OB = (o.obstacles || []).map(x => { const P = x.pts.filter(p => isFinite(p.n) && isFinite(p.e) && isFinite(p.z));
+    return { name: x.name, P, bb: P.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e)], [Infinity, -Infinity, Infinity, -Infinity]) }; }).filter(x => x.P.length > 1);
+  const oClr = o.obsClr != null ? +o.obsClr : lim;
+  const segMin = (p, P) => { let b = Infinity; for (let j = 1; j < P.length; j++){ const s = P[j - 1], t = P[j], vx = t.n - s.n, vy = t.e - s.e, vz = t.z - s.z, wx = p.n - s.n, wy = p.e - s.e, wz = p.z - s.z, L2 = vx*vx + vy*vy + vz*vz;
+    let u = L2 > 0 ? (wx*vx + wy*vy + wz*vz) / L2 : 0; u = u < 0 ? 0 : u > 1 ? 1 : u; const d = Math.hypot(wx - u*vx, wy - u*vy, wz - u*vz); if (d < b) b = d; } return b; };
+  const slotD = new Map();   // per well x obstacle: distance at the slot (surface point)
+  function obsEval(W, st, landMd){
+    if (!OB.length) return { hits: 0, sev: 0, list: [] };
+    const pts = st.filter(p => p.md <= landMd + 1e-6).map(p => ({ md: p.md, n: p.n, e: p.e, z: (W.ss || 0) - p.tvd }));
+    const bb = pts.reduce((b, p) => [Math.min(b[0], p.n), Math.max(b[1], p.n), Math.min(b[2], p.e), Math.max(b[3], p.e)], [Infinity, -Infinity, Infinity, -Infinity]), pad = oClr + 5;
+    let hits = 0, sev = 0; const list = [];
+    OB.forEach((ob, k) => {
+      if (ob.bb[0] > bb[1] + pad || ob.bb[1] < bb[0] - pad || ob.bb[2] > bb[3] + pad || ob.bb[3] < bb[2] - pad) return;
+      const key = W.surf.n + ',' + W.surf.e + '|' + k;
+      if (!slotD.has(key)) slotD.set(key, segMin({ n: W.surf.n, e: W.surf.e, z: W.ss || 0 }, ob.P));
+      const sd = slotD.get(key);
+      let worst = null, s0 = 0;
+      for (const p of pts){
+        // CHANGED 2026-11-06 (Deep search): above nearMd "as the slot allows" is also capped by what a VERTICAL well from
+        // the slot gets at that depth (SD9: BP PCI 13D9 converges to 9.7 m below a 10.1 m slot — no path could pass).
+        const req = p.md < o.nearMd ? Math.min(oClr, sd - 0.3, segMin({ n:W.surf.n, e:W.surf.e, z:p.z }, ob.P) - 0.3) : (p.md >= landMd - o.icpZone ? Math.min(oClr, o.icpClr) : oClr);
+        if (p.n < ob.bb[0] - req || p.n > ob.bb[1] + req || p.e < ob.bb[2] - req || p.e > ob.bb[3] + req) continue;
+        const d = segMin(p, ob.P);
+        if (d < req - 1e-6){ s0 += req - d; if (!worst || req - d > worst.req - worst.d) worst = { d, req, md: p.md }; }
+      }
+      if (worst){ hits++; sev += s0; list.push({ name: ob.name, d: worst.d, req: worst.req, md: worst.md }); }
+    });
+    return { hits, sev, list };
+  }
   const genLevel = (i, li) => {
     const W = wells[i], L = levels[li], az = W.land.az * D2R, [da, dc] = L.shift;
     const land = Object.assign({}, W.land, { n: W.land.n + da * Math.cos(az) - dc * Math.sin(az), e: W.land.e + da * Math.sin(az) + dc * Math.cos(az) });
@@ -1598,14 +2088,19 @@ async function padAvoid(wells, o, progress){
   const dist = (i, ci, j, cj) => { const k = i < j ? i + ':' + ci + '|' + j + ':' + cj : j + ':' + cj + '|' + i + ':' + ci;
     let d = cache.get(k); if (d === undefined){ d = minDist(cands[i][ci], cands[j][cj]); cache.set(k, d); } return d; };
   const assign = cands.map(c => c.length ? 0 : -1);
-  const evalAll = a => { let pairs = 0, sev = 0, md = 0, nv = 0; const per = new Array(nW).fill(0);
-    for (let i = 0; i < nW; i++){ if (a[i] < 0) continue; md += cands[i][a[i]].md; nv += cands[i][a[i]].nv || 0;
+  const evalAll = a => { let pairs = 0, sev = 0, md = 0, nv = 0, oh = 0; const per = new Array(nW).fill(0);
+    for (let i = 0; i < nW; i++){ if (a[i] < 0) continue; const C0 = cands[i][a[i]]; md += C0.md; nv += C0.nv || 0; oh += C0.oh || 0; sev += C0.osev || 0; per[i] += C0.oh || 0;   // 2026-11-04: obstacles
       for (let j = i + 1; j < nW; j++){ if (a[j] < 0) continue; const d = dist(i, a[i], j, a[j]); if (d < lim - 1e-6){ pairs++; sev += lim - d; per[i]++; per[j]++; } } }
-    return { pairs, sev, md, per, nv }; };
-  const betterE = (x, y) => (x.nv || 0) < (y.nv || 0) || ((x.nv || 0) === (y.nv || 0) && x.pairs < y.pairs) || ((x.nv || 0) === (y.nv || 0) && x.pairs === y.pairs && (x.sev < y.sev - 1e-6 || (Math.abs(x.sev - y.sev) <= 1e-6 && x.md < y.md - 1e-6)));
+    return { pairs, sev, md, per, nv, oh }; };
+  // 2026-11-04: lexicographic — rules, obstacle hits, pad touching pairs, total shortfall, MD
+  const lex = (x, y) => { const A = [x.nv || 0, x.oh || 0, x.pairs], B = [y.nv || 0, y.oh || 0, y.pairs];
+    for (let k = 0; k < 3; k++) if (A[k] !== B[k]) return A[k] < B[k] ? -1 : 1;
+    if (Math.abs(x.sev - y.sev) > 1e-6) return x.sev < y.sev ? -1 : 1;
+    return Math.abs(x.md - y.md) > 1e-6 ? (x.md < y.md ? -1 : 1) : 0; };
+  const betterE = (x, y) => lex(x, y) < 0;
   let cur = evalAll(assign), best = { a: assign.slice(), e: cur }; const start = cur;
   const tabu = new Map();
-  for (let it = 0; it < o.maxIter && cur.pairs > 0 && Date.now() - T0 < o.timeMs; it++){
+  for (let it = 0; it < o.maxIter && (cur.pairs > 0 || cur.oh > 0) && Date.now() - T0 < o.timeMs; it++){
     const order = cur.per.map((c, i) => [c, i]).filter(x => x[0] > 0 && !((tabu.get(x[1]) || -1) > it)).sort((x, y) => y[0] - x[0]);
     if (!order.length){ tabu.clear(); continue; }
     const i = order[0][1];
@@ -1613,20 +2108,24 @@ async function padAvoid(wells, o, progress){
     for (let pass = 0; pass < 2 && !moved; pass++){
       let bestC = -1, bestS = null;
       for (let ci = 0; ci < cands[i].length; ci++){
-        let pairs = 0, sev = 0;
+        let pairs = 0, sev = cands[i][ci].osev || 0;
         for (let j = 0; j < nW; j++){ if (j === i || assign[j] < 0) continue; const d = dist(i, ci, j, assign[j]); if (d < lim - 1e-6){ pairs++; sev += lim - d; } }
-        const sc = { pairs, sev, md: cands[i][ci].md, nv: cands[i][ci].nv || 0 };
+        const sc = { pairs, sev, md: cands[i][ci].md, nv: cands[i][ci].nv || 0, oh: cands[i][ci].oh || 0 };
         if (sc.nv > (cands[i][assign[i]] ? cands[i][assign[i]].nv || 0 : 0)) continue;   // 2026-11-01: never trade a rule-clean design for a violating one
-        if (!bestS || sc.pairs < bestS.pairs || (sc.pairs === bestS.pairs && (sc.sev < bestS.sev - 1e-6 || (Math.abs(sc.sev - bestS.sev) <= 1e-6 && sc.md < bestS.md)))) { bestS = sc; bestC = ci; }
+        if (!bestS || lex(sc, bestS) < 0){ bestS = sc; bestC = ci; }
       }
-      if (bestS && bestS.pairs < cur.per[i]){ assign[i] = bestC; moved = true; }
+      // 2026-11-04: the well's own current score (obstacles + its pairs) — move only on a strict improvement
+      const C0 = cands[i][assign[i]]; let p0 = 0, s0 = C0 ? C0.osev || 0 : 0;
+      for (let j = 0; j < nW; j++){ if (j === i || assign[j] < 0 || !C0) continue; const d = dist(i, assign[i], j, assign[j]); if (d < lim - 1e-6){ p0++; s0 += lim - d; } }
+      const curS = { pairs: p0, sev: s0, md: C0 ? C0.md : Infinity, nv: C0 ? C0.nv || 0 : 0, oh: C0 ? C0.oh || 0 : 0 };
+      if (bestS && ((bestS.oh || 0) < curS.oh || ((bestS.oh || 0) === curS.oh && bestS.pairs < curS.pairs))){ assign[i] = bestC; moved = true; }
       else if (lvl[i] < levels.length - 1){ lvl[i]++; const more = genLevel(i, lvl[i]); cands[i] = cands[i].concat(more); }   // next lever for this well
       else break;
     }
     if (!moved){ tabu.set(i, it + 5); }
     cur = evalAll(assign);
     if (betterE(cur, best.e)) best = { a: assign.slice(), e: cur };
-    if (progress && it % 5 === 0) await progress('Avoidance: ' + cur.pairs + ' touching pair(s) — iteration ' + (it + 1));
+    if (progress && it % 5 === 0) await progress('Avoidance: ' + cur.pairs + ' touching pair(s), ' + cur.oh + ' offset conflict(s) — iteration ' + (it + 1));
   }
   // ADDED 2026-10-31 (John: 'continue with the "Safest" objective - optimize for separation directly').
   // Optional phase after the no-touching search (o.safest). Priority: safest first, then shortest MD.
@@ -1652,7 +2151,7 @@ async function padAvoid(wells, o, progress){
         for (;;){
           for (let ci = 0; ci < cands[w].length; ci++){
             if (ci === a[w]) continue; const s = wellStat(w, ci);
-            if (s.m > g.d + 0.05 && s.p <= p0 && (cands[w][ci].nv || 0) <= (cands[w][a[w]].nv || 0) && (!pick || cands[w][ci].md < pick.md)) pick = { w, ci, md: cands[w][ci].md };
+            if (s.m > g.d + 0.05 && s.p <= p0 && (cands[w][ci].nv || 0) <= (cands[w][a[w]].nv || 0) && (cands[w][ci].oh || 0) <= (cands[w][a[w]].oh || 0) && (!pick || cands[w][ci].md < pick.md)) pick = { w, ci, md: cands[w][ci].md };   // 2026-11-04: never add offset conflicts
           }
           if (pick && pick.w === w) break;
           if (lvl[w] >= levels.length - 1 || Date.now() - T0 > o.timeMs) break;
@@ -1669,7 +2168,8 @@ async function padAvoid(wells, o, progress){
   for (let i = 0; i < nW; i++) for (let j = i + 1; j < nW; j++){ if (best.a[i] < 0 || best.a[j] < 0) continue; const d = dist(i, best.a[i], j, best.a[j]); if (d < lim - 1e-6) pairsOut.push({ i, j, d }); }
   const minC2C = i => { let m = Infinity; for (let j = 0; j < nW; j++) if (j !== i && best.a[i] >= 0 && best.a[j] >= 0) m = Math.min(m, minDist(cands[i][best.a[i]], cands[j][best.a[j]], o.safest ? (o.safeCap || 3 * lim) : 0)); return m; };
   return { start, end: best.e, pairs: pairsOut, ms: Date.now() - T0, minBefore, minAfter, safeMoves,
-           wells: best.a.map((ci, i) => ci < 0 ? null : Object.assign({}, cands[i][ci], { alt: ci, minC2C: minC2C(i) })) };
+           wells: best.a.map((ci, i) => { if (ci < 0) return null; const w = Object.assign({}, cands[i][ci], { alt: ci, minC2C: minC2C(i) });
+             if (w.r && w.r._oaIn) w.r = padOaFinalize(Object.assign({}, w.r)); return w; }) };   // 2026-11-06: iPlan Optimum Align group for the chosen designs
 }
 
 
@@ -1898,7 +2398,8 @@ root.IPlanCore = {
   solveBuildHoldToTarget, r1FromDls, dlsFromR1,
   HBHBH_KEYS, HBHBH_ANGLE_KEYS, hbhbhTotals, hbhbhResidual, hbhbhClamp, hbhbhNewton, hbhbhInitGuesses, solveHBHBHToTarget,
   chcCurveCL, chcForward, chcResidual, chcSolve3x3, chcNewton, solveCurveHoldCurve,
-  planBuildHold, planHbhbh, planCurveHoldCurve,
+  planBuildHold, planHbhbh, planCurveHoldCurve, planOptimumAlign, projectBack, threadToPoint, fitTargetLine, withDoglegIncrease, padOaFinalize, padDeepSearch, padDeepAvoid,   // 2026-11-06 Deep search (RRT)
+    // 2026-11-06: planOptimumAlign, projectBack, Thread Targets
   toolfaceBetween, toArcs, arcsToSections, chainArcs, pointOnArc, findAnchor, insertTangent,
   padSections, padLanding, padSolveWell, padSlotPattern, padTargetPattern,
   padTurnSections, padSolveTurn,
