@@ -12744,7 +12744,52 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(depths.tdMD != null) newParams.td = depths.tdMD;
         // Open hole conventionally starts where the deepest casing shoe is.
         newParams.ohTop = out[n - 1].shoe;
+        // 2026-11-08 (T&D hole sections + BHA runs): params.plan holds section
+        // limits and run From/To in MD. Stretch them with the SAME piecewise-
+        // linear map used for the casing shoes (surface -> each shoe -> TD,
+        // old well -> this well), so sections/runs stay tied to the shoes;
+        // the deepest run is then forced to end exactly at this well's TD.
+        if(params && params.plan){
+            newParams.plan = remapTdPlan(params.plan,
+                [0].concat(sorted.map(c => c.shoe)).concat([params.td]),
+                [0].concat(out.map(c => c.shoe)).concat([newParams.td]),
+                newParams.td);
+        }
         return { casings: out, params: newParams };
+    }
+
+    // Piecewise-linear MD map between two ordered breakpoint lists (same length).
+    function remapTdPlan(plan, oldB, newB, newTD){
+        const pts = [];
+        for(let i = 0; i < oldB.length; i++){
+            if(!isFinite(oldB[i]) || !isFinite(newB[i])) continue;
+            if(pts.length && oldB[i] <= pts[pts.length - 1][0]) continue; // keep strictly increasing
+            pts.push([oldB[i], newB[i]]);
+        }
+        const map = function(md){
+            if(!isFinite(md) || pts.length < 2) return md;
+            if(md <= pts[0][0]) return md - pts[0][0] + pts[0][1];
+            for(let i = 1; i < pts.length; i++){
+                if(md <= pts[i][0]){
+                    const a = pts[i - 1], b = pts[i];
+                    return a[1] + (md - a[0]) / (b[0] - a[0]) * (b[1] - a[1]);
+                }
+            }
+            const a = pts[pts.length - 2], b = pts[pts.length - 1];
+            return b[1] + (md - b[0]) * ((b[1] - a[1]) / (b[0] - a[0]));
+        };
+        const p = JSON.parse(JSON.stringify(plan));
+        (p.sections || []).forEach(s => { s.from = map(s.from); s.to = map(s.to); });
+        (p.runs || []).forEach(r => { r.from = map(r.from); r.to = map(r.to); });
+        if(p.snapMD != null) p.snapMD = map(p.snapMD);
+        if(isFinite(newTD)){
+            const used = (p.runs || []).filter(r => r.use !== false);
+            const pool = used.length ? used : (p.runs || []);
+            if(pool.length){ pool.reduce((a, b) => (b.to >= a.to ? b : a)).to = newTD; }
+            const secs = (p.sections || []).slice().sort((a, b) => a.from - b.from);
+            if(secs.length) secs[secs.length - 1].to = newTD;
+        }
+        return p;
     }
 
     async function recalcAndShow(wellKey){

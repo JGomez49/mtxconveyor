@@ -4228,6 +4228,9 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         if(ps.td) container.querySelectorAll('table td').forEach(el => { el.style.setProperty('font-size', ps.td, 'important'); el.style.setProperty('padding', '2px 4px'); });
     }
 
+    // ADDED 2026-11-08: reachable from the floating-filter script, which re-renders the Gantt after the
+    // filter column is moved out (and on window resize) — the canvas width is measured at render time.
+    window.ganttApplyAndRender2Ref = function(){ return ganttApplyAndRender2(); };
     function ganttApplyAndRender2(){
         const fVP        = ganttGetChecked2('vp');
         const fYear      = ganttGetChecked2('year');
@@ -4276,6 +4279,58 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         // 2x pixel ratio, NOT tracked in chartInstances2 (so the on-screen chart
         // is untouched), and the Chart instance is returned. Called with one
         // argument (all existing callers) it behaves exactly as before.
+        // ADDED 2026-11-08 (John): thumbnail of the job picture beside the Gantt tooltip.
+        // Bar -> job: Site (first 14 chars) -> ganttNotesMap, same as the click-through to the job.
+        // Only jobs with a picture (img flag); served by /notes/handoverImage/:id?thumb=1 (320 px).
+        // The canvas tooltip itself is not changed; this box is positioned next to it.
+        // CHANGED 2026-11-08 round 13 (John): the picture now follows the tooltip STRICTLY — shown while the
+        // tooltip is shown, gone as soon as it is gone. Round 12 (× button + 0.35 s "stay open while hovered")
+        // was reverted: the box could catch the mouse / miss the hide and stay open after leaving the job.
+        // Now: no delay, pointer-events:none (never catches the mouse), plus a watchdog (every 150 ms and on
+        // every mouse move) that hides it when the chart's tooltip is not active or the mouse is not over the
+        // Gantt canvas (covers redraw / pan / fast exits). Esc also hides it.
+        let gThumbChart = null;
+        function ganttThumbEl2(){
+            let el = document.getElementById('ganttThumb2');
+            if(!el){
+                el = document.createElement('div'); el.id = 'ganttThumb2';
+                el.style.cssText = 'position:fixed;z-index:1080;pointer-events:none;display:none;background:#111820;border:1px solid #00c8ff;border-radius:4px;padding:3px;box-shadow:0 6px 18px rgba(0,0,0,.5);';
+                el.innerHTML = '<img alt="" style="display:block;max-width:220px;max-height:160px;">';
+                document.body.appendChild(el);
+                const hide = () => { el.style.display = 'none'; };
+                const tooltipActive = () => {
+                    const ch = gThumbChart;
+                    if(!ch || !ch.canvas || !ch.canvas.isConnected || !ch.tooltip) return false;
+                    const act = ch.tooltip.getActiveElements ? ch.tooltip.getActiveElements() : [];
+                    return ch.tooltip.opacity > 0 && act.length > 0;
+                };
+                setInterval(() => { if(el.style.display !== 'none' && !tooltipActive()) hide(); }, 150);
+                document.addEventListener('mousemove', e => {
+                    if(el.style.display === 'none') return;
+                    if(!gThumbChart || e.target !== gThumbChart.canvas || !tooltipActive()) hide();
+                }, true);
+                document.addEventListener('keydown', e => { if(e.key === 'Escape') hide(); });
+                window.addEventListener('scroll', hide, true);
+            }
+            return el;
+        }
+        function ganttTooltipThumb2(ctx){
+            const tt = ctx.tooltip, chart = ctx.chart, el = ganttThumbEl2();
+            gThumbChart = chart;
+            const hide = () => { el.style.display = 'none'; };
+            if(!tt || tt.opacity === 0 || !tt.dataPoints || !tt.dataPoints.length) return hide();
+            const bar = tt.dataPoints[0].raw, site = bar && bar.details && bar.details.Site;
+            const meta = site && (typeof ganttNotesMap !== 'undefined') ? ganttNotesMap[String(site).slice(0, 14)] : null;
+            if(!meta || !meta.img) return hide();
+            const img = el.firstChild, src = '/notes/handoverImage/' + meta.id + '?thumb=1';
+            if(img.getAttribute('src') !== src){ img.onerror = hide; img.src = src; }
+            const r = chart.canvas.getBoundingClientRect();
+            let x = r.left + tt.x + tt.width + 8, y = r.top + tt.y;
+            if(x + 232 > window.innerWidth) x = r.left + tt.x - 236;          // no room on the right: left of the tooltip
+            y = Math.max(4, Math.min(y, window.innerHeight - 172));
+            el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.display = 'block';
+        }
+
         function ganttRenderChart2(bars, opts){
             opts = opts || {};
             const isExport  = !!opts.targetDiv;
@@ -4595,6 +4650,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            // ADDED 2026-11-08 (John): job-picture thumbnail next to the (unchanged) canvas tooltip
+                            external: (ctx) => ganttTooltipThumb2(ctx),
                             callbacks: {
                                 label: (ctx) => {
                                     const d = ctx.raw.details;
@@ -4635,6 +4692,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         datalabels: {
                             color: (ctx) => {
                                 const bg = ctx.dataset.backgroundColor[ctx.dataIndex] || "#000";
+                                // ADDED 2026-11-08 (John): red (IN QUEUE, #ff4c4c) bars with NO version yet (empty or P0)
+                                // get BLACK text; red bars with a version (P1, P2, …) keep white text.
+                                if(String(bg).toLowerCase() === "#ff4c4c"){
+                                    const raw = ctx.dataset.data[ctx.dataIndex], ver = String((raw && raw.details && raw.details.version) || "").trim().toUpperCase();
+                                    if(ver === "" || ver === "P0") return "#000000";
+                                }
                                 const lightBgs = ["#ffff00","#C0C0C0","#FFFFFF","#ffffff","#c0c0c0","#00FFFF"]; // 2026-10-05: black label on cyan Vendor On It bars
                                 return lightBgs.some(c => bg.toLowerCase() === c.toLowerCase()) ? "#000000" : "#ffffff";
                             },
@@ -4974,6 +5037,30 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         dptsBuildFilterGroup('dptsDpType',        'dpType',       DPTS_DEFAULT_CHECKED.dptsDpType);
         dptsBuildFilterGroup('dptsDpCompany',     'dpCompany',    DPTS_DEFAULT_CHECKED.dptsDpCompany);
         dptsBuildFilterGroup('dptsCurrentPlan',   'currentPlan',  null);
+
+        // ADDED 2026-11-08 (John): saved filters, same model as the Gantt (mtxGanttFilters): the UNticked values
+        // per field are stored, so values that appear later come in ticked. Applied once, on the first build only
+        // (Reset Filters still goes back to the defaults).
+        const DPTS_SAVE_KEY = 'mtxDptsFilters:' + (window.MTX_USER_ID || 'anon');
+        const dNote = document.getElementById('dptsSavedNote');
+        if(!window.dptsSavedApplied){
+            window.dptsSavedApplied = true;
+            let saved = null; try { saved = JSON.parse(localStorage.getItem(DPTS_SAVE_KEY) || 'null'); } catch(e){}
+            if(saved && saved.off){
+                Object.keys(saved.off).forEach(f => document.querySelectorAll(`#dptsSidebar input[type=checkbox][data-field="${f}"]`).forEach(cb => { cb.checked = !saved.off[f].includes(cb.value); }));
+                if(dNote) dNote.textContent = 'Saved filters applied (' + (saved.at || '') + ')';
+            }
+        }
+        const dSave = document.getElementById('dptsSaveFilters'), dClr = document.getElementById('dptsClearSaved');
+        if(dSave && !dSave.dataset.wired){
+            dSave.dataset.wired = '1';
+            dSave.addEventListener('click', () => {
+                const off = {}; document.querySelectorAll('#dptsSidebar input[type=checkbox][data-field]').forEach(cb => { if(!cb.checked) (off[cb.dataset.field] = off[cb.dataset.field] || []).push(cb.value); });
+                const at = new Date().toLocaleString();
+                try { localStorage.setItem(DPTS_SAVE_KEY, JSON.stringify({ off, at })); if(dNote) dNote.textContent = 'Filters saved (' + at + ')'; } catch(e){ if(dNote) dNote.textContent = 'Could not save in this browser.'; }
+            });
+            if(dClr) dClr.addEventListener('click', () => { try { localStorage.removeItem(DPTS_SAVE_KEY); } catch(e){} if(dNote) dNote.textContent = 'Saved filters cleared.'; });
+        }
         dptsFiltersBuilt = true;
 
         const resetBtn = document.getElementById('dptsResetBtn');
@@ -5175,7 +5262,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     // ── DP Wellbore Backlog per month (Wellbores Received − Wellbores Requested) ──
     // 2026-11-04: Open DP wellbores toggle (trace 3 of the backlog plot), remembered in this browser
     function dptsWireOpenBacklogToggle(){ const cb = document.getElementById('dpOpenBacklogToggle'); if(!cb || cb.dataset.wired) return; cb.dataset.wired = '1';   // wired on first render (the tick sits below this script)
-        try { cb.checked = localStorage.getItem('mtxOpenDpBacklog') !== '0'; } catch(e){}
+        // CHANGED 2026-11-08 (John): hidden by default; shown only when switched on (remembered in this browser)
+        try { cb.checked = localStorage.getItem('mtxOpenDpBacklog') === '1'; } catch(e){ cb.checked = false; }
         cb.addEventListener('change', () => { try { localStorage.setItem('mtxOpenDpBacklog', cb.checked ? '1' : '0'); } catch(e){}
             const el = document.getElementById('dpWellboresBacklogPlot'); if(el && el.data && el.data.length > 3) Plotly.restyle(el, { visible: cb.checked ? true : 'legendonly' }, [3]); });
     }
@@ -5242,7 +5330,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 line: { color: '#ffb300', width: 2.5 },
                 fill: 'tozeroy',
                 fillcolor: 'rgba(255,179,0,0.18)',
-                visible: (() => { try { return localStorage.getItem('mtxOpenDpBacklog') === '0' ? 'legendonly' : true; } catch(e){ return true; } })(),
+                visible: (() => { try { return localStorage.getItem('mtxOpenDpBacklog') === '1' ? true : 'legendonly'; } catch(e){ return 'legendonly'; } })(),   // 2026-11-08: hidden by default
             },
         ], {
             title: { text: `DP Wellbore Backlog by Month (Received − Requested)`, font: { color: fontColor, size: 14 } },
@@ -5361,12 +5449,16 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                     <div class="dpts-filter-group" id="dptsCurrentPlan"></div>
 
                     <button type="button" class="dpts-reset-btn" id="dptsResetBtn">Reset Filters</button>
+                    <%# ADDED 2026-11-08 (John): same as the Gantt — save the filters for this user (this browser) %>
+                    <button type="button" class="dpts-reset-btn" id="dptsSaveFilters">&#128190; Save filters</button>
+                    <button type="button" class="dpts-reset-btn" id="dptsClearSaved" title="Forget the saved filters (back to defaults next time)">Clear saved</button>
+                    <div id="dptsSavedNote" style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;"></div>
                 </div>
                 <div class="dpts-plot-wrap">
                     <div id="dpBoxPlot" style="width:100%;"></div>
                     <div id="dpWellboresMonthlyPlot" style="width:100%;margin-top:18px;"></div>
                     <%# ADDED 2026-11-04 (John): toggle for the "Open DP wellbores" trace (index 3) %>
-                    <label style="display:block;margin-top:18px;font-size:12px;cursor:pointer;"><input type="checkbox" id="dpOpenBacklogToggle" checked> Open DP wellbores (requested, not yet received)</label>
+                    <label style="display:block;margin-top:18px;font-size:12px;cursor:pointer;"><input type="checkbox" id="dpOpenBacklogToggle"> Open DP wellbores (requested, not yet received)</label>
                     <div id="dpWellboresBacklogPlot" style="width:100%;margin-top:4px;"></div>
                 </div>
             </div>
@@ -5490,6 +5582,132 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
         location.reload();
     });
+})();
+</script>
+
+<%# ===================================================================
+    FLOATING FILTER WINDOWS (ADDED 2026-11-08, John)
+    The Gantt filter column (#ganttSidebar2) and the DP Stats filter column
+    (#dptsSidebar) are hidden; the chart gets the full width. A "☰ Filters (n)"
+    button at the top-left of each chart opens a floating window with the
+    filter groups side by side in columns. An active-filter summary line sits
+    under the button. The ORIGINAL sidebar element is MOVED into the window
+    (same checkboxes, ids, handlers, Reset / Save filters / Clear saved) —
+    only the layout changes. Phones: the window is full screen (replaces the
+    2026-11-04 slide-in drawer for the Gantt, whose toggle is hidden).
+    =================================================================== %>
+<style>
+    .mtxfp-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .mtxfp-btn { width:auto !important; padding:4px 12px !important; margin:0 !important; white-space:nowrap; }
+    .mtxfp-btn.active { border-color:#00c8ff !important; color:#00c8ff !important; }
+    .mtxfp-sum { font-family:var(--an-mono,monospace); font-size:11px; color:var(--an-text-dim,#5a7080); margin:4px 0 6px; }
+    .mtxfp-sum b { color:#ffb300; font-weight:600; }
+    .mtxfp-modal { position:fixed; inset:0; z-index:1070; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; padding:5vh 12px; }
+    .mtxfp-modal.open { display:flex; }
+    .mtxfp-win { width:min(1150px,96vw); max-height:88vh; display:flex; flex-direction:column; background:var(--an-panel,#111820);
+                 border:1px solid #00c8ff; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,.6); color:var(--an-text,#c8d8e8); }
+    .mtxfp-hdr { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--an-border,#1e2d3d); }
+    .mtxfp-hdr h5 { flex:1; margin:0; font-family:var(--an-cond,sans-serif); font-size:16px; letter-spacing:1px; text-transform:uppercase; }
+    .mtxfp-x { background:none; border:1px solid var(--an-border,#1e2d3d); color:inherit; width:32px; height:32px; border-radius:4px; font-size:18px; cursor:pointer; }
+    .mtxfp-body { overflow-y:auto; padding:12px 14px; }
+    /* the moved sidebar: no longer a narrow column */
+    .mtxfp-in { position:static !important; transform:none !important; width:auto !important; min-width:0 !important; height:auto !important;
+                max-height:none !important; border:none !important; box-shadow:none !important; padding:0 !important; overflow:visible !important; background:transparent !important; }
+    .mtxfp-cols { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px 18px; align-items:start; }
+    .mtxfp-col { border:1px solid var(--an-border,#1e2d3d); border-radius:4px; padding:8px 10px; min-width:0; }
+    .mtxfp-col h6 { margin-top:0 !important; }
+    .mtxfp-col .gantt-filter-group, .mtxfp-col .dpts-filter-group { max-height:260px; overflow-y:auto; }
+    .mtxfp-foot { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--an-border,#1e2d3d); }
+    .mtxfp-foot button { width:auto !important; margin-top:0 !important; padding:5px 14px !important; }
+    #ganttFilterToggle2, #ganttDrawerClose2, #ganttDrawerBackdrop2 { display:none !important; }
+    @media (max-width:768px){
+        .mtxfp-modal { padding:0; }
+        .mtxfp-win { width:100vw; max-height:100vh; height:100%; border-radius:0; }
+        .mtxfp-cols { grid-template-columns:1fr 1fr; }
+        .mtxfp-col .gantt-filter-group label, .mtxfp-col .dpts-filter-group label { font-size:13px; margin:6px 0; }
+    }
+</style>
+<script>
+(function(){
+    function setup(o){
+        const sb = document.getElementById(o.sidebar), host = document.getElementById(o.host) || (sb && sb.parentNode.querySelector(o.hostSel));
+        if(!sb || !host) return;
+        // 1) group each heading with its filter list -> one column each; buttons/notes -> footer
+        const cols = document.createElement('div'); cols.className = 'mtxfp-cols';
+        const foot = document.createElement('div'); foot.className = 'mtxfp-foot';
+        let col = null;
+        Array.from(sb.children).forEach(el => {
+            if(el.id === 'ganttDrawerClose2') return;                      // old phone drawer close
+            if(el.tagName === 'H6'){ col = document.createElement('div'); col.className = 'mtxfp-col'; cols.appendChild(col); col.appendChild(el); return; }
+            if(col && /filter-group/.test(el.className)){ col.appendChild(el); return; }
+            foot.appendChild(el);                                          // Reset / Save / Clear saved / note
+        });
+        sb.appendChild(cols); sb.appendChild(foot);
+        sb.classList.add('mtxfp-in'); sb.classList.remove('open');
+        // 2) floating window, the sidebar moves inside it
+        const modal = document.createElement('div'); modal.className = 'mtxfp-modal';
+        modal.innerHTML = '<div class="mtxfp-win" role="dialog" aria-modal="true"><div class="mtxfp-hdr"><h5></h5><button type="button" class="mtxfp-x" aria-label="Close">&times;</button></div><div class="mtxfp-body"></div></div>';
+        modal.querySelector('h5').textContent = o.title;
+        modal.querySelector('.mtxfp-body').appendChild(sb);
+        document.body.appendChild(modal);
+        // 3) button + summary at the top-left of the chart
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = o.btnClass + ' mtxfp-btn'; btn.textContent = '☰ Filters';
+        const sum = document.createElement('div'); sum.className = 'mtxfp-sum';
+        if(o.intoToolbar){ host.insertBefore(btn, host.firstChild); host.parentNode.insertBefore(sum, host.nextSibling); }
+        else { const bar = document.createElement('div'); bar.className = 'mtxfp-bar'; bar.appendChild(btn); host.insertBefore(sum, host.firstChild); host.insertBefore(bar, sum); }
+        const open = v => { modal.classList.toggle('open', v); if(!v) refresh(); };
+        btn.addEventListener('click', () => open(true));
+        modal.querySelector('.mtxfp-x').addEventListener('click', () => open(false));
+        modal.addEventListener('click', e => { if(e.target === modal) open(false); });
+        document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('open')) open(false); });
+        // 4) active-filter count + summary (a group is "active" when not every box is ticked)
+        let last = null;
+        function refresh(){
+            const parts = [];
+            cols.querySelectorAll('.mtxfp-col').forEach(c => {
+                const boxes = c.querySelectorAll('input[type=checkbox]'); if(!boxes.length) return;
+                const on = Array.from(boxes).filter(b => b.checked).length;
+                if(on < boxes.length){
+                    const h = c.querySelector('h6'), name = h ? (h.childNodes[0] && h.childNodes[0].nodeType === 3 ? h.childNodes[0].textContent : h.textContent).trim() : '?';
+                    parts.push('<b>' + name.replace(/</g, '&lt;') + '</b>: ' + (on ? on + ' of ' + boxes.length : 'none'));
+                }
+            });
+            const key = parts.join('|'); if(key === last) return; last = key;
+            btn.textContent = '☰ Filters' + (parts.length ? ' (' + parts.length + ')' : '');
+            btn.classList.toggle('active', parts.length > 0);
+            sum.innerHTML = parts.length ? 'Filtered — ' + parts.join(' · ') : 'No filters active — showing all';
+        }
+        sb.addEventListener('change', () => setTimeout(refresh, 0));
+        sb.addEventListener('click', () => setTimeout(refresh, 0));      // All / None links, Reset, saved filters
+        setInterval(refresh, 1000);                                       // lists are filled / restored asynchronously
+        refresh();
+        // the charts get the freed width (CHANGED 2026-11-08 round 10: the Gantt canvas width is measured when it
+        // is drawn and the DP Stats Plotly charts are not 'responsive', so redraw / resize them explicitly)
+        if(o.refit) setTimeout(o.refit, 60);
+    }
+    function refitGantt(){
+        if(window.ganttApplyAndRender2Ref && window.chartInstances2Ref && window.chartInstances2Ref.length){
+            try { window.ganttApplyAndRender2Ref(); } catch(e){ console.warn('[mtxfp] gantt refit', e); }
+        }
+    }
+    function refitDpts(){
+        if(typeof Plotly === 'undefined') return;
+        ['dpBoxPlot', 'dpWellboresMonthlyPlot', 'dpWellboresBacklogPlot'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el && el.data){ try { Plotly.Plots.resize(el); } catch(e){} }
+        });
+    }
+    let rT = null, lastW = window.innerWidth;
+    window.addEventListener('resize', () => {
+        if(window.innerWidth === lastW) return;   // height-only changes (phone address bar) don't need a redraw
+        lastW = window.innerWidth;
+        clearTimeout(rT); rT = setTimeout(() => { refitGantt(); refitDpts(); }, 300);
+    });
+    function init(){
+        setup({ sidebar: 'ganttSidebar2', hostSel: '.gantt-plot-wrap > .m-2', intoToolbar: true, title: 'Gantt filters', btnClass: 'gantt-reset-btn', refit: refitGantt });
+        setup({ sidebar: 'dptsSidebar', hostSel: '.dpts-plot-wrap', intoToolbar: false, title: 'DP Stats filters', btnClass: 'dpts-reset-btn', refit: refitDpts });
+    }
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 

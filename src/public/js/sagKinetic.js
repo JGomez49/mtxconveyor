@@ -288,7 +288,13 @@
             let Mo = Mm;
             if (useAxial) { const EI = (e.c.E || E) * Math.PI * (Math.pow(e.c.od, 4) - Math.pow(e.c.id, 4)) / 64 * (e.c.sf == null ? 1 : e.c.sf);
                 Mo = EI * (u[2 * j + 1] - u[2 * e.i + 1] - (e.i === bendNode ? bend : 0)) / e.L; }
-            out.push({ DistanceFromBit: xs[j], ShearForce: useAxial ? null : V, BendingMoment: Mo, Sag: u[2 * j + 1] - kv * xs[j], Drop: u[2 * j] - yc[j], ReactionForce: R_at[j],
+            // CHANGED 2026-11-07 (John: Kinetic showed no shear with "Axial load" ticked): V = sum(R) - integral(w) is the
+            // LATERAL shear by statics (forces perpendicular to the hole axis on the free body from the bit to x); the axial
+            // load acts along the (straight) hole axis and adds nothing to it, so V is valid with axial load too. Only the
+            // moment needs the FE curvature then (M = EI y'' includes the N*y' effect), so V = dM/dx no longer holds exactly.
+            // Was: ShearForce null when useAxial. (With hole curvature on, the axial force turns with the hole: lateral
+            // component N*kappa per metre, not included — small for planning doglegs.)
+            out.push({ DistanceFromBit: xs[j], ShearForce: V, BendingMoment: Mo, Sag: u[2 * j + 1] - kv * xs[j], Drop: u[2 * j] - yc[j], ReactionForce: R_at[j],
                 AxialForce: useAxial ? Nax[e.i] : null }); });
         // slope just above the bend node is theta+ (= theta- + bend)
         if (bendNode >= 0) out[bendNode].SagAbove = u[2 * bendNode + 1] + bend;

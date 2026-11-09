@@ -30,6 +30,18 @@ self.onmessage = function (ev) {
                 moment: r.elements.map(e => e.BendingMoment), sag: r.elements.map(e => e.Sag * 180 / Math.PI),
                 drop: r.elements.map(e => e.Drop), reaction: r.elements.map(e => e.ReactionForce),
             } });
+        } else if (m.type === 'profileBoth') {
+            // ADDED 2026-11-07 (John: station view — same beam diagrams from BOTH models). m.kinInput carries the
+            // station's Kinetic options (curvature / bend TF / WOB); Beam (SurQC) uses m.input at the same inclination.
+            const pack = (r, s) => ({ status: r.status, iterations: r.iterations, residualOutOfHole: r.residualOutOfHole, contacts: r.contacts == null ? null : r.contacts,
+                sensorSag: s.value, failure: s.failure || null, dawsonPaslayRatio: r.dawsonPaslayRatio == null ? null : r.dawsonPaslayRatio,
+                x: (r.elements || []).map(e => e.DistanceFromBit), shear: (r.elements || []).map(e => e.ShearForce), moment: (r.elements || []).map(e => e.BendingMoment),
+                sag: (r.elements || []).map(e => e.Sag * 180 / Math.PI), drop: (r.elements || []).map(e => e.Drop), reaction: (r.elements || []).map(e => e.ReactionForce) });
+            const out = { inc: m.inc };
+            try { const k = solveOne('Kinetic', m.kinInput || m.input, m.inc, m.opts); out.kinetic = pack(k.r, k.s); } catch (e) { out.kinetic = { error: String(e && e.message || e) }; }
+            self.postMessage({ type: 'profileBothPartial', res: out });
+            if (m.beam !== false) { try { const b = solveOne('Beam', m.input, m.inc, m.opts); out.beam = pack(b.r, b.s); } catch (e) { out.beam = { error: String(e && e.message || e) }; } }
+            self.postMessage({ type: 'profileBoth', res: out });
         } else if (m.type === 'stations') {
             // 2026-10-24 per-station mode (Kinetic planar #6-#8): one solve per
             // survey station with that station's dogleg/toolface/WOB.

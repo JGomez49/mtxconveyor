@@ -79,9 +79,12 @@
 
     /* HEADER */
     header {
-      position: relative;
-      z-index: 10;
-      background: linear-gradient(180deg, #0d1520, transparent);
+      /* sticky so Run + toggles stay reachable while scrolling (2026-11-08) */
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      flex-wrap: wrap;
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
       padding: 10px 20px;
       display: flex;
@@ -127,7 +130,25 @@
     .hdr-right {
       display: flex;
       align-items: center;
-      gap: 8px
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .btn-run.hdr-run {
+      width: auto;
+      margin-top: 0
+    }
+
+    header .btn.btn-run.hdr-save {
+      background: transparent;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+      box-shadow: none
+    }
+
+    header .btn.btn-run.hdr-save:hover {
+      background: var(--accent2);
+      color: #fff
     }
 
     .unit-toggle {
@@ -166,27 +187,78 @@
       letter-spacing: 1px
     }
 
-    /* LAYOUT */
+    /* LAYOUT
+       CHANGED 2026-11-08 (John): the old layout was a fixed 390px left input
+       column + results on the right, too small to read on meeting-room TVs and
+       phones. Now a single full-width column, top to bottom:
+         sticky header (title, Run, theme/unit/presentation toggles)
+         -> Job Connection card -> summary tiles -> plots (1 per row, each with
+         a collapsed data-table accordion) -> input accordions (all collapsed)
+         -> sticky status bar.
+       Pure layout change — no calculation code touched. */
     .app {
       position: relative;
       z-index: 1;
-      display: grid;
-      grid-template-columns: 390px 1fr;
-      min-height: calc(100vh - 58px)
+      display: block;
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 0 14px
     }
 
-    .left {
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      max-height: calc(100vh - 58px);
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent
+    .td-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin: 14px 0
+    }
+
+    .td-card-hdr {
+      padding: 9px 14px;
+      background: var(--panel2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .td-card-body {
+      padding: 11px 14px
     }
 
     .right {
       display: flex;
-      flex-direction: column;
+      flex-direction: column
+    }
+
+    .inputs {
+      margin: 14px 0
+    }
+
+    .inputs-ttl {
+      font-family: var(--cond);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 0
+    }
+
+    .inputs .sec,
+    .inputs>div {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 8px;
       overflow: hidden
+    }
+
+    /* Wide screens: let input fields flow across the width instead of 2 narrow columns */
+    @media (min-width: 900px) {
+      .inputs .fg,
+      .inputs .fg.tri,
+      .td-card .fg {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 320px))
+      }
     }
 
     /* LEFT SECTIONS */
@@ -616,20 +688,24 @@
       white-space: nowrap
     }
 
+    /* Summary values @ TD — CHANGED 2026-11-08 from small pills to large
+       tiles (same markup/ids written by runModel(), only restyled). */
     .chips {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-left: auto
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+      width: 100%;
+      margin-top: 6px
     }
 
     .chip {
       font-family: var(--mono);
-      font-size: 8px;
-      padding: 3px 7px;
-      border-radius: 2px;
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 4px;
       border: 1px solid;
-      white-space: nowrap
+      text-align: center;
+      white-space: normal
     }
 
     .cb {
@@ -664,9 +740,7 @@
 
     /* CHARTS — stacked panels each with chart left + table right */
     .charts {
-      flex: 1;
-      overflow-y: auto;
-      padding: 14px;
+      padding: 14px 0;
       display: flex;
       flex-direction: column;
       gap: 14px
@@ -723,6 +797,159 @@
       align-items: center
     }
 
+    /* Depth timeline (2026-11-08 round 5) */
+    .tl { position: relative; padding: 4px 0 8px; user-select: none }
+    .tl-axis { position: relative; height: 18px; margin: 0 40px 2px 4px; font-family: var(--mono); font-size: 10px; color: var(--text-dim) }
+    .tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap }
+    .tl-axis .tl-td { transform: translateX(-100%); color: var(--text-bright) }
+    .tl-lane-lbl { font-family: var(--cond); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin: 4px 0 12px }
+    .tl-lane { position: relative; height: 30px; margin: 0 40px 4px 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px }
+    .tl-sec, .tl-run, .tl-gap { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; overflow: hidden }
+    .tl-sec span, .tl-run span { display: block; padding: 0 6px; line-height: 24px; font-family: var(--mono); font-size: 11px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    .tl-sec { opacity: .85 }
+    .tl-shoe { position: absolute; top: -12px; transform: translateX(-50%); color: var(--text-bright); font-size: 10px }
+    .tl-run { background: var(--accent); cursor: pointer; border: 2px solid transparent }
+    .tl-run span { color: #001018 }
+    .tl-run.off { background: repeating-linear-gradient(45deg, var(--border), var(--border) 6px, transparent 6px, transparent 12px); }
+    .tl-run.off span { color: var(--text-dim) }
+    .tl-run.sel { border-color: var(--accent2); box-shadow: 0 0 0 2px var(--accent2) }
+    .tl-gap { background: repeating-linear-gradient(45deg, rgba(255,64,96,.55), rgba(255,64,96,.55) 5px, transparent 5px, transparent 10px) }
+    body.present .tl-lane { height: 40px }
+    body.present .tl-sec span, body.present .tl-run span { line-height: 34px; font-size: 14px }
+    body.present .tl-axis { font-size: 13px; height: 22px }
+    body.present .tl-lane-lbl { font-size: 13px }
+
+    /* "?" help button + floating window (2026-11-08 round 3) */
+    .pp-help {
+      margin-left: auto;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-family: var(--cond);
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0
+    }
+
+    .pp-help:hover {
+      background: var(--accent);
+      color: var(--bg)
+    }
+
+    .hp-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px
+    }
+
+    .hp-modal.open {
+      display: flex
+    }
+
+    .hp-win {
+      background: var(--panel);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      width: 100%;
+      max-width: 860px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, .5)
+    }
+
+    .hp-hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel2)
+    }
+
+    .hp-hdr h3 {
+      flex: 1;
+      font-family: var(--cond);
+      font-size: 20px;
+      letter-spacing: 1px;
+      color: var(--text-bright);
+      text-transform: uppercase
+    }
+
+    .hp-x {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 34px;
+      height: 34px;
+      border-radius: 4px;
+      cursor: pointer
+    }
+
+    .hp-body {
+      padding: 6px 18px 18px;
+      overflow-y: auto;
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--text)
+    }
+
+    .hp-body h4 {
+      font-family: var(--cond);
+      font-size: 15px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 16px 0 6px
+    }
+
+    .hp-body p {
+      margin: 6px 0
+    }
+
+    .hp-eq {
+      font-family: var(--mono);
+      font-size: 15px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      line-height: 1.8;
+      overflow-x: auto
+    }
+
+    .hp-eq-in {
+      font-family: var(--mono);
+      white-space: nowrap
+    }
+
+    .hp-src {
+      font-size: 13px;
+      padding-left: 20px;
+      color: var(--text-dim)
+    }
+
+    .hp-src li {
+      margin: 4px 0
+    }
+
+    @media (max-width: 700px) {
+      .hp-modal { padding: 0 }
+      .hp-win { max-height: 100vh; height: 100%; border-radius: 0 }
+      .hp-body { font-size: 15px }
+    }
+
     .pp-ttl {
       font-family: var(--cond);
       font-size: 9px;
@@ -732,29 +959,54 @@
       color: var(--text-dim)
     }
 
-    /* body: left = chart, right = table */
-    .pp-body {
-      display: grid;
-      grid-template-columns: 60% 40%
-    }
-
-    .pp-body.wide3d {
-      grid-template-columns: 65% 35%
-    }
-
-    /* chart area */
+    /* CHANGED 2026-11-08: chart now full width (was 60/40 chart|table);
+       the data table sits under it in a collapsed accordion (.pp-tsec). */
     .pp-chart {
       position: relative;
-      border-right: 1px solid var(--border);
-      height: 320px
-    }
-
-    .pp-chart.tall {
       height: 420px
     }
 
+    .pp-chart.tall {
+      height: 520px
+    }
+
     .pp-chart.h3d {
-      height: 480px
+      height: 600px
+    }
+
+    .pp-tsec {
+      border-top: 1px solid var(--border)
+    }
+
+    .pp-thdr {
+      padding: 7px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      font-family: var(--cond);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim)
+    }
+
+    .pp-thdr:hover {
+      background: var(--panel2)
+    }
+
+    .pp-thdr .sec-tog {
+      margin-left: auto
+    }
+
+    .pp-tsec .pp-tbl {
+      display: none
+    }
+
+    .pp-tsec.open .pp-tbl {
+      display: block
     }
 
     .pp-chart canvas {
@@ -771,15 +1023,7 @@
     /* panel result table */
     .pp-tbl {
       overflow: auto;
-      height: 320px
-    }
-
-    .pp-tbl.tall {
-      height: 420px
-    }
-
-    .pp-tbl.h3d {
-      height: 480px
+      max-height: 480px
     }
 
     table.ptbl {
@@ -860,6 +1104,9 @@
 
     /* STATUS BAR */
     .sbar {
+      position: sticky;
+      bottom: 0;
+      z-index: 40;
       background: var(--panel);
       border-top: 1px solid var(--border);
       padding: 5px 14px;
@@ -919,6 +1166,72 @@
       margin: 8px 14px
     }
 
+    /* ============================================================
+       PRESENTATION MODE (added 2026-11-08, John) — large type for
+       meeting-room TVs. ON by default; choice saved per browser in
+       localStorage key 'mtxTdPresentation' (same mechanism as the
+       site-wide theme preference). Chart fonts/line widths follow
+       via isPresent() in buildCO()/mkLine()/Plotly layout.
+       ============================================================ */
+    body.present .hdr-title h1 { font-size: 26px }
+    body.present .hdr-title p { font-size: 11px }
+    body.present .unit-btn { font-size: 13px; padding: 7px 14px }
+    body.present .badge { font-size: 11px }
+    body.present .sec-hdr { padding: 13px 16px }
+    body.present .sec-num { font-size: 12px }
+    body.present .sec-ttl,
+    body.present .inputs-ttl,
+    body.present .rtbar h2 { font-size: 18px }
+    body.present .sec-tog { font-size: 12px }
+    body.present .sec-body,
+    body.present .td-card-body { padding: 14px 16px }
+    body.present label { font-size: 12px }
+    body.present input[type=number],
+    body.present input[type=text],
+    body.present select { font-size: 16px; padding: 8px 9px }
+    body.present .hint { font-size: 12px }
+    body.present table.dt { font-size: 14px }
+    body.present table.dt th { font-size: 11px; padding: 6px }
+    body.present table.dt td input { font-size: 14px; padding: 6px; min-width: 60px }
+    body.present .btn { font-size: 14px; padding: 8px 14px }
+    body.present .btn-run { font-size: 16px; padding: 11px 24px }
+    body.present .chip { font-size: 20px; padding: 14px }
+    body.present .pp-ttl { font-size: 15px }
+    body.present .pp-thdr { font-size: 14px; padding: 10px 14px }
+    body.present table.ptbl { font-size: 13px }
+    body.present table.ptbl th { font-size: 11px; padding: 6px 8px }
+    body.present table.ptbl td { padding: 4px 8px }
+    body.present .pp-chart { height: 520px }
+    body.present .pp-chart.tall { height: 640px }
+    body.present .pp-chart.h3d { height: 720px }
+    body.present .sbar { font-size: 12px }
+    body.present .slbl, body.present .sval { font-size: 13px }
+    body.present .drop p { font-size: 13px }
+    body.present #buckPanel { font-size: 15px !important }
+    /* helMode select carries an inline font-size, so it needs !important */
+    body.present #helMode { font-size: 16px !important; padding: 8px !important }
+
+    /* PHONES */
+    @media (max-width: 700px) {
+      /* not sticky on phones: the wrapped header would cover ~1/3 of the screen */
+      header { position: relative; padding: 8px 10px; gap: 8px }
+      body.present .hdr-title h1 { font-size: 20px }
+      body.present .unit-btn { font-size: 11px; padding: 6px 10px }
+      body.present .chip { font-size: 15px; padding: 10px 6px }
+      body.present #buckPanel { font-size: 12px !important }
+      .hdr-title p { display: none }
+      .hdr-right { width: 100% }
+      .btn-run.hdr-run { flex: 1 1 100% }
+      .app { padding: 0 8px }
+      .pp-chart, .pp-chart.tall { height: 360px }
+      .pp-chart.h3d { height: 420px }
+      body.present .pp-chart, body.present .pp-chart.tall { height: 420px }
+      body.present .pp-chart.h3d { height: 460px }
+      .chips { grid-template-columns: 1fr 1fr }
+      /* keep the first column (component / name / MD) visible while the table scrolls sideways */
+      table.dt td:first-child, table.dt th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel) }
+    }
+
     ::-webkit-scrollbar {
       width: 4px;
       height: 4px
@@ -935,7 +1248,7 @@
   </style>
 </head>
 
-<body>
+<body class="present">
 
   <header>
     <div class="logo-hex">+</div>
@@ -944,6 +1257,17 @@
       <p>SOFT-STRING (JOHANCSIK 1984) · 3D TRAJECTORY · WELLPLAN-STYLE OUTPUT · EDR CALIBRATION</p>
     </div>
     <div class="hdr-right">
+      <!-- Run moved here from the bottom of the old left panel (2026-11-08) -->
+      <button class="btn btn-run hdr-run" onclick="runModel()">RUN T&amp;D MODEL</button>
+      <!-- 2026-11-08 round 6: Save moved here from the Job Connection card, where it only
+           appeared after a job WITH subject-well trajectories was loaded. -->
+      <button class="btn btn-run hdr-run hdr-save" id="btnHdrSave" onclick="saveModelToJob()" title="Save parameters + results of the selected well / scenario to the job (shown in job.ejs)">&#128190; SAVE TO JOB</button>
+      <!-- 2026-11-08 (round 2): PRESENT/COMPACT toggle removed (John: large
+           type only). Replaced by a legend show/hide toggle for all plots. -->
+      <div class="unit-toggle" title="Show / hide plot legends (default: shown on PC, hidden on phones)">
+        <button class="unit-btn" id="btnLegOn" onclick="setLegend(true)">LEGEND</button>
+        <button class="unit-btn" id="btnLegOff" onclick="setLegend(false)">HIDE</button>
+      </div>
       <div class="unit-toggle">
         <button class="unit-btn active" id="btnThemeDark" onclick="setTheme('dark')">DARK</button>
         <button class="unit-btn" id="btnThemeLight" onclick="setTheme('light')">LIGHT</button>
@@ -958,16 +1282,14 @@
 
   <div class="app">
 
-    <!-- ===== LEFT INPUT PANEL ===== -->
-    <div class="left">
-
-      <!-- 00 JOB CONNECTION -->
-      <div class="sec">
-        <div class="sec-hdr" onclick="toggleSec(this)">
-          <span class="sec-num">00</span><span class="sec-ttl">Job Connection</span><span
-            class="sec-tog open">v</span>
+    <!-- ===== 00 JOB CONNECTION (always visible, above results) =====
+         CHANGED 2026-11-08: was the first section of the old left panel.
+         Class td-setup keeps it wired to auto-save (see initTdAutoSave). -->
+    <div class="td-card td-setup">
+        <div class="td-card-hdr">
+          <span class="sec-num">00</span><span class="sec-ttl">Job Connection</span>
         </div>
-        <div class="sec-body open">
+        <div class="td-card-body">
           <div class="fg">
             <div><label>Job ID (MTX ID)</label><input type="text" id="tdMtxJobId" placeholder="e.g. 1953" /></div>
             <div style="display:flex; align-items:flex-end;">
@@ -991,20 +1313,60 @@
             <button class="btn btn-g" onclick="tdSetActiveScenario()">⭐ Set as Active</button>
             <button class="btn btn-g btn-del" onclick="tdDeleteScenario()">🗑 Delete Scenario</button>
           </div>
-          <div class="brow" id="tdSaveRow" style="display:none;">
-            <button class="btn btn-g" onclick="saveModelToJob()">💾 Save Parameters + Results to Job</button>
-          </div>
+          <div class="brow" id="tdSaveRow" style="display:none;"></div><!-- Save button now in the header (round 6) -->
           <p class="hint" id="tdJobStatus">Enter a Job ID to pull its subject-well trajectories in as survey data, and to load/save casing, BHA, and friction-factor parameters for that job.</p>
         </div>
+    </div>
+
+    <!-- ===== RESULTS (moved above the inputs) ===== -->
+    <div class="right">
+      <div class="rtbar">
+        <h2>Results</h2>
+        <div class="chips" id="chips">
+          <span class="chip cb">ROT OB @ TD: --</span>
+          <span class="chip co">SLIDE @ TD: --</span>
+          <span class="chip cg">TRIP OUT @ TD: --</span>
+          <span class="chip cr">TRIP IN @ TD: --</span>
+          <span class="chip cp">TORQUE @ TD: --</span>
+        </div>
       </div>
+      <!-- Snapshot depth (added 2026-11-08) -->
+      <div class="brow" id="snapBar" style="align-items:center;margin:8px 0 0">
+        <span class="slbl" title="Effective Tension, Side Forces and Surf. Torque are computed with the bit at this depth">SNAPSHOT (Eff. Tension / Side Forces / Torque)</span>
+        <div class="unit-toggle">
+          <button class="unit-btn" id="btnSnapAuto" onclick="planSetSnapMode('auto')">AUTO</button>
+          <button class="unit-btn" id="btnSnapMan" onclick="planSetSnapMode('manual')">MANUAL</button>
+        </div>
+        <select id="snapRun" onchange="planSnapChanged()" style="width:auto;max-width:100%"></select>
+        <span id="snapMDWrap" style="display:none"><label id="lSnapMD" style="display:inline;margin-right:6px">Bit MD (m)</label><input type="number" id="snapMD" step="any" style="width:120px" onchange="planSnapChanged()"/></span>
+        <button class="btn btn-g" onclick="runModel()">Apply</button>
+        <span class="hint" id="snapInfo" style="margin:0"></span>
+      </div>
+      <div id="errbox" class="errbox"></div>
+      <div id="buckPanel" style="display:none;margin:10px 0 0;padding:10px 12px;border:1px solid var(--border);background:var(--panel);font-family:var(--mono);font-size:11px;line-height:1.7"></div>
+      <div class="charts" id="chartsArea">
+        <div class="ph" id="ph">
+          <div class="ph-icon">O</div>
+          <h3>Ready to Model</h3>
+          <p>The CNRL ETS 158861 example is pre-loaded, plus an <strong>illustrative intermediate BHA run</strong> (222 mm hole, 200–1138 m — made-up test values) to show hole sections &amp; runs. Click <strong>Run T&amp;D Model</strong> to compute all plots
+            and tables.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INPUT ACCORDIONS (all collapsed by default; several can be open) =====
+         CHANGED 2026-11-08: these were the old left panel. Class td-setup keeps
+         them wired to auto-save. -->
+    <div class="inputs td-setup">
+      <div class="inputs-ttl">Model Inputs</div>
 
       <!-- 01 GLOBAL -->
       <div class="sec">
         <div class="sec-hdr" onclick="toggleSec(this)">
           <span class="sec-num">01</span><span class="sec-ttl">Global Parameters</span><span
-            class="sec-tog open">v</span>
+            class="sec-tog">v</span>
         </div>
-        <div class="sec-body open">
+        <div class="sec-body">
           <div class="fg">
             <div><label id="lMW">Mud Weight (kg/m3)</label><input type="number" id="mudWeight" value="1040" step="1" />
             </div>
@@ -1052,7 +1414,7 @@
             <div><label>FF Open Hole</label><input type="number" id="ffOH" value="0.32" step="0.01" min="0.01"
                 max="0.8" /></div>
           </div>
-          <p class="hint">FF typical: 0.15-0.25 cased / 0.25-0.40 open hole. CNRL defaults loaded.</p>
+          <p class="hint">FF typical: 0.15-0.25 cased / 0.25-0.40 open hole. CNRL defaults loaded. Mud weight and FF Open Hole are set per hole section (03B); WOB and torque at bit per BHA run (04).</p>
         </div>
       </div>
 
@@ -1116,12 +1478,45 @@
         </div>
       </div>
 
-      <!-- 04 BHA -->
+      <!-- 04 HOLE SECTIONS & BHA RUNS (2026-11-08; merged into one accordion in round 5) -->
       <div class="sec">
         <div class="sec-hdr" onclick="toggleSec(this)">
-          <span class="sec-num">04</span><span class="sec-ttl">Drill String / BHA</span><span class="sec-tog">v</span>
+          <span class="sec-num">04</span><span class="sec-ttl">Hole Sections &amp; BHA Runs</span><span class="sec-tog">v</span>
         </div>
         <div class="sec-body">
+          <div id="planTimeline" class="tl"></div>
+          <p class="hint" id="planWarn"></p>
+          <div class="inputs-ttl" style="font-size:13px;margin-top:10px">Hole Sections</div>
+          <div class="brow" style="align-items:center;margin-bottom:8px">
+            <span class="slbl">SECTION LIMITS</span>
+            <div class="unit-toggle" title="Auto: limits follow the casing shoes (surface, each shoe, TD). Manual: type From / To.">
+              <button class="unit-btn" id="btnSecAuto" onclick="planSetSectionMode('auto')">AUTO</button>
+              <button class="unit-btn" id="btnSecMan" onclick="planSetSectionMode('manual')">MANUAL</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead><tr><th>Section</th><th id="th_sfrom">From (m)</th><th id="th_sto">To (m)</th><th>Hole &Oslash; (mm)</th><th id="th_smw">MW (kg/m3)</th><th>FF Open Hole</th><th></th></tr></thead>
+              <tbody id="secBody"></tbody>
+            </table>
+          </div>
+          <div class="brow" id="secAddRow"><button class="btn btn-g" onclick="planAddSection()">+ Section</button></div>
+          <p class="hint">Each section has its own hole size, mud weight and open-hole friction factor. When a run drills a section, that section's casing is not set yet: the model uses only casings whose shoe is at or above the run's From MD, and the hole size / FF Open Hole of the section below them. Mud weight = the section the run is drilling. Cased-hole FF stays FF Casing 1 / 2 (Global Parameters).</p>
+          <div class="inputs-ttl" style="font-size:13px;margin-top:14px">BHA Runs</div>
+          <!-- BHA runs (added 2026-11-08) -->
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead><tr><th title="Run shown in the BHA / Drill Pipe tables below">Edit</th><th title="Use this run in the T&amp;D model">T&amp;D</th><th>Run</th><th id="th_rfrom">From (m)</th><th id="th_rto">To (m)</th><th id="th_rwobr">WOB Rot (kDaN)</th><th id="th_rwobs">WOB Slide (kDaN)</th><th>Torque @ Bit (N.m)</th><th></th></tr></thead>
+              <tbody id="runBody"></tbody>
+            </table>
+          </div>
+          <div class="brow">
+            <button class="btn btn-g" onclick="planAddRun(false)">+ Run</button>
+            <button class="btn btn-g" onclick="planAddRun(true)">&#10697; Duplicate Edited Run</button>
+          </div>
+          
+          <p class="hint">From / To = bit MD drilled by that BHA. Untick <strong>T&amp;D</strong> for runs that should not be modelled (e.g. a clean-out re-run over the same interval); where two ticked runs overlap, the one starting deeper is used.</p>
+          <div class="inputs-ttl" style="font-size:13px;margin-top:10px">BHA — editing: <span id="runEditName" style="color:var(--accent)">—</span></div>
           <div class="tbl-wrap">
             <table class="dt">
               <thead>
@@ -1143,8 +1538,39 @@
             <button class="btn btn-g" onclick="exportBHAExcel()">⬇ Export to Excel</button>
             <button class="btn btn-g" onclick="document.getElementById('bhaImportFile').click()">⬆ Import from Excel</button>
             <input type="file" id="bhaImportFile" accept=".xlsx,.xls" style="display:none;" onchange="importBHAExcel(event)"/>
+            <!-- ADDED 2026-11-07 (John: modules inter-connected): BHA from a saved SAGcorrection case -->
+            <button class="btn btn-g" onclick="sagPickOpen()">⬇ From SAGcorrection case</button>
+            <!-- ADDED 2026-11-08 round 5: component catalogue public/data/bhaLibrary.json -->
+            <button class="btn btn-g" onclick="libPickOpen()">&#128218; From BHA Library</button>
+          </div>
+          <div id="sagPick" style="display:none;margin:6px 0;padding:6px;border:1px solid var(--border);">
+            <select id="sagPickCase" onchange="sagPickCase()" style="max-width:100%;margin-bottom:4px;"></select>
+            <select id="sagPickBha" style="max-width:100%;margin-bottom:4px;"></select>
+            <div class="brow"><button class="btn btn-g" onclick="sagPickImport()">Import (replaces the table)</button><button class="btn btn-g" onclick="document.getElementById('sagPick').style.display='none'">Cancel</button></div>
+            <p class="hint" id="sagPickNote">All rows of the case BHA are imported (also the ones unticked / beyond the SAG length limit — T&amp;D needs the full string). Empty weights are filled from OD/ID × steel density.</p>
+          </div>
+          <div id="libPick" style="display:none;margin:6px 0;padding:8px;border:1px solid var(--border);">
+            <div class="fg" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+              <div><label>Category</label><select id="libCat" onchange="libPickCat()"></select></div>
+              <div style="grid-column:span 2"><label>Item</label><select id="libItem" onchange="libPickItem()"></select></div>
+              <div><label id="lLibLen">Length (m)</label><input type="number" id="libLen" step="any"/></div>
+              <div><label>Add to</label><select id="libTarget"><option value="bha">BHA table</option><option value="dp">Drill Pipe table</option></select></div>
+            </div>
+            <div class="brow"><button class="btn btn-g" onclick="libPickAdd()">+ Add on top</button><button class="btn btn-g" onclick="document.getElementById('libPick').style.display='none'">Close</button></div>
+            <p class="hint" id="libNote"></p>
+            <p class="hint">Catalogue: public/data/bhaLibrary.json (dimensions converted from Hydraulics.xls — DC, HWDP, DP, SWDP, MWD, motors). Adds single components; complete BHAs per area can be added later as saved templates.</p>
           </div>
           <p class="hint">List bottom-up: Bit first, then up to DP. OD/ID always in mm. Import <strong>replaces</strong> the whole table below — export first if you want to keep the current one.</p>
+          <!-- Drill pipe per run (added 2026-11-08) -->
+          <div class="inputs-ttl" style="font-size:13px;margin-top:12px">Drill Pipe above the BHA — editing run</div>
+          <div class="tbl-wrap">
+            <table class="dt">
+              <thead><tr><th>Component</th><th>OD (mm)</th><th>ID (mm)</th><th id="th_dlen">Length (m)</th><th id="th_dwt">Wt (kg/m)</th><th></th></tr></thead>
+              <tbody id="dpBody"></tbody>
+            </table>
+          </div>
+          <div class="brow"><button class="btn btn-g" onclick="addDP()">+ Drill Pipe</button></div>
+          <p class="hint">Bottom-up, starting right above the BHA (e.g. HWDP, then DP; tapered strings: one row per size). The <strong>top row is extended to surface</strong>, so its length only matters if it is not the top. Leave empty to keep the old behaviour (the BHA table above holds the whole string; anything above it is a default 114.3 mm / 41.2 kg/m DP).</p>
         </div>
       </div>
 
@@ -1162,7 +1588,7 @@
             <div><label id="lTD">Total Depth TD (m MD)</label><input type="number" id="td" value="3487.9" step="0.1" />
             </div>
           </div>
-          <p class="hint">Open hole begins at last casing shoe (OH Top) and extends to TD.</p>
+          <p class="hint">Open-hole size is set per hole section (03B). TD is the well TD (survey is extended to it).</p>
         </div>
       </div>
 
@@ -1297,42 +1723,14 @@
         </div>
       </div>
 
-      <!-- RUN -->
-      <div style="padding:12px">
-        <button class="btn btn-run" onclick="runModel()">RUN T&amp;D MODEL</button>
-      </div>
-
-    </div><!-- /left -->
-
-    <!-- ===== RIGHT RESULTS PANEL ===== -->
-    <div class="right">
-      <div class="rtbar">
-        <h2>Results</h2>
-        <div class="chips" id="chips">
-          <span class="chip cb">ROT OB @ TD: --</span>
-          <span class="chip co">SLIDE @ TD: --</span>
-          <span class="chip cg">TRIP OUT @ TD: --</span>
-          <span class="chip cr">TRIP IN @ TD: --</span>
-          <span class="chip cp">TORQUE @ TD: --</span>
-        </div>
-      </div>
-      <div id="errbox" class="errbox"></div>
-      <div id="buckPanel" style="display:none;margin:10px 14px 0;padding:10px 12px;border:1px solid var(--border);background:var(--panel);font-family:var(--mono);font-size:11px;line-height:1.7"></div>
-      <div class="charts" id="chartsArea">
-        <div class="ph" id="ph">
-          <div class="ph-icon">O</div>
-          <h3>Ready to Model</h3>
-          <p>The CNRL ETS 158861 example is pre-loaded. Click <strong>Run T&amp;D Model</strong> to compute all plots
-            and tables.</p>
-        </div>
-      </div>
-      <div class="sbar">
-        <div class="sdot" id="sdot"></div>
-        <span id="smsg">Awaiting input — CNRL example loaded, click Run</span>
-      </div>
-    </div>
+    </div><!-- /inputs -->
 
   </div><!-- /app -->
+
+  <div class="sbar">
+    <div class="sdot" id="sdot"></div>
+    <span id="smsg">Awaiting input — CNRL example loaded, click Run</span>
+  </div>
 
   <script>
     // =============================================================
@@ -1385,7 +1783,38 @@
       if(cachedSurv) runModel();
     }
 
+    // =============================================================
+    // PRESENTATION MODE — 2026-11-08 round 2: COMPACT removed at John's
+    // request; <body class="present"> is now static, so large type is the
+    // only view. (Round 1 had a PRESENT/COMPACT toggle saved in
+    // localStorage 'mtxTdPresentation'; that key is no longer read.)
+    //
+    // LEGEND TOGGLE (added 2026-11-08 round 2): shows/hides the legend on
+    // every Chart.js plot and the Plotly 3D view. Default: shown on PC,
+    // hidden on phones (<=700px, same breakpoint as the phone CSS). Not
+    // saved between sessions — the default depends on the device.
+    // =============================================================
+    var SHOW_LEGEND = !(window.matchMedia && window.matchMedia('(max-width: 700px)').matches);
+    function setLegend(on) {
+      SHOW_LEGEND = !!on;
+      var a = document.getElementById('btnLegOn'), b = document.getElementById('btnLegOff');
+      if (a) a.classList.toggle('active', SHOW_LEGEND);
+      if (b) b.classList.toggle('active', !SHOW_LEGEND);
+      CO = buildCO();
+      // Update charts in place (no model re-run needed).
+      Object.keys(charts || {}).forEach(function (k) {
+        try { charts[k].options.plugins.legend.display = SHOW_LEGEND; charts[k].update('none'); } catch (e) { }
+      });
+      var p3 = document.getElementById('plotly3d');
+      if (p3 && p3.data && typeof Plotly !== 'undefined') Plotly.relayout(p3, { showlegend: SHOW_LEGEND });
+    }
+
     function setUnits(u) {
+      if (PLAN && u !== UNIT) { planSyncTables(); planReadRuns(); planReadSections(); } // keep SI copy before switching
+      setUnitsCore(u);
+      if (PLAN) planRenderAll();
+    }
+    function setUnitsCore(u) {
       var prev = UNIT;
       UNIT = u;
       document.getElementById('btnMet').classList.toggle('active', u === 'metric');
@@ -1453,7 +1882,9 @@
       return '<td><input type="number" value="' + v + '" placeholder="' + ph + '" step="any"/></td>';
     }
     function mkText(v, ph) {
-      return '<td><input type="text" value="' + v + '" placeholder="' + ph + '"/></td>';
+      // 2026-11-08 round 5: escape the value — names like 4-3/4" MOTOR (BHA library,
+      // SAGcorrection) were cut at the quote mark and broke the input.
+      return '<td><input type="text" value="' + esc(v) + '" placeholder="' + ph + '"/></td>';
     }
     function delBtn() {
       return '<td><button class="del" onclick="this.closest(\'tr\').remove()">x</button></td>';
@@ -1482,6 +1913,48 @@
       var tr = document.createElement('tr');
       tr.innerHTML = mkText(nm, 'Component') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(len, 'Len') + mkCell(wt, 'Wt') + delBtn();
       document.getElementById('bhaBody').appendChild(tr);
+    }
+
+    // ---------------- BHA from a SAGcorrection case (ADDED 2026-11-07, John) ----------------
+    // Lists the saved SAGcorrection cases (same endpoints and role check as that page); a case gives its BHA (panel 2)
+    // and, when it uses runs, one BHA per run. SAG rows are SI (od_mm, id_mm, len_m, wt_kgm); converted to this table's
+    // display units like importBHAExcel. Empty weight -> steel density (this page's field) x pi/4 (OD^2 - ID^2).
+    var sagPickData = null;
+    async function sagPickOpen() {
+      var box = document.getElementById('sagPick'); box.style.display = '';
+      var sel = document.getElementById('sagPickCase'); sel.innerHTML = '<option>Loading…</option>';
+      try {
+        var r = await fetch('/notes/sagCorrection/cases'); var d = await r.json();
+        if (!r.ok || !d.cases) throw new Error(d.error || ('HTTP ' + r.status));
+        sel.innerHTML = '<option value="">— SAGcorrection case —</option>' + d.cases.map(function (c) {
+          return '<option value="' + c._id + '">' + String(c.name).replace(/</g, '&lt;') + ' · ' + (c.createdByName || '') + ' · ' + new Date(c.createdAt).toLocaleDateString() + '</option>'; }).join('');
+        document.getElementById('sagPickBha').innerHTML = '';
+      } catch (err) { sel.innerHTML = '<option value="">Could not list cases: ' + err.message + '</option>'; }
+    }
+    async function sagPickCase() {
+      var id = document.getElementById('sagPickCase').value, bs = document.getElementById('sagPickBha'); sagPickData = null; bs.innerHTML = '';
+      if (!id) return;
+      try {
+        var d = await (await fetch('/notes/sagCorrection/case/' + id)).json(); if (!d.ok) throw new Error(d.error || 'not found');
+        var c = d.case.inputData || {}, opts = [{ label: 'Case BHA (panel 2) — ' + (c.bhaRows || []).length + ' rows', rows: c.bhaRows || [] }];
+        (c.runs || []).forEach(function (R) { opts.push({ label: 'Run "' + R.name + '" — bit MD ' + (+R.bitIn_m).toFixed(1) + '–' + (+R.bitOut_m).toFixed(1) + ' m — ' + (R.rows || []).length + ' rows', rows: R.rows || [] }); });
+        sagPickData = { name: d.case.name, opts: opts };
+        bs.innerHTML = opts.map(function (o, k) { return '<option value="' + k + '">' + String(o.label).replace(/</g, '&lt;') + '</option>'; }).join('');
+      } catch (err) { bs.innerHTML = '<option value="">' + err.message + '</option>'; }
+    }
+    function sagPickImport() {
+      if (!sagPickData) { alert('Pick a SAGcorrection case first.'); return; }
+      var o = sagPickData.opts[+document.getElementById('sagPickBha').value || 0], rows = (o.rows || []).filter(function (r) { return +r.od_mm > 0 && +r.len_m > 0; });
+      if (!rows.length) { alert('That BHA has no valid rows.'); return; }
+      var M = (UNIT === 'metric'), rho = +document.getElementById('steelDens').value || 7850, filled = 0;
+      document.getElementById('bhaBody').innerHTML = '';
+      rows.forEach(function (r) {
+        var od = +r.od_mm, id_ = +r.id_mm || 0, len = +r.len_m, wt = (r.wt_kgm === '' || r.wt_kgm == null || !(+r.wt_kgm > 0)) ? null : +r.wt_kgm;
+        if (wt == null) { wt = rho * Math.PI / 4 * ((od / 1000) * (od / 1000) - (id_ / 1000) * (id_ / 1000)); filled++; }
+        addBHA(String(r.name || ''), od, id_, +(M ? len : len / FT).toFixed(3), +(M ? wt : wt * KGM2LBFT).toFixed(3));
+      });
+      document.getElementById('sagPick').style.display = 'none';
+      setStatus('ok', 'Imported ' + rows.length + ' BHA component(s) from SAGcorrection case "' + sagPickData.name + '" (' + o.label.split(' — ')[0] + ')' + (filled ? ' — ' + filled + ' empty weight(s) filled from OD/ID × steel density' : '') + ' — replaced the previous table.');
     }
 
     // ---------------- BHA Excel export / import (reuse BHAs across jobs) ----------------
@@ -1720,7 +2193,8 @@
         tripOutRPM: +document.getElementById('tripOutRPM').value || 0,
         ffCal1: +document.getElementById('sl1').value,
         ffCal2: +document.getElementById('sl2').value,
-        ffCal3: +document.getElementById('sl3').value
+        ffCal3: +document.getElementById('sl3').value,
+        plan: planForSave() // hole sections + BHA runs (2026-11-08); null = legacy single BHA
       };
     }
 
@@ -1813,6 +2287,7 @@
       var sel = document.getElementById('tdWellSelect');
       var wellKey = sel.value;
       tdCurrentWellKey = wellKey;
+      try { populateScenarioSelect(); } catch (e) {}   // 2026-11-07
       var well = tdSubjectWells.find(function (w) { return w.wellKey === wellKey; });
       if (!well || !well.survey.length) return;
       document.getElementById('survBody').innerHTML = '';
@@ -1822,6 +2297,9 @@
       // Apply THIS well's saved casing/BHA/params (per-well storage) so
       // switching wells always restores its own setup.
       var applied = applySavedWellParams(wellKey);
+      // round 6: nothing saved for this well -> don't keep the previous well's
+      // (or the preloaded example's) sections / runs: rebuild them for this TD.
+      if (!applied) planResetForWell();
       setStatus('ok', 'Survey loaded for ' + wellKey + ' (' + well.survey.length + ' stations).'
         + (applied ? ' Restored saved casing/BHA/parameters for this well.' : ' Adjust casing/BHA/params, then Run.'));
     }
@@ -1852,6 +2330,7 @@
           populateScenarioSelect();
         }
       } catch (err) { console.warn('fetchSavedTDDoc error:', err); }
+      populateScenarioSelect();   // 2026-11-07: also when the job has no saved T&D yet (shows "Save As New Scenario")
     }
 
     // Scenarios are job-wide (shared names across every well) — see
@@ -1862,9 +2341,14 @@
       var row = document.getElementById('tdScenarioRow');
       var btnRow = document.getElementById('tdScenarioBtnRow');
       var sel = document.getElementById('tdScenarioSelect');
+      // CHANGED 2026-11-07 (John couldn't find "Save As New Scenario"): the button row was hidden until the job had a
+      // first T&D save. Now "Save As New Scenario" shows as soon as a job + well are loaded (it also creates the
+      // first scenario); "Set as Active" / "Delete" and the dropdown appear once scenarios exist.
+      var setBtns = function (on) { btnRow.querySelectorAll('button').forEach(function (b, k) { if (k > 0) b.style.display = on ? '' : 'none'; }); };
       if (!tdSavedDoc || !tdSavedDoc.scenarios || !Object.keys(tdSavedDoc.scenarios).length) {
-        row.style.display = 'none'; btnRow.style.display = 'none'; return;
+        row.style.display = 'none'; btnRow.style.display = (tdCurrentNoteId && tdCurrentWellKey) ? '' : 'none'; setBtns(false); return;
       }
+      setBtns(true);
       var names = Object.keys(tdSavedDoc.scenarios);
       sel.innerHTML = '';
       names.forEach(function (name) {
@@ -1999,6 +2483,16 @@
           if (p.ffCal2 != null) { document.getElementById('sl2').value = p.ffCal2; document.getElementById('v2').textContent = (+p.ffCal2).toFixed(2); }
           if (p.ffCal3 != null) { document.getElementById('sl3').value = p.ffCal3; document.getElementById('v3').textContent = (+p.ffCal3).toFixed(2); }
         }
+        // Hole sections + BHA runs (2026-11-08): saved plan, or migrate the
+        // legacy single BHA / OH inputs just applied above.
+        if (doc.params && doc.params.plan && doc.params.plan.runs && doc.params.plan.runs.length) {
+          PLAN = JSON.parse(JSON.stringify(doc.params.plan));
+          CUR_RUN = PLAN.runs[0].id;
+          planRenderAll();
+        } else {
+          PLAN = null; CUR_RUN = null;
+          planInitFromLegacy();
+        }
     }
 
     // Reuses the current job's already-saved "Hook Load vs Measured Depth"
@@ -2100,12 +2594,17 @@
     }
 
     function initTdAutoSave() {
-      var left = document.querySelector('.left');
-      if (!left) return;
+      // CHANGED 2026-11-08: the old single '.left' panel was split into the
+      // Job Connection card + the input accordions; both carry class
+      // 'td-setup', so listen on each (same behaviour as before).
+      var setups = document.querySelectorAll('.td-setup');
+      if (!setups.length) return;
       // Any typed or picked change in the setup column (params, casing/BHA
       // cell edits, OH inputs, sliders, selects) — delegated:
-      left.addEventListener('input', scheduleAutoSave, true);
-      left.addEventListener('change', scheduleAutoSave, true);
+      setups.forEach(function (left) {
+        left.addEventListener('input', scheduleAutoSave, true);
+        left.addEventListener('change', scheduleAutoSave, true);
+      });
       // Structural changes (add/remove casing or BHA rows) don't fire
       // input events — watch the table bodies:
       ['casBody', 'bhaBody'].forEach(function (id) {
@@ -2119,6 +2618,8 @@
 
     async function saveModelToJob() {
       if (!tdCurrentNoteId) { alert('Load a job first (enter a Job ID and click Load Job).'); return; }
+      // round 6: the button is always visible now — results are stored per well
+      if (!tdCurrentWellKey) { alert('This job has no subject-well trajectories, so there is no well to save the model to. Upload a trajectory for the job first, then Load Job again.'); return; }
       if (!lastChartData) {
         if (!confirm('You haven\'t run the model yet, so no chart results exist to save — only the casing/BHA/parameters will be saved, and job.ejs will show "No Torque & Drag model saved yet" until you run the model and save again. Continue anyway?')) return;
       }
@@ -2292,6 +2793,7 @@
       document.getElementById('ff1').value = document.getElementById('sl1').value;
       document.getElementById('ff2').value = document.getElementById('sl2').value;
       document.getElementById('ffOH').value = document.getElementById('sl3').value;
+      planApplyFFOH(+document.getElementById('sl3').value); // per-section FF OH (2026-11-08)
       runModel();
     }
 
@@ -2336,6 +2838,13 @@
       var ohDiam_mm = +document.getElementById('ohDiam').value || 0;
       var M = (UNIT === 'metric');
       var ohTop_m = M ? +document.getElementById('ohTop').value : +document.getElementById('ohTop').value * FT;
+      // 2026-11-08: with hole sections, open hole = deepest section's size,
+      // starting at the deepest casing shoe.
+      if (PLAN) {
+        var tdS = planTD(), secTD = TDModelCore.planSectionAt(PLAN, tdS);
+        if (secTD && secTD.hole_m) ohDiam_mm = secTD.hole_m * 1000;
+        ohTop_m = casings.reduce(function (a, c) { return c.shoe < tdS ? Math.max(a, c.shoe) : a; }, 0);
+      }
       var td_m = M ? +document.getElementById('td').value : +document.getElementById('td').value * FT;
       if (!td_m || td_m <= 0) { wrap.innerHTML = '<p class="hint">Enter a Total Depth (section 05) first.</p>'; return; }
 
@@ -2618,13 +3127,19 @@
           edrTQ = edrData.map(function (r) { return r.tq_Nm * dNm; });
         }
 
-        // Summary chips
+        // Summary chips — at the bit of the snapshot (= TD unless a run /
+        // manual MD above TD is chosen; 2026-11-08)
         var tdR = res[res.length - 1];
+        var tdLbl = (res.snapshot && res.snapshot.md < par.td - 0.5) ? 'BIT' : 'TD';
+        var si = document.getElementById('snapInfo');
+        if (si) si.textContent = res.snapshot
+          ? 'Bit at ' + (res.snapshot.md * df).toFixed(0) + ' ' + depU + ' — run "' + res.snapshot.runName + '"'
+          : 'Single BHA (no run ticked T&D) — bit at TD';
         document.getElementById('chips').innerHTML =
-          '<span class="chip cb">ROT OB @ TD: ' + (tdR.etRotOB * dkN).toFixed(1) + ' ' + forU + '</span>' +
-          '<span class="chip co">SLIDE @ TD: ' + (tdR.etSlide * dkN).toFixed(1) + ' ' + forU + '</span>' +
-          '<span class="chip cg">TRIP OUT @ TD: ' + (tdR.etTripOut * dkN).toFixed(1) + ' ' + forU + '</span>' +
-          '<span class="chip cr">TRIP IN @ TD: ' + (tdR.etTripIn * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cb">ROT OB @ ' + tdLbl + ': ' + (tdR.etRotOB * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip co">SLIDE @ ' + tdLbl + ': ' + (tdR.etSlide * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cg">TRIP OUT @ ' + tdLbl + ': ' + (tdR.etTripOut * dkN).toFixed(1) + ' ' + forU + '</span>' +
+          '<span class="chip cr">TRIP IN @ ' + tdLbl + ': ' + (tdR.etTripIn * dkN).toFixed(1) + ' ' + forU + '</span>' +
           '<span class="chip cp">TORQUE OB: ' + (tdR.torqRotOB * dNm).toFixed(0) + ' ' + tqU + '</span>';
 
         // -------- Buckling & lock-up summary (Dawson-Paslay / Lubinski /
@@ -2684,6 +3199,11 @@
         setTimeout(function () {
           try {
             var hlRes = TDModelCore.computeHookload(surv, cas, bha, par);
+            // Run-change markers for the Hookload plot (2026-11-08)
+            HL_RUN_MARKS = [];
+            hlRes.forEach(function (r, i) {
+              if (i > 0 && r.runId && r.runId !== hlRes[i - 1].runId) HL_RUN_MARKS.push({ md: r.md * df, name: r.runName });
+            });
             var hlMDs = hlRes.map(function (r) { return r.md * df; });
             var hlTO = hlRes.map(function (r) { return r.hl_tripOut * dkN; });
             var hlTI = hlRes.map(function (r) { return r.hl_tripIn * dkN; });
@@ -2722,6 +3242,10 @@
       }
     }
 
+    // Presentation mode (2026-11-08): larger chart fonts / thicker lines.
+    function isPresent() { return document.body.classList.contains('present'); }
+    function fs(n) { return isPresent() ? Math.round(n * 1.35) : n; }
+
     function buildCO() {
       var isLight = document.body.classList.contains('light-mode');
       var textColor = isLight ? '#000000' : '#ffffff';
@@ -2734,16 +3258,16 @@
         maintainAspectRatio: false,
         animation: { duration: 400 },
         plugins: {
-          legend: { labels: { color: textColor, font: { family: 'Share Tech Mono', size: 13 }, boxWidth: 14, padding: 10 } },
+          legend: { display: SHOW_LEGEND, labels: { color: textColor, font: { family: 'Share Tech Mono', size: fs(13) }, boxWidth: fs(14), padding: 10 } },
           tooltip: {
-            bodyFont: { family: 'Share Tech Mono', size: 13 }, titleFont: { family: 'Share Tech Mono', size: 13 },
+            bodyFont: { family: 'Share Tech Mono', size: fs(13) }, titleFont: { family: 'Share Tech Mono', size: fs(13) },
             backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1, padding: 7,
             bodyColor: textColor, titleColor: textColor
           }
         },
         scales: {
-          x: { type: 'linear', ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 12 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
-          y: { ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: 12 } }, grid: { color: gridColor } }
+          x: { type: 'linear', ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: fs(12) }, maxTicksLimit: 8 }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor, font: { family: 'Share Tech Mono', size: fs(12) } }, grid: { color: gridColor } }
         }
       };
     }
@@ -2751,7 +3275,7 @@
 
     function axT(txt) {
       var isLight = document.body.classList.contains('light-mode');
-      return { display: true, text: txt, color: isLight ? '#000000' : '#ffffff', font: { family: 'Share Tech Mono', size: 13 } };
+      return { display: true, text: txt, color: isLight ? '#000000' : '#ffffff', font: { family: 'Share Tech Mono', size: fs(13) } };
     }
 
     function mkLine(lbl, data, xdata, color, dash, fillIt) {
@@ -2760,7 +3284,7 @@
         data: xdata.map(function (x, i) { return { x: x, y: data[i] }; }),
         borderColor: color,
         backgroundColor: fillIt ? color.replace(')', ',0.1)').replace('rgb', 'rgba') : undefined,
-        borderWidth: 1.8, pointRadius: 0, fill: fillIt ? 'origin' : false,
+        borderWidth: isPresent() ? 3 : 1.8, pointRadius: 0, fill: fillIt ? 'origin' : false,
         tension: 0.3, borderDash: dash || [], parsing: false, type: 'line'
       };
     }
@@ -2796,22 +3320,43 @@
     }
 
     // Builds one plot-panel div with chart canvas and table placeholder
-    function makePanelHTML(ppClass, ttl, chartId, tblId, chartClass) {
-      return '<div class="pp ' + ppClass + '">'
-        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span></div>'
-        + '<div class="pp-body has-tbl">'
-        + '<div class="pp-chart ' + (chartClass || '') + '"><canvas id="' + chartId + '"></canvas></div>'
-        + '<div class="pp-tbl ' + (chartClass || '') + '" id="' + tblId + '"></div>'
-        + '</div></div>';
+    // CHANGED 2026-11-08 (John): one plot per row at full width; the data
+    // table that feeds each plot moved under it into an accordion that is
+    // collapsed by default (was a 60/40 chart|table split). Element ids are
+    // unchanged, so buildPanelTable()/Chart.js/Plotly code is untouched.
+    function panelTableSection(tblId) {
+      return '<div class="pp-tsec">'
+        + '<div class="pp-thdr" onclick="togglePanelTable(this)"><span>Data Table</span><span class="sec-tog">v</span></div>'
+        + '<div class="pp-tbl" id="' + tblId + '"></div>'
+        + '</div>';
     }
 
-    function make3dPanelHTML(ttl, plotlyId, tblId) {
+    // helpKey (round 3): key into TD_HELP; adds the "?" button top-right.
+    function helpBtn(helpKey) {
+      return helpKey ? '<button class="pp-help" title="About this plot" aria-label="About this plot" onclick="openTdHelp(\'' + helpKey + '\')">?</button>' : '';
+    }
+
+    function makePanelHTML(ppClass, ttl, chartId, tblId, chartClass, helpKey) {
+      return '<div class="pp ' + ppClass + '">'
+        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span>' + helpBtn(helpKey) + '</div>'
+        + '<div class="pp-chart ' + (chartClass || '') + '"><canvas id="' + chartId + '"></canvas></div>'
+        + panelTableSection(tblId)
+        + '</div>';
+    }
+
+    function make3dPanelHTML(ttl, plotlyId, tblId, helpKey) {
       return '<div class="pp c-wh">'
-        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span></div>'
-        + '<div class="pp-body wide3d">'
+        + '<div class="pp-hdr"><span class="pp-ttl">' + ttl + '</span>' + helpBtn(helpKey) + '</div>'
         + '<div class="pp-chart h3d"><div id="' + plotlyId + '" class="pp-plotly" style="width:100%;height:100%"></div></div>'
-        + '<div class="pp-tbl h3d" id="' + tblId + '"></div>'
-        + '</div></div>';
+        + panelTableSection(tblId)
+        + '</div>';
+    }
+
+    function togglePanelTable(hdr) {
+      var sec = hdr.parentNode;
+      var open = sec.classList.toggle('open');
+      var tog = hdr.querySelector('.sec-tog');
+      if (tog) tog.classList.toggle('open', open);
     }
 
     // =============================================================
@@ -2829,30 +3374,32 @@
 
       var area = document.getElementById('chartsArea');
       area.innerHTML =
-        make3dPanelHTML(
-          '3D Well Trajectory — Minimum Curvature | Local East x North x TVD | Coloured by DLS',
-          'plotly3d', 'tbl_traj')
-        + makePanelHTML('c-bl',
-          'Effective Tension vs Measured Depth (' + forU + ') — 5 WellPlan Cases',
-          'c_et', 'tbl_et', 'tall')
+        // Short titles requested by John (2026-11-08 round 3); the long
+        // descriptions now live in the "?" help window of each plot.
+        make3dPanelHTML('3D-DLS', 'plotly3d', 'tbl_traj', 'traj')
+        + makePanelHTML('c-bl', 'Effective Tension', 'c_et', 'tbl_et', 'tall', 'et')
         + '<div id="hl_panel">'
-        + makePanelHTML('c-or',
-          'Hook Load vs Bit Depth (' + forU + ') — Surface Weight Indicator | Re-computed at each depth step',
-          'c_hl', 'tbl_hl', 'tall')
+        + makePanelHTML('c-or', 'Hookload', 'c_hl', 'tbl_hl', 'tall', 'hl')
         + '</div>'
-        + makePanelHTML('c-te',
-          'Side Force vs Measured Depth (kgf per ' + ((cachedPar && cachedPar.normLen) || 9.45) + ' m) — Normal Contact Force incl. Helical-Buckling Wall Contact | 5 Cases',
-          'c_sf', 'tbl_sf', 'tall')
-        + makePanelHTML('c-pu',
-          'Surface Torque vs Measured Depth (' + tqU + ') — Rotating Cases + Limit',
-          'c_tq', 'tbl_tq', '')
-        + makePanelHTML('c-gr',
-          'Inclination and DLS vs Measured Depth',
-          'c_inc', 'tbl_inc', '');
+        + makePanelHTML('c-te', 'Side Forces', 'c_sf', 'tbl_sf', 'tall', 'sf')
+        + makePanelHTML('c-pu', 'Surf. Torque', 'c_tq', 'tbl_tq', '', 'tq')
+        // 2026-11-08 round 2: Inclination and DLS split into two plots (were one shared axis).
+        + makePanelHTML('c-gr', 'Inclination', 'c_inc', 'tbl_inc', '', 'inc')
+        + makePanelHTML('c-or', 'DLS', 'c_dls', 'tbl_dls', '', 'dls');
 
       var M = (UNIT === 'metric');
 
       // ---- 1. PLOTLY 3D TRAJECTORY ----
+      // 2026-11-08 round 3: colours follow the DARK/LIGHT theme (were
+      // hard-coded dark, so the 3D scene stayed dark in light mode).
+      var P3L = document.body.classList.contains('light-mode');
+      var P3 = {
+        txt: P3L ? '#000000' : '#c8d8e8',
+        axis: P3L ? '#495057' : '#5a7080',
+        grid: P3L ? 'rgba(0,0,0,.15)' : '#1e2d3d',
+        wall: P3L ? '#ffffff' : 'rgba(10,14,20,.85)',
+        scene: P3L ? '#ffffff' : 'rgba(10,14,20,.9)'
+      };
       var t_ew = traj.map(function (s) { return s.ew * df; });
       var t_ns = traj.map(function (s) { return s.ns * df; });
       var t_tvd = traj.map(function (s) { return s.tvd * df; });
@@ -2878,9 +3425,12 @@
           line: {
             color: t_dls, colorscale: 'Viridis', width: 6,
             colorbar: {
-              title: { text: 'DLS (deg/30m)', font: { size: 9, color: '#c8d8e8' } },
-              tickfont: { size: 8, color: '#c8d8e8' }, thickness: 10, len: 0.5,
-              bgcolor: 'rgba(0,0,0,0)', bordercolor: '#1e2d3d'
+              tickfont: { size: fs(8) + (isPresent() ? 3 : 0), color: P3.txt }, thickness: 14, len: 0.6,
+              // 2026-11-08 round 2: horizontal, centred under the 3D scene
+              // (was vertical on the right) to give the scene the full width.
+              orientation: 'h', x: 0.5, xanchor: 'center', y: 0, yanchor: 'top',
+              title: { text: 'DLS (deg/30m)', side: 'top', font: { size: fs(9) + (isPresent() ? 3 : 0), color: P3.txt } },
+              bgcolor: 'rgba(0,0,0,0)', bordercolor: P3.grid
             }
           },
           marker: { size: 3, color: t_dls, colorscale: 'Viridis' },
@@ -2901,15 +3451,16 @@
       ], {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         scene: {
-          xaxis: { title: { text: 'Local East (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)' },
-          yaxis: { title: { text: 'Local North (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)' },
-          zaxis: { title: { text: 'TVD (' + depU + ')', font: { color: '#5a7080', size: 9 } }, gridcolor: '#1e2d3d', zerolinecolor: '#1e2d3d', tickfont: { color: '#5a7080', size: 8 }, backgroundcolor: 'rgba(10,14,20,.85)', autorange: 'reversed' },
-          bgcolor: 'rgba(10,14,20,.9)',
+          xaxis: { title: { text: 'Local East (' + depU + ')', font: { color: P3.axis, size: fs(9) + (isPresent() ? 3 : 0) } }, gridcolor: P3.grid, zerolinecolor: P3.grid, tickfont: { color: P3.axis, size: fs(8) + (isPresent() ? 3 : 0) }, backgroundcolor: P3.wall },
+          yaxis: { title: { text: 'Local North (' + depU + ')', font: { color: P3.axis, size: fs(9) + (isPresent() ? 3 : 0) } }, gridcolor: P3.grid, zerolinecolor: P3.grid, tickfont: { color: P3.axis, size: fs(8) + (isPresent() ? 3 : 0) }, backgroundcolor: P3.wall },
+          zaxis: { title: { text: 'TVD (' + depU + ')', font: { color: P3.axis, size: fs(9) + (isPresent() ? 3 : 0) } }, gridcolor: P3.grid, zerolinecolor: P3.grid, tickfont: { color: P3.axis, size: fs(8) + (isPresent() ? 3 : 0) }, backgroundcolor: P3.wall, autorange: 'reversed' },
+          bgcolor: P3.scene,
           camera: { eye: { x: 1.5, y: 1.4, z: 0.7 } },
           aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: 0.6 }
         },
-        legend: { font: { color: '#c8d8e8', size: 9 }, bgcolor: 'rgba(0,0,0,0)', bordercolor: '#1e2d3d', borderwidth: 1, x: 0, y: 1 },
-        margin: { l: 0, r: 0, t: 10, b: 0 },
+        showlegend: SHOW_LEGEND,
+        legend: { font: { color: P3.txt, size: fs(9) + (isPresent() ? 3 : 0) }, bgcolor: 'rgba(0,0,0,0)', bordercolor: P3.grid, borderwidth: 1, x: 0, y: 1 },
+        margin: { l: 0, r: 0, t: 10, b: 90 },
         font: { family: 'Share Tech Mono' }
       }, { responsive: true });
 
@@ -2961,7 +3512,7 @@
         function limLine(lbl, key, color, dash) {
           return {
             label: lbl, parsing: false, type: 'line', fill: false, tension: 0,
-            pointRadius: 0, borderWidth: 1.5, borderColor: color, borderDash: dash,
+            pointRadius: 0, borderWidth: isPresent() ? 2.5 : 1.5, borderColor: color, borderDash: dash,
             spanGaps: false,
             data: results.map(function (r, i) {
               var v = (cachedPar.blockW / 1000 - r[key]) * dkN();
@@ -3034,7 +3585,8 @@
       // rotation -> no tangential friction); Trip In/Out show torque only
       // when their RPM > 0 (velocity-resolved friction, refs [8],[10]).
       var tqDS = [
-        mkLine('Rotating OB', tqROB, mds, '#ff6b35', [], true),
+        // 2026-11-08 round 2: area fill removed (John) — line only.
+        mkLine('Rotating OB', tqROB, mds, '#ff6b35', []),
         mkLine('Rotating Off', tqROff, mds, '#c084fc', [2, 3]),
         mkLine('Slide Drilling', tqSLD, mds, '#ffd060', [4, 3]),
         mkLine('Tripping In', tqTI, mds, '#ff5e7a', []),
@@ -3067,32 +3619,55 @@
         [null, null, 'var(--accent2)', 'var(--purple)', 'var(--gold)', 'var(--red)', 'var(--accent3)']
       );
 
-      // ---- 6. INCLINATION + DLS ----
+      // ---- 6. INCLINATION ----
+      // 2026-11-08 round 2: split from the old combined Inc+DLS chart.
+      // Same data arrays (incArr / dlsArr) as before; only the plotting changed.
       charts.inc = new Chart(document.getElementById('c_inc').getContext('2d'), {
         type: 'line',
-        data: {
-          datasets: [
-            mkLine('Inclination (deg)', incArr, mds, '#39ff14', [], true),
-            mkLine('DLS (deg/30m)', dlsArr, mds, '#ffd060', [3, 2])
-          ]
-        },
+        // fill removed too (same issue as torque: mkLine builds the fill colour with
+        // rgb->rgba string replace, which does nothing on hex colours, so the area
+        // rendered as a solid opaque block)
+        data: { datasets: [mkLine('Inclination (deg)', incArr, mds, '#39ff14', [])] },
         options: Object.assign({}, CO, {
           scales: {
             x: Object.assign({}, CO.scales.x, { title: axT('MD (' + depU + ')') }),
-            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Inc (deg) / DLS (deg/30m)') })
+            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('Inclination (deg)') })
           }
         })
       });
 
       buildPanelTable('tbl_inc',
-        ['MD', 'TVD', 'Inc (deg)', 'Az (deg)', 'DLS (d/30m)', 'Zone'],
+        ['MD', 'TVD', 'Inc (deg)', 'Az (deg)', 'Zone'],
         decimate(results, 80),
         function (r) {
           return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
-          r.inc.toFixed(2), r.az.toFixed(2), r.dls.toFixed(3),
+          r.inc.toFixed(2), r.az.toFixed(2),
           r.inCasing ? 'Cas' + r.ffidx : 'OH'];
         },
-        [null, null, 'var(--accent3)', null, 'var(--yellow)', 'var(--text-dim)']
+        [null, null, 'var(--accent3)', null, 'var(--text-dim)']
+      );
+
+      // ---- 7. DLS ----
+      charts.dls = new Chart(document.getElementById('c_dls').getContext('2d'), {
+        type: 'line',
+        data: { datasets: [mkLine('DLS (deg/30m)', dlsArr, mds, '#ffd060', [])] },
+        options: Object.assign({}, CO, {
+          scales: {
+            x: Object.assign({}, CO.scales.x, { title: axT('MD (' + depU + ')') }),
+            y: Object.assign({}, CO.scales.y, { min: 0, title: axT('DLS (deg/30m)') })
+          }
+        })
+      });
+
+      buildPanelTable('tbl_dls',
+        ['MD', 'TVD', 'Inc (deg)', 'DLS (d/30m)', 'Zone'],
+        decimate(results, 80),
+        function (r) {
+          return [(r.md * df).toFixed(0), (r.tvd * df).toFixed(0),
+          r.inc.toFixed(2), r.dls.toFixed(3),
+          r.inCasing ? 'Cas' + r.ffidx : 'OH'];
+        },
+        [null, null, null, 'var(--yellow)', 'var(--text-dim)']
       );
 
     }
@@ -3108,10 +3683,24 @@
         mkLine('Rotating Off', hlROff, hlMDs, '#c084fc', [2, 4])
       ];
       if (edrMD && edrHL) hlDS.push(mkScatter('EDR Measured', edrMD, edrHL, 'rgba(255,208,96,.7)'));
+      // Vertical dashed line where the BHA run changes (2026-11-08). Only the
+      // first marker shows in the legend ("BHA run change").
+      if (HL_RUN_MARKS.length) {
+        var allHL = [].concat(hlTI, hlTO, hlROB, hlSLD, hlROff).filter(isFinite);
+        var yLo = Math.min.apply(null, allHL), yHi = Math.max.apply(null, allHL);
+        HL_RUN_MARKS.forEach(function (mk, i) {
+          hlDS.push({ label: i === 0 ? 'BHA run change' : '_run' + i, type: 'line', parsing: false, fill: false, tension: 0,
+            pointRadius: 0, borderWidth: isPresent() ? 2 : 1, borderDash: [6, 4], borderColor: 'rgba(150,160,175,.9)',
+            data: [{ x: mk.md, y: yLo }, { x: mk.md, y: yHi }] });
+        });
+      }
       if (charts.hl) { try { charts.hl.destroy(); } catch (e) { } }
+      var hlPlugins = JSON.parse(JSON.stringify(CO.plugins));
+      hlPlugins.legend.labels.filter = function (it) { return String(it.text).indexOf('_run') !== 0; };
       charts.hl = new Chart(document.getElementById('c_hl').getContext('2d'), {
         type: 'line', data: { datasets: hlDS },
         options: Object.assign({}, CO, {
+          plugins: hlPlugins,
           scales: {
             x: Object.assign({}, CO.scales.x, { title: axT('Bit Depth (' + depU + ') — surface hookload as string is built') }),
             y: Object.assign({}, CO.scales.y, { title: axT('Surface Hook Load (' + forU + ')') })
@@ -3136,6 +3725,584 @@
         },
         [null, 'var(--red)', 'var(--accent3)', 'var(--accent)', 'var(--accent2)', 'var(--purple)']
       );
+    }
+
+    // =============================================================
+    // PLOT HELP ("?" button on each plot) — added 2026-11-08 round 3.
+    // Every technical statement below was checked against a document in
+    // John's "MTX AC" folder, or against tdModel.js itself (how MTX does
+    // it). Source key (paths relative to the MTX AC folder):
+    //  [JFD]  K&M HERDIT Course/SPE Papers/SPE-11380-PA.pdf — Johancsik,
+    //         Friesen & Dawson (1984), Eqs. 1-3, friction range 0.25-0.40.
+    //  [MIT]  K&M HERDIT Course/SPE Papers/SPE-13064-PA.pdf — Mitchell
+    //         (1986), Eq. A-18 Wn = rF^2/(4EI).
+    //  [KM05] K&M HERDIT Course/Course/Section 05 - TD&B Fundamentals.pdf
+    //  [KM15] K&M HERDIT Course/Course/Section 15 - TD&B Modeling.pdf
+    //  [BOU]  Chapters/08_Directional_Drilling_and_Deviation_Control.pdf —
+    //         Bourgoyne et al., Applied Drilling Engineering, Sec. 8.3.3
+    //         (Eqs. 8.33-8.37) and Sec. 8.4.6.
+    //  [COP]  DirectionalDrillingandWellborePositioningManual.pdf, Sec. 4.3.
+    // Items marked "not in folder" are references cited by tdModel.js
+    // whose original paper is not in the folder.
+    // =============================================================
+    var TD_SRC = {
+      JFD: 'Johancsik, Friesen &amp; Dawson (1984), "Torque and Drag in Directional Wells — Prediction and Measurement", JPT, SPE-11380-PA, Eqs. 1–3 <em>(K&amp;M HERDIT Course / SPE Papers / SPE-11380-PA.pdf)</em>',
+      MIT: 'Mitchell (1986), "Simple Frictional Analysis of Helical Buckling of Tubing", SPE-13064-PA, Eq. A-18 <em>(K&amp;M HERDIT Course / SPE Papers / SPE-13064-PA.pdf)</em>',
+      KM05: 'K&amp;M Technology Group (2014), ERD course, Section 05 — TD&amp;B Fundamentals <em>(K&amp;M HERDIT Course / Course)</em>',
+      KM15: 'K&amp;M Technology Group (2014), ERD course, Section 15 — TD&amp;B Modeling <em>(K&amp;M HERDIT Course / Course)</em>',
+      BOU: 'Bourgoyne et al., Applied Drilling Engineering, Ch. 8, Sec. 8.3.3 (Eqs. 8.33–8.37) and Sec. 8.4.6 <em>(Chapters / 08_Directional_Drilling_and_Deviation_Control.pdf)</em>',
+      COP: 'Directional Drilling and Wellbore Positioning Manual (WE-MN-DRL-005), Sec. 4.3 <em>(DirectionalDrillingandWellborePositioningManual.pdf)</em>',
+      CODE: 'MTX implementation: <code>public/js/tdModel.js</code>'
+    };
+
+    var TD_EQ_N = 'N = &radic;[ (F&middot;&Delta;&alpha;&middot;sin&theta;)&sup2; + (F&middot;&Delta;&theta; + W&middot;sin&theta;)&sup2; ]';
+
+    var TD_HELP = {
+      traj: {
+        title: '3D-DLS — 3D Well Trajectory',
+        what: '<p>The wellbore drawn in 3D: Local East, Local North and TVD (true vertical depth), measured from the first survey station. The line colour is the dogleg severity (DLS) at each station — see the colour bar under the plot. The green diamond is the surface location; the red &times; is TD. Hover any station to read MD, TVD, N/E, Inc, Az and DLS.</p>',
+        how: '<p>Positions are calculated station-to-station with the <strong>Minimum Curvature</strong> method, which assumes the hole is a circular arc between two surveys [BOU]:</p>'
+          + '<p class="hp-eq">cos &beta; = cos(I<sub>2</sub>&minus;I<sub>1</sub>) &minus; sin I<sub>1</sub> sin I<sub>2</sub> [1 &minus; cos(A<sub>2</sub>&minus;A<sub>1</sub>)]<br>'
+          + 'F = (2/&beta;)&middot;tan(&beta;/2) &nbsp;(F = 1 when &beta; &asymp; 0)<br>'
+          + '&Delta;TVD = &Delta;MD/2 &middot; (cos I<sub>1</sub> + cos I<sub>2</sub>) &middot; F<br>'
+          + '&Delta;N = &Delta;MD/2 &middot; (sin I<sub>1</sub> cos A<sub>1</sub> + sin I<sub>2</sub> cos A<sub>2</sub>) &middot; F<br>'
+          + '&Delta;E = &Delta;MD/2 &middot; (sin I<sub>1</sub> sin A<sub>1</sub> + sin I<sub>2</sub> sin A<sub>2</sub>) &middot; F</p>'
+          + '<p>&beta; is the overall angle change between the two stations, F is the ratio factor, I = inclination, A = azimuth. DLS = &beta; / &Delta;MD, reported in deg/30 m [BOU Sec. 8.4.6].</p>',
+        why: '<p>Minimum Curvature is the method the positioning manual in your folder recommends for all wellbore position calculations between survey points [COP]. The colouring shows where the doglegs are, and doglegs are where string tension creates extra wall contact force ("brake drum" torque and drag) [KM05].</p>',
+        src: ['BOU', 'COP', 'KM05', 'CODE']
+      },
+      et: {
+        title: 'Effective Tension',
+        what: '<p>Axial load along the whole string at one moment in time, with the bit at the <strong>Snapshot</strong> depth chosen above the plots (Auto = end of a BHA run, Manual = any MD; it uses the BHA run, hole sections and casings that exist at that depth) — K&amp;M call this the <strong>"snapshot"</strong> view [KM15]. One curve per operation: Tripping In, Tripping Out, Rotating On Bottom, Slide Drilling and Rotating Off Bottom. Positive = tension, negative = compression. The plotted values include the Block Weight entered in Global Parameters. The Sinusoidal and Helical Limit lines are on the same basis: where a case curve drops below a limit line, that part of the string is buckled.</p>',
+        how: '<p>Soft-string model of Johancsik et al. [JFD]. The string is cut into 10 m elements and the calculation starts at the bit and moves up. Boundary at the bit: compression = WOB for the on-bottom cases (WOB Rotating / WOB Sliding), zero off bottom. For each element:</p>'
+          + '<p class="hp-eq">' + TD_EQ_N + ' &nbsp;&nbsp;(Eq. 1)<br>&Delta;F = W&middot;cos&theta; &plusmn; &mu;&middot;N &nbsp;&nbsp;(Eq. 2: + pulling out, &minus; running in)</p>'
+          + '<p>F = axial force at the bottom of the element, W = buoyed element weight (weight &times; (1 &minus; mud density / steel density)), &theta; = inclination, &Delta;&theta; / &Delta;&alpha; = inclination / azimuth change over the element, &mu; = friction factor of that interval (FF Casing 1, FF Casing 2 or FF Open Hole). When rotating with no axial motion there is no axial friction term. When tripping <em>with</em> rotation, friction is split along the resultant velocity: axial share = V<sub>a</sub>/V<sub>r</sub>, torque share = V<sub>c</sub>/V<sub>r</sub>, V<sub>r</sub> = &radic;(V<sub>a</sub>&sup2;+V<sub>c</sub>&sup2;), V<sub>c</sub> = &pi;&middot;OD&middot;RPM [KM05].</p>'
+          + '<p>Where the compression exceeds the helical limit, the extra wall contact of the coiled pipe is added to N [MIT Eq. A-18; KM05]: <span class="hp-eq-in">N<sub>b</sub> = r&middot;F&sup2; / (4&middot;E&middot;I)</span> per unit length (r = radial clearance, E = Young\'s modulus, I = moment of inertia). If that extra drag would exceed the buoyed weight of the element, MTX caps it and flags lock-up; loads above a locked interval are lower-bound estimates.</p>'
+          + '<p><strong>Buckling limits</strong> [KM05 slide 56, from SPE 11167]: sinusoidal <span class="hp-eq-in">F<sub>cs</sub> = &radic;(4&middot;E&middot;I&middot;W&middot;sin&theta; / r)</span>; helical <span class="hp-eq-in">F<sub>cb</sub> = 1.414 &times; F<sub>cs</sub></span> (Chen-Cheatham, default). The alternative Wu-Juvkam-Wold 1.83&times; criterion and the Lubinski formula MTX uses below 3&deg; inclination are cited in tdModel.js, but those papers are not in the folder.</p>',
+        why: '<p>This is where the string is in tension or compression for each operation. Sinusoidal ("snaky") buckling still transfers weight, but inefficiently. Helical ("coiled") buckling prevents further weight transfer: while sliding or tripping in, the extra contact force compounds on itself and can cause lock-up; while rotating, it causes a rapid increase in torque [KM05]. Buckling is most likely in vertical sections, tangents (especially slim pipe above a liner top) and near the heel of long horizontals [KM05].</p>'
+          + '<p>Note: a snapshot only says "<em>if</em> you can get this deep, this is what will happen". Check the Hookload plot for the loads on the way down [KM15].</p>',
+        src: ['JFD', 'MIT', 'KM05', 'KM15', 'CODE']
+      },
+      hl: {
+        title: 'Hookload',
+        what: '<p>The surface load the weight indicator should show as the bit moves through the well — K&amp;M call this the <strong>"driller\'s view"</strong> or tripping-type calculation [KM15]. One curve per operation (Tripping In = slack-off, Tripping Out = pick-up, Rotating On/Off Bottom, Slide Drilling), plotted against bit depth. A dashed vertical line marks where the BHA run changes. If EDR data was loaded, the measured hook load is overlaid as points.</p>',
+        how: '<p>For every bit depth (each 30.48 m, plus the end of each run) MTX rebuilds the string of the BHA run drilling at that depth (its BHA, then its drill pipe, with only the casings already set and the hole size, mud weight and FF Open Hole of the hole sections), and runs the same calculation as the Effective Tension plot from the bit to surface: Johancsik Eqs. 1–2 [JFD], helical-buckling contact [MIT], velocity-resolved friction when rotating while tripping [KM05]. The value plotted is the surface force plus the Block Weight.</p>',
+        why: '<p>A snapshot at TD can look fine while the tripping calculation shows the worst load at an intermediate depth, with the string stopping long before TD [KM15]. Pick-up is much more sensitive to the friction factor than slack-off [KM05]. Comparing this plot with real EDR hook loads is how friction factors are calibrated: Johancsik et al. back-calculated friction by iterating the model until it matched measured pick-up, slack-off and torque, and found 0.25–0.40 typical for water-base mud [JFD]. Block weight errors directly corrupt a back-calculated FF, so block weight must be right [KM15].</p>',
+        src: ['JFD', 'MIT', 'KM05', 'KM15', 'CODE']
+      },
+      sf: {
+        title: 'Side Forces',
+        what: '<p>The normal (contact) force between the pipe and the hole wall along the string with the bit at TD, for each operation. Shown in kgf per "SF Norm. Length" (Global Parameters; default 9.45 m = one Range 2 drill-pipe joint).</p>',
+        how: '<p>N for each 10 m element comes from Johancsik Eq. 1 [JFD]:</p><p class="hp-eq">' + TD_EQ_N + '</p>'
+          + '<p>It has two parts: the weight of the pipe lying on the low side (W&middot;sin&theta;), and the tension F pulling the pipe against the wall through inclination and azimuth changes [JFD; KM05]. Where the pipe is helically buckled, the coil contact N<sub>b</sub> = r&middot;F&sup2;/(4EI) is added [MIT]. MTX converts N to kgf per metre and multiplies it by the normalization length.</p>',
+        why: '<p>Friction = &mu; &times; N, so side force is the source of all torque and drag [JFD]. High tension through shallow doglegs creates high contact force and can cause severe casing wear. K&amp;M flag casing-wear concern when side forces exceed about 2 k-lbf (&asymp; 1 tonne) per tool joint [KM05]. Pick-up side force across a build is much higher than slack-off [KM05].</p>',
+        src: ['JFD', 'MIT', 'KM05', 'CODE']
+      },
+      tq: {
+        title: 'Surf. Torque',
+        what: '<p>Torque carried by the string at each depth, with the bit at TD, for each operation. The value at MD 0 is the surface (top drive / rotary) torque, which is the only point the driller actually sees [KM05]. The dashed red line is the Torque Limit from Global Parameters. If EDR data was loaded, measured torque is overlaid as points.</p>',
+        how: '<p>Johancsik Eq. 3 [JFD], summed from the bit up:</p><p class="hp-eq">&Delta;M = &mu; &middot; N &middot; r</p>'
+          + '<p>N = element contact force (see Side Forces), r = half the component OD entered in the Drill String table. Starting value at the bit: Torque at Bit for on-bottom cases, zero off bottom. Slide Drilling has no rotation, so there is no torsional friction and the surface torque equals the bit torque. Tripping with RPM &gt; 0 gets only the torque share V<sub>c</sub>/V<sub>r</sub> of the friction [KM05].</p>',
+        why: '<p>Torque is very sensitive to the friction factor and builds quickly through build sections [KM05]. Compare the surface value with the Torque Limit, which should reflect drill pipe connection make-up torque and the pipe\'s torque limit [KM05].</p>',
+        src: ['JFD', 'KM05', 'CODE']
+      },
+      inc: {
+        title: 'Inclination',
+        what: '<p>Hole inclination (angle from vertical) against measured depth. Between survey stations the values are linearly interpolated onto the 10 m calculation points used by the T&amp;D model.</p>',
+        how: '<p>Taken directly from the survey table (section 02), extended to TD at the last surveyed angle if the survey stops short.</p>',
+        why: '<p>Inclination controls both terms of the force balance: the low-side contact W&middot;sin&theta; that creates friction, and the axial weight W&middot;cos&theta; that pulls the string down [JFD; KM05]. Small angle changes matter at high angle: cos 80&deg; is 33% different from cos 75&deg; [KM15]. Pipe is harder to buckle at higher angles (gravity holds it on the low side), but not impossible [KM05].</p>',
+        src: ['JFD', 'KM05', 'KM15', 'CODE']
+      },
+      dls: {
+        title: 'DLS — Dogleg Severity',
+        what: '<p>Dogleg severity (deg/30 m) against measured depth, i.e. how sharply the hole curves. Values between survey stations are linearly interpolated onto the 10 m calculation points.</p>',
+        how: '<p>DLS = &beta; / &Delta;MD &times; 30 m, where &beta; is the overall angle change between two survey stations [BOU Sec. 8.4.6; Eq. 8.33]:</p>'
+          + '<p class="hp-eq">cos &beta; = cos(I<sub>2</sub>&minus;I<sub>1</sub>) &minus; sin I<sub>1</sub> sin I<sub>2</sub> [1 &minus; cos(A<sub>2</sub>&minus;A<sub>1</sub>)]</p>',
+        why: '<p>In curved sections, tension creates extra contact force like a brake drum, so pick-up, slack-off and rotating loads all differ through doglegs [KM05]. Doglegs under high tension (shallow in the well) create high side forces and casing wear. Build rates of 2–3&deg;/100 ft are <em>not</em> "low", and not all doglegs are equal [KM05]. Trajectories that start with a slow build and accelerate (pseudo-catenary) reduce side forces [KM05].</p>',
+        src: ['BOU', 'KM05', 'CODE']
+      }
+    };
+
+    function openTdHelp(key) {
+      var h = TD_HELP[key]; if (!h) return;
+      document.getElementById('hpTitle').innerHTML = h.title;
+      document.getElementById('hpBody').innerHTML =
+        '<h4>What you are looking at</h4>' + h.what
+        + '<h4>How it is calculated</h4>' + h.how
+        + '<h4>Why it matters</h4>' + h.why
+        + '<h4>Sources (in the MTX AC folder)</h4><ol class="hp-src">'
+        + h.src.map(function (k) { return '<li><strong>[' + k + ']</strong> ' + TD_SRC[k] + '</li>'; }).join('')
+        + '</ol>';
+      document.getElementById('hpModal').classList.add('open');
+    }
+    function closeTdHelp() { document.getElementById('hpModal').classList.remove('open'); }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTdHelp(); });
+
+    // =============================================================
+    // HOLE SECTIONS + BHA RUNS — UI (added 2026-11-08, John)
+    // PLAN is kept in SI and saved inside params.plan (see tdModel.js header
+    // "HOLE SECTIONS + BHA RUNS" for the model rules). The existing BHA table
+    // (#bhaBody) and the new DP table (#dpBody) are the editors of the run
+    // ticked "Edit", so Load CNRL / Excel import-export / SAGcorrection import
+    // all keep working — they act on the run being edited.
+    // Old jobs (no plan) are migrated on load: sections from the casing
+    // program (Auto) + one run OH Top -> TD with the old BHA, WOB, torque at
+    // bit, mud weight and FF OH. Regression-tested on the CNRL example:
+    // identical results to the single-BHA model.
+    // =============================================================
+    var PLAN = null, CUR_RUN = null, HL_RUN_MARKS = [];
+
+    function pM() { return UNIT === 'metric'; }
+    function dDisp(m) { return pM() ? m : m / FT; }
+    function dSI(v) { return pM() ? v : v * FT; }
+    function fDisp(N) { return pM() ? N / 10000 : N / 1000 * KN2KLBF; }
+    function fSI(v) { return pM() ? v * 10000 : v / KN2KLBF * 1000; }
+    function mwDisp(k) { return pM() ? k : k * KGM32PPG; }
+    function mwSI(v) { return pM() ? v : v / KGM32PPG; }
+    // keep up to 6 decimals, trailing zeros trimmed: re-rendering a table must not round the inputs
+    function r2(v, n) { return (v == null || !isFinite(v)) ? '' : String(+(+v).toFixed(6)); }
+    function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    function planTD() { var v = +document.getElementById('td').value || 0; return pM() ? v : v * FT; }
+    function newRunId() { return 'r' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+
+    // ---- build a plan from the legacy single-BHA inputs (migration / first load)
+    function planInitFromLegacy() {
+      var par = getParams(); // PLAN is null here, so no plan is attached
+      PLAN = {
+        sectionMode: 'auto', snapMode: 'auto', snapRunId: null, snapMD: par.td,
+        sections: [],
+        runs: [{
+          id: newRunId(), name: 'Run 1', use: true,
+          from: Math.min(par.ohTop || 0, par.td), to: par.td,
+          wobRot: par.wobRot, wobSlid: par.wobSlid, torqBit: par.torqBit,
+          bha: getBHA(), dp: []
+        }]
+      };
+      planAutoSections(par.ohDiam_m, par.mudDens, par.ffOH);
+      CUR_RUN = PLAN.runs[0].id;
+      planRenderAll();
+    }
+
+    // Auto mode: section boundaries = surface, each casing shoe (< TD), TD.
+    // Values (name, hole, MW, FF OH) are kept by position when shoes change.
+    function planAutoSections(holeDef, mwDef, ffDef) {
+      if (!PLAN || PLAN.sectionMode !== 'auto') return;
+      var td = planTD();
+      var shoes = getCasings().map(function (c) { return c.shoe; })
+        .filter(function (s) { return s > 0 && s < td; }).sort(function (a, b) { return a - b; });
+      var b = [0].concat(shoes.filter(function (s, i, a) { return i === 0 || s !== a[i - 1]; })).concat([td]);
+      var old = PLAN.sections || [], out = [];
+      for (var i = 0; i < b.length - 1; i++) {
+        var o = old[i] || old[old.length - 1] || {};
+        out.push({
+          name: (old[i] && old[i].name) || ('Section ' + (i + 1)),
+          from: b[i], to: b[i + 1],
+          hole_m: o.hole_m != null ? o.hole_m : (holeDef || 0.159),
+          mudDens: o.mudDens != null ? o.mudDens : (mwDef || 1040),
+          ffOH: o.ffOH != null ? o.ffOH : (ffDef != null ? ffDef : 0.30)
+        });
+      }
+      PLAN.sections = out;
+    }
+
+    // ---- read tables -> PLAN (SI)
+    function planReadSections() {
+      if (!PLAN) return;
+      PLAN.sections = Array.from(document.querySelectorAll('#secBody tr')).map(function (tr) {
+        var g = function (k) { return tr.querySelector('[data-k="' + k + '"]').value; };
+        return { name: g('name'), from: dSI(+g('from')), to: dSI(+g('to')), hole_m: +g('hole') / 1000, mudDens: mwSI(+g('mw')), ffOH: +g('ff') };
+      });
+      planWarn();
+    }
+    function planReadRuns() {
+      if (!PLAN) return;
+      var byId = {}; PLAN.runs.forEach(function (r) { byId[r.id] = r; });
+      PLAN.runs = Array.from(document.querySelectorAll('#runBody tr')).map(function (tr) {
+        var id = tr.getAttribute('data-id'), r = byId[id] || { id: id, bha: [], dp: [] };
+        var g = function (k) { return tr.querySelector('[data-k="' + k + '"]'); };
+        r.use = g('use').checked; r.name = g('name').value;
+        r.from = dSI(+g('from').value); r.to = dSI(+g('to').value);
+        r.wobRot = fSI(+g('wobr').value); r.wobSlid = fSI(+g('wobs').value); r.torqBit = +g('tqb').value || 0;
+        return r;
+      });
+      var cur = planCurRun(); document.getElementById('runEditName').textContent = cur ? cur.name : '—';
+      planRenderSnapRuns(); planWarn();
+    }
+    function planCurRun() { return PLAN ? PLAN.runs.filter(function (r) { return r.id === CUR_RUN; })[0] : null; }
+    // copy the BHA / DP editor tables into the run being edited
+    function planSyncTables() {
+      var r = planCurRun(); if (!r) return;
+      r.bha = getBHA(); r.dp = getDP();
+    }
+
+    function getDP() {
+      var M = pM();
+      return Array.from(document.querySelectorAll('#dpBody tr')).map(function (r) {
+        var ins = r.querySelectorAll('input');
+        return { name: ins[0].value, od_m: +ins[1].value / 1000, id_m: +ins[2].value / 1000,
+          len: M ? +ins[3].value : +ins[3].value * FT, wt: M ? +ins[4].value : +ins[4].value / KGM2LBFT };
+      }).filter(function (r) { return r.od_m > 0 && r.len > 0; });
+    }
+    function addDP(nm, od, id_, len, wt) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = mkText(nm || '', 'DP / HWDP') + mkCell(od || '', 'OD') + mkCell(id_ || '', 'ID') + mkCell(len || '', 'Len') + mkCell(wt || '', 'Wt') + delBtn();
+      document.getElementById('dpBody').appendChild(tr);
+    }
+    function planLoadRunTables(r) {
+      var M = pM();
+      document.getElementById('bhaBody').innerHTML = '';
+      document.getElementById('dpBody').innerHTML = '';
+      (r.bha || []).forEach(function (c) { addBHA(c.name, r2(c.od_m * 1000), r2(c.id_m * 1000), r2(M ? c.len : c.len / FT), r2(M ? c.wt : c.wt * KGM2LBFT)); });
+      (r.dp || []).forEach(function (c) { addDP(c.name, r2(c.od_m * 1000), r2(c.id_m * 1000), r2(M ? c.len : c.len / FT), r2(M ? c.wt : c.wt * KGM2LBFT)); });
+      document.getElementById('runEditName').textContent = r.name;
+    }
+
+    // ---- render PLAN -> tables
+    function planRenderSections() {
+      var auto = PLAN.sectionMode === 'auto', ro = auto ? ' readonly title="Auto: from the casing program"' : '';
+      document.getElementById('btnSecAuto').classList.toggle('active', auto);
+      document.getElementById('btnSecMan').classList.toggle('active', !auto);
+      document.getElementById('secAddRow').style.display = auto ? 'none' : '';
+      document.getElementById('secBody').innerHTML = PLAN.sections.map(function (s) {
+        return '<tr>'
+          + '<td><input type="text" data-k="name" value="' + esc(s.name) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="from" value="' + r2(dDisp(s.from), 1) + '"' + ro + '/></td>'
+          + '<td><input type="number" step="any" data-k="to" value="' + r2(dDisp(s.to), 1) + '"' + ro + '/></td>'
+          + '<td><input type="number" step="any" data-k="hole" value="' + r2(s.hole_m * 1000, 1) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="mw" value="' + r2(mwDisp(s.mudDens), pM() ? 0 : 2) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="ff" value="' + r2(s.ffOH, 2) + '"/></td>'
+          + '<td>' + (auto ? '' : '<button class="del" onclick="this.closest(\'tr\').remove();planReadSections();scheduleAutoSave()">x</button>') + '</td></tr>';
+      }).join('');
+    }
+    function planRenderRuns() {
+      document.getElementById('runBody').innerHTML = PLAN.runs.map(function (r) {
+        return '<tr data-id="' + r.id + '">'
+          + '<td style="text-align:center"><input type="radio" name="runEdit" data-k="edit"' + (r.id === CUR_RUN ? ' checked' : '') + ' onchange="planSwitchRun(\'' + r.id + '\')"/></td>'
+          + '<td style="text-align:center"><input type="checkbox" data-k="use"' + (r.use !== false ? ' checked' : '') + '/></td>'
+          + '<td><input type="text" data-k="name" value="' + esc(r.name) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="from" value="' + r2(dDisp(r.from), 1) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="to" value="' + r2(dDisp(r.to), 1) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="wobr" value="' + r2(fDisp(r.wobRot), 2) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="wobs" value="' + r2(fDisp(r.wobSlid), 2) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="tqb" value="' + r2(r.torqBit, 0) + '"/></td>'
+          + '<td><button class="del" title="Delete run" onclick="planDelRun(\'' + r.id + '\')">x</button></td></tr>';
+      }).join('');
+    }
+    function planRenderSnap() {
+      var man = PLAN.snapMode === 'manual';
+      document.getElementById('btnSnapAuto').classList.toggle('active', !man);
+      document.getElementById('btnSnapMan').classList.toggle('active', man);
+      document.getElementById('snapRun').style.display = man ? 'none' : '';
+      document.getElementById('snapMDWrap').style.display = man ? '' : 'none';
+      document.getElementById('snapMD').value = r2(dDisp(PLAN.snapMD != null ? PLAN.snapMD : planTD()), 1);
+      document.getElementById('lSnapMD').textContent = pM() ? 'Bit MD (m)' : 'Bit MD (ft)';
+      planRenderSnapRuns();
+    }
+    function planRenderSnapRuns() {
+      var act = TDModelCore.planActiveRuns(PLAN), sel = document.getElementById('snapRun');
+      var deep = act.length ? act.reduce(function (a, b) { return b.to >= a.to ? b : a; }) : null;
+      var cur = act.filter(function (r) { return r.id === PLAN.snapRunId; })[0] || deep;
+      sel.innerHTML = act.map(function (r) {
+        return '<option value="' + r.id + '"' + (cur && r.id === cur.id ? ' selected' : '') + '>End of ' + esc(r.name) + ' — bit at ' + r2(dDisp(r.to), 0) + (pM() ? ' m' : ' ft') + '</option>';
+      }).join('') || '<option value="">No run ticked "T&D"</option>';
+    }
+    function planRenderAll() {
+      if (!PLAN) return;
+      planRenderSections(); planRenderRuns(); planRenderSnap();
+      var cur = planCurRun() || PLAN.runs[0];
+      if (cur) { CUR_RUN = cur.id; planLoadRunTables(cur); }
+      planLabels(); planWarn();
+    }
+    function planLabels() {
+      var M = pM(), dU = M ? '(m)' : '(ft)', fU = M ? '(kDaN)' : '(klbf)';
+      var set = function (id, t) { var e = document.getElementById(id); if (e) e.textContent = t; };
+      set('th_sfrom', 'From ' + dU); set('th_sto', 'To ' + dU); set('th_smw', M ? 'MW (kg/m3)' : 'MW (ppg)');
+      set('th_rfrom', 'From ' + dU); set('th_rto', 'To ' + dU); set('th_rwobr', 'WOB Rot ' + fU); set('th_rwobs', 'WOB Slide ' + fU);
+      set('th_dlen', M ? 'Length (m)' : 'Length (ft)'); set('th_dwt', M ? 'Wt (kg/m)' : 'Wt (lb/ft)');
+      set('lLibLen', M ? 'Length (m)' : 'Length (ft)');
+    }
+
+    // ---- actions
+    function planSetSectionMode(m) {
+      if (!PLAN) return; planReadSections();
+      PLAN.sectionMode = m; planAutoSections(); planRenderSections(); planWarn(); scheduleAutoSave();
+    }
+    function planAddSection() {
+      planReadSections();
+      var last = PLAN.sections[PLAN.sections.length - 1] || { to: 0, hole_m: 0.159, mudDens: 1040, ffOH: 0.3 };
+      PLAN.sections.push({ name: 'Section ' + (PLAN.sections.length + 1), from: last.to, to: planTD(), hole_m: last.hole_m, mudDens: last.mudDens, ffOH: last.ffOH });
+      planRenderSections(); planWarn(); scheduleAutoSave();
+    }
+    function planAddRun(copy) {
+      planSyncTables(); planReadRuns();
+      var src = copy ? planCurRun() : null, last = PLAN.runs[PLAN.runs.length - 1];
+      var r = src ? JSON.parse(JSON.stringify(src)) : {
+        use: true, from: last ? last.to : 0, to: planTD(),
+        wobRot: last ? last.wobRot : 200000, wobSlid: last ? last.wobSlid : 190000, torqBit: last ? last.torqBit : 0, bha: [], dp: []
+      };
+      r.id = newRunId(); r.name = src ? src.name + ' (copy)' : 'Run ' + (PLAN.runs.length + 1);
+      PLAN.runs.push(r); CUR_RUN = r.id;
+      planRenderRuns(); planLoadRunTables(r); planRenderSnapRuns(); planWarn(); scheduleAutoSave();
+    }
+    function planDelRun(id) {
+      planSyncTables(); planReadRuns();
+      if (PLAN.runs.length <= 1) { alert('A well needs at least one BHA run.'); return; }
+      var r = PLAN.runs.filter(function (x) { return x.id === id; })[0];
+      if (!confirm('Delete run "' + (r ? r.name : '') + '" and its BHA / drill pipe?')) return;
+      PLAN.runs = PLAN.runs.filter(function (x) { return x.id !== id; });
+      if (CUR_RUN === id) CUR_RUN = PLAN.runs[0].id;
+      planRenderRuns(); planLoadRunTables(planCurRun()); planRenderSnapRuns(); planWarn(); scheduleAutoSave();
+    }
+    function planSwitchRun(id) {
+      planSyncTables(); CUR_RUN = id; var r = planCurRun(); if (r) planLoadRunTables(r);
+      planRenderTimeline();
+    }
+    function planSetSnapMode(m) {
+      if (!PLAN) return; PLAN.snapMode = m; planRenderSnap(); scheduleAutoSave();
+    }
+    function planSnapChanged() {
+      if (!PLAN) return;
+      PLAN.snapRunId = document.getElementById('snapRun').value || null;
+      PLAN.snapMD = dSI(+document.getElementById('snapMD').value);
+      scheduleAutoSave();
+    }
+
+    // Checks shown under the runs table (warnings only — nothing is blocked)
+    function planWarn() {
+      var el = document.getElementById('planWarn'); if (!el || !PLAN) return;
+      var w = [], td = planTD(), act = TDModelCore.planActiveRuns(PLAN), u = pM() ? ' m' : ' ft';
+      var f = function (v) { return r2(dDisp(v), 0) + u; };
+      if (!act.length) w.push('No run is ticked "T&D" (or the ticked runs have no BHA / DP) — the model falls back to the BHA table as a single string.');
+      PLAN.runs.forEach(function (r) {
+        if (!(r.to > r.from)) w.push('Run "' + r.name + '": To must be deeper than From.');
+        if (r.to > td + 0.01) w.push('Run "' + r.name + '" ends below TD (' + f(td) + ').');
+      });
+      var cov = 0;
+      // 2026-11-08 round 5: also report MD above the first run (not covered by any run)
+      if (act.length && act[0].from > 0.5) w.push('No T&D run from surface to ' + f(act[0].from) + ' — Hookload uses the first run ("' + act[0].name + '") there.');
+      act.forEach(function (r) { if (r.from > cov + 0.5 && cov > 0) w.push('Gap: no T&D run between ' + f(cov) + ' and ' + f(r.from) + ' (Hookload is not plotted there).'); cov = Math.max(cov, r.to); });
+      // runs that fall outside their hole section (section = the one at the run's mid-depth,
+      // whose mud weight the model uses for the whole run)
+      PLAN.runs.forEach(function (r) {
+        if (!(r.to > r.from)) return;
+        var sec = TDModelCore.planSectionAt(PLAN, (r.from + r.to) / 2);
+        if (!sec) return;
+        if (r.from < sec.from - 0.5 || r.to > sec.to + 0.5)
+          w.push('Run "' + r.name + '" (' + f(r.from) + '–' + f(r.to) + ') falls outside its hole section "' + sec.name + '" (' + f(sec.from) + '–' + f(sec.to) + '): the whole run uses that section\'s mud weight; hole size still follows the section at each MD.');
+      });
+      if (act.length && cov < td - 0.5) w.push('No T&D run reaches TD — last run ends at ' + f(cov) + '.');
+      for (var i = 0; i < act.length; i++) for (var j = i + 1; j < act.length; j++)
+        if (act[j].from < act[i].to - 0.5) w.push('Runs "' + act[i].name + '" and "' + act[j].name + '" overlap — where both apply, the one starting deeper is used.');
+      if (PLAN.sectionMode === 'manual') {
+        var ss = PLAN.sections.slice().sort(function (a, b) { return a.from - b.from; }), c = 0;
+        ss.forEach(function (s) { if (s.from > c + 0.5) w.push('Sections: gap between ' + f(c) + ' and ' + f(s.from) + '.'); c = Math.max(c, s.to); });
+        if (c < td - 0.5) w.push('Sections do not reach TD (' + f(td) + ').');
+      }
+      el.innerHTML = w.length ? w.map(function (t) { return '&#9888; ' + esc(t); }).join('<br>') : '&#10003; Sections and runs cover the well.';
+      el.style.color = w.length ? 'var(--yellow)' : 'var(--accent3)';
+      planRenderTimeline();
+    }
+
+    // FF calibration "Apply to Model": the open-hole slider applies to every section.
+    function planApplyFFOH(v) {
+      if (!PLAN) return; planReadSections();
+      PLAN.sections.forEach(function (s) { s.ffOH = v; }); planRenderSections();
+    }
+
+    // Plan as saved in params (SI, deep copy, editors synced first).
+    function planForSave() {
+      if (!PLAN) return null;
+      if (document.getElementById('runBody').children.length) { planSyncTables(); planReadRuns(); }
+      if (PLAN.sectionMode === 'auto') planAutoSections(); else planReadSections();
+      return JSON.parse(JSON.stringify(PLAN));
+    }
+
+    function initPlanUI() {
+      // legacy single-value inputs now live per section / per run
+      ['mudWeight', 'wobRot', 'wobSlid', 'torqBit', 'ffOH', 'ohDiam', 'ohTop'].forEach(function (id) {
+        var e = document.getElementById(id); if (e && e.parentNode) e.parentNode.style.display = 'none';
+      });
+      var sb = document.getElementById('secBody'), rb = document.getElementById('runBody');
+      sb.addEventListener('input', planReadSections);
+      rb.addEventListener('input', planReadRuns);
+      rb.addEventListener('change', function (e) { if (e.target.getAttribute('data-k') !== 'edit') planReadRuns(); });
+      // auto sections follow the casing program and TD
+      var casChanged = function () { if (PLAN && PLAN.sectionMode === 'auto') { planAutoSections(); planRenderSections(); planWarn(); } };
+      document.getElementById('casBody').addEventListener('input', casChanged);
+      document.getElementById('td').addEventListener('input', function () { casChanged(); planWarn(); });
+      if (window.MutationObserver) {
+        new MutationObserver(casChanged).observe(document.getElementById('casBody'), { childList: true });
+        ['secBody', 'runBody', 'dpBody'].forEach(function (id) {
+          new MutationObserver(scheduleAutoSave).observe(document.getElementById(id), { childList: true });
+        });
+      }
+    }
+
+    // =============================================================
+    // RESET FOR A NEW WELL (2026-11-08 round 6): used when a job well with
+    // no saved T&D setup is loaded. Keeps the BHA / drill pipe and WOB /
+    // torque of the run being edited and the section values (hole size,
+    // MW, FF OH by position), but rebuilds: sections = AUTO from the
+    // casing program and this well's TD; ONE run from the deepest casing
+    // shoe above TD (0 if none) to TD; snapshot AUTO.
+    // =============================================================
+    function planResetForWell() {
+      if (!PLAN) { planInitFromLegacy(); return; }
+      planSyncTables();
+      var cur = planCurRun() || PLAN.runs[0] || {};
+      var td = planTD();
+      var top = getCasings().reduce(function (a, c) { return (c.shoe < td && c.shoe > a) ? c.shoe : a; }, 0);
+      PLAN.sectionMode = 'auto';
+      PLAN.snapMode = 'auto'; PLAN.snapRunId = null; PLAN.snapMD = td;
+      PLAN.runs = [{
+        id: newRunId(), name: 'Run 1', use: true, from: top, to: td,
+        wobRot: cur.wobRot, wobSlid: cur.wobSlid, torqBit: cur.torqBit,
+        bha: cur.bha || getBHA(), dp: cur.dp || []
+      }];
+      CUR_RUN = PLAN.runs[0].id;
+      planAutoSections();
+      planRenderAll();
+    }
+
+    // =============================================================
+    // DEPTH TIMELINE (added 2026-11-08 round 5): sections as coloured
+    // blocks, casing shoes as ticks, BHA runs as segments (overlapping runs
+    // stacked in lanes), uncovered MD shaded red. Click a run to edit it.
+    // =============================================================
+    var TL_COLORS = ['#2563eb', '#0d9488', '#7c3aed', '#c2410c', '#be185d', '#4d7c0f', '#0369a1'];
+    function planSelectRun(id) {
+      planSwitchRun(id);
+      document.querySelectorAll('#runBody input[data-k="edit"]').forEach(function (r) { r.checked = r.closest('tr').getAttribute('data-id') === id; });
+      planRenderTimeline();
+      var ed = document.getElementById('runEditName'); if (ed && ed.scrollIntoView) ed.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    function planRenderTimeline() {
+      var el = document.getElementById('planTimeline'); if (!el || !PLAN) return;
+      var td = planTD(); if (!(td > 0)) { el.innerHTML = ''; return; }
+      var u = pM() ? 'm' : 'ft', pct = function (md) { return Math.max(0, Math.min(100, md / td * 100)); };
+      var h = '';
+      // axis ticks
+      var stepRaw = td / 6, mag = Math.pow(10, Math.floor(Math.log10(stepRaw))), step = [1, 2, 2.5, 5, 10].map(function (k) { return k * mag; }).filter(function (v) { return v >= stepRaw; })[0];
+      h += '<div class="tl-axis">';
+      for (var d = 0; d <= td * 0.82; d += step) h += '<span style="left:' + pct(d) + '%">' + Math.round(dDisp(d)) + '</span>';
+      h += '<span style="left:100%" class="tl-td">TD ' + Math.round(dDisp(td)) + ' ' + u + '</span></div>';
+      // sections lane
+      h += '<div class="tl-lane-lbl">Hole sections</div><div class="tl-lane">';
+      PLAN.sections.slice().sort(function (a, b) { return a.from - b.from; }).forEach(function (s, i) {
+        h += '<div class="tl-sec" style="left:' + pct(s.from) + '%;width:' + (pct(s.to) - pct(s.from)) + '%;background:' + TL_COLORS[i % TL_COLORS.length] + '" title="' + esc(s.name) + ': ' + r2(dDisp(s.from)) + '–' + r2(dDisp(s.to)) + ' ' + u + ', hole ' + r2(s.hole_m * 1000) + ' mm, MW ' + r2(mwDisp(s.mudDens)) + ', FF OH ' + r2(s.ffOH) + '"><span>' + esc(s.name) + ' · ' + r2(+(s.hole_m * 1000).toFixed(1)) + ' mm</span></div>';
+      });
+      getCasings().forEach(function (c) {
+        if (c.shoe > 0 && c.shoe <= td) h += '<div class="tl-shoe" style="left:' + pct(c.shoe) + '%" title="' + esc(c.name) + ' shoe ' + r2(dDisp(c.shoe)) + ' ' + u + '">&#9660;</div>';
+      });
+      h += '</div>';
+      // runs lanes (greedy stacking of overlaps)
+      var runs = PLAN.runs.slice().sort(function (a, b) { return a.from - b.from; }), lanes = [];
+      runs.forEach(function (r) {
+        var k = 0; while (lanes[k] && lanes[k].some(function (o) { return r.from < o.to - 0.5 && o.from < r.to - 0.5; })) k++;
+        (lanes[k] = lanes[k] || []).push(r);
+      });
+      // uncovered MD (ticked runs only)
+      var act = TDModelCore.planActiveRuns(PLAN), gaps = [], cov = 0;
+      act.forEach(function (r) { if (r.from > cov + 0.5) gaps.push([cov, r.from]); cov = Math.max(cov, r.to); });
+      if (cov < td - 0.5) gaps.push([cov, td]);
+      h += '<div class="tl-lane-lbl">BHA runs <span style="opacity:.7">(click to edit)</span></div>';
+      (lanes.length ? lanes : [[]]).forEach(function (lane, li) {
+        h += '<div class="tl-lane tl-runs">';
+        if (li === 0) gaps.forEach(function (g) { h += '<div class="tl-gap" style="left:' + pct(g[0]) + '%;width:' + (pct(g[1]) - pct(g[0])) + '%" title="No T&amp;D run ' + r2(dDisp(g[0]), 0) + '–' + r2(dDisp(g[1]), 0) + ' ' + u + '"></div>'; });
+        lane.forEach(function (r) {
+          var cls = 'tl-run' + (r.use === false ? ' off' : '') + (r.id === CUR_RUN ? ' sel' : '');
+          h += '<div class="' + cls + '" style="left:' + pct(r.from) + '%;width:' + Math.max(0.6, pct(r.to) - pct(r.from)) + '%" onclick="planSelectRun(\'' + r.id + '\')" title="' + esc(r.name) + ': ' + r2(dDisp(r.from)) + '–' + r2(dDisp(r.to)) + ' ' + u + (r.use === false ? ' (not used in T&amp;D)' : '') + ' — click to edit"><span>' + esc(r.name) + '</span></div>';
+        });
+        h += '</div>';
+      });
+      el.innerHTML = h;
+    }
+
+    // =============================================================
+    // BHA LIBRARY picker (added 2026-11-08 round 5) — public/data/bhaLibrary.json
+    // (dimensional catalogue converted from Hydraulics.xls: DC, HWDP, DP,
+    // SWDP, MWD, motors). Adds ONE component on top of the BHA or Drill
+    // Pipe table of the run being edited (tables are bottom-up). Missing
+    // weight -> steel density x pi/4 (OD^2 - ID^2), same rule as the
+    // SAGcorrection import; MWD / motor weight = catalogue weight / length.
+    // =============================================================
+    var BHA_LIB = null, LIB_CATS = [
+      ['drillCollar', 'Drill Collar'], ['hwdp', 'HWDP'], ['drillPipe', 'Drill Pipe'], ['swdp', 'SWDP'], ['mwd', 'MWD / LWD'], ['motor', 'Motor']];
+    async function libPickOpen() {
+      var box = document.getElementById('libPick'); box.style.display = '';
+      if (!BHA_LIB) {
+        try { BHA_LIB = await (await fetch('/data/bhaLibrary.json')).json(); }
+        catch (e) { document.getElementById('libNote').textContent = 'Could not load the BHA library: ' + e.message; return; }
+      }
+      var cat = document.getElementById('libCat');
+      if (!cat.options.length) cat.innerHTML = LIB_CATS.map(function (c) { return '<option value="' + c[0] + '">' + c[1] + '</option>'; }).join('');
+      libPickCat();
+    }
+    function libItemLabel(cat, it) {
+      var base = (it.description ? it.description + ' — ' : '') + 'OD ' + it.od_mm + ' mm';
+      if (it.id_mm != null) base += ' × ID ' + it.id_mm + ' mm';
+      if (it.grade) base += ' · ' + it.grade;
+      if (it.actWt_kgm != null) base += ' · ' + it.actWt_kgm + ' kg/m';
+      if (it.tjType) base += ' · ' + it.tjType + (it.tjOd_mm ? ' (TJ OD ' + it.tjOd_mm + ')' : '');
+      if (it.length_m != null) base += ' · ' + it.length_m + ' m';
+      return base;
+    }
+    function libPickCat() {
+      var cat = document.getElementById('libCat').value, items = (BHA_LIB && BHA_LIB[cat]) || [];
+      document.getElementById('libItem').innerHTML = items.map(function (it, i) { return '<option value="' + i + '">' + esc(libItemLabel(cat, it)) + '</option>'; }).join('');
+      document.getElementById('libTarget').value = (cat === 'drillPipe' || cat === 'hwdp' || cat === 'swdp') ? 'dp' : 'bha';
+      libPickItem();
+    }
+    function libPickItem() {
+      var cat = document.getElementById('libCat').value, it = ((BHA_LIB && BHA_LIB[cat]) || [])[+document.getElementById('libItem').value];
+      if (!it) return;
+      var len = it.length_m != null ? it.length_m : (cat === 'drillCollar' ? 9.45 : cat === 'hwdp' ? 9.45 : 9.45);
+      document.getElementById('libLen').value = r2(dDisp(len));
+      document.getElementById('lLibLen').textContent = pM() ? 'Length (m)' : 'Length (ft)';
+      document.getElementById('libNote').textContent = (it.id_mm == null && it.equivId_mm == null)
+        ? 'Catalogue has no ID for this item: ID is left at 0 (solid) — type the real bore if known (it affects weight and buckling stiffness).'
+        : 'Adds one row on top of the selected table (lists are bottom-up).';
+    }
+    function libPickAdd() {
+      var cat = document.getElementById('libCat').value, it = ((BHA_LIB && BHA_LIB[cat]) || [])[+document.getElementById('libItem').value];
+      if (!it) return;
+      var M = pM(), od = +it.od_mm, idv = it.id_mm != null ? +it.id_mm : (it.equivId_mm != null ? +it.equivId_mm : 0);
+      var lenSI = dSI(+document.getElementById('libLen').value || 0);
+      var wt = it.actWt_kgm != null ? +it.actWt_kgm
+        : (it.weight_kg != null && it.length_m) ? +it.weight_kg / +it.length_m
+        : (+document.getElementById('steelDens').value || 7850) * Math.PI / 4 * ((od / 1000) * (od / 1000) - (idv / 1000) * (idv / 1000));
+      var name = (it.description || (LIB_CATS.filter(function (c) { return c[0] === cat; })[0][1] + ' ' + od)) + (it.grade ? ' ' + it.grade : '');
+      var args = [name, r2(od), r2(idv), r2(M ? lenSI : lenSI / FT), r2(M ? wt : wt * KGM2LBFT)];
+      if (document.getElementById('libTarget').value === 'dp') addDP.apply(null, args); else addBHA.apply(null, args);
+      setStatus('ok', 'Added "' + name + '" from the BHA library to the ' + (document.getElementById('libTarget').value === 'dp' ? 'Drill Pipe' : 'BHA') + ' table of run "' + ((planCurRun() || {}).name || '') + '".');
+    }
+
+    // =============================================================
+    // PRELOADED EXAMPLE (added 2026-11-08 round 5, John's request): the
+    // CNRL ETS 158861 survey / casing / BHA (production run, matches the
+    // WellPlan report at TD) PLUS an ILLUSTRATIVE intermediate run used to
+    // test hole sections & runs. The intermediate BHA, drill pipe, WOB,
+    // torque, 222.3 mm hole, 1100 kg/m3 MW and FF 0.35 are made-up test
+    // values, NOT field data. Effective Tension / Side Forces / Torque with
+    // the bit at TD are unchanged (they use the production run); Hookload
+    // above 1138 m uses the illustrative run.
+    // =============================================================
+    function planLoadExample() {
+      planInitFromLegacy();
+      var s2 = PLAN.sections.filter(function (s) { return Math.abs(s.from - 200) < 1 && Math.abs(s.to - 1138) < 1; })[0];
+      if (s2) { s2.name = 'Intermediate (example)'; s2.hole_m = 0.2223; s2.mudDens = 1100; s2.ffOH = 0.35; }
+      PLAN.runs[0].name = 'Production 159 (CNRL)';
+      PLAN.runs.unshift({
+        id: newRunId(), name: 'Intermediate 222 (example)', use: true, from: 200, to: 1138,
+        wobRot: 80000, wobSlid: 60000, torqBit: 2000,
+        bha: [{ name: 'Bit 222', od_m: 0.2223, id_m: 0, len: 0.3, wt: 150 },
+              { name: 'Motor 171', od_m: 0.171, id_m: 0.08, len: 9, wt: 140 },
+              { name: 'DC 165', od_m: 0.165, id_m: 0.071, len: 90, wt: 130 }],
+        dp: [{ name: 'HWDP 127', od_m: 0.127, id_m: 0.0762, len: 150, wt: 74 },
+             { name: 'DP 127', od_m: 0.127, id_m: 0.1086, len: 10, wt: 29 }]
+      });
+      CUR_RUN = PLAN.runs[1].id; // edit the CNRL production run by default
+      planRenderAll();
     }
 
     // =============================================================
@@ -3170,10 +4337,14 @@
       var savedTheme = localStorage.getItem(TD_THEME_KEY);
       if(savedTheme === 'light') setTheme('light');
 
+      setLegend(SHOW_LEGEND);
+
       updateLabels();
       loadCNRL();
       loadCNRLCas();
       loadCNRLBHA();
+      initPlanUI();
+      planLoadExample(); // CNRL + illustrative 2-run example (round 5)
       document.getElementById('sl1').value = 0.25;
       document.getElementById('sl2').value = 0.20;
       document.getElementById('sl3').value = 0.32;
@@ -3190,6 +4361,13 @@
       }
     })();
   </script>
+  <!-- Plot help floating window (2026-11-08 round 3) -->
+  <div class="hp-modal" id="hpModal" onclick="if(event.target===this)closeTdHelp()">
+    <div class="hp-win" role="dialog" aria-modal="true" aria-labelledby="hpTitle">
+      <div class="hp-hdr"><h3 id="hpTitle"></h3><button class="hp-x" onclick="closeTdHelp()" aria-label="Close">&times;</button></div>
+      <div class="hp-body" id="hpBody"></div>
+    </div>
+  </div>
 </body>
 
 </html>

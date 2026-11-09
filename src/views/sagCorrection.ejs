@@ -29,8 +29,8 @@
   header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   header h1{font-size:16px;margin:0;font-weight:600;}
   header .sub{color:var(--muted);font-size:12px;}
-  .wrap{max-width:1500px;margin:0 auto;padding:16px;}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+  .wrap{max-width:none;margin:0 auto;padding:8px 10px;}   /* 2026-11-07 (John): wider page — was max-width 1500px, padding 16px */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 10px;margin-bottom:10px;}
   .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px;}
   table{width:100%;border-collapse:collapse;font-size:12px;}
   th,td{border-bottom:1px solid var(--border);padding:4px 6px;text-align:right;white-space:nowrap;}
@@ -85,7 +85,7 @@
       <div class="field"><span>MTX Job ID</span><input id="mtxId" placeholder="e.g. 2423" style="width:120px"></div>
       <button onclick="loadJob()" style="align-self:flex-end">Load job</button>
       <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
-      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px"></select></div>
+      <div class="field"><span>T&amp;D BHA (scenario / run)</span><select id="scenSel" style="width:320px"></select></div>
       <button onclick="loadBhaFromTD()" style="align-self:flex-end">⬇ Use saved T&amp;D BHA</button>
       <button onclick="loadSurveyFromJob()" style="align-self:flex-end">⬇ Use well survey</button>
     </div>
@@ -134,12 +134,32 @@
     </div>
   </div>
 
+  <!-- 2b. RUNS (ADDED 2026-11-07, John: several BHAs / runs in one well — each survey station corrected with the BHA of
+       its run, chosen by MD automatically). Run = BHA rows + sensor + bend + bit MD in / out. Survey MD range of a run =
+       bit MD in − sensor … bit MD out − sensor (a survey is taken at the sensor, behind the bit); overlap -> the run
+       with the deeper bit MD in wins. BHAs from T&D scenarios (one per run), Excel or manual entry (panel 2). -->
+  <div class="panel">
+    <h2>2b · Runs — one BHA per MD range (optional)</h2>
+    <div class="row">
+      <label style="align-self:flex-end"><input type="checkbox" id="runsOn" onchange="runsRender()"> <b>Use runs</b> (each station corrected with the BHA of its run)</label>
+      <button onclick="runAddCurrent()" style="align-self:flex-end">+ Run from the BHA in panel 2</button>
+      <button onclick="runAddAllTD()" style="align-self:flex-end" title="One SAG run per BHA run ticked 'T&amp;D' in the scenario selected in panel 1 (bit MD in / out = the run's From / To). Older saves without BHA runs: one run per T&amp;D scenario.">+ Runs from T&amp;D BHA runs</button>
+      <span id="runsInfo" class="muted" style="align-self:flex-end"></span>
+    </div>
+    <div class="scroll" style="max-height:260px"><table>
+      <thead><tr><th>Run</th><th>Bit MD in (<span class="uL">m</span>)</th><th>Bit MD out (<span class="uL">m</span>)</th><th>Survey MD range (<span class="uL">m</span>)</th><th>Stations</th><th>BHA source</th><th>Components</th><th>Sensor (<span class="uL">m</span>)</th><th>Bend</th><th></th></tr></thead>
+      <tbody id="runsBody"></tbody></table></div>
+    <div class="note">Enter bit depths (MD in / out). The survey range is shifted up by the sensor-to-bit distance of that run. <b>Edit</b> loads a run into panels 2–3
+      (BHA, sensor, bend) — changes there are saved back to the active run. Mud weight, gravity, model and Kinetic options are common to all runs.
+      Stations outside every run are left uncorrected. Without an MTX job: build the BHA in panel 2 (manual or Excel import) and press <b>+ Run from the BHA in panel 2</b>.</div>
+  </div>
+
   <!-- 3. SAG ANALYSIS ------------------------------------------------------->
   <div class="panel">
     <h2>3 · Sag analysis</h2>
     <div class="row">
-      <div class="field"><span>Model</span><select id="modelSel" onchange="onModelChange()" style="width:120px">
-        <option value="Beam">Beam</option><option value="Kinetic">Kinetic</option></select></div>
+      <div class="field"><span>Model</span><select id="modelSel" onchange="onModelChange()" style="width:120px" autocomplete="off">
+        <option value="Beam">Beam</option><option value="Kinetic" selected>Kinetic</option></select></div>   <!-- 2026-11-07 (John): Kinetic is the default model (was Beam) -->
       <div class="field"><span>Sensor position from bit (<span class="uL">m</span>)</span><input type="number" id="sensor" value="15" step="0.01"></div>
       <div class="field"><span>Mud weight (<span class="uM">kg/m³</span>)</span><input type="number" id="mud" value="1200" step="1"></div>
       <div class="field"><span>Distance to bend (<span class="uL">m</span>)</span><input type="number" id="bendDist" value="0" step="0.01"></div>
@@ -216,8 +236,78 @@
       (<i>&lt;well&gt; SAG &lt;date&gt;</i>, source SAGcorrection) in the job — the original survey is never modified.</div>
     <div class="scroll"><table>
       <thead><tr><th>MD</th><th>Inc meas (°)</th><th>Sag corr (°)</th><th>Inc corr (°)</th><th>Az (°)</th>
-        <th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th><th>DLS (°/30m)</th><th>Survey TF (°)</th><th>WOB used</th></tr></thead>
+        <th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th><th>DLS (°/30m)</th><th>Survey TF (°)</th><th>WOB used</th><th>Run</th></tr></thead>
       <tbody id="svyBody"></tbody></table></div>
+  </div>
+
+  <!-- 5. STATION VIEW ------------------------------------------------------
+       ADDED 2026-11-07 (John: "3D trajectory on one side, a slider showing where we are in the trajectory, and see the
+       bend (SAG) … very mechanical-engineering sound", like SolidWorks shear / moment diagrams; both models, Kinetic default).
+       No new physics: every value comes from the same solvers as panel 3 (sagKinetic.js / sagModel.js, worker
+       'profileBoth'). Derived quantities: bending stress at the outer fibre sigma = M c / I, c = OD/2,
+       I = pi (OD^4 - ID^4) / 64 (Timoshenko & Gere, Mechanics of Materials); distributed lateral load
+       q = buoyed weight per metre x sin(Inc) — same expression as sagKinetic.js (wOf). -->
+  <div class="panel">
+    <h2>5 · Station view — BHA beam diagrams</h2>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:260px"><span>Survey station <b id="sdLbl"></b></span>
+        <input type="range" id="sdSlider" min="0" max="0" value="0" step="1" style="width:100%"></div>
+      <label class="muted" style="align-self:flex-end"><input type="checkbox" id="sdBeam" checked> also solve Beam (SurQC)</label>
+      <label class="muted" style="align-self:flex-end"><input type="checkbox" id="sdShow3dCorr" checked> show corrected trajectory</label>
+      <label class="muted" style="align-self:flex-end"><input type="checkbox" id="sdZoom" checked> zoom 3D to the BHA</label>
+      <button class="primary" onclick="sdSolve()" style="align-self:flex-end">Solve this station</button>
+      <span id="sdStatus" class="muted" style="align-self:flex-end"></span>
+    </div>
+    <div id="sdEmpty" class="note">Load a survey (panel 4) and a BHA (panels 1–2) to use the station view.</div>
+    <div class="grid2" style="grid-template-columns:2fr 3fr">
+      <div><div id="sd3d" style="height:560px"></div></div>
+      <div>
+        <div id="sdBha" style="height:330px"></div>
+        <div id="sdTable" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:8px">
+      <div><div id="sdShear" class="plot"></div><div id="sdMoment" class="plot"></div></div>
+      <div><div id="sdSlope" class="plot"></div><div id="sdDefl" class="plot"></div></div>
+    </div>
+    <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Theory, sign convention and assumptions</summary>
+      <div class="note" style="font-size:11px;line-height:1.5">
+        <b>Model.</b> The BHA is an elastic beam (Euler–Bernoulli) lying in the hole under its own buoyed weight. The lateral load per metre is
+        q(x) = w(x)·sin(Inc), with w = mass per metre × g × (1 − ρ<sub>mud</sub>/ρ<sub>material</sub>). The bit is on the hole axis; stabilisers and any collar
+        touching the low-side wall are supports whose positions are found by the solver (contact problem — the beam is statically indeterminate).
+        Governing equation: EI·y'''' = q (Kinetic adds the axial-load term −P·y'' when WOB / axial load is on).<br>
+        <b>Results.</b> Deflection y(x) relative to the hole centreline (negative = towards the low side); slope θ = dy/dx;
+        bending moment M = EI·y''; shear force V = lateral force on the section (Σ reactions − ∫q from the bit) = dM/dx without axial load; support reactions = jumps in V. <b>The SAG correction is θ at the MWD sensor.</b><br>
+        <b>Bending stress</b> (outer fibre) σ = M·c/I with c = OD/2, I = π(OD⁴ − ID⁴)/64 — indicative only (no stress concentration at connections, no fatigue).<br>
+        <b>Models.</b> Beam = SurQC port (iterative, steel only, no curvature / WOB). Kinetic = finite-element Hermite beam with an active-set wall contact
+        (materials, hole curvature, bend toolface, WOB). Kinetic was checked against the Timoshenko &amp; Gere closed-form beam-column to 1e-6°.<br>
+        <b>Scale.</b> In the BHA view the length axis is in metres and the radial axis in millimetres (true radial scale, length compressed) — the same
+        exaggeration a deformation plot uses. Station geometry (curvature, toolface, WOB) is taken from the Kinetic options in panel 3.
+      </div></details>
+  </div>
+
+  <!-- 6. TECHNICAL REPORT (ADDED 2026-11-07, John: layout approved; CNRL logo + header; theory and assumptions included).
+       Built in the browser from the current page state: same solvers, same figures (light theme), printed to PDF. -->
+  <div class="panel">
+    <h2>6 · Technical report</h2>
+    <div class="row">
+      <div class="field"><span>Well</span><input id="rpWell" style="width:240px"></div>
+      <div class="field"><span>Job / MTX ID</span><input id="rpJob" style="width:140px"></div>
+      <div class="field"><span>Run / section</span><input id="rpRun" style="width:140px"></div>
+      <div class="field"><span>Prepared by</span><input id="rpBy" style="width:160px" value="<%= (user && user.name) || '' %>"></div>
+      <div class="field"><span>Checked by</span><input id="rpChk" style="width:160px"></div>
+      <div class="field"><span>Toolcode (corrected well)</span><input id="rpTool" style="width:160px" placeholder="e.g. MWD+HRGM+SAG"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><span>Comments (shown in the summary)</span><input id="rpNotes" style="width:100%"></div>
+      <div class="field"><span>Analysed stations (Inc °, comma)</span><input id="rpIncs" value="30,60,90" style="width:120px"></div>
+      <label class="muted"><input type="checkbox" id="rpCur" checked> + station shown in panel 5</label>
+      <button class="primary" id="btnReport" onclick="sagReport()">📄 Build report (PDF)</button>
+      <span id="rpStatus" class="muted"></span>
+    </div>
+    <div class="note">Needs the BHA, the correction table (panel 3) and the corrected survey (panel 4). The report opens in a new tab — use
+      <b>Print → Save as PDF</b> there (A4/Letter, headers and backgrounds on). Figures are re-solved for the analysed stations with both models.</div>
+    <div id="rpOff" style="position:absolute;left:-10000px;top:0;width:1000px"></div>
   </div>
 </div>
 
@@ -327,7 +417,8 @@ function refreshBha(){
 // first `limit` metres of the ticked rows are sent to the solver; the row
 // that crosses the limit is shortened to end exactly at it.
 function limitRows(rows){
-  var lim = Lm(+$('bhaLimit').value || 0); if(!(lim > 0)) return rows;
+  // 2026-11-07 (John): always analyse at most the first 60 m (or the limit entered) even if rows beyond it stay ticked; empty / 0 -> 60 m
+  var lim = Lm(+$('bhaLimit').value || 0); if(!(lim > 0)) lim = 60;
   var out = [], cum = 0;
   for(var i = 0; i < rows.length && cum < lim - 1e-9; i++){
     var r = Object.assign({}, rows[i]); r.len_m = Math.min(r.len_m, lim - cum); out.push(r); cum += r.len_m; }
@@ -371,6 +462,8 @@ function exportBha(){
 // Same loose header matching as the T&D modeler's importBHAExcel; extra
 // optional columns: Stiffness factor, Material, Use. Replaces the table.
 function importBha(evt){
+  lastBhaSource = 'Excel import';   // 2026-11-07 runs
+  if(typeof runDetach === 'function') runDetach();
   var f = evt.target.files[0]; if(!f) return;
   var rd = new FileReader();
   rd.onload = function(e){
@@ -460,27 +553,60 @@ async function loadJob(){
       (job.td ? '' : ' · no saved T&D model in this job') + (d.duplicateWarning ? ' <span class="warn">' + d.duplicateWarning + '</span>' : '');
   }catch(err){ $('jobStatus').innerHTML = '<span class="bad">' + err.message + '</span>'; }
 }
+// -------------------------------------------------------------------
+// T&D BHA sources — CHANGED 2026-11-08 (John): the T&D modeler now saves
+// hole sections + BHA RUNS in params.plan.runs ({id, name, use, from, to
+// (bit MD, m), bha[], dp[]}, bottom-up, same component format as getBHA()).
+// The old per-scenario `bha` field only holds the run that was being
+// edited at save time, so SAG now lists EVERY run of every scenario
+// ("scenario / run"). Older saves without runs keep the old behaviour
+// (one BHA per scenario). Drill pipe rows follow the BHA rows; applyLimit()
+// unticks whatever is beyond the BHA length limit, as before.
+// -------------------------------------------------------------------
+var TD_SRC = [];
+function tdSources(w){
+  var td = job.td, out = [];
+  if(!td || !td.scenarios || !w) return out;
+  Object.keys(td.scenarios).forEach(function(s){
+    var e = (td.scenarios[s].resultsByWell || {})[w.wellKey];
+    if(!e) return;
+    var runs = e.params && e.params.plan && e.params.plan.runs;
+    if(runs && runs.length){
+      runs.slice().sort(function(a, b){ return a.from - b.from; }).forEach(function(r){
+        var rows = (r.bha || []).concat(r.dp || []);
+        if(!rows.length) return;
+        out.push({ scen: s, run: r, bha: rows, from: +r.from, to: +r.to, use: r.use !== false,
+          label: s + ' / ' + r.name + ' (' + fmt(L(+r.from), 0) + '–' + fmt(L(+r.to), 0) + ' ' + (UNIT === 'metric' ? 'm' : 'ft') + ')' + (r.use === false ? ' — not used in T&D' : '') });
+      });
+    } else if(e.bha && e.bha.length){
+      out.push({ scen: s, run: null, bha: e.bha, label: s });
+    }
+  });
+  return out;
+}
 function onWellChange(){
   var w = job.wells[+$('wellSel').value]; var td = job.td;
-  var opts = [];
-  if(td && td.scenarios && w){
-    Object.keys(td.scenarios).forEach(function(s){
-      var rb = td.scenarios[s].resultsByWell || {};
-      if(rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length) opts.push(s);
-    });
-  }
-  $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + s + '</option>'; }).join('')
+  TD_SRC = tdSources(w);
+  var act = td ? td.activeScenario : null, selIdx = -1;
+  TD_SRC.forEach(function(x, i){ if(selIdx < 0 && x.scen === act) selIdx = i; });
+  $('scenSel').innerHTML = TD_SRC.length ? TD_SRC.map(function(x, i){ return '<option value="' + i + '"' + (i === selIdx ? ' selected' : '') + '>' + String(x.label).replace(/</g, '&lt;') + '</option>'; }).join('')
     : '<option value="">(no saved BHA for this well)</option>';
 }
 function loadBhaFromTD(){
-  var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
-  if(!w || !s){ alert('Load a job and pick a well with a saved T&D BHA first.'); return; }
-  var bha = job.td.scenarios[s].resultsByWell[w.wellKey].bha;
+  var w = job.wells[+$('wellSel').value], src = TD_SRC[+$('scenSel').value];
+  if(!w || !src || $('scenSel').value === ''){ alert('Load a job and pick a well with a saved T&D BHA first.'); return; }
+  var s = src.scen + (src.run ? ' / ' + src.run.name : '');
+  var bha = src.bha;
+  // FIX 2026-11-08: detach the active run BEFORE replacing the table. It used to be
+  // called after the new rows were in, so runSave() wrote the NEW BHA into the
+  // previously active run — with "+ Runs from T&D" every run got the next run's BHA.
+  if(typeof runDetach === 'function') runDetach();
   // T&D getBHA(): {name, od_m, id_m, len (m), wt (kg/m)}, bit first.
   $('bhaBody').innerHTML = '';
   bha.forEach(function(c){ addRow({ use:true, name:c.name, od_mm:+(c.od_m * 1000).toFixed(2), id_mm:+(c.id_m * 1000).toFixed(2),
     len_m:+c.len, wt_kgm:c.wt == null ? '' : +c.wt, sf:1, material:'Steel' }); });
   applyLimit(); invalidate();
+  lastBhaSource = 'T&D: ' + s;   // 2026-11-07 runs
   $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + s + '" for ' + w.wellKey + ' (' + bha.length + ' components; rows beyond the BHA length limit unticked).';
 }
 function loadSurveyFromJob(){
@@ -488,6 +614,7 @@ function loadSurveyFromJob(){
   if(!w){ alert('Load a job first.'); return; }
   survey = w.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az}; });
   surveySource = { noteId: job.noteId, wellKey: w.wellKey };
+  if($('rpWell') && !$('rpWell').value) $('rpWell').value = w.wellKey; if($('rpJob') && !$('rpJob').value) $('rpJob').value = job.mtxJobId + (job.title ? ' — ' + job.title : '');   // 2026-11-07 report header
   $('svyInfo').textContent = survey.length + ' stations from ' + w.wellKey;
   corrected = []; renderSurvey(); $('btnSaveVer').disabled = true;
 }
@@ -616,6 +743,7 @@ function importSurvey(evt){
 var stationInfo = null;   // per-station geometry/WOB used (for display/export)
 async function applyCorrection(){
   if(!survey.length){ alert('Load or import a survey first.'); return; }
+  if(runsActive()) return applyRuns();   // 2026-11-07: one BHA per run
   if(perStationMode()) return applyPerStation();
   stationInfo = null;
   if(!table){ alert('Run the correction table first.'); return; }
@@ -671,6 +799,7 @@ async function applyPerStation(){
   w.postMessage({type:'stations', input:inp, stations:stations, opts:{maxIterations:+$('maxIter').value}});
 }
 function renderSurvey(){
+  setTimeout(function(){ try { sdInit(); } catch(e){} }, 0);   // 2026-11-07: station view follows the survey
   var src = corrected.length ? corrected : survey.map(function(s){ return {md:s.md, incRaw:s.inc, az:s.az}; });
   $('svyBody').innerHTML = src.map(function(s, idx){
     var c = corrected.length, si = (c && stationInfo) ? stationInfo[idx] : null;
@@ -678,7 +807,7 @@ function renderSurvey(){
       (c ? (s.corr == null ? 'n/c' : fmt(s.corr, 3)) : '') + '</td><td>' + (c ? fmt(s.inc, 3) : '') + '</td><td>' + fmt(s.az, 3) + '</td>' +
       '<td>' + (c ? fmt(L(s.tvdRaw), 2) : '') + '</td><td>' + (c ? fmt(L(s.tvd), 2) : '') + '</td><td>' + (c ? fmt(L(s.dTvd), 3) : '') + '</td>' +
       '<td>' + (c ? fmt(L(s.dN), 3) : '') + '</td><td>' + (c ? fmt(L(s.dE), 3) : '') + '</td><td>' + (c ? fmt(s.dls, 2) : '') + '</td>' +
-      '<td>' + (si ? (si.tfDefined ? fmt(si.tf, 1) : '—') : '') + '</td><td>' + (si && $('kAxial').checked ? fmt(UNIT === 'metric' ? si.wob / 1000 : si.wob / 4448.2216152605, 1) + (UNIT === 'metric' ? ' kN' : ' klbf') : '') + '</td></tr>';
+      '<td>' + (si ? (si.tfDefined ? fmt(si.tf, 1) : '—') : '') + '</td><td>' + (si && $('kAxial').checked ? fmt(UNIT === 'metric' ? si.wob / 1000 : si.wob / 4448.2216152605, 1) + (UNIT === 'metric' ? ' kN' : ' klbf') : '') + '</td><td>' + (s.run ? s.run : '') + '</td></tr>';
   }).join('');
 }
 function exportSurvey(){
@@ -817,7 +946,8 @@ function caseInput(){
     bendDeg: +$('bendDeg').value, grav: +$('grav').value, maxIter: +$('maxIter').value, bhaLimit_m: Lm(+$('bhaLimit').value),
     profInc: +$('profInc').value, model: $('modelSel').value,
     kinetic: { curv: $('kCurv').checked, bendTF: $('kBendTF').value, axial: $('kAxial').checked, wobSrc: $('kWobSrc').value, wob_N: wobUnitToN(+$('kWob').value) },
-    source: { mtxJobId: job.mtxJobId, surveySource: surveySource } };
+    source: { mtxJobId: job.mtxJobId, surveySource: surveySource },
+    runs: (runSave(), RUNS), runsOn: $('runsOn').checked, activeRun: activeRun };   // 2026-11-07 runs
 }
 async function refreshCases(){
   try{
@@ -851,6 +981,7 @@ async function loadCase(){
   onModelChange();
   if(c.unit === 'imperial'){ $('unitSel').value = 'imperial'; setUnit('imperial'); }
   $('svyInfo').textContent = survey.length ? survey.length + ' stations (from case)' : '';
+  RUNS = c.runs || []; runTables = {}; activeRun = RUNS.length ? Math.min(Math.max(c.activeRun || 0, 0), RUNS.length - 1) : -1; $('runsOn').checked = !!c.runsOn && RUNS.length > 0; runsRender();   // 2026-11-07
 }
 async function deleteCase(){
   var id = $('caseList').value; if(!id) return;
@@ -870,6 +1001,518 @@ document.addEventListener('DOMContentLoaded', function(){
    ['DC 122mm A',122,67,9.42,109.841],['Sub 137mm',137.16,48.77,1.18,155.379],['Underreamer',130,58,1.38,70.866]]
    .forEach(function(a){ addRow({use:true, name:a[0], od_mm:a[1], id_mm:a[2], len_m:a[3], wt_kgm:a[4], sf:1, material:'Steel'}); });
   refreshCases(); refreshMaterials();
+  // 2026-11-07 (John): Kinetic by default — also overrides the browser restoring the last selection on reload (a loaded case still sets its own model)
+  $('modelSel').value = 'Kinetic'; try { onModelChange(); } catch(e){}
+});
+
+// ===================================================================
+// 2b · Runs (ADDED 2026-11-07, John: several runs / BHAs in one well, chosen by MD; bit depths in/out converted to
+// survey MDs with the run's sensor offset; BHAs preferably from T&D scenarios — one scenario per run — or manual /
+// Excel without an MTX job). A run keeps its own BHA rows (SI, same shape as readBha(true)), sensor and bend; the
+// active run is mirrored in panels 2-3 so every existing tool (table, profile, station view, report) is reused as is.
+// ===================================================================
+var RUNS = [], activeRun = -1, runTables = {}, runTimer = null, lastBhaSource = 'Panel 2 (manual / Excel)', runsNote = '';
+function runsActive(){ return $('runsOn').checked && RUNS.length > 0; }
+function runSnap(){ return { rows: readBha(true), sensor_m: Lm(+$('sensor').value), bendDist_m: Lm(+$('bendDist').value), bendDeg: +$('bendDeg').value }; }
+function runSave(){ if(activeRun >= 0 && RUNS[activeRun]) Object.assign(RUNS[activeRun], runSnap()); }
+function runLoad(k, quiet){   // put run k into panels 2-3 (saves the current one first)
+  if(k !== activeRun) runSave();
+  var R = RUNS[k]; if(!R) return;
+  if(k !== activeRun || !quiet){
+    $('bhaBody').innerHTML = ''; R.rows.forEach(function(r){ addRow(r); });
+    $('sensor').value = +L(R.sensor_m).toFixed(3); $('bendDist').value = +L(R.bendDist_m).toFixed(3); $('bendDeg').value = R.bendDeg;
+  }
+  activeRun = k; table = runTables[k] || null; if(!quiet) invalidate();
+  runsRender();
+}
+// loading another BHA into panel 2 detaches it from the active run (saved first), so it can become a new run
+function runDetach(){ if(activeRun >= 0){ runSave(); activeRun = -1; runsRender(); } }
+function runRange(R){ return [R.bitIn_m - R.sensor_m, R.bitOut_m - R.sensor_m]; }   // survey MD range (sensor behind the bit)
+function runAssign(){   // station -> run index (-1 = none); overlap: the run with the deeper bit MD in wins
+  return survey.map(function(s){ var best = -1;
+    RUNS.forEach(function(R, k){ var r = runRange(R); if(s.md >= r[0] - 1e-6 && s.md <= r[1] + 1e-6 && (best < 0 || R.bitIn_m > RUNS[best].bitIn_m)) best = k; });
+    return best; });
+}
+function runForStation(i){   // station view / report: load the station's run (single-BHA mode: always true)
+  if(!runsActive()) return true;
+  var k = runAssign()[i]; if(k < 0) return false;
+  if(k !== activeRun) runLoad(k, true);
+  return true;
+}
+function runAdd(R){ RUNS.push(R);   // panel 2 holds the NEW run's BHA — the previous active run is not overwritten
+  activeRun = RUNS.length - 1; $('runsOn').checked = true; runsRender(); }
+function runAddCurrent(){
+  var snap = runSnap(); if(!snap.rows.length){ alert('Build or load a BHA in panel 2 first.'); return; }
+  var prev = RUNS.length ? RUNS[RUNS.length - 1].bitOut_m : 0;
+  runAdd(Object.assign({ name:'Run ' + (RUNS.length + 1), bitIn_m: prev, bitOut_m: prev, source: lastBhaSource }, snap));
+}
+function runAddAllTD(){
+  var w = job.wells[+$('wellSel').value];
+  if(!w || !job.td || !job.td.scenarios){ alert('Load an MTX job with saved T&D BHAs first (panel 1).'); return; }
+  // 2026-11-08: BHA runs saved by the T&D modeler -> one SAG run each, with the
+  // REAL bit MD in / out (the run's From / To), from the scenario selected in panel 1.
+  var sel = TD_SRC[+$('scenSel').value];
+  var scen = sel ? sel.scen : (job.td.activeScenario || null);
+  var tdRuns = TD_SRC.map(function(x, i){ return { x: x, i: i }; })
+    .filter(function(o){ return o.x.run && o.x.scen === scen && o.x.use; });
+  if(tdRuns.length){
+    tdRuns.forEach(function(o){
+      $('scenSel').value = String(o.i); loadBhaFromTD();
+      runAdd(Object.assign({ name: o.x.run.name, bitIn_m: o.x.from, bitOut_m: o.x.to, source: 'T&D: ' + o.x.scen + ' / ' + o.x.run.name }, runSnap()));
+    });
+    if(sel) $('scenSel').value = String(TD_SRC.indexOf(sel));
+    runsNote = ' · Runs from T&amp;D scenario "' + String(scen).replace(/</g, '&lt;') + '": bit MD in / out = each BHA run\'s From / To (runs not ticked "T&amp;D" skipped).';
+    runsRender();
+    return;
+  }
+  // Older saves (no BHA runs): previous behaviour — one SAG run per scenario.
+  var names = Object.keys(job.td.scenarios).filter(function(s){ var rb = job.td.scenarios[s].resultsByWell || {}; return rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length; });
+  if(!names.length){ alert('No T&D scenario has a BHA for ' + w.wellKey + '.'); return; }
+  // order by the T&D depth of each scenario (params.td) when saved; prefill bit MD out = that depth (check it)
+  names.sort(function(a, b){ var pa = ((job.td.scenarios[a].resultsByWell[w.wellKey].params) || {}).td || 0, pb = ((job.td.scenarios[b].resultsByWell[w.wellKey].params) || {}).td || 0; return pa - pb; });
+  var prev = 0;
+  names.forEach(function(s){ var ix = -1; TD_SRC.forEach(function(x, i){ if(ix < 0 && x.scen === s) ix = i; }); if(ix < 0) return; $('scenSel').value = String(ix); loadBhaFromTD();
+    var td = ((job.td.scenarios[s].resultsByWell[w.wellKey].params) || {}).td || 0;
+    runAdd(Object.assign({ name: s, bitIn_m: prev, bitOut_m: td || prev, source: 'T&D: ' + s }, runSnap())); prev = td || prev; });
+  runsNote = ' · <span class="warn">Bit MD out prefilled from each T&amp;D scenario\'s TD (bit MD in = previous run\'s out) — check them.</span>'; runsRender();
+}
+function runsRender(){
+  var asg = (survey && survey.length) ? runAssign() : [], u = function(v){ return fmt(L(v), 2); };
+  $('runsBody').innerHTML = RUNS.map(function(R, k){ var r = runRange(R), n = asg.filter(function(a){ return a === k; }).length, nU = R.rows.filter(function(x){ return x.use; }).length;
+    return '<tr' + (k === activeRun ? ' style="outline:1px solid var(--accent)"' : '') + '><td><input value="' + String(R.name).replace(/"/g, '&quot;') + '" onchange="RUNS[' + k + '].name=this.value" style="min-width:110px"></td>' +
+      '<td><input type="number" step="0.01" value="' + +L(R.bitIn_m).toFixed(2) + '" onchange="RUNS[' + k + '].bitIn_m=Lm(+this.value);runsRender()"></td>' +
+      '<td><input type="number" step="0.01" value="' + +L(R.bitOut_m).toFixed(2) + '" onchange="RUNS[' + k + '].bitOut_m=Lm(+this.value);runsRender()"></td>' +
+      '<td>' + u(r[0]) + ' – ' + u(r[1]) + '</td><td' + (n ? '' : ' class="warn"') + '>' + n + '</td><td>' + String(R.source || '').replace(/</g, '&lt;') + '</td><td>' + nU + '</td>' +
+      '<td>' + u(R.sensor_m) + '</td><td>' + fmt(R.bendDeg, 2) + '° @ ' + u(R.bendDist_m) + '</td>' +
+      '<td><button onclick="runLoad(' + k + ')"' + (k === activeRun ? ' class="primary"' : '') + '>' + (k === activeRun ? 'Active' : 'Edit') + '</button> <button onclick="runDel(' + k + ')">✕</button></td></tr>'; }).join('');
+  var none = asg.filter(function(a){ return a < 0; }).length;
+  $('runsInfo').innerHTML = !RUNS.length ? '' : (activeRun >= 0 ? 'Panels 2–3 = <b>' + String(RUNS[activeRun].name).replace(/</g, '&lt;') + '</b> (edits saved to it) · ' : 'Panels 2–3 not linked to a run · ') + RUNS.length + ' run(s)' + (survey.length ? ' · ' + (survey.length - none) + ' / ' + survey.length + ' stations covered' + (none ? ' · <span class="warn">' + none + ' outside every run (left uncorrected)</span>' : '') : '') + runsNote;
+}
+function runDel(k){ if(!confirm('Delete run "' + RUNS[k].name + '"?')) return; RUNS.splice(k, 1); delete runTables[k];
+  var t = {}; Object.keys(runTables).forEach(function(j){ j = +j; t[j > k ? j - 1 : j] = runTables[j]; }); runTables = t;
+  activeRun = RUNS.length ? Math.min(activeRun, RUNS.length - 1) : -1; if(!RUNS.length) $('runsOn').checked = false; runsRender(); }
+// worker helpers (promise)
+function workerTable(inp){ return new Promise(function(res, rej){ var w = getWorker();
+  w.onmessage = function(ev){ var m = ev.data; if(m.type === 'error') rej(new Error(m.error)); if(m.type === 'row') $('svyInfo').textContent = $('svyInfo').dataset.pre + ' · table ' + m.done + ' / ' + m.total; if(m.type === 'table') res(m.table); };
+  w.postMessage({type:'table', model:$('modelSel').value, input:inp, opts:{maxIterations:+$('maxIter').value}}); }); }
+function workerStations(inp, stations){ return new Promise(function(res, rej){ var w = getWorker();
+  w.onmessage = function(ev){ var m = ev.data; if(m.type === 'error') rej(new Error(m.error)); if(m.type === 'stationProgress') $('svyInfo').textContent = $('svyInfo').dataset.pre + ' · stations ' + m.done + ' / ' + m.total; if(m.type === 'stations') res(m.results); };
+  w.postMessage({type:'stations', input:inp, stations:stations, opts:{maxIterations:+$('maxIter').value}}); }); }
+async function applyRuns(){
+  runSave(); var keep = activeRun, asg = runAssign(), corrs = survey.map(function(){ return null; }), stat = survey.map(function(){ return 'outside runs'; });
+  var per = perStationMode(), geo = per ? SagKinetic.stationGeometry(survey) : null, wobAt = null, t0 = Date.now();
+  if(per && $('kAxial').checked && $('kWobSrc').value === 'dm'){ try{ wobAt = await loadDmWob(); }catch(e){ alert(e.message); return; } }
+  stationInfo = per ? survey.map(function(){ return null; }) : null;
+  try {
+    for(var k = 0; k < RUNS.length; k++){
+      var idx = []; asg.forEach(function(a, i){ if(a === k) idx.push(i); }); if(!idx.length) continue;
+      runLoad(k, true); var inp = engineInput(); $('svyInfo').dataset.pre = RUNS[k].name + ' (' + (k + 1) + '/' + RUNS.length + ')';
+      if(per){
+        var sts = idx.map(function(i){ var gm = geo[i], s = survey[i];
+          return { md:s.md, inc:s.inc, curvatureV: $('kCurv').checked ? gm.kappa * Math.cos(gm.tf * Math.PI / 180) : 0, bendTFDeg: $('kBendTF').value === 'survey' ? gm.tf : 0,
+                   wob: inp.axialLoad ? (wobAt ? wobAt(s.md + inp.sensorPosition) : inp.wob) : 0 }; });
+        var rs = await workerStations(inp, sts);
+        idx.forEach(function(i, q){ corrs[i] = rs[q].status === 'ok' ? rs[q].corr : null; stat[i] = rs[q].status; stationInfo[i] = { dls30:geo[i].dls30, tf:geo[i].tf, tfDefined:geo[i].tfDefined, wob:sts[q].wob }; });
+        runTables[k] = {model:'Kinetic', rows:[], full:[]};
+      } else {
+        var tb = await workerTable(inp); runTables[k] = tb;
+        idx.forEach(function(i){ corrs[i] = SagModel.correctionAt(tb.full, survey[i].inc); stat[i] = corrs[i] == null ? 'table row not converged' : 'ok'; });
+      }
+    }
+  } catch(e){ $('svyInfo').innerHTML = '<span class="bad">' + e.message + '</span>'; return; }
+  corrected = SagModel.correctSurveyPerStation(survey, corrs, {tvd:0, n:0, e:0});
+  corrected.forEach(function(s, i){ s.status = stat[i]; s.run = asg[i] >= 0 ? RUNS[asg[i]].name : '— (outside runs)'; });
+  if(keep >= 0) runLoad(keep, true); table = runTables[activeRun] || table;
+  renderSurvey(); runsRender();
+  var skipped = corrected.filter(function(s){ return s.corr == null; }).length;
+  $('btnSaveVer').disabled = !surveySource || USER_ROLE === 'viewer';
+  $('svyInfo').innerHTML = 'Runs · ' + RUNS.length + ' BHA(s) · ' + (corrected.length - skipped) + ' / ' + corrected.length + ' stations corrected in ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s' +
+    (skipped ? ' · <span class="warn">' + skipped + ' left uncorrected (outside runs or not converged)</span>' : '') + ' · ΔTVD at TD = ' + fmt(L(corrected[corrected.length - 1].dTvd), 3) + (UNIT === 'metric' ? ' m' : ' ft');
+}
+document.addEventListener('DOMContentLoaded', function(){
+  // edits in panels 2-3 are saved back to the active run
+  var later = function(){ if(activeRun < 0) return; clearTimeout(runTimer); runTimer = setTimeout(function(){ runSave(); runsRender(); }, 300); };
+  document.addEventListener('input', function(e){ if(e.target.closest && (e.target.closest('#bhaBody') || ['sensor','bendDist','bendDeg'].indexOf(e.target.id) >= 0)) later(); });
+  document.addEventListener('change', function(e){ if(e.target.closest && e.target.closest('#bhaBody')) later(); });
+});
+
+// ===================================================================
+// 5 · Station view (ADDED 2026-11-07, John) — 3D trajectory + slider; at the selected survey station both models
+// (Kinetic default, Beam/SurQC optional) are solved with that station's inclination (and, for Kinetic, its
+// curvature / bend toolface / WOB per the panel-3 options, exactly as applyPerStation). Diagrams: BHA in the hole
+// (deflected centreline coloured by outer-fibre bending stress, supports / reactions, distributed load, sensor
+// slope = SAG), shear V, moment M, slope theta, deflection y — both models overlaid. Nothing here changes the
+// correction itself; values are the solvers' own element outputs (worker 'profileBoth').
+// ===================================================================
+var sdWorker = null, sdTimer = null, sdLast = null;
+var SD_DARK = {paper_bgcolor:'#171b21', plot_bgcolor:'#171b21', font:{color:'#e6e9ef', size:10}};
+function sdTraj(list){ return SagModel.minimumCurvature(list.map(function(s){ return {md:s.md, inc:s.inc, az:s.az}; }), {tvd:0, n:0, e:0}); }
+function sdAtMd(T, md){   // position on a minimum-curvature station list, linear between stations (display only)
+  if(md <= T[0].md) return T[0]; if(md >= T[T.length - 1].md) return T[T.length - 1];
+  for(var i = 1; i < T.length; i++) if(T[i].md >= md){ var a = T[i - 1], b = T[i], f = (md - a.md) / ((b.md - a.md) || 1);
+    return {md:md, n:a.n + f * (b.n - a.n), e:a.e + f * (b.e - a.e), tvd:a.tvd + f * (b.tvd - a.tvd)}; }
+}
+function sdInit(){
+  var has = survey && survey.length > 1;
+  $('sdEmpty').style.display = has ? 'none' : '';
+  if(!has) return;
+  var sl = $('sdSlider'); sl.max = survey.length - 1; if(+sl.value > survey.length - 1) sl.value = survey.length - 1;
+  sdDraw3d();
+}
+function sdDraw3d(){
+  if(!survey || survey.length < 2) return;
+  var i = +$('sdSlider').value, T = sdTraj(survey), s = survey[i];
+  var bha; try { bha = engineInput(); } catch(e){ bha = null; }
+  var tot = bha ? bha.subComponents.reduce(function(a, c){ return a + c.len; }, 0) : 0, sp = bha ? bha.sensorPosition : 0;
+  $('sdLbl').textContent = (i + 1) + ' / ' + survey.length + ' · MD ' + fmt(L(s.md), 2) + (UNIT === 'metric' ? ' m' : ' ft') + ' · Inc ' + fmt(s.inc, 2) + '° · Az ' + fmt(s.az, 2) + '°';
+  var tr = [{type:'scatter3d', mode:'lines', name:'Measured survey', x:T.map(function(p){ return p.e; }), y:T.map(function(p){ return p.n; }), z:T.map(function(p){ return -p.tvd; }),
+    line:{color:'#4da3ff', width:4}, hovertemplate:'MD %{text}<extra>measured</extra>', text:T.map(function(p){ return fmt(L(p.md), 1); })}];
+  if($('sdShow3dCorr').checked && corrected && corrected.length === survey.length){
+    var Tc = sdTraj(corrected.map(function(c){ return {md:c.md, inc:c.inc, az:c.az}; }));
+    tr.push({type:'scatter3d', mode:'lines', name:'SAG-corrected', x:Tc.map(function(p){ return p.e; }), y:Tc.map(function(p){ return p.n; }), z:Tc.map(function(p){ return -p.tvd; }),
+      line:{color:'#2ecc71', width:3, dash:'dash'}, hoverinfo:'skip'});
+  }
+  // the BHA at this station: sensor at the station MD, bit sensorPosition deeper, top of the BHA uphole
+  if(bha){ var pts = []; for(var md = s.md + sp; md >= s.md + sp - tot - 1e-9; md -= Math.max(0.5, tot / 60)) pts.push(sdAtMd(T, md));
+    tr.push({type:'scatter3d', mode:'lines', name:'BHA (' + fmt(L(tot), 1) + ')', x:pts.map(function(p){ return p.e; }), y:pts.map(function(p){ return p.n; }), z:pts.map(function(p){ return -p.tvd; }),
+      line:{color:'#f5a623', width:10}, hoverinfo:'skip'});
+    var bit = sdAtMd(T, s.md + sp);
+    tr.push({type:'scatter3d', mode:'markers+text', name:'Bit', x:[bit.e], y:[bit.n], z:[-bit.tvd], text:['Bit'], textposition:'bottom center', marker:{size:4, color:'#ff5c5c'}, hoverinfo:'skip'});
+  }
+  var P = T[i];
+  tr.push({type:'scatter3d', mode:'markers+text', name:'Sensor (survey station)', x:[P.e], y:[P.n], z:[-P.tvd], text:['Sensor'], textposition:'top center',
+    marker:{size:6, color:'#ffffff', line:{color:'#f5a623', width:2}}, hoverinfo:'skip'});
+  // FIXED 2026-11-07 (John: "something still wrong with the 3D viewer"): aspectmode 'data' on a long, thin well put the
+  // camera inside a very elongated box (axes cut off, BHA a dot). Now: explicit ranges (whole well, or ±zoom around the
+  // BHA when "zoom 3D to the BHA" is ticked), true scale kept, camera further out, legend at the bottom.
+  var all = tr.reduce(function(a, t){ return a.concat(t.x.map(function(x, k){ return [x, t.y[k], t.z[k]]; })); }, []);
+  var zoom = $('sdZoom').checked && bha, half = zoom ? Math.max(60, tot * 1.5) : 0, ctr = [P.e, P.n, -P.tvd];
+  // CHANGED 2026-11-07 (John: horizontal well looked "weird" — 40 m of TVD and 35 m of N were stretched to 25 % of a 2 km
+  // E range, i.e. ~12x distortion in two directions). Engineering convention now: E and N at the SAME scale (square plan
+  // box, centred on the well), only the vertical may be exaggerated (to at least 15 % of the plan size) and the factor
+  // is printed in the title.
+  var mm = [0, 1, 2].map(function(d){ var v = all.map(function(p){ return p[d]; }); return [Math.min.apply(null, v), Math.max.apply(null, v)]; });
+  var H = zoom ? 2 * half : Math.max(mm[0][1] - mm[0][0], mm[1][1] - mm[1][0]) + 20, vSpan = zoom ? 2 * half : (mm[2][1] - mm[2][0]) + 20;
+  var rng = [0, 1, 2].map(function(d){ if(zoom) return [ctr[d] - half, ctr[d] + half]; var c = (mm[d][0] + mm[d][1]) / 2, w = d < 2 ? H : vSpan; return [c - w / 2, c + w / 2]; });
+  var vr = Math.max(0.15, vSpan / H), vex = vr * H / vSpan;
+  var ar = [1, 1, vr];
+  var lay = Object.assign({}, SD_DARK, {margin:{l:0, r:0, t:24, b:0}, title:{text:'Trajectory — station ' + (i + 1) + (zoom ? ' (zoom ±' + fmt(L(half), 0) + ')' : '') + (vex > 1.05 ? ' · vertical exaggeration ×' + fmt(vex, 1) : ' · true scale'), font:{size:12}},
+    showlegend:true, legend:{orientation:'h', x:0, y:0, font:{size:9}},
+    scene:{xaxis:{title:'E (m)', gridcolor:'#2a313c', range:rng[0]}, yaxis:{title:'N (m)', gridcolor:'#2a313c', range:rng[1]}, zaxis:{title:'−TVD (m)', gridcolor:'#2a313c', range:rng[2]},
+      aspectmode:'manual', aspectratio:{x:ar[0], y:ar[1], z:ar[2]}, camera:{eye:{x:1.5, y:1.5, z:0.9}}, bgcolor:'#171b21'}, uirevision: zoom ? 'z' + i : 'keep'});
+  Plotly.react('sd3d', tr, lay, {displaylogo:false, responsive:true});
+}
+function sdSolve(){
+  if(!survey || survey.length < 2){ $('sdStatus').innerHTML = '<span class="bad">Load a survey first.</span>'; return; }
+  if(!runForStation(+$('sdSlider').value)){ $('sdStatus').innerHTML = '<span class="bad">This station is outside every run (panel 2b).</span>'; return; }
+  var inp; try { inp = engineInput(); } catch(e){ $('sdStatus').innerHTML = '<span class="bad">' + e.message + '</span>'; return; }
+  var i = +$('sdSlider').value, s = survey[i], inc = s.inc > 90 ? 180 - s.inc : s.inc;   // SurQC mirrors 90-180 onto 0-90
+  // Kinetic station options = applyPerStation (panel 3); DM-WOB lookup not used here (single WOB value)
+  var geo = SagKinetic.stationGeometry(survey)[i], useC = $('kCurv').checked, useTF = $('kBendTF').value === 'survey';
+  var kin = Object.assign({}, inp, {axialLoad: $('kAxial').checked, wob: $('kAxial').checked && $('kWobSrc').value === 'one' ? wobUnitToN(+$('kWob').value) : 0,
+    curvatureV: useC ? geo.kappa * Math.cos(geo.tf * Math.PI / 180) : 0, bendTFDeg: useTF ? geo.tf : 0});
+  var beamInp = Object.assign({}, inp, {axialLoad:false, wob:0});
+  if(sdWorker) sdWorker.terminate(); sdWorker = new Worker('/js/sagWorker.js');
+  $('sdStatus').textContent = 'Solving station ' + (i + 1) + ' (Inc ' + fmt(inc, 2) + '°)…';
+  var t0 = Date.now();
+  sdWorker.onmessage = function(ev){ var m = ev.data;
+    if(m.type === 'error'){ $('sdStatus').innerHTML = '<span class="bad">' + m.error + '</span>'; return; }
+    if(m.type === 'profileBothPartial' || m.type === 'profileBoth'){
+      sdLast = {i:i, inc:inc, inp:kin, geo:geo, res:m.res};
+      sdRender();
+      $('sdStatus').textContent = (m.type === 'profileBoth' ? 'Done' : 'Kinetic done, Beam solving…') + ' · ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s';
+    }
+  };
+  sdWorker.postMessage({type:'profileBoth', input:beamInp, kinInput:kin, inc:inc, beam:$('sdBeam').checked, opts:{maxIterations:+$('maxIter').value}});
+}
+// section properties / load at a distance from the bit (same expressions as sagKinetic.js)
+function sdCompAt(inp, x){ var a = 0; for(var k = 0; k < inp.subComponents.length; k++){ var c = inp.subComponents[k]; if(x < a + c.len - 1e-12 || k === inp.subComponents.length - 1) return {c:c, a:a}; a += c.len; } }
+// contact zones = runs of consecutive nodes with a reaction (|R| >= 1 N); resultant = sum, at the force-weighted centroid
+function sdZones(r){ var Z = [], cur = null;
+  r.x.forEach(function(x, k){ var f = r.reaction[k];
+    if(f != null && Math.abs(f) >= 1 && (!cur || (Math.sign(f) === Math.sign(cur.R) && k === cur.k + 1))){
+      if(!cur){ cur = {a:x, b:x, R:0, m:0, k:k}; Z.push(cur); } cur.b = x; cur.R += f; cur.m += f * x; cur.k = k; }
+    else if(f != null && Math.abs(f) >= 1){ cur = {a:x, b:x, R:f, m:f * x, k:k}; Z.push(cur); }
+    else cur = null; });
+  Z.forEach(function(z){ z.xc = Math.abs(z.R) > 0 ? z.m / z.R : (z.a + z.b) / 2; }); return Z; }
+function sdI(c){ return Math.PI * (Math.pow(c.od, 4) - Math.pow(c.id, 4)) / 64; }
+function sdQ(inp, c, incDeg){ var rho = c.rho || 7700, mpm = c.wt > 0 ? c.wt : rho * Math.PI / 4 * (c.od * c.od - c.id * c.id);
+  return mpm * inp.gravity * (rho - inp.mudDensity) / rho * Math.sin(incDeg * Math.PI / 180); }
+function sdRender(){ if(sdLast) sdRenderTo(sdLast, {ids:{bha:'sdBha', shear:'sdShear', moment:'sdMoment', slope:'sdSlope', defl:'sdDefl'}, th:SD_DARK, grid:'#2a313c', table:'sdTable'}); }   // FIXED 2026-11-07: page wrapper had P.th / P.grid (refactor slip -> 'P is not defined', station view stuck at Solving…)
+// 2026-11-07: same drawing for the page (dark) and the technical report (light, off-screen) — P = {ids, th, grid, table}
+function sdRenderTo(S, P){
+  var inp = S.inp, K = S.res.kinetic, B = S.res.beam, ok = function(r){ return r && !r.error && r.x && r.x.length; };
+  var mm = function(v){ return v == null ? null : v * 1000; }, xl = 'Distance from bit (' + (UNIT === 'metric' ? 'm' : 'ft') + ')';
+  var R = inp.subComponents[0].od / 2, tot = inp.subComponents.reduce(function(a, c){ return a + c.len; }, 0), sp = inp.sensorPosition;
+  var sig = function(r){ return r.x.map(function(x, k){ var c = sdCompAt(inp, Math.min(x, tot - 1e-9)).c; return r.moment[k] == null ? null : Math.abs(r.moment[k]) * (c.od / 2) / sdI(c) / 1e6; }); };
+  // ---- BHA in the hole: walls, body outline, centreline coloured by stress, supports, loads, sensor slope ----
+  var tr = [], ann = [], shapes = [];
+  tr.push({x:[0, L(tot)], y:[R * 1000, R * 1000], mode:'lines', line:{color:'#8a93a3', width:2}, name:'High-side wall', hoverinfo:'skip'});
+  tr.push({x:[0, L(tot)], y:[-R * 1000, -R * 1000], mode:'lines', line:{color:'#8a93a3', width:2}, name:'Low-side wall', hoverinfo:'skip'});
+  tr.push({x:[0, L(tot)], y:[0, 0], mode:'lines', line:{color:'#555e6c', width:1, dash:'dashdot'}, name:'Hole axis', hoverinfo:'skip'});
+  if(ok(K)){
+    var top = [], bot = [];
+    K.x.forEach(function(x, k){ var c = sdCompAt(inp, Math.min(x, tot - 1e-9)).c; top.push(mm(K.drop[k]) + c.od * 500); bot.push(mm(K.drop[k]) - c.od * 500); });
+    tr.push({x:K.x.map(L), y:top, mode:'lines', line:{color:'#c9ced6', width:1, shape:'hv'}, name:'BHA body (OD)', hoverinfo:'skip'});
+    tr.push({x:K.x.map(L), y:bot, mode:'lines', line:{color:'#c9ced6', width:1, shape:'hv'}, showlegend:false, hoverinfo:'skip', fill:'tonexty', fillcolor:'rgba(201,206,214,0.08)'});
+    var sg = sig(K);
+    tr.push({x:K.x.map(L), y:K.drop.map(mm), mode:'markers', name:'Kinetic centreline', marker:{size:6, symbol:'square', color:sg, colorscale:'Jet', cmin:0,
+      colorbar:{title:{text:'σ bend<br>(MPa)', font:{size:10}}, thickness:10, len:0.9}}, customdata:sg,
+      hovertemplate:'x %{x:.2f}<br>y %{y:.2f} mm<br>σ %{customdata:.1f} MPa<extra>Kinetic</extra>'});
+    // supports / contacts: reaction forces (Kinetic)
+    // one resultant arrow per contact zone (consecutive nodes in contact): sum of the nodal reactions at their centroid
+    sdZones(K).forEach(function(z){
+      var c = sdCompAt(inp, Math.min(z.xc, tot - 1e-9)).c, y0 = z.R > 0 ? -R * 1000 : R * 1000;
+      ann.push({x:L(z.xc), y:y0, ax:0, ay:z.R > 0 ? 30 : -30, arrowhead:2, arrowwidth:2, arrowcolor:'#2ecc71',
+        text:fmt(Math.abs(z.R) / 1000, 2) + ' kN' + (z.b - z.a > 0.3 ? '<br>' + fmt(L(z.a), 1) + '–' + fmt(L(z.b), 1) : ''), font:{size:9, color:'#2ecc71'}});
+      if(z.b - z.a > 0.3) shapes.push({type:'rect', x0:L(z.a), x1:L(z.b), y0:(z.R > 0 ? -R : R) * 1000 - 2, y1:(z.R > 0 ? -R : R) * 1000 + 2, fillcolor:'rgba(46,204,113,0.6)', line:{width:0}}); });
+    // sensor slope = SAG (tangent drawn over ±0.6 m)
+    var ks = 0; K.x.forEach(function(x, k){ if(Math.abs(x - sp) < Math.abs(K.x[ks] - sp)) ks = k; });
+    var th = K.sensorSag, y0s = mm(K.drop[ks]), d = 0.6;
+    tr.push({x:[L(sp - d), L(sp + d)], y:[y0s - Math.tan(th * Math.PI / 180) * d * 1000, y0s + Math.tan(th * Math.PI / 180) * d * 1000], mode:'lines', line:{color:'#f5a623', width:3}, name:'Sensor axis (θ = SAG)', hoverinfo:'skip'});
+    ann.push({x:L(sp), y:y0s, ax:0, ay:-46, text:'Sensor<br>θ = ' + fmt(th, 3) + '°', font:{size:10, color:'#f5a623'}, arrowcolor:'#f5a623', arrowhead:0});
+  }
+  if(ok(B)) tr.push({x:B.x.map(L), y:B.drop.map(mm), mode:'lines', line:{color:'#ff5c5c', width:2, dash:'dash'}, name:'Beam centreline'});
+  // distributed load (gravity, low side = down)
+  var nArr = 12; for(var a = 0; a < nArr; a++){ var xa = tot * (a + 0.5) / nArr, ca = sdCompAt(inp, xa).c;
+    ann.push({x:L(xa), y:R * 1000, ax:0, ay:-26, arrowhead:2, arrowsize:0.8, arrowwidth:1, arrowcolor:'#b36bff', text:a === 0 ? 'q = w·sin Inc' : '', font:{size:9, color:'#b36bff'}}); }
+  var q0 = sdQ(inp, inp.subComponents[1] || inp.subComponents[0], S.inc);
+  // component boundaries and labels
+  var xb = 0; inp.subComponents.forEach(function(c, k){ shapes.push({type:'line', x0:L(xb), x1:L(xb), y0:-R * 1000, y1:R * 1000, line:{color:P.grid, width:1, dash:'dot'}});
+    if(c.len > tot / 30) ann.push({x:L(xb + c.len / 2), y:R * 1000, yshift:22, showarrow:false, text:c.name, font:{size:8, color:'#8a93a3'}, textangle:0}); xb += c.len; });
+  ann.push({x:0, y:0, ax:-30, ay:0, text:'Bit', showarrow:true, arrowhead:0, font:{size:10, color:'#ff5c5c'}});
+  var bhaP = Plotly.react(P.ids.bha, tr, Object.assign({}, P.th, {margin:{l:60, r:10, t:30, b:40}, showlegend:true, legend:{orientation:'h', y:-0.18, font:{size:9}},
+    title:{text:'BHA in the hole @ Inc ' + fmt(S.inc, 2) + '° (radial in mm, length in ' + (UNIT === 'metric' ? 'm' : 'ft') + ') — low side down', font:{size:12}},
+    xaxis:{title:xl, gridcolor:P.grid}, yaxis:{title:'Lateral position (mm)', gridcolor:P.grid, zeroline:false}, annotations:ann, shapes:shapes}), {displaylogo:false, responsive:true});
+  // ---- diagrams: both models ----
+  var both = function(id, key, f, title, ytit, fill){
+    var t = [];
+    if(ok(K) && K[key].some(function(v){ return v != null; })) t.push({x:K.x.map(L), y:K[key].map(f), mode:'lines', name:'Kinetic', line:{color:'#4da3ff', width:2}, fill:fill ? 'tozeroy' : undefined, fillcolor:'rgba(77,163,255,0.18)'});
+    if(ok(B) && B[key].some(function(v){ return v != null; })) t.push({x:B.x.map(L), y:B[key].map(f), mode:'lines', name:'Beam (SurQC)', line:{color:'#ff5c5c', width:1.5, dash:'dash'}});
+    return Plotly.react(id, t, Object.assign({}, P.th, {margin:{l:60, r:10, t:28, b:36}, title:{text:title, font:{size:12}}, legend:{x:1, xanchor:'right', y:1, font:{size:9}},
+      xaxis:{title:xl, gridcolor:P.grid}, yaxis:{title:ytit, gridcolor:P.grid, zerolinecolor:'#8a93a3'},
+      shapes:[{type:'line', x0:L(sp), x1:L(sp), yref:'paper', y0:0, y1:1, line:{color:'#f5a623', dash:'dot', width:1}}],
+      annotations:(ok(K) && K[key].every(function(v){ return v == null; })) ? [{xref:'paper', yref:'paper', x:0.5, y:0.5, showarrow:false, text:'Kinetic with axial load: V = dM/dx − P·dy/dx is not output', font:{size:10, color:'#8a93a3'}}] : []}), {displaylogo:false, responsive:true});
+  };
+  var pr = [];
+  pr.push(both(P.ids.shear, 'shear', function(v){ return v == null ? null : v / 1000; }, 'Shear force V(x)', 'kN', true));
+  pr.push(both(P.ids.moment, 'moment', function(v){ return v == null ? null : v / 1000; }, 'Bending moment M(x)', 'kN·m', true));
+  pr.push(both(P.ids.slope, 'sag', function(v){ return v; }, 'Slope θ(x) = dy/dx  (dotted = sensor → SAG)', '°', false));
+  pr.push(both(P.ids.defl, 'drop', mm, 'Deflection y(x) from hole axis', 'mm', false));
+  // ---- result table ----
+  var row = function(lbl, fk, fb, d){ var k = ok(K) ? fk(K) : null, b = ok(B) ? fb(B) : null;
+    return '<tr><td>' + lbl + '</td><td>' + fmt(k, d) + '</td><td>' + (S.res.beam ? fmt(b, d) : '—') + '</td><td>' + (k != null && b != null ? fmt(k - b, d) : '—') + '</td></tr>'; };
+  var mx = function(arr){ var m = null; arr.forEach(function(v){ if(v != null && (m == null || Math.abs(v) > Math.abs(m))) m = v; }); return m; };
+  var nC = function(r){ return sdZones(r).length; };
+  var st = function(r){ return !r ? '—' : r.error ? '<span class="bad">' + r.error + '</span>' : r.status === 'ok' ? '<span class="ok">converged</span>' : '<span class="bad">' + r.status + '</span>'; };
+  var corrNow = corrected && corrected[S.i] ? corrected[S.i].corr : null;
+  if(P.table) $(P.table).innerHTML = '<table><thead><tr><th>Station ' + (S.i + 1) + ' · MD ' + fmt(L(survey[S.i].md), 2) + ' · Inc ' + fmt(survey[S.i].inc, 2) + '°' +
+    (S.geo ? ' · DLS ' + fmt(S.geo.dls30, 2) + ' · TF ' + fmt(S.geo.tf, 1) + '°' : '') + '</th><th>Kinetic</th><th>Beam (SurQC)</th><th>Δ</th></tr></thead><tbody>' +
+    '<tr><td>Status</td><td>' + st(K) + '</td><td>' + (S.res.beam ? st(B) : (S.res.beam === undefined && $('sdBeam').checked ? 'solving…' : 'not run')) + '</td><td></td></tr>' +
+    row('<b>SAG at sensor θ (°)</b>', function(r){ return r.sensorSag; }, function(r){ return r.sensorSag; }, 3) +
+    row('Max |deflection| (mm)', function(r){ return Math.abs(mx(r.drop.map(mm))); }, function(r){ return Math.abs(mx(r.drop.map(mm))); }, 2) +
+    row('Max |M| (kN·m)', function(r){ return Math.abs(mx(r.moment)) / 1000; }, function(r){ return Math.abs(mx(r.moment)) / 1000; }, 3) +
+    row('Max |V| (kN)', function(r){ var v = mx(r.shear); return v == null ? null : Math.abs(v) / 1000; }, function(r){ var v = mx(r.shear); return v == null ? null : Math.abs(v) / 1000; }, 3) +
+    row('Max σ bend (MPa)', function(r){ return mx(sig(r)); }, function(r){ return mx(sig(r)); }, 1) +
+    row('Supports / wall-contact zones', nC, nC, 0) +
+    '<tr><td>q = w·sin Inc (N/m, 2nd row)</td><td colspan="3">' + fmt(q0, 1) + '</td></tr>' +
+    (corrNow != null ? '<tr><td>Correction applied in panel 4 (°)</td><td colspan="3">' + fmt(corrNow, 3) + ' (' + (table ? table.model : '') + ')</td></tr>' : '') +
+    '</tbody></table>';
+  return Promise.all([bhaP].concat(pr));
+}
+
+// ===================================================================
+// 6 · Technical report (ADDED 2026-11-07, John: layout approved; CNRL logo + header; include theory & assumptions).
+// Everything comes from the page state and the same solvers (worker 'profileBoth'); figures are re-drawn in a light
+// theme off-screen (sdRenderTo) and embedded as PNG. Opens a printable page (Print -> Save as PDF).
+// Logo: the Canadian Natural logo already used on the sign-in / DPI pages (Cloudinary).
+// ===================================================================
+var RP_LOGO = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png';
+// 2026-11-07 (John): report accent = CNRL blue (was red). Approximate brand blue — replace with the official hex if CNRL's brand guide differs.
+var RP_COLOR = '#00539B';
+var RP_LIGHT = {paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff', font:{color:'#1b1f24', size:11}};
+function rpEsc(v){ return String(v == null ? '' : v).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function rpDataUrl(url){ return fetch(url).then(function(r){ return r.blob(); }).then(function(b){ return new Promise(function(res){ var f = new FileReader(); f.onload = function(){ res(f.result); }; f.readAsDataURL(b); }); }).catch(function(){ return url; }); }
+function rpSolve(i){   // both models at survey station i (same inputs as sdSolve)
+  return new Promise(function(resolve, reject){
+    if(!runForStation(i)) return reject(new Error('Station ' + (i + 1) + ' is outside every run.'));
+    var inp = engineInput(), s = survey[i], inc = s.inc > 90 ? 180 - s.inc : s.inc;
+    var geo = SagKinetic.stationGeometry(survey)[i], useC = $('kCurv').checked, useTF = $('kBendTF').value === 'survey';
+    var kin = Object.assign({}, inp, {axialLoad: $('kAxial').checked, wob: $('kAxial').checked && $('kWobSrc').value === 'one' ? wobUnitToN(+$('kWob').value) : 0,
+      curvatureV: useC ? geo.kappa * Math.cos(geo.tf * Math.PI / 180) : 0, bendTFDeg: useTF ? geo.tf : 0});
+    var w = new Worker('/js/sagWorker.js');
+    w.onmessage = function(ev){ var m = ev.data;
+      if(m.type === 'error'){ w.terminate(); reject(new Error(m.error)); }
+      if(m.type === 'profileBoth'){ w.terminate(); resolve({i:i, inc:inc, inp:kin, geo:geo, res:m.res}); } };
+    w.postMessage({type:'profileBoth', input:Object.assign({}, inp, {axialLoad:false, wob:0}), kinInput:kin, inc:inc, beam:true, opts:{maxIterations:+$('maxIter').value}});
+  });
+}
+function rpImg(id, w, h){ return Plotly.toImage(id, {format:'png', width:w, height:h, scale:2}); }
+async function sagReport(){
+  var st = function(t){ $('rpStatus').textContent = t; };
+  try {
+    var inp = engineInput();
+    if(!survey.length){ alert('Load a survey first (panel 4).'); return; }
+    if(!corrected.length){ alert('Apply the sag correction first (panel 4).'); return; }
+    $('btnReport').disabled = true;
+    // stations to analyse: nearest to the requested inclinations (+ the one in panel 5), unique, survey order
+    var want = $('rpIncs').value.split(',').map(function(v){ return +v; }).filter(function(v){ return isFinite(v); }), idx = [];
+    want.forEach(function(a){ var b = 0; survey.forEach(function(s, k){ if(Math.abs(s.inc - a) < Math.abs(survey[b].inc - a)) b = k; }); if(idx.indexOf(b) < 0) idx.push(b); });
+    if($('rpCur').checked && idx.indexOf(+$('sdSlider').value) < 0) idx.push(+$('sdSlider').value);
+    idx.sort(function(a, b){ return a - b; });
+    var off = $('rpOff'); off.innerHTML = ['B','V','M','T','Y','X','C','D'].map(function(k){ return '<div id="rp' + k + '" style="width:1000px;height:' + (k === 'B' ? 360 : k === 'D' ? 520 : 260) + 'px"></div>'; }).join('');
+    var P = {ids:{bha:'rpB', shear:'rpV', moment:'rpM', slope:'rpT', defl:'rpY'}, th:RP_LIGHT, grid:'#d9dde3', table:'rpX'}, secs = [];
+    for(var k = 0; k < idx.length; k++){
+      st('Solving station ' + (k + 1) + ' / ' + idx.length + '…');
+      var S = await rpSolve(idx[k]);
+      await sdRenderTo(S, P);
+      var imgs = {bha: await rpImg('rpB', 1000, 360), v: await rpImg('rpV', 500, 260), m: await rpImg('rpM', 500, 260), t: await rpImg('rpT', 500, 260), y: await rpImg('rpY', 500, 260)};
+      // QA: static equilibrium of the Kinetic solution (no axial load / curvature): sum of reactions = total lateral load
+      var K = S.res.kinetic, eq = null;
+      if(K && !K.error && K.reaction && !S.inp.axialLoad && !S.inp.curvatureV){
+        var sumR = K.reaction.reduce(function(a, v){ return a + (v || 0); }, 0), sumQ = S.inp.subComponents.reduce(function(a, c){ return a + sdQ(S.inp, c, S.inc) * c.len; }, 0);
+        eq = {sumR:sumR, sumQ:sumQ};
+      }
+      secs.push({S:S, imgs:imgs, tableHtml:$('rpX').innerHTML, eq:eq});
+    }
+    st('Figures: trajectory and correction table…');
+    // CHANGED 2026-11-07 (John: "use the picture as it is in the 3D plot scene at the moment"): the report's 3D figure is
+    // the panel-5 3D view exactly as the user left it (same traces, axis ranges, aspect and camera — rotate / zoom it
+    // first), re-coloured for print, plus the analysed stations. Was: a separate auto-scaled plot (looked off).
+    sdDraw3d();
+    var gd = $('sd3d'), fl = gd._fullLayout && gd._fullLayout.scene, T = sdTraj(survey);
+    var cam = (gd.layout.scene && gd.layout.scene.camera) || (fl && fl.camera) || null;
+    var ax = function(k){ var a = fl ? fl[k] : {}; return {title:(a.title && a.title.text) || '', range:a.range ? a.range.slice() : undefined, gridcolor:'#d9dde3', color:'#1b1f24', backgroundcolor:'#ffffff'}; };
+    var data3 = gd.data.map(function(t){ var c = JSON.parse(JSON.stringify(t)); if(c.name === 'Measured survey' && c.line) c.line.color = '#1f6fd1';
+      if(c.textfont) c.textfont.color = '#1b1f24'; else c.textfont = {color:'#1b1f24'}; if(c.name && /Sensor/.test(c.name) && c.marker) c.marker.color = '#1b1f24'; return c; });
+    data3.push({type:'scatter3d', mode:'markers+text', name:'Analysed stations', x:idx.map(function(i){ return T[i].e; }), y:idx.map(function(i){ return T[i].n; }), z:idx.map(function(i){ return -T[i].tvd; }),
+      text:idx.map(function(i){ return 'St ' + (i + 1); }), textfont:{color:'#e8590c'}, marker:{size:5, color:'#e8590c'}});
+    var lay3 = Object.assign({}, RP_LIGHT, {margin:{l:0, r:0, t:10, b:0}, showlegend:true, legend:{orientation:'h', x:0, y:0},
+      scene:{xaxis:ax('xaxis'), yaxis:ax('yaxis'), zaxis:ax('zaxis'), aspectmode:fl ? fl.aspectmode : 'manual', aspectratio:fl ? Object.assign({}, fl.aspectratio) : undefined, camera:cam ? JSON.parse(JSON.stringify(cam)) : undefined, bgcolor:'#ffffff'}});
+    var img3d = await Plotly.toImage({data:data3, layout:lay3}, {format:'png', width:1000, height:650, scale:2});
+    var RI = null;   // 2026-11-07 runs: per-run inputs + tables for the report
+    if(runsActive()){ runSave(); var keepR = activeRun, asg = runAssign(); RI = [];
+      for(var q = 0; q < RUNS.length; q++){ runLoad(q, true); var R0 = RUNS[q], sr = runRange(R0);
+        RI.push({name:R0.name, bitIn:R0.bitIn_m, bitOut:R0.bitOut_m, from:sr[0], to:sr[1], n:asg.filter(function(a){ return a === q; }).length, inp:engineInput(), table:runTables[q] || null}); }
+      if(keepR >= 0) runLoad(keepR, true); }
+    var imgTab = null, rows = (table && table.rows) || [];
+    if(RI){ var trR = RI.filter(function(R){ return R.table && R.table.rows && R.table.rows.length; }).map(function(R){ return {x:R.table.rows.map(function(r){ return r.inc; }), y:R.table.rows.map(function(r){ return r.corr; }), mode:'lines+markers', name:R.name}; });
+      if(trR.length){ await Plotly.newPlot('rpC', trR, Object.assign({}, RP_LIGHT, {margin:{l:60, r:10, t:30, b:40}, title:{text:'SAG correction vs inclination — per run (' + $('modelSel').value + ')', font:{size:12}}, xaxis:{title:'Inclination (°)', gridcolor:'#d9dde3'}, yaxis:{title:'Correction (°)', gridcolor:'#d9dde3'}}));
+        imgTab = await rpImg('rpC', 1000, 300); }
+      rows = []; }
+    if(rows.length){ await Plotly.newPlot('rpC', [{x:rows.map(function(r){ return r.inc; }), y:rows.map(function(r){ return r.corr; }), mode:'lines+markers', line:{color:'#1f6fd1'}, name:table.model}],
+      Object.assign({}, RP_LIGHT, {margin:{l:60, r:10, t:30, b:40}, title:{text:'SAG correction vs inclination (' + table.model + ')', font:{size:12}}, xaxis:{title:'Inclination (°)', gridcolor:'#d9dde3'}, yaxis:{title:'Correction (°)', gridcolor:'#d9dde3'}}));
+      imgTab = await rpImg('rpC', 1000, 300); }
+    st('Logo…');
+    var logo = await rpDataUrl(RP_LOGO);
+    rpOpen(rpHtml(inp, idx, secs, img3d, imgTab, logo, RI));
+    st('Report opened in a new tab.');
+  } catch(e){ alert('Report: ' + e.message); st(''); }
+  finally { $('btnReport').disabled = false; $('rpOff').innerHTML = ''; }
+}
+function rpOpen(html){ var w = window.open('', '_blank'); if(!w){ alert('Allow pop-ups for this site to open the report.'); return; } w.document.open(); w.document.write(html); w.document.close(); }
+function rpHtml(inp, idx, secs, img3d, imgTab, logo, RI){
+  var u = UNIT === 'metric' ? 'm' : 'ft', today = new Date().toISOString().slice(0, 10), model = (table && table.model) || $('modelSel').value;
+  var well = $('rpWell').value || (surveySource ? surveySource.wellKey : ''), jobT = $('rpJob').value || (job && job.mtxJobId ? job.mtxJobId + (job.title ? ' — ' + job.title : '') : '');
+  var cs = corrected.filter(function(c){ return c.corr != null; }), maxC = cs.reduce(function(m, c){ return Math.abs(c.corr) > Math.abs(m) ? c.corr : m; }, 0);
+  var last = corrected[corrected.length - 1], unc = corrected.length - cs.length;
+  var tot = inp.subComponents.reduce(function(a, c){ return a + c.len; }, 0);
+  var bad = (RI && RI.length ? RI.reduce(function(a, R){ return a.concat((R.table && R.table.rows) || []); }, []) : ((table && table.rows) || [])).filter(function(r){ return r.status !== 'ok'; });
+  var row = function(cells, th){ return '<tr>' + cells.map(function(c){ return (th ? '<th>' : '<td>') + c + (th ? '</th>' : '</td>'); }).join('') + '</tr>'; };
+  // print layout: fixed header/footer repeat on every printed page; a wrapping table's thead/tfoot reserve their space
+  var css = '@page{size:auto;margin:8mm 12mm}body{font-family:Segoe UI,Arial,sans-serif;color:#1b1f24;font-size:11px;margin:0}' +
+    'table.pg{width:100%;border:0;margin:0}table.pg>thead>tr>td,table.pg>tfoot>tr>td,table.pg>tbody>tr>td{border:0;padding:0;text-align:left}.sp-h{height:17mm}.sp-f{height:9mm}' +
+    '.hdr{position:fixed;top:0;left:0;right:0;height:14mm;background:#fff;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ' + RP_COLOR + ';font-size:10px;color:#444}' +
+    '.hdr img{height:11mm}.ftr{position:fixed;bottom:0;left:0;right:0;height:7mm;background:#fff;font-size:9px;color:#666;display:flex;justify-content:space-between;border-top:1px solid #ccc;padding-top:2px}' +
+    'h1{font-size:20px;margin:6px 0 2px}h2{font-size:14px;border-bottom:1px solid ' + RP_COLOR + ';padding-bottom:2px;margin:16px 0 6px;color:' + RP_COLOR + ';page-break-after:avoid}h3{font-size:12px;margin:10px 0 4px}' +
+    'table{border-collapse:collapse;width:100%;margin:4px 0 8px}th,td{border:1px solid #cfd4da;padding:2px 5px;text-align:right;font-size:10px}th{background:#eef1f4}td:first-child,th:first-child{text-align:left}' +
+    '.kv td:first-child{width:38%;background:#f7f8fa}.fig{width:100%;margin:4px 0}.two{display:flex;gap:6px}.two img{width:50%}.sec{page-break-inside:avoid}.pb{page-break-before:always}' +
+    '.note{font-size:10px;color:#444;background:#f7f8fa;border-left:3px solid ' + RP_COLOR + ';padding:4px 8px;margin:6px 0}.ok{color:#1a7f37}.bad{color:#c8102e}.noprint{margin:8px 0}' +
+    '@media print{.noprint{display:none}}@media screen{body{max-width:900px;margin:20px auto}.hdr,.ftr{position:static}.sp-h,.sp-f{height:0}}';
+  var h = '<!doctype html><html><head><meta charset="utf-8"><title>SAG correction report — ' + rpEsc(well) + '</title><style>' + css + '</style></head><body>';
+  h += '<div class="hdr"><img src="' + logo + '" alt="Canadian Natural"><div style="text-align:right"><b>SAG Correction — Technical Report</b><br>' + rpEsc(well) + ' · ' + rpEsc(jobT) + ' · ' + today + '</div></div>';
+  h += '<div class="ftr"><span>MTX Conveyor · SAGcorrection · ' + rpEsc(model) + ' model</span><span>Prepared by ' + rpEsc($('rpBy').value) + (($('rpChk').value) ? ' · Checked by ' + rpEsc($('rpChk').value) : '') + '</span></div>';
+  h += '<table class="pg"><thead><tr><td><div class="sp-h"></div></td></tr></thead><tfoot><tr><td><div class="sp-f"></div></td></tr></tfoot><tbody><tr><td>';
+  h += '<div class="noprint"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>';
+  // 1 cover & summary
+  h += '<h1>SAG Correction — Technical Report</h1><div style="color:#555;margin-bottom:8px">' + rpEsc(well) + '</div>';
+  h += '<h2>1 · Summary</h2><table class="kv">' +
+    [['Well', rpEsc(well)], ['Job / MTX ID', rpEsc(jobT)], ['Run / section', rpEsc($('rpRun').value)], ['Date', today], ['Prepared by', rpEsc($('rpBy').value)], ['Checked by', rpEsc($('rpChk').value)],
+     ['Correction model', rpEsc(model) + (model === 'Kinetic' ? ' (finite-element beam with wall contact)' : ' (SurQC algorithm)')], ['Toolcode of the corrected well', rpEsc($('rpTool').value || '—')],
+     ['Stations corrected', cs.length + ' of ' + corrected.length + (unc ? ' <span class="bad">(' + unc + ' left uncorrected)</span>' : '')],
+     ['Largest correction', fmt(maxC, 3) + '°'], ['ΔTVD at last station', fmt(L(last.dTvd), 3) + ' ' + u], ['ΔN / ΔE at last station', fmt(L(last.dN), 3) + ' / ' + fmt(L(last.dE), 3) + ' ' + u],
+     ['Runs / BHAs', RI && RI.length ? RI.map(function(R){ return rpEsc(R.name) + ': bit MD ' + fmt(L(R.bitIn), 1) + '–' + fmt(L(R.bitOut), 1) + ' ' + u + ' (' + R.n + ' st.)'; }).join('<br>') : 'single BHA'],
+     ['Comments', rpEsc($('rpNotes').value || '—')]].map(function(r){ return row(r); }).join('') + '</table>';
+  h += '<div class="sec"><img class="fig" src="' + img3d + '"><div class="note">3D view as set in the station view (panel 5). Measured (blue), SAG-corrected (green, dashed), BHA at the selected station (orange bar); orange dots = stations analysed in section 4.</div></div>';
+  // 2 inputs
+  // 2026-11-07: one block per run when runs are used (RI), else the single BHA
+  var inBlock = function(inp, ttl){ var tot = inp.subComponents.reduce(function(a, c){ return a + c.len; }, 0), h = '';
+  h += '<h3>' + ttl + 'BHA (bit first, analysed length ' + fmt(L(tot), 2) + ' ' + u + ')</h3><table>' + row(['#', 'Component', 'OD (mm)', 'ID (mm)', 'Length (' + u + ')', 'Weight (kg/m)', 'E (GPa)', 'ρ (kg/m³)', 'EI (kN·m²)'], true) +
+    inp.subComponents.map(function(c, i){ return row([i + 1, rpEsc(c.name), fmt(c.od * 1000, 2), fmt(c.id * 1000, 2), fmt(L(c.len), 2), c.wt > 0 ? fmt(c.wt, 2) : 'from OD/ID', fmt(c.E / 1e9, 1), fmt(c.rho, 0), fmt(c.E * sdI(c) / 1000, 1)]); }).join('') + '</table>';
+  h += '<table class="kv">' + [['Sensor distance from bit', fmt(L(inp.sensorPosition), 2) + ' ' + u], ['Hole diameter (= bit OD)', fmt(inp.subComponents[0].od * 1000, 2) + ' mm'],
+    ['Motor bend', fmt(inp.bendAngleDeg, 2) + '° at ' + fmt(L(inp.bendDistance), 2) + ' ' + u + ' from bit'], ['Mud density', fmt(inp.mudDensity, 0) + ' kg/m³'], ['Gravity', fmt(inp.gravity, 5) + ' m/s²'],
+    ['Kinetic options', 'hole curvature: ' + ($('kCurv').checked ? 'on' : 'off') + ' · bend toolface: ' + ($('kBendTF').value === 'survey' ? 'survey toolface' : 'high side') + ' · axial load / WOB: ' + ($('kAxial').checked ? 'on' : 'off')],
+    ['Survey', corrected.length + ' stations, MD ' + fmt(L(survey[0].md), 2) + '–' + fmt(L(survey[survey.length - 1].md), 2) + ' ' + u + (surveySource ? ' (MTX job well ' + rpEsc(surveySource.wellKey) + ')' : ' (imported file)')]].map(function(r){ return row(r); }).join('') + '</table>';
+  return h; };
+  h += '<h2 class="pb">2 · Inputs</h2>' + (RI && RI.length ? RI.map(function(R){ return inBlock(R.inp, rpEsc(R.name) + ' — bit MD ' + fmt(L(R.bitIn), 2) + '–' + fmt(L(R.bitOut), 2) + ' ' + u + ' (survey MD ' + fmt(L(R.from), 2) + '–' + fmt(L(R.to), 2) + ', ' + R.n + ' stations) · '); }).join('') : inBlock(inp, ''));
+  h += '<div class="note">Material column: E and ρ shown are the values used by Kinetic. Beam (SurQC) uses steel (E = 210 GPa, ρ = 7700 kg/m³) for every component.</div>';
+  // 3 method, theory, assumptions
+  h += '<h2 class="pb">3 · Method, theory and assumptions</h2>' +
+    '<h3>3.1 Physical model</h3><p>The BHA is modelled as an elastic Euler–Bernoulli beam lying in the borehole under its own buoyed weight. Gravity acts towards the low side of the hole; the lateral distributed load per unit length is</p>' +
+    '<p style="text-align:center"><i>q(x) = w(x) · sin(Inc)</i>, &nbsp; <i>w = m · g · (1 − ρ<sub>mud</sub>/ρ<sub>material</sub>)</i></p>' +
+    '<p>where <i>m</i> is the mass per metre (weight column, or ρ·π(OD² − ID²)/4). The bit is held on the hole axis; stabilisers and any collar touching the low-side wall act as supports. Their locations are not known in advance: the solver finds them (a contact problem), so the beam is statically indeterminate.</p>' +
+    '<p style="text-align:center"><i>EI · d⁴y/dx⁴ = q(x)</i> &nbsp; (Kinetic with axial load: <i>EI·y⁗ + P·y″ = q</i>)</p>' +
+    '<h3>3.2 Results derived from the deflected shape</h3><table class="kv">' +
+    [['Deflection y(x)', 'lateral position of the BHA centreline relative to the hole axis (negative = towards the low side)'], ['Slope θ(x)', 'θ = dy/dx — the angle between the BHA axis and the hole axis'],
+     ['Bending moment M(x)', 'M = EI · d²y/dx²'], ['Shear force V(x)', 'lateral force on the section by statics, V = Σ reactions − ∫q dx (from the bit); each support / wall contact is a jump in V equal to its reaction. Without axial load V = dM/dx; with axial load (WOB) M also carries the P·dy/dx term, so V ≠ dM/dx'],
+     ['Bending stress σ(x)', 'σ = M·c/I at the outer fibre, c = OD/2, I = π(OD⁴ − ID⁴)/64 — indicative only (no stress concentration at connections, no fatigue assessment)'],
+     ['<b>SAG correction</b>', '<b>θ at the MWD sensor</b>: the inclination error of the sensor axis caused by the BHA bending. Corrected Inc = measured Inc + correction; MD and Az are not changed. TVD/N/E recomputed by minimum curvature.']].map(function(r){ return row(r); }).join('') + '</table>' +
+    '<h3>3.3 Solvers</h3><p><b>Beam</b> — port of the SurQC sag algorithm (iterative solution of the beam equation; steel only; no hole curvature, toolface or WOB). Ported code matches the original C# to 7·10⁻¹⁵°.</p>' +
+    '<p><b>Kinetic</b> — finite-element solution with Hermite cubic beam elements and an active-set wall-contact algorithm; includes materials, motor bend projected by its toolface, hole curvature (build/drop component of the dogleg) and optional axial load. Checked against the Timoshenko &amp; Gere closed-form beam-column solution (agreement 10⁻⁶°) and an independent finite-difference solution (5·10⁻⁴°). Buckling is screened with the Dawson &amp; Paslay (1984) critical load.</p>' +
+    '<h3>3.4 Assumptions and limitations</h3><ul>' +
+    ['Linear elastic, small deflections; plane bending in the high-side plane (lateral/azimuth sag not computed).', 'Hole is round and in gauge (diameter = bit OD); formation is rigid; no washouts.',
+     'Bit centred on the hole axis; stabiliser blades in contact when the solution requires; contact tolerance 2.5 mm.', 'Surveys are taken off bottom (WOB ≈ 0) unless an axial load is entered.',
+     'Inclinations above 90° are mirrored (180° − Inc), as in SurQC.', 'Bending stress is indicative only; it is not a strength or fatigue verification.',
+     'The correction applies to the survey sensor position; the ISCWSA SAG/SAGE uncertainty term should be revised accordingly in the toolcode.'].map(function(t){ return '<li>' + t + '</li>'; }).join('') + '</ul>' +
+    '<h3>3.5 References</h3><ul>' + ['Timoshenko, S.P. &amp; Gere, J.M., <i>Theory of Elastic Stability</i> / <i>Mechanics of Materials</i> — beam and beam-column theory.', 'SurQC — survey quality control software (sag correction algorithm, ported).',
+      'Dawson, R. &amp; Paslay, P.R., "Drillpipe Buckling in Inclined Holes", JPT, Oct 1984.', 'ISCWSA — Definition of the ISCWSA Error Model, Rev 5 (SAG / SAGE terms); OWSG toolcode set Rev 5.1.',
+      'Bourgoyne, A.T. et al., <i>Applied Drilling Engineering</i>, SPE 1986 — minimum curvature, dogleg and toolface (Eqs. 8.33–8.49).'].map(function(t){ return '<li>' + t + '</li>'; }).join('') + '</ul>';
+  // 4 beam analysis
+  h += '<h2 class="pb">4 · Beam analysis at representative stations</h2><div class="note">Both models are solved at each station. Solid / coloured = Kinetic (colour = outer-fibre bending stress), dashed red = Beam (SurQC). Radial axis in mm, length in ' + u + ' (deformation exaggerated by the axis scales). Green arrows = support / wall-contact reactions (resultant per contact zone); purple = distributed load.</div>';
+  secs.forEach(function(sc, k){ var s = survey[sc.S.i];
+    h += '<div class="' + (k ? 'pb' : '') + '"><h3>4.' + (k + 1) + ' Station ' + (sc.S.i + 1) + ' — MD ' + fmt(L(s.md), 2) + ' ' + u + ', Inc ' + fmt(s.inc, 2) + '°, Az ' + fmt(s.az, 2) + '°</h3>' +
+      '<img class="fig" src="' + sc.imgs.bha + '"><div class="two"><img src="' + sc.imgs.v + '"><img src="' + sc.imgs.m + '"></div><div class="two"><img src="' + sc.imgs.t + '"><img src="' + sc.imgs.y + '"></div>' +
+      sc.tableHtml.replace(/class="ok"/g, 'class="ok"') +
+      (sc.eq ? '<div class="note">Equilibrium check (Kinetic): Σ reactions = ' + fmt(sc.eq.sumR, 1) + ' N; total lateral load ∫q dx = ' + fmt(sc.eq.sumQ, 1) + ' N; difference ' + fmt(sc.eq.sumR - sc.eq.sumQ, 2) + ' N.</div>'
+              : '<div class="note">Equilibrium check not shown (axial load or hole curvature active — extra lateral force components).</div>') + '</div>'; });
+  // 5 correction table (per run when runs are used)
+  var tabBlock = function(tbl, img, ttl){ var rows = (tbl && tbl.rows) || [];
+    return (ttl ? '<h3>' + ttl + '</h3>' : '') + (rows.length ? (img ? '<img class="fig" src="' + img + '">' : '') + '<table>' + row(['Inc (°)', 'Correction (°)', 'Status', 'Iterations', 'Residual out of hole (mm)'], true) +
+    rows.map(function(r){ return row([fmt(r.inc, 1), r.corr == null ? '—' : fmt(r.corr, 3), r.status === 'ok' ? '<span class="ok">converged</span>' : '<span class="bad">' + rpEsc(r.status) + '</span>', r.iterations, fmt(r.residualOutOfHole * 1000, 2)]); }).join('') + '</table>' +
+    '<div class="note">Inclinations 90–180° use the mirrored values (SurQC). Non-converged rows are never applied to a survey.</div>'
+    : '<div class="note">Per-station Kinetic solution used (one solve per survey station with its own curvature / toolface / WOB) — no inclination table.</div>'); };
+  var rows = (table && table.rows) || [];
+  h += '<h2 class="pb">5 · Correction table</h2>' + (RI && RI.length ? (imgTab ? '<img class="fig" src="' + imgTab + '">' : '') + RI.map(function(R){ return tabBlock(R.table, null, rpEsc(R.name)); }).join('') : tabBlock(table, imgTab, ''));
+  // 6 corrected survey
+  h += '<h2 class="pb">6 · Corrected survey</h2><table>' + row(['MD (' + u + ')', 'Inc meas (°)', 'Correction (°)', 'Inc corr (°)', 'Az (°)', 'TVD meas*', 'TVD corr*', 'ΔTVD', 'ΔN', 'ΔE', 'Run'], true) +
+    corrected.map(function(c){ return row([fmt(L(c.md), 2), fmt(c.incRaw, 2), c.corr == null ? '<span class="bad">—</span>' : fmt(c.corr, 3), fmt(c.inc, 3), fmt(c.az, 2), fmt(L(c.tvdRaw), 3), fmt(L(c.tvd), 3), fmt(L(c.dTvd), 3), fmt(L(c.dN), 3), fmt(L(c.dE), 3), rpEsc(c.run || '')]); }).join('') +
+    '</table><div class="note">*TVD relative to the first station (tie-on). ΔTVD/ΔN/ΔE = corrected − measured, in ' + u + '.</div>';
+  // 7 QA
+  h += '<h2>7 · Quality checks</h2><table class="kv">' + [
+    ['Correction table convergence', rows.length ? (bad.length ? '<span class="bad">' + bad.length + ' inclination(s) not converged: ' + bad.map(function(r){ return r.inc; }).join(', ') + '°</span>' : '<span class="ok">all ' + rows.length + ' inclinations converged</span>') : 'per-station solution'],
+    ['Stations left uncorrected', unc ? '<span class="bad">' + unc + '</span>' : '<span class="ok">none</span>'],
+    ['Kinetic vs Beam at analysed stations (SAG at sensor)', secs.map(function(sc){ var a = sc.S.res.kinetic, b = sc.S.res.beam; return 'St ' + (sc.S.i + 1) + ': ' + (a && a.sensorSag != null && b && b.sensorSag != null ? fmt(a.sensorSag - b.sensorSag, 3) + '°' : '—'); }).join(' · ')],
+    ['Static equilibrium (Kinetic)', secs.filter(function(sc){ return sc.eq; }).length ? secs.filter(function(sc){ return sc.eq; }).map(function(sc){ return 'St ' + (sc.S.i + 1) + ': ' + fmt(Math.abs(sc.eq.sumR - sc.eq.sumQ), 2) + ' N'; }).join(' · ') : 'n/a'],
+    ['Known model difference', 'Beam (SurQC) may let the BHA penetrate the wall slightly; Kinetic enforces the wall. Differences up to ~0.035° were accepted (2026-10-24).']].map(function(r){ return row(r); }).join('') + '</table>';
+  // 8 sign-off
+  h += '<h2>8 · Sign-off</h2><table>' + row(['', 'Name', 'Signature', 'Date'], true) + row(['Prepared by', rpEsc($('rpBy').value), '', today]) + row(['Checked by', rpEsc($('rpChk').value), '', '']) + row(['Approved by', '', '', '']) + '</table>';
+  return h + '</td></tr></tbody></table></body></html>';
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  $('sdSlider').addEventListener('input', function(){ sdDraw3d(); clearTimeout(sdTimer); sdTimer = setTimeout(sdSolve, 400); });
+  $('sdShow3dCorr').addEventListener('change', sdDraw3d); $('sdZoom').addEventListener('change', sdDraw3d);
+  sdInit();
 });
 </script>
 </body>

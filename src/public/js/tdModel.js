@@ -175,6 +175,9 @@ function tdBuckLimits(od_m, id_m, hole_m, wBuoy_Npm, incDeg, E, helicalMode) {
 
 // COMPUTE EFFECTIVE TENSION MODEL (5 WellPlan cases, fixed TD)
 function tdComputeModel(surv, casings, bha, params, overrideFF) {
+  // 2026-11-08: hole sections + BHA runs (params.plan). Without a plan the
+  // original single-BHA code path below runs exactly as before.
+  if (params && params.plan) return tdComputeModelPlan(surv, casings, bha, params, overrideFF);
   var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
   var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
   var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
@@ -189,8 +192,9 @@ function tdComputeModel(surv, casings, bha, params, overrideFF) {
   if (nodes[nodes.length - 1] < td) nodes.push(td);
 
   var nData = nodes.map(function (md) {
-    var geo = tdHoleAt(md, casings, ohTop, ohDiam_m, p);
-    var comp = tdPipeAt(md, td, bha) || dpDef;
+    // _holeFn / _pipeTop are set only by the plan wrappers (see below).
+    var geo = p._holeFn ? p._holeFn(md, p) : tdHoleAt(md, casings, ohTop, ohDiam_m, p);
+    var comp = tdPipeAt(md, td, bha) || p._pipeTop || dpDef;
     var ia = tdInterpSurv(surv, md);
     var tr = tdInterpTraj(traj, md);
     var wBuoy = comp.wt * TD_G * BF;
@@ -338,6 +342,7 @@ function tdComputeModel(surv, casings, bha, params, overrideFF) {
 
 // COMPUTE HOOKLOAD vs BIT DEPTH (correct WellPlan p.33 method)
 function tdComputeHookload(surv, casings, bha, params, overrideFF) {
+  if (params && params.plan) return tdComputeHookloadPlan(surv, casings, bha, params, overrideFF);
   var p = overrideFF ? Object.assign({}, params, overrideFF) : params;
   var mudDens = p.mudDens, blockW = p.blockW, wobRot = p.wobRot, wobSlid = p.wobSlid;
   var steelDens = p.steelDens, ohDiam_m = p.ohDiam_m, ohTop = p.ohTop, td = p.td;
@@ -348,17 +353,18 @@ function tdComputeHookload(surv, casings, bha, params, overrideFF) {
   var bitDepths = [];
   for (var d = HL_STEP; d <= td; d += HL_STEP) bitDepths.push(d);
   if (bitDepths[bitDepths.length - 1] < td) bitDepths.push(td);
+  if (p._hlDepths) bitDepths = p._hlDepths.slice(); // plan wrapper: this run's bit depths only
 
   function pipeAtBit(md, bitDepth) {
     var bhaTop = bitDepth - bhaLen;
-    if (md < bhaTop) return dpDef;
+    if (md < bhaTop) return p._pipeTop || dpDef;
     var cursor = bitDepth;
     for (var j = 0; j < bha.length; j++) {
       var compTop = cursor - bha[j].len;
       if (md >= compTop && md <= cursor) return bha[j];
       cursor = compTop;
     }
-    return dpDef;
+    return p._pipeTop || dpDef;
   }
 
   function integHL(bitDepth, wob_N, axSign, rpm, va_mpm, tq0_Nm) {
@@ -380,7 +386,7 @@ function tdComputeHookload(surv, casings, bha, params, overrideFF) {
       var comp = pipeAtBit(mdTop, bitDepth);
       var wpl = comp.wt * TD_G * BF;
       var wEl = wpl * dMD;
-      var geo = tdHoleAt(mdTop, casings, ohTop, ohDiam_m, p);
+      var geo = p._holeFn ? p._holeFn(mdTop, p) : tdHoleAt(mdTop, casings, ohTop, ohDiam_m, p);
       var ff = geo.ff;
       var t1 = F * dInc + wEl * Math.sin(iAvg);
       var t2 = F * Math.sin(iAvg) * dAz;
@@ -435,6 +441,140 @@ function tdComputeHookload(surv, casings, bha, params, overrideFF) {
   });
 }
 
+// ============================================================================
+// HOLE SECTIONS + BHA RUNS (added 2026-11-08, John)
+//
+// params.plan (all SI, saved inside params so the server recalculation and
+// scenarios carry it with no schema change):
+//   sections: [{ name, from, to, hole_m, mudDens, ffOH }]   (m, m, m, kg/m3, -)
+//   runs:     [{ id, name, use, from, to, wobRot, wobSlid, torqBit,  (m, N, N.m)
+//                bha: [comp...], dp: [comp...] }]   comp = {name, od_m, id_m, len, wt}
+//               bha and dp are listed bottom-up; the TOP dp row is extended to
+//               surface. With no dp rows the original default 4-1/2" DP fills
+//               above the string (same as the single-BHA model).
+//   snapMode: 'auto' | 'manual', snapRunId, snapMD
+//
+// For a run R (the BHA drilling R.from -> R.to):
+//   - casing exists only if its shoe <= R.from (+1 m tolerance): when you
+//     drill a section, the casing of that section is not set yet;
+//   - below / outside set casing: hole size and open-hole FF of the hole
+//     section containing that MD; cased-hole FF still FF Casing 1 / 2;
+//   - mud weight: the section R is drilling (section at R's mid-depth);
+//   - WOB rotating / sliding and torque at bit: R's own values.
+// Snapshot (Effective Tension / Side Force / Torque): bit at the END of the
+// chosen run (auto), or at a chosen MD with the run active there (manual).
+// Hookload: at each bit depth D, the run with use = true whose interval
+// contains D (deepest start wins if two overlap); bit depths shallower than
+// the first run use the first run. Physics is the unchanged core above.
+// ============================================================================
+function tdPlanActiveRuns(plan) {
+  return (plan.runs || []).filter(function (r) {
+    return r && r.use !== false && r.to > r.from && ((r.bha && r.bha.length) || (r.dp && r.dp.length));
+  }).sort(function (a, b) { return a.from - b.from || a.to - b.to; });
+}
+
+function tdPlanSectionAt(plan, md) {
+  var secs = (plan.sections || []).slice().sort(function (a, b) { return a.from - b.from; });
+  if (!secs.length) return null;
+  for (var i = 0; i < secs.length; i++) {
+    if (md >= secs[i].from && md < secs[i].to) return secs[i];
+  }
+  if (md < secs[0].from) return secs[0];
+  // at/after the last bottom, or inside a gap: last section that starts above md
+  var last = secs[0];
+  for (var j = 0; j < secs.length; j++) if (secs[j].from <= md) last = secs[j];
+  return last;
+}
+
+function tdPlanRunSetup(params, casings, run, overrideFF) {
+  var plan = params.plan;
+  var drillSec = tdPlanSectionAt(plan, (run.from + run.to) / 2) || {};
+  var setCas = (casings || []).filter(function (c) { return c.shoe <= run.from + 1; })
+    .sort(function (a, b) { return b.shoe - a.shoe; });
+  var ffOHForced = (overrideFF && overrideFF.ffOH != null) ? overrideFF.ffOH : null; // FF calibration sliders
+  var p = Object.assign({}, params, overrideFF || {});
+  function holeFn(md, pp) {
+    for (var i = 0; i < setCas.length; i++) {
+      var c = setCas[i];
+      if (md >= c.top && md <= c.shoe) {
+        var sec0 = tdPlanSectionAt(plan, md) || {};
+        var ff = (c.ffidx === 1) ? pp.ff1 : (c.ffidx === 2) ? pp.ff2 : (ffOHForced != null ? ffOHForced : sec0.ffOH);
+        return { id_m: c.id_m, ff: ff, inCasing: true, ffidx: c.ffidx };
+      }
+    }
+    var sec = tdPlanSectionAt(plan, md) || {};
+    return {
+      id_m: sec.hole_m || params.ohDiam_m,
+      ff: ffOHForced != null ? ffOHForced : (sec.ffOH != null ? sec.ffOH : params.ffOH),
+      inCasing: false, ffidx: 0
+    };
+  }
+  var dp = run.dp || [];
+  Object.assign(p, {
+    plan: null, // the core must not re-enter the plan wrappers
+    mudDens: drillSec.mudDens != null ? drillSec.mudDens : params.mudDens,
+    wobRot: run.wobRot != null ? run.wobRot : params.wobRot,
+    wobSlid: run.wobSlid != null ? run.wobSlid : params.wobSlid,
+    torqBit: run.torqBit != null ? run.torqBit : params.torqBit,
+    _holeFn: holeFn,
+    _pipeTop: dp.length ? dp[dp.length - 1] : null
+  });
+  return { p: p, string: (run.bha || []).concat(dp) };
+}
+
+function tdPlanSnapshot(plan, td) {
+  var runs = tdPlanActiveRuns(plan);
+  if (!runs.length) return null;
+  var R = null, S;
+  if (plan.snapMode === 'manual' && isFinite(+plan.snapMD)) {
+    S = Math.max(0, Math.min(+plan.snapMD, td));
+    var c = runs.filter(function (r) { return r.from <= S && S <= r.to; });
+    R = c.length ? c[c.length - 1] : (runs.filter(function (r) { return r.from <= S; }).pop() || runs[0]);
+  } else {
+    R = runs.filter(function (r) { return r.id === plan.snapRunId; })[0]
+      || runs.reduce(function (a, b) { return b.to >= a.to ? b : a; });
+    S = Math.min(R.to, td);
+  }
+  return { run: R, md: S };
+}
+
+function tdComputeModelPlan(surv, casings, bha, params, overrideFF) {
+  var snap = tdPlanSnapshot(params.plan, params.td);
+  if (!snap) return tdComputeModel(surv, casings, bha, Object.assign({}, params, { plan: null }), overrideFF);
+  var su = tdPlanRunSetup(params, casings, snap.run, overrideFF);
+  su.p.td = snap.md;
+  var res = tdComputeModel(surv, casings, su.string, su.p, null);
+  res.snapshot = { runId: snap.run.id, runName: snap.run.name, md: snap.md };
+  return res;
+}
+
+function tdComputeHookloadPlan(surv, casings, bha, params, overrideFF) {
+  var plan = params.plan, runs = tdPlanActiveRuns(plan), td = params.td;
+  if (!runs.length) return tdComputeHookload(surv, casings, bha, Object.assign({}, params, { plan: null }), overrideFF);
+  var HL_STEP = 30.48, grid = [];
+  for (var d = HL_STEP; d <= td; d += HL_STEP) grid.push(d);
+  if (grid[grid.length - 1] < td) grid.push(td);
+  runs.forEach(function (r) { if (r.to < td) grid.push(r.to); }); // exact run ends
+  grid = grid.sort(function (a, b) { return a - b; })
+    .filter(function (v, i, a) { return i === 0 || v - a[i - 1] > 1e-6; });
+  var byRun = {};
+  grid.forEach(function (D) {
+    var c = runs.filter(function (r) { return r.from <= D && D <= r.to; });
+    var R = c.length ? c[c.length - 1] : (D < runs[0].from ? runs[0] : null);
+    if (!R) return; // depth not covered by any run used for T&D
+    (byRun[R.id] = byRun[R.id] || { run: R, depths: [] }).depths.push(D);
+  });
+  var out = [];
+  Object.keys(byRun).forEach(function (k) {
+    var g = byRun[k], su = tdPlanRunSetup(params, casings, g.run, overrideFF);
+    su.p._hlDepths = g.depths;
+    tdComputeHookload(surv, casings, su.string, su.p, null).forEach(function (row) {
+      row.runId = g.run.id; row.runName = g.run.name; out.push(row);
+    });
+  });
+  return out.sort(function (a, b) { return a.md - b.md; });
+}
+
 var TDModelCore = {
   G: TD_G,
   minCurvature: tdMinCurvature,
@@ -445,7 +585,10 @@ var TDModelCore = {
   buckLimits: tdBuckLimits,
   buckState: tdBuckState,
   computeModel: tdComputeModel,
-  computeHookload: tdComputeHookload
+  computeHookload: tdComputeHookload,
+  planActiveRuns: tdPlanActiveRuns,
+  planSectionAt: tdPlanSectionAt,
+  planSnapshot: tdPlanSnapshot
 };
 
 // UMD-lite: works as a plain <script> (attaches to window) and as a

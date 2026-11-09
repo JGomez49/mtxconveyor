@@ -643,8 +643,11 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                     <div class="wbt-section">
                         <div class="wbt-row">
                             <div class="wbt-field">
-                                <label>Trajectory Folder (.csv files)</label>
-                                <input type="file" id="wbtFolderInput" accept=".csv" webkitdirectory directory multiple>
+                                <label>Trajectory Folder (.csv / .txt / .xls / .xlsx)</label>
+                                <input type="file" id="wbtFolderInput" accept=".csv,.txt,.xls,.xlsx" webkitdirectory directory multiple>
+                                <!-- ADDED 2026-11-08: pick individual files too (e.g. one MD/Inc/Az Excel file) -->
+                                <label style="margin-top:4px">…or select file(s)</label>
+                                <input type="file" id="wbtFilesInput" accept=".csv,.txt,.xls,.xlsx" multiple>
                             </div>
                             <div class="wbt-field" style="flex:0 0 auto; min-width:200px;">
                                 <label>Well Category</label>
@@ -675,6 +678,9 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                             </div>
                         </div>
                         <div class="wbt-status" id="wbtStatus">Select a folder (choose Subject or Offset above) to preview wellbore trajectories.</div>
+                        <!-- ADDED 2026-11-08: references for survey-only (MD/Inc/Az) files -->
+                        <div id="wbtRefPanel" style="display:none;margin-top:8px;padding:8px;border:1px solid rgba(255,208,96,.5);border-radius:4px;font-size:12px"></div>
+                        <div class="wbt-status" style="opacity:.75">Full Compass exports (with TVD / Northings / Eastings) load as before. Files with only <b>MD, Inc, Az</b> (metres) are also accepted — the rest is calculated by Minimum Curvature.</div>
                     </div>
 
                     <!-- 3D viewer -->
@@ -2026,8 +2032,185 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             });
         }
 
+        // =====================================================================
+        // SURVEY-ONLY TRAJECTORY FILES (ADDED 2026-11-08, John)
+        // Files with just MD / Inc / Az (CSV, TXT, XLS, XLSX; metres) are turned
+        // into rows with the SAME Compass column names the full-CSV path uses
+        // ('MD','Incl','Azim','TVD','Sub-Sea','Vert. Sec.','Local N','Local E',
+        // 'Dogleg','Northings','Eastings'), so everything downstream (3D view,
+        // tables, dashboard, buildMongoDocuments, save) is unchanged.
+        // Full Compass .csv files take EXACTLY the old path (parseCSV as-is).
+        //
+        // Positions: Minimum Curvature (Bourgoyne et al., Applied Drilling
+        // Engineering, Sec. 8.3.3, Eqs. 8.33-8.37 — same as public/js/tdModel.js):
+        //   cos b = cos(I2-I1) - sin I1 sin I2 (1 - cos(A2-A1));  F = (2/b) tan(b/2) (F=1 if b~0)
+        //   dTVD = dMD/2 (cos I1 + cos I2) F
+        //   dN   = dMD/2 (sin I1 cos A1 + sin I2 cos A2) F
+        //   dE   = dMD/2 (sin I1 sin A1 + sin I2 sin A2) F
+        //   Dogleg = b (deg) / dMD x 30   (deg/30 m, Bourgoyne Sec. 8.4.6)
+        //   Vert. Sec. = N cos(VSaz) + E sin(VSaz)  (origin = surface location)
+        // References per well (editable table): surface Northing/Easting
+        // (default 0), RKB elevation (blank = Sub-Sea NOT written, so job.ejs
+        // uses its existing "pad RKB - TVD" fallback + warning), VS azimuth,
+        // and the tie-on point MD/Inc/Az/TVD/Local N/Local E (default 0 =
+        // surface, vertical). Lat/Long are left empty (need a projection).
+        // =====================================================================
+        const WBT_COLS = ['Well','MD','Incl','Azim','TVD','Sub-Sea','Vert. Sec.','Local N','Local E','Dogleg','Northings','Eastings','Comments'];
+        let wbtLastFiles = null;
+        const WBT_REFS = {};          // file name -> reference values
+        let wbtSurveyOnly = [];       // [{fileName, name, n}] loaded as survey-only in the last load
+        function wbtRefDefaults(){ return { surfN: 0, surfE: 0, rkb: '', vsAz: 0, conv: 0, tieMD: 0, tieInc: 0, tieAz: 0, tieTVD: 0, tieN: 0, tieE: 0 }; }
+
+        // Read any accepted file into an array of rows (array of cell arrays).
+        async function wbtReadGrid(file){
+            const low = file.name.toLowerCase();
+            if(low.endsWith('.xls') || low.endsWith('.xlsx')){
+                if(typeof XLSX === 'undefined') throw new Error('Excel library not loaded');
+                const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+            }
+            const text = await file.text();
+            return text.split(/\r?\n/).filter(l => l.trim().length).map(l => {
+                if(l.indexOf('\t') >= 0) return l.split('\t');
+                if(l.indexOf(';') >= 0) return l.split(';');
+                if(l.indexOf(',') >= 0) return l.split(',');
+                return l.trim().split(/\s+/);
+            });
+        }
+
+        // Find MD / Inc / Az columns (header row anywhere in the first 40 rows),
+        // or, with no header, the first 3 numeric columns.
+        function wbtFindSurveyCols(grid){
+            const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z]/g, '');
+            const isMD = h => /^(md|measureddepth|depth|mdm)$/.test(h) || h === 'md' || h.indexOf('measureddepth') === 0;
+            const isInc = h => /^(inc|incl|inclination|incm|incdeg|incldeg|inclinationdeg)$/.test(h) || h.indexOf('incl') === 0 || h === 'inc';
+            const isAz = h => /^(az|azi|azim|azimuth|azdeg|azimdeg|azimuthdeg)$/.test(h) || h.indexOf('azi') === 0 || h === 'az';
+            for(let i = 0; i < Math.min(40, grid.length); i++){
+                const h = grid[i].map(norm), m = h.findIndex(isMD), c = h.findIndex(isInc), a = h.findIndex(isAz);
+                if(m >= 0 && c >= 0 && a >= 0){
+                    const k = grid[i].map(x => String(x).trim()).findIndex(x => /^comments?$/i.test(x));
+                    const w = grid[i].map(x => String(x).trim()).findIndex(x => /^well(\s*name)?$/i.test(x));
+                    return { start: i + 1, md: m, inc: c, az: a, com: k, well: w };
+                }
+            }
+            const numeric = r => r.length >= 3 && [0, 1, 2].every(j => r[j] !== '' && isFinite(parseFloat(r[j])));
+            const first = grid.findIndex(numeric);
+            return first >= 0 ? { start: first, md: 0, inc: 1, az: 2, com: -1, well: -1 } : null;
+        }
+
+        function wbtMinCurv(stations, ref){
+            const R = Math.PI / 180, out = [];
+            let tvd = +ref.tieTVD || 0, n = +ref.tieN || 0, e = +ref.tieE || 0;
+            const gc = (+ref.conv || 0) * R;
+            stations.forEach((s, i) => {
+                let dls = 0;
+                if(i > 0){
+                    const p = stations[i - 1], dmd = s.md - p.md;
+                    const i1 = p.inc * R, i2 = s.inc * R, a1 = p.az * R, a2 = s.az * R;
+                    const cb = Math.cos(i2 - i1) - Math.sin(i1) * Math.sin(i2) * (1 - Math.cos(a2 - a1));
+                    const b = Math.acos(Math.max(-1, Math.min(1, cb)));
+                    const F = b > 1e-9 ? (2 / b) * Math.tan(b / 2) : 1;
+                    tvd += dmd / 2 * (Math.cos(i1) + Math.cos(i2)) * F;
+                    n += dmd / 2 * (Math.sin(i1) * Math.cos(a1) + Math.sin(i2) * Math.cos(a2)) * F;
+                    e += dmd / 2 * (Math.sin(i1) * Math.sin(a1) + Math.sin(i2) * Math.sin(a2)) * F;
+                    dls = dmd > 0 ? (b / R) / dmd * 30 : 0;
+                }
+                const vs = n * Math.cos((+ref.vsAz || 0) * R) + e * Math.sin((+ref.vsAz || 0) * R);
+                const row = {
+                    'Well': s.well, 'MD': s.md, 'Incl': s.inc, 'Azim': s.az, 'TVD': tvd,
+                    'Vert. Sec.': vs, 'Local N': n, 'Local E': e, 'Dogleg': dls,
+                    // Grid convergence g (deg, user input, default 0): local N/E are referenced to the
+                    // survey azimuths; grid offsets = local offsets rotated so bearing_grid = bearing - g.
+                    // Checked against Compass exports (PadSD9 [P1-2416] _[01]/_[02]): Compass rotates
+                    // local -> grid by -0.2546 deg with scale 1.000000 for those wells.
+                    'Northings': (+ref.surfN || 0) + n * Math.cos(gc) + e * Math.sin(gc),
+                    'Eastings': (+ref.surfE || 0) + e * Math.cos(gc) - n * Math.sin(gc),
+                    'Comments': s.com || ''
+                };
+                if(ref.rkb !== '' && ref.rkb != null && isFinite(+ref.rkb)) row['Sub-Sea'] = +ref.rkb - tvd;
+                out.push(row);
+            });
+            return out;
+        }
+
+        // Returns {headers, rows, surveyOnly} or null.
+        async function wbtReadTrajectoryFile(file){
+            const low = file.name.toLowerCase();
+            if(low.endsWith('.csv')){
+                const data = parseCSV(await file.text());
+                // Full Compass export -> unchanged original path
+                if(data && ['TVD', 'Northings', 'Eastings'].every(h => data.headers.includes(h))) return data;
+            }
+            const grid = await wbtReadGrid(file);
+            if(low.endsWith('.xls') || low.endsWith('.xlsx')){
+                // Excel copy of a full Compass export: same column names -> same path as CSV
+                const hi = grid.findIndex(r => r.map(x => String(x).trim()).includes('TVD') && r.map(x => String(x).trim()).includes('Northings'));
+                if(hi >= 0){
+                    const headers = grid[hi].map(x => String(x).trim());
+                    const rows = grid.slice(hi + 1).filter(r => r.some(x => String(x).trim() !== '')).map(r => {
+                        const o = {}; headers.forEach((h, j) => { o[h] = r[j] === undefined ? '' : String(r[j]).trim(); }); return o; });
+                    if(rows.length) return { headers, rows };
+                }
+            }
+            const c = wbtFindSurveyCols(grid);
+            if(!c) return null;
+            const baseName = file.name.replace(/\.[^.]+$/, '');
+            let st = grid.slice(c.start).map(r => ({
+                md: parseFloat(r[c.md]), inc: parseFloat(r[c.inc]), az: parseFloat(r[c.az]),
+                com: c.com >= 0 ? String(r[c.com] || '').trim() : '',
+                well: (c.well >= 0 && String(r[c.well] || '').trim()) || baseName
+            })).filter(s => isFinite(s.md) && isFinite(s.inc) && isFinite(s.az));
+            st.sort((a, b) => a.md - b.md);
+            if(st.length < 2) return null;
+            const ref = WBT_REFS[file.name] = WBT_REFS[file.name] || wbtRefDefaults();
+            const well = st[0].well;
+            // Tie-on: stations above it are dropped; a station AT the tie-on MD keeps its own Inc/Az
+            // no comment on the tie-on row: the Comments column is read as formation tops
+            const tie = { md: +ref.tieMD || 0, inc: +ref.tieInc || 0, az: +ref.tieAz || 0, well, com: '' };
+            const dropped = st.filter(s => s.md < tie.md - 1e-6).length;
+            st = st.filter(s => s.md >= tie.md - 1e-6);
+            if(!(st.length && Math.abs(st[0].md - tie.md) < 1e-6)) st.unshift(tie);
+            const rows = wbtMinCurv(st, ref);
+            wbtSurveyOnly.push({ fileName: file.name, name: well, n: rows.length, dropped });
+            return { headers: WBT_COLS.filter(h => h !== 'Sub-Sea' || rows[0]['Sub-Sea'] !== undefined), rows, surveyOnly: true };
+        }
+
+        // Reference table + warnings for the survey-only wells of the last load.
+        function wbtRenderRefPanel(){
+            const box = document.getElementById('wbtRefPanel'); if(!box) return;
+            if(!wbtSurveyOnly.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+            const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            const F = [['surfN', 'Surface Northing (m)'], ['surfE', 'Surface Easting (m)'], ['rkb', 'RKB elevation (m)'], ['vsAz', 'VS azimuth (°)'], ['conv', 'Grid convergence (°)'],
+                       ['tieMD', 'Tie-on MD'], ['tieInc', 'Tie-on Inc (°)'], ['tieAz', 'Tie-on Az (°)'], ['tieTVD', 'Tie-on TVD'], ['tieN', 'Tie-on Local N'], ['tieE', 'Tie-on Local E']];
+            const noXY = wbtSurveyOnly.filter(w => { const r = WBT_REFS[w.fileName]; return !(+r.surfN) && !(+r.surfE); }).map(w => w.name);
+            const noRKB = wbtSurveyOnly.filter(w => { const r = WBT_REFS[w.fileName]; return r.rkb === '' || r.rkb == null; }).map(w => w.name);
+            const drop = wbtSurveyOnly.filter(w => w.dropped).map(w => w.name + ' (' + w.dropped + ')');
+            let h = '<div style="font-weight:600;margin-bottom:4px">Survey-only files (MD / Inc / Az) — TVD, Local N/E, Dogleg, Vert. Sec., Northings/Eastings and Sub-Sea are <u>calculated</u> (Minimum Curvature). Metres only. Edit the references and press <b>Recalculate</b>.</div>';
+            h += '<div style="overflow-x:auto"><table class="wbt-table"><thead><tr><th>Well (file)</th>' + F.map(f => '<th>' + f[1] + '</th>').join('') + '</tr></thead><tbody>';
+            wbtSurveyOnly.forEach(w => {
+                const r = WBT_REFS[w.fileName];
+                h += '<tr><td>' + esc(w.name) + '<br><span style="opacity:.6">' + esc(w.fileName) + '</span></td>' + F.map(f =>
+                    '<td><input type="number" step="any" style="width:95px" data-file="' + esc(w.fileName) + '" data-k="' + f[0] + '" value="' + esc(r[f[0]]) + '"' + (f[0] === 'rkb' ? ' placeholder="unknown"' : '') + '></td>').join('') + '</tr>';
+            });
+            h += '</tbody></table></div><button type="button" class="wbt-btn" id="wbtRefRecalc" style="margin-top:6px">Recalculate</button>';
+            h += '<div style="margin-top:6px;font-size:11px;opacity:.85">Grid convergence: leave 0 if the azimuths in the file are already GRID azimuths; if they are TRUE azimuths, enter the well\'s grid convergence (as shown in Compass) so Northings / Eastings come out on grid north.</div>';
+            h += '<div style="margin-top:6px;font-size:11px;opacity:.85">Tie-on default = surface (MD 0, vertical, 0/0/0). For slant wells enter the tie-on MD / Inc / Az / TVD / Local N / Local E. Stations shallower than the tie-on MD are ignored; a station at the tie-on MD keeps its own Inc / Az.</div>';
+            if(noXY.length) h += '<div style="color:#ff4060;font-weight:600;margin-top:6px">⚠ Surface Northing / Easting = 0 for: ' + esc(noXY.join(', ')) + '. These wells all start at 0 / 0 — the PAD GEOMETRY and the ANTI-COLLISION results (C2C, SF) involving them will be WRONG until the real surface coordinates are entered and the wells re-saved.</div>';
+            if(noRKB.length) h += '<div style="color:#ffd060;margin-top:4px">⚠ RKB elevation unknown for: ' + esc(noRKB.join(', ')) + '. Sub-Sea is not saved; the job viewer and AC then use the approximate pad RKB − TVD (and list these wells in their Sub-Sea warning).</div>';
+            if(drop.length) h += '<div style="color:#ffd060;margin-top:4px">⚠ Stations above the tie-on MD ignored: ' + esc(drop.join(', ')) + '.</div>';
+            box.innerHTML = h; box.style.display = '';
+            box.querySelectorAll('input[data-file]').forEach(inp => inp.addEventListener('change', () => {
+                const r = WBT_REFS[inp.getAttribute('data-file')], k = inp.getAttribute('data-k');
+                r[k] = (k === 'rkb' && inp.value.trim() === '') ? '' : (parseFloat(inp.value) || 0);
+            }));
+            document.getElementById('wbtRefRecalc').onclick = () => { if(wbtLastFiles) loadFiles(wbtLastFiles); };
+        }
+
         // ---------------- Main load handler ----------------
         async function loadFiles(files){
+            wbtLastFiles = files;   // 2026-11-08: kept for "Recalculate" (survey-only references)
+            wbtSurveyOnly = [];
             clearScene();
             document.getElementById('wbtTables').innerHTML = '';
             const legendList = document.getElementById('wbtLegendList');
@@ -2037,9 +2220,11 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             wbtClearMarkers();
             document.getElementById('wbtSaveBtn').disabled = true;
 
-            const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+            // 2026-11-08: .txt / .xls / .xlsx accepted too (survey-only or Excel copies of Compass exports)
+            const csvFiles = Array.from(files).filter(f => /\.(csv|txt|xls|xlsx)$/i.test(f.name));
             if(csvFiles.length === 0){
-                document.getElementById('wbtStatus').textContent = 'No CSV files found in selected folder.';
+                document.getElementById('wbtStatus').textContent = 'No .csv / .txt / .xls / .xlsx files found in the selection.';
+                wbtRenderRefPanel();
                 return;
             }
 
@@ -2049,8 +2234,10 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             let colorIdx = 0;
 
             for(const file of csvFiles){
-                const text = await file.text();
-                const data = parseCSV(text);
+                // 2026-11-08: full Compass .csv -> parseCSV exactly as before; otherwise survey-only / Excel
+                let data = null;
+                try { data = await wbtReadTrajectoryFile(file); }
+                catch(err){ console.warn('[WBT] could not read', file.name, err); data = null; }
                 if(!data || data.rows.length === 0) continue;
 
                 const wellName = data.rows[0]['Well'] || file.name;
@@ -2091,7 +2278,8 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             applyWbtLineThickness();
             fitCameraToObject(allPoints);
             applyWbtVisibility();
-            document.getElementById('wbtStatus').textContent = `Loaded ${wellsData.length} wellbore(s). Review, then click "Save to Database".`;
+            document.getElementById('wbtStatus').textContent = `Loaded ${wellsData.length} wellbore(s)` + (wbtSurveyOnly.length ? ` (${wbtSurveyOnly.length} from MD/Inc/Az — calculated, see below)` : '') + `. Review, then click "Save to Database".`;
+            wbtRenderRefPanel();
             document.getElementById('wbtSaveBtn').disabled = wellsData.length === 0;
 
             // Dashboard + accordion + Excel export
@@ -2184,6 +2372,9 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
         async function saveToDatabase(){
             const docs = buildMongoDocuments();
             if(docs.length === 0) return;
+            // 2026-11-08: allowed with 0 surface coordinates, but say clearly what that means
+            const noXY = wbtSurveyOnly.filter(w => { const r = WBT_REFS[w.fileName] || {}; return !(+r.surfN) && !(+r.surfE); }).map(w => w.name);
+            if(noXY.length && !confirm('Surface Northing / Easting are 0 for: ' + noXY.join(', ') + '.\n\nThese wells will be saved starting at 0 / 0, so the PAD GEOMETRY and the ANTI-COLLISION results (C2C, SF) involving them will be WRONG until the real surface coordinates are entered and the wells are re-uploaded.\n\nSave anyway?')) return;
 
             const btn = document.getElementById('wbtSaveBtn');
             const status = document.getElementById('wbtStatus');
@@ -2347,6 +2538,8 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             document.getElementById('wbtSaveBtn').addEventListener('click', saveToDatabase);
 
             document.getElementById('wbtFolderInput').addEventListener('change', (e) => loadFiles(e.target.files));
+            const wbtFilesInp = document.getElementById('wbtFilesInput');   // 2026-11-08
+            if(wbtFilesInp) wbtFilesInp.addEventListener('change', (e) => loadFiles(e.target.files));
         }
 
 
