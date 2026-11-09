@@ -705,6 +705,12 @@ notesCrtl.handoverImage = async (req,res)=>{
         if(!note || !note.path) return res.status(404).send('No picture for this job.');
         const url = new URL(String(note.path).replace(/^http:/i, 'https:'));
         if(url.hostname !== 'res.cloudinary.com') return res.status(400).send('Picture host not allowed.');
+        // ADDED 2026-11-08 (John): ?thumb=1 -> small version for the Gantt tooltip, made by Cloudinary
+        // (URL transformation w_320,c_limit,q_auto inserted after /image/upload/). Without ?thumb the
+        // original picture is streamed exactly as before (Handover e-mail etc.).
+        if(req.query.thumb && url.pathname.indexOf('/image/upload/') >= 0 && url.pathname.indexOf('/image/upload/w_320') < 0){
+            url.pathname = url.pathname.replace('/image/upload/', '/image/upload/w_320,c_limit,q_auto/');
+        }
         require('https').get(url, r => {
             if(r.statusCode !== 200){ r.resume(); return res.status(502).send('Picture download failed (' + r.statusCode + ').'); }
             res.set('Content-Type', r.headers['content-type'] || 'application/octet-stream');
