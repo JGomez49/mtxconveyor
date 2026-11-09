@@ -813,14 +813,22 @@ function renderSurvey(){
 function exportSurvey(){
   if(!corrected.length){ alert('Apply the sag correction first.'); return; }
   var u = UNIT === 'metric' ? 'm' : 'ft';
-  var data = corrected.map(function(s){ var o = {};
-    o['MD (' + u + ')'] = +L(s.md).toFixed(3); o['Inc measured (deg)'] = s.incRaw; o['Sag correction (deg)'] = s.corr;
-    o['Inc corrected (deg)'] = +s.inc.toFixed(4); o['Az (deg)'] = s.az;
-    o['TVD measured (' + u + ')'] = +L(s.tvdRaw).toFixed(3); o['TVD corrected (' + u + ')'] = +L(s.tvd).toFixed(3);
-    o['dTVD (' + u + ')'] = +L(s.dTvd).toFixed(4); o['dN (' + u + ')'] = +L(s.dN).toFixed(4); o['dE (' + u + ')'] = +L(s.dE).toFixed(4);
-    o['DLS (deg/30m)'] = +s.dls.toFixed(3);
-    if(stationInfo){ var si = stationInfo[corrected.indexOf(s)]; o['Survey DLS used (deg/30m)'] = +si.dls30.toFixed(3); o['Survey TF used (deg)'] = si.tfDefined ? +si.tf.toFixed(2) : '';
-      o['WOB used (N)'] = Math.round(si.wob); o['Status'] = s.status || ''; }
+  // FIX 2026-11-09 (John: "Export corrected survey" downloaded nothing): with runs, stations outside every
+  // run have NO stationInfo entry, and the export read si.dls30 on undefined -> TypeError before
+  // XLSX.writeFile (the on-screen table already guarded with `si ? … : ''`). Every value is now guarded
+  // (blank cell when missing); the Run column shown on screen is exported too.
+  var num = function(v, d){ return (v == null || !isFinite(v)) ? '' : +(+v).toFixed(d); };
+  var numL = function(v, d){ return (v == null || !isFinite(v)) ? '' : +L(v).toFixed(d); };
+  var data = corrected.map(function(s, i){ var o = {};
+    o['MD (' + u + ')'] = numL(s.md, 3); o['Inc measured (deg)'] = num(s.incRaw, 4); o['Sag correction (deg)'] = num(s.corr, 4);
+    o['Inc corrected (deg)'] = num(s.inc, 4); o['Az (deg)'] = num(s.az, 4);
+    o['TVD measured (' + u + ')'] = numL(s.tvdRaw, 3); o['TVD corrected (' + u + ')'] = numL(s.tvd, 3);
+    o['dTVD (' + u + ')'] = numL(s.dTvd, 4); o['dN (' + u + ')'] = numL(s.dN, 4); o['dE (' + u + ')'] = numL(s.dE, 4);
+    o['DLS (deg/30m)'] = num(s.dls, 3);
+    if(stationInfo){ var si = stationInfo[i];
+      o['Survey DLS used (deg/30m)'] = si ? num(si.dls30, 3) : ''; o['Survey TF used (deg)'] = (si && si.tfDefined) ? num(si.tf, 2) : '';
+      o['WOB used (N)'] = (si && isFinite(si.wob)) ? Math.round(si.wob) : ''; o['Status'] = s.status || ''; }
+    if(s.run) o['Run'] = s.run;
     return o; });
   var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Sag corrected');
   if(table) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(table.rows.map(function(r){ return {'Model':table.model, 'Inc (deg)':r.inc, 'Correction (deg)':r.corr, 'Status':r.status}; })), 'Sag table');
