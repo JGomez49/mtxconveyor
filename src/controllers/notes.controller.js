@@ -208,8 +208,8 @@ notesCrtl.renderNotes = async (req,res)=>{
     const vpAreaList = await VPArea.find().select('vpName mainArea -_id').lean();
     // ADDED 2026-10-27: padKey -> [ETS User names] for the Gantt "Handover"
     // e-mail To: field (see models/PadDistList.js).
-    const padDistMap = (await PadDistList.find().select('pad padKey mtxJobId recipients -_id').lean())
-        .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', names: (p.recipients || []).map(r => r.etsUser).filter(Boolean),
+    const padDistMap = (await PadDistList.find().select('pad padKey mtxJobId recipients outlookTo -_id').lean())
+        .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', outlook: p.outlookTo || '' /* 2026-11-11 Outlook-pasted recipients */, names: (p.recipients || []).map(r => r.etsUser).filter(Boolean),
             people: (p.recipients || []).map(r => ({ role: r.role || '', name: r.etsUser || '' })) /* 2026-10-29: roles for the Handover checklist */ }; return m; }, {});
 
     // ADDED 2026-10-27: vendor lists for the Handover e-mail To: (VendorDistList).
@@ -336,7 +336,10 @@ notesCrtl.renderEditForm = async(req,res)=>{
     // 2026-10-29 (John): Handover checklist rows (auto Responsible from the pad's Pad Distribution List roles).
     let hcRows = [];
     try{ hcRows = HandoverChecklist.resolve(note.handoverChecklist, await padPeopleOf(note.project), note.poc); }catch(err){ console.error('[HandoverChecklist] edit page', err); }
-    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList, hcRows, hcLabels: { inFolder: HandoverChecklist.IN_FOLDER, status: HandoverChecklist.STATUS }});
+    // 2026-11-11 (John): Pad Distribution List moved from VP Areas to the job EDIT page (below Work Flow).
+    let padDist = null;
+    try{ const k = PadDistList.keyOf(String(note.project || '').trim()); if(k) padDist = await PadDistList.findOne({ padKey: k }).lean(); }catch(err){ console.error('[PadDistList] edit page', err); }
+    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList, hcRows, hcLabels: { inFolder: HandoverChecklist.IN_FOLDER, status: HandoverChecklist.STATUS }, padDist});
 }
 
 
@@ -629,13 +632,15 @@ notesCrtl.saveVPAreas = async (req,res)=>{
 notesCrtl.savePadDistList = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        // CHANGED 2026-11-11 (John): admin, leader and user can save (was admin only); the list now lives on the job EDIT page.
+        if(!requester || !['admin', 'leader', 'user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage the Pad Distribution List.'});
         // 2026-10-27 (John): the list is linked through the MTX ID — the pad is
         // that job's project (site), as in findJobByMtxId (first match).
-        const mtxJobId = String(req.body.mtxJobId || '').trim();
-        if(!mtxJobId) return res.status(400).json({ok:false, error:'Enter the MTX ID.'});
-        const notesForId = await Note.find({ mtxJobId }).select('project title').lean();
-        if(!notesForId.length) return res.status(404).json({ok:false, error:'No job found with MTX ID ' + mtxJobId + '.'});
+        // 2026-11-11: the EDIT page sends noteId instead (works for jobs without an MTX ID).
+        let notesForId, mtxJobId = String(req.body.mtxJobId || '').trim();
+        if(req.body.noteId){ const n = await Note.findById(req.body.noteId).select('project title mtxJobId').lean(); notesForId = n ? [n] : []; if(n) mtxJobId = String(n.mtxJobId || '').trim(); }
+        else { if(!mtxJobId) return res.status(400).json({ok:false, error:'Enter the MTX ID.'}); notesForId = await Note.find({ mtxJobId }).select('project title').lean(); }
+        if(!notesForId.length) return res.status(404).json({ok:false, error:'No job found' + (mtxJobId ? ' with MTX ID ' + mtxJobId : '') + '.'});
         const pad = String(notesForId[0].project || '').trim();
         const padKey = PadDistList.keyOf(pad);
         if(!padKey) return res.status(400).json({ok:false, error:'MTX ID ' + mtxJobId + ' has no site (project) set, so it cannot be matched to the Gantt.'});
@@ -643,9 +648,10 @@ notesCrtl.savePadDistList = async (req,res)=>{
         const recipients = (Array.isArray(req.body.recipients) ? req.body.recipients : [])
             .map(r => ({ role: String((r && r.role) || '').trim().slice(0, 100), etsUser: String((r && r.etsUser) || '').trim().slice(0, 200) }))
             .filter(r => r.etsUser && !seen.has(r.etsUser.toLowerCase()) && seen.add(r.etsUser.toLowerCase()));
-        if(!recipients.length) return res.status(400).json({ok:false, error:'No names found in the "ETS User" column.'});
+        const outlookTo = String(req.body.outlookTo || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 10000);   // 2026-11-11 Outlook-pasted recipients
+        if(!recipients.length && !outlookTo) return res.status(400).json({ok:false, error:'The list is empty: add names (Role | ETS User) or paste the Outlook recipients.'});
         const doc = await PadDistList.findOneAndUpdate({ padKey },
-            { $set: { pad, padKey, mtxJobId, recipients, sourceFile: String(req.body.sourceFile || '').slice(0, 200), user: requester._id } },
+            { $set: { pad, padKey, mtxJobId, recipients, outlookTo, sourceFile: String(req.body.sourceFile || '').slice(0, 200), user: requester._id } },
             { upsert: true, new: true });
         res.json({ok:true, id: doc._id, pad: doc.pad, padKey, mtxJobId, count: recipients.length,
             warning: notesForId.length > 1 ? notesForId.length + ' jobs share MTX ID ' + mtxJobId + '; the first one (' + pad + ') was used.' : null});
@@ -914,7 +920,10 @@ notesCrtl.renderJob = async (req,res)=>{
     let tdModel = await TDModel.findOne({noteId: noteid}).lean();
     let hydraulicsModel = await HydraulicsModel.findOne({noteId: noteid}).lean();
     let casingDesign = await CasingDesign.findOne({noteId: noteid}).lean();
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign})
+    // 2026-11-11 (John): show the pad's Pad Distribution List (saved on the EDIT page) on the job page, read-only.
+    let padDist = null;
+    try{ const k = PadDistList.keyOf(String((note && note.project) || '').trim()); if(k) padDist = await PadDistList.findOne({ padKey: k }).lean(); }catch(err){ console.error('[PadDistList] job page', err); }
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist})
 }
 
 

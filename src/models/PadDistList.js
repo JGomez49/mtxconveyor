@@ -18,6 +18,10 @@ const PadDistListSchema = new Schema({
     padKey:     { type: String, required: true, unique: true },
     recipients: [{ role: { type: String, default: '' }, etsUser: { type: String, required: true } }],
     sourceFile: { type: String, default: '' },
+    // ADDED 2026-11-11 (John): recipients pasted from Outlook, e.g. "Vince Distefano <Vince.DiStefano@cnrl.com>; ...".
+    // Used as-is for the Handover / Notification e-mail address fields (bare names cannot be resolved by Outlook
+    // in an .eml draft — they show pink). Empty = old behaviour (ETS User names).
+    outlookTo:  { type: String, default: '' },
     user:       { type: Schema.Types.ObjectId, ref: 'User' },
 },{timestamps: true});
 
