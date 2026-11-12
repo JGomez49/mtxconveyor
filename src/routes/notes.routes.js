@@ -79,6 +79,7 @@ const {
     getPipeStretchCase,
     deletePipeStretchCase,
     savePipeStretchVersion,
+    listSurveyVersions, getSurveyVersion,
     saveShortCollarVersion,
     uploadWellboreTrajectory,
     deleteWellboreTrajectory,
@@ -412,6 +413,9 @@ router.get('/notes/pipeStretch/cases', isAuthenticated, canUseModelersJson, list
 router.get('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, getPipeStretchCase);
 router.delete('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deletePipeStretchCase);
 router.post('/notes/pipeStretch/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, savePipeStretchVersion);
+// 2026-11-12 correction chain: list / read the survey versions of a well (original + corrected versions).
+router.get('/notes/surveyVersions', isAuthenticated, canUseModelersJson, listSurveyVersions);
+router.get('/notes/surveyVersion/:id', isAuthenticated, canUseModelersJson, getSurveyVersion);
 // Short Collar (2026-10-25): save the 6-axis page's short-collar-corrected azimuths as a new WellboreTrajectory version.
 router.post('/notes/shortCollar/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveShortCollarVersion);
 

@@ -17,6 +17,12 @@ const SurveyPointSchema = new Schema(
     latitude: { type: Number, default: 0 },
     longitude:{ type: Number, default: 0 },
     comments: { type: String, default: "" },
+    // ADDED 2026-11-12 (John, correction chain): the ORIGINAL (tally) MD / Inc / Az of this station, written on
+    // every correction version (absent on uploaded surveys = the stored md/incl/azim ARE the originals). BHA runs
+    // are always assigned by origMd, never by a stretch-corrected MD (John's decision 2026-11-12).
+    origMd:   { type: Number },
+    origIncl: { type: Number },
+    origAzim: { type: Number },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },
@@ -85,6 +91,23 @@ const WellboreTrajectorySchema = new Schema(
     surveyCount:  { type: Number, default: 0 },
     survey:       [SurveyPointSchema],
     fracPlanes:   [FracPlaneSchema],
+    // ADDED 2026-11-12 (John, correction chain — see controllers/notes.controller.js saveCorrectedVersion):
+    // baseWellName = the uploaded well this version descends from ('' on uploaded wells);
+    // correctionChain = every correction applied, in order, each with the per-station deltas it added
+    // (dMd m, dInc deg, dAz deg; same order/length as survey) so a version is auditable and reportable.
+    baseWellName: { type: String, default: "" },
+    correctionChain: [new Schema({
+        type:       { type: String, required: true },   // 'stretch' | 'sag' | 'shortcollar' | 'msa'
+        tag:        { type: String, default: "" },      // 'STRETCH' | 'SAG' | 'SC' | 'MSA' (used in the well name)
+        model:      { type: String, default: "" },
+        label:      { type: String, default: "" },      // e.g. load case / options summary
+        inputs:     { type: Schema.Types.Mixed, default: {} },
+        sourceId:   { type: Schema.Types.ObjectId },     // version this step was applied to
+        sourceName: { type: String, default: "" },
+        userName:   { type: String, default: "" },
+        date:       { type: Date, default: Date.now },
+        dMd:  [Number], dInc: [Number], dAz: [Number],
+    }, { _id: false })],
     user:         { type: Schema.Types.ObjectId, ref: "User" },
     uploadedDate: { type: Date, default: Date.now },
   },

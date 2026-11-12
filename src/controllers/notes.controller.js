@@ -1583,6 +1583,11 @@ notesCrtl.findJobByMtxId = async (req, res) => {
       .map(t => ({
         wellKey: t.wellName,
         survey: t.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim })),
+        // ADDED 2026-11-12 (John, correction chain): correction versions (STRETCH/SAG/SC/MSA) copy the subject tag of
+        // their well, so they appeared as extra "wells" — and had no T&D model of their own. Flag them + their base
+        // well so SAG / PipeStretch list only real wells and take BHAs / runs / sections from the base well.
+        isVersion: CORR_SOURCES.indexOf(t.source) >= 0,
+        baseWellName: t.baseWellName || (CORR_SOURCES.indexOf(t.source) >= 0 ? '' : t.wellName),
       }));
 
     res.json({
@@ -2906,59 +2911,42 @@ notesCrtl.deleteSagCase = async(req,res)=>{
 // the conventions documented on WellboreTrajectory/FracPlane
 // (subSea = elevation, X = Easting, Y = -TVD, Z = -Northing).
 notesCrtl.saveSagVersion = async(req,res)=>{
+    // CHANGED 2026-11-12 (John, correction chain phase 3): may start from ANY version (req.body.versionId, e.g. a
+    // PipeStretch one) and stores the correction history via saveCorrectedVersion(); name "<well> [prev+]SAG <date>".
+    // MD and Az are those of the starting version; Inc = corrected value from the page; same position maths as before
+    // (MC deltas from the source's stored values). Before: only the uploaded original, name "<well> SAG <date>".
     try{
-        const {noteId, wellKey, corrections} = req.body;
+        const {noteId, wellKey, corrections, versionId} = req.body;
         // 2026-10-24: sag model used (Beam | Kinetic), recorded in each station comment.
         const model = req.body.model === 'Kinetic' ? 'Kinetic' : 'Beam';
         if(!noteId || !wellKey || !Array.isArray(corrections) || !corrections.length)
             return res.status(400).json({ok:false, error:'noteId, wellKey and corrections are required.'});
-        const orig = await WellboreTrajectory.findOne({noteId, wellName: wellKey, source: {$ne: 'SAGcorrection'}}).lean();
-        if(!orig || !orig.survey || !orig.survey.length) return res.status(404).json({ok:false, error:'Original well survey not found.'});
-        if(corrections.length !== orig.survey.length)
-            return res.status(400).json({ok:false, error:'Station count does not match the original survey ('+orig.survey.length+'). Reload the well and re-run.'});
-        for(let i = 0; i < orig.survey.length; i++){
-            if(Math.abs((+corrections[i].md) - orig.survey[i].md) > 1e-6)
+        const src = await corrSourceVersion(noteId, wellKey, versionId);
+        if(!src || !src.survey || !src.survey.length) return res.status(404).json({ok:false, error:'Source well survey not found.'});
+        if(corrections.length !== src.survey.length)
+            return res.status(400).json({ok:false, error:'Station count does not match the source survey ('+src.survey.length+'). Reload the well and re-run.'});
+        for(let i = 0; i < src.survey.length; i++){
+            if(Math.abs((+corrections[i].md) - src.survey[i].md) > 1e-6)
                 return res.status(400).json({ok:false, error:'MD mismatch at station '+(i+1)+'. Reload the well and re-run.'});
+            if(!isFinite(+corrections[i].inc)) return res.status(400).json({ok:false, error:'Invalid inclination at station '+(i+1)+'.'});
         }
-        const s0 = orig.survey[0];
-        const stations = orig.survey.map((s, i) => ({md:s.md, inc:+corrections[i].inc, az:s.azim}));
-        const tie = {tvd:s0.tvd, n:s0.localN, e:s0.localE};
-        const mc = SagModelCore.minimumCurvature(stations, tie);
-        // Deltas = MC(corrected Inc) - MC(original Inc), both from the same
-        // tie, then added to the STORED values — so a zero correction moves
-        // nothing even if the stored TVD/N/E came from a different
-        // calculation (vendor rounding, other method).
-        const mc0 = SagModelCore.minimumCurvature(orig.survey.map(s => ({md:s.md, inc:s.incl, az:s.azim})), tie);
-        const survey = orig.survey.map((s, i) => {
-            const dT = mc[i].tvd - mc0[i].tvd, dN = mc[i].n - mc0[i].n, dE = mc[i].e - mc0[i].e;
-            const pos = s.position || {x:0,y:0,z:0};
-            return Object.assign({}, s, {
-                incl: mc[i].inc, tvd: s.tvd + dT, localN: s.localN + dN, localE: s.localE + dE,
-                dogleg: mc[i].dls, subSea: s.subSea - dT, northing: s.northing + dN, easting: s.easting + dE,
-                position: {x: pos.x + dE, y: pos.y - dT, z: pos.z - dN},
-                comments: (s.comments ? s.comments + ' | ' : '') + 'SAG corr (' + model + ') ' + (+corrections[i].inc - s.incl).toFixed(3) + ' deg',
-            });
-        });
         // 2026-10-24 (improvement #10): ISCWSA toolcode for the new version,
         // chosen by the user at save time (page suggests the '+SAG'
         // counterpart and warns if it differs in non-sag terms). Must be a
         // key of public/data/iscwsaToolcodes.json; otherwise keep original's.
-        let toolcode = orig.toolcode || '';
+        let toolcode = src.toolcode || '';
         if (typeof req.body.toolcode === 'string' && req.body.toolcode) {
             const codes = require('../public/data/iscwsaToolcodes.json');
             if (!Object.prototype.hasOwnProperty.call(codes, req.body.toolcode))
                 return res.status(400).json({ok:false, error:'Unknown toolcode "' + req.body.toolcode + '".'});
             toolcode = req.body.toolcode;
         }
-        const date = new Date().toISOString().slice(0,10);
-        const doc = await WellboreTrajectory.create({
-            noteId, wellName: wellKey + ' SAG ' + date, source: 'SAGcorrection',
-            wellCategory: orig.wellCategory || '', pad: orig.pad || '', colorHex: '',
-            toolcode, surveyCount: survey.length, survey,
-            user: req.user ? req.user._id : null, uploadedDate: new Date(),
-        });
+        const doc = await saveCorrectedVersion(req, src, { type: 'sag', tag: 'SAG', source: 'SAGcorrection', model, wellKey, toolcode,
+            label: String(req.body.label || '').slice(0, 300), inputs: req.body.inputs || {},
+            stations: src.survey.map((s, i) => ({ md: s.md, inc: +corrections[i].inc, az: s.azim })),
+            comment: i => 'SAG corr (' + model + ') ' + (+corrections[i].inc - src.survey[i].incl).toFixed(3) + ' deg' });
         res.json({ok:true, wellName: doc.wellName, id: doc._id, toolcode});
-    }catch(err){ console.error('[SAGcorrection] save version failed', err); res.status(500).json({ok:false, error:err.message}); }
+    }catch(err){ console.error('[SAGcorrection] save version failed', err); res.status(err.status || 500).json({ok:false, error:err.message}); }
 };
 
 // SAGcorrection materials (2026-10-24, improvement #5) — see models/SagMaterial.js.
@@ -3042,40 +3030,128 @@ notesCrtl.deletePipeStretchCase = async(req,res)=>{
         res.json({ok:true});
     }catch(err){ console.error('[PipeStretchCase] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete case.'}); }
 };
+
+// =====================================================================
+// CORRECTION CHAIN (ADDED 2026-11-12, John) — survey corrections can be
+// applied one after another (e.g. PipeStretch -> SAG -> MSA) through saved
+// versions. Decisions (John 2026-11-12, see project doc
+// claude/correction-chain-plan.md):
+//   - each saved version stores its correctionChain (type, model, inputs,
+//     per-station dMd/dInc/dAz) and baseWellName; the next module may start
+//     from ANY version of the well;
+//   - the same correction type cannot be applied twice (SC and MSA are both
+//     azimuth corrections from the raw sensors -> only one of them);
+//   - BHA runs are assigned by the ORIGINAL (tally) MD: stations keep
+//     origMd/origIncl/origAzim;
+//   - positions: deltas MC(new md/inc/az) - MC(source md/inc/az) from the same
+//     tie (SagModelCore.minimumCurvature, Bourgoyne Ch.8), added to the STORED
+//     TVD/N/E of the source version — the convention already used by
+//     saveSagVersion / savePipeStretchVersion since 2026-10-24/25, so a zero
+//     correction moves nothing.
+// =====================================================================
+const CORR_SOURCES = ['SAGcorrection', 'PipeStretch', 'ShortCollar', 'MSA'];
+const CORR_CONFLICT = { shortcollar: ['shortcollar', 'msa'], msa: ['shortcollar', 'msa'] };
+// Source version for a save: req.body.versionId if given (any version of this job), else the uploaded original
+// (legacy behaviour: {noteId, wellName: wellKey, source not a correction}).
+async function corrSourceVersion(noteId, wellKey, versionId){
+    if(versionId) return WellboreTrajectory.findOne({ _id: versionId, noteId }).lean();
+    return WellboreTrajectory.findOne({ noteId, wellName: wellKey, source: { $nin: CORR_SOURCES } }).lean();
+}
+// stations: [{md, inc, az}] corrected values, same length/order as src.survey.
+async function saveCorrectedVersion(req, src, o){
+    let chain = Array.isArray(src.correctionChain) ? src.correctionChain : [];
+    // versions saved before 2026-11-12 have no chain: their source tells which correction they carry
+    const LEGACY = { SAGcorrection: ['sag', 'SAG'], PipeStretch: ['stretch', 'STRETCH'], ShortCollar: ['shortcollar', 'SC'], MSA: ['msa', 'MSA'] };
+    if(!chain.length && LEGACY[src.source]) chain = [{ type: LEGACY[src.source][0], tag: LEGACY[src.source][1], label: 'saved before 2026-11-12 (no per-station history)', sourceName: src.wellName }];
+    const block = CORR_CONFLICT[o.type] || [o.type];
+    const dup = chain.find(c => block.indexOf(c.type) >= 0);
+    if(dup) { const e = new Error('This version already has a ' + (dup.tag || dup.type) + ' correction — it cannot be applied twice. Start from an earlier version.'); e.status = 400; throw e; }
+    const s0 = src.survey[0], tie = { tvd: s0.tvd, n: s0.localN, e: s0.localE };
+    const mc0 = SagModelCore.minimumCurvature(src.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim })), tie);
+    const mc  = SagModelCore.minimumCurvature(o.stations, tie);
+    const survey = src.survey.map((s, i) => {
+        const dT = mc[i].tvd - mc0[i].tvd, dN = mc[i].n - mc0[i].n, dE = mc[i].e - mc0[i].e, pos = s.position || { x: 0, y: 0, z: 0 };
+        return Object.assign({}, s, {
+            md: o.stations[i].md, incl: mc[i].inc, azim: o.stations[i].az,
+            origMd: s.origMd != null ? s.origMd : s.md, origIncl: s.origIncl != null ? s.origIncl : s.incl, origAzim: s.origAzim != null ? s.origAzim : s.azim,
+            tvd: s.tvd + dT, localN: s.localN + dN, localE: s.localE + dE, dogleg: mc[i].dls,
+            subSea: s.subSea - dT, northing: s.northing + dN, easting: s.easting + dE, position: { x: pos.x + dE, y: pos.y - dT, z: pos.z - dN },
+            comments: (s.comments ? s.comments + ' | ' : '') + o.comment(i),
+        });
+    });
+    let azd = (a, b) => { let d = a - b; while(d > 180) d -= 360; while(d < -180) d += 360; return d; };
+    const step = { type: o.type, tag: o.tag, model: o.model || '', label: o.label || '', inputs: o.inputs || {},
+        sourceId: src._id, sourceName: src.wellName, userName: req.user ? (req.user.name || req.user.email || '') : '', date: new Date(),
+        dMd: survey.map((s, i) => +(s.md - src.survey[i].md).toFixed(6)),
+        dInc: survey.map((s, i) => +(s.incl - src.survey[i].incl).toFixed(6)),
+        dAz: survey.map((s, i) => +azd(s.azim, src.survey[i].azim).toFixed(6)) };
+    const newChain = chain.concat([step]);
+    const base = src.baseWellName || (CORR_SOURCES.indexOf(src.source) < 0 ? src.wellName : (o.wellKey || src.wellName));
+    const date = new Date().toISOString().slice(0, 10);
+    return WellboreTrajectory.create({
+        noteId: src.noteId, wellName: base + ' ' + newChain.map(c => c.tag).join('+') + ' ' + date, source: o.source,
+        baseWellName: base, correctionChain: newChain,
+        wellCategory: src.wellCategory || '', pad: src.pad || '', colorHex: '', toolcode: o.toolcode != null ? o.toolcode : (src.toolcode || ''),
+        surveyCount: survey.length, survey, user: req.user ? req.user._id : null, uploadedDate: new Date(),
+    });
+}
+// GET /notes/surveyVersions?noteId=&wellKey=  -> the uploaded well + every correction version derived from it
+// (new versions by baseWellName; versions saved before 2026-11-12 by name prefix "<well> ").
+notesCrtl.listSurveyVersions = async (req, res) => {
+    try{
+        const { noteId, wellKey } = req.query;
+        if(!noteId || !wellKey) return res.status(400).json({ ok: false, error: 'noteId and wellKey are required.' });
+        const esc = String(wellKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const docs = await WellboreTrajectory.find({ noteId, $or: [
+            { wellName: wellKey, source: { $nin: CORR_SOURCES } },
+            { baseWellName: wellKey },
+            { wellName: new RegExp('^' + esc + ' '), source: { $in: CORR_SOURCES } } ] })
+            .select('wellName source baseWellName correctionChain.type correctionChain.tag correctionChain.model correctionChain.label correctionChain.date correctionChain.userName correctionChain.sourceName surveyCount uploadedDate toolcode')
+            .sort({ uploadedDate: 1 }).lean();
+        res.json({ ok: true, versions: docs.map(d => ({ id: d._id, wellName: d.wellName, source: d.source, original: CORR_SOURCES.indexOf(d.source) < 0,
+            legacy: CORR_SOURCES.indexOf(d.source) >= 0 && !(d.correctionChain || []).length, chain: d.correctionChain || [],
+            surveyCount: d.surveyCount, date: d.uploadedDate, toolcode: d.toolcode || '' })) });
+    }catch(err){ console.error('[surveyVersions] list failed', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+// GET /notes/surveyVersion/:id -> survey (md/inc/az + original tally values) and the full chain of one version
+notesCrtl.getSurveyVersion = async (req, res) => {
+    try{
+        const d = await WellboreTrajectory.findById(req.params.id).select('noteId wellName source baseWellName correctionChain survey toolcode').lean();
+        if(!d) return res.status(404).json({ ok: false, error: 'Version not found.' });
+        res.json({ ok: true, version: { id: d._id, noteId: d.noteId, wellName: d.wellName, source: d.source, baseWellName: d.baseWellName || '', toolcode: d.toolcode || '',
+            chain: d.correctionChain || [], survey: (d.survey || []).map(s => ({ md: s.md, inc: s.incl, az: s.azim, tvd: s.tvd, n: s.localN, e: s.localE,
+                origMd: s.origMd != null ? s.origMd : s.md, origInc: s.origIncl != null ? s.origIncl : s.incl, origAz: s.origAzim != null ? s.origAzim : s.azim })) } });
+    }catch(err){ console.error('[surveyVersions] get failed', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+
 // "Save as new version": new WellboreTrajectory "<well> STRETCH <yyyy-mm-dd>"
 // (source "PipeStretch") with MD += total stretch at each station; Inc/Az
 // copied. Positions: deltas MC(corrected MDs) - MC(original MDs) (same tie,
 // SagModelCore.minimumCurvature = Bourgoyne Ch.8) added to the STORED
 // TVD/N/E, so a zero correction moves nothing. Original only read.
 notesCrtl.savePipeStretchVersion = async(req,res)=>{
+    // CHANGED 2026-11-12 (John, correction chain): may start from ANY version (req.body.versionId), stores the
+    // correction history via saveCorrectedVersion(); name "<well> [prev+]STRETCH <date>". Before: only the uploaded
+    // original, name "<well> STRETCH <date>", same MD/position maths (kept unchanged).
     try{
-        const {noteId, wellKey, corrections} = req.body;
+        const {noteId, wellKey, corrections, versionId} = req.body;
         const model = req.body.model === 'TD' ? 'T&D' : 'SurQC';
         if(!noteId || !wellKey || !Array.isArray(corrections) || !corrections.length)
             return res.status(400).json({ok:false, error:'noteId, wellKey and corrections are required.'});
-        const orig = await WellboreTrajectory.findOne({noteId, wellName: wellKey, source: {$nin: ['SAGcorrection', 'PipeStretch']}}).lean();
-        if(!orig || !orig.survey || !orig.survey.length) return res.status(404).json({ok:false, error:'Original well survey not found.'});
-        if(corrections.length !== orig.survey.length)
-            return res.status(400).json({ok:false, error:'Station count does not match the original survey ('+orig.survey.length+'). Reload the well and re-run.'});
-        for(let i = 0; i < orig.survey.length; i++){
-            if(Math.abs((+corrections[i].md) - orig.survey[i].md) > 1e-6) return res.status(400).json({ok:false, error:'MD mismatch at station '+(i+1)+'. Reload the well and re-run.'});
+        const src = await corrSourceVersion(noteId, wellKey, versionId);
+        if(!src || !src.survey || !src.survey.length) return res.status(404).json({ok:false, error:'Source well survey not found.'});
+        if(corrections.length !== src.survey.length)
+            return res.status(400).json({ok:false, error:'Station count does not match the source survey ('+src.survey.length+'). Reload the well and re-run.'});
+        for(let i = 0; i < src.survey.length; i++){
+            if(Math.abs((+corrections[i].md) - src.survey[i].md) > 1e-6) return res.status(400).json({ok:false, error:'MD mismatch at station '+(i+1)+'. Reload the well and re-run.'});
             if(!isFinite(+corrections[i].dMd)) return res.status(400).json({ok:false, error:'Invalid correction at station '+(i+1)+'.'});
         }
-        const s0 = orig.survey[0], tie = {tvd:s0.tvd, n:s0.localN, e:s0.localE};
-        const mc0 = SagModelCore.minimumCurvature(orig.survey.map(s => ({md:s.md, inc:s.incl, az:s.azim})), tie);
-        const mc = SagModelCore.minimumCurvature(orig.survey.map((s, i) => ({md:s.md + (+corrections[i].dMd), inc:s.incl, az:s.azim})), tie);
-        const survey = orig.survey.map((s, i) => {
-            const dT = mc[i].tvd - mc0[i].tvd, dN = mc[i].n - mc0[i].n, dE = mc[i].e - mc0[i].e, pos = s.position || {x:0,y:0,z:0};
-            return Object.assign({}, s, { md: s.md + (+corrections[i].dMd), tvd: s.tvd + dT, localN: s.localN + dN, localE: s.localE + dE, dogleg: mc[i].dls,
-                subSea: s.subSea - dT, northing: s.northing + dN, easting: s.easting + dE, position: {x: pos.x + dE, y: pos.y - dT, z: pos.z - dN},
-                comments: (s.comments ? s.comments + ' | ' : '') + 'STRETCH (' + model + ') +' + (+corrections[i].dMd).toFixed(3) + ' m MD' });
-        });
-        const date = new Date().toISOString().slice(0,10);
-        const doc = await WellboreTrajectory.create({ noteId, wellName: wellKey + ' STRETCH ' + date, source: 'PipeStretch',
-            wellCategory: orig.wellCategory || '', pad: orig.pad || '', colorHex: '', toolcode: orig.toolcode || '',
-            surveyCount: survey.length, survey, user: req.user ? req.user._id : null, uploadedDate: new Date() });
+        const doc = await saveCorrectedVersion(req, src, { type: 'stretch', tag: 'STRETCH', source: 'PipeStretch', model, wellKey,
+            label: String(req.body.label || req.body.loadCase || '').slice(0, 300), inputs: req.body.inputs || {},
+            stations: src.survey.map((s, i) => ({ md: s.md + (+corrections[i].dMd), inc: s.incl, az: s.azim })),
+            comment: i => 'STRETCH (' + model + ') ' + ((+corrections[i].dMd) >= 0 ? '+' : '') + (+corrections[i].dMd).toFixed(3) + ' m MD' });
         res.json({ok:true, wellName: doc.wellName, id: doc._id});
-    }catch(err){ console.error('[PipeStretch] save version failed', err); res.status(500).json({ok:false, error:err.message}); }
+    }catch(err){ console.error('[PipeStretch] save version failed', err); res.status(err.status || 500).json({ok:false, error:err.message}); }
 };
 
 // =====================================================================
