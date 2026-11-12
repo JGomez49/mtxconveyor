@@ -55,6 +55,139 @@
   .note.warnbox{border-left-color:var(--warn);}
   #progress{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:200px;display:inline-block;vertical-align:middle;}
   #progress div{height:100%;width:0;background:var(--accent);}
+  /* "?" help button + floating window — added 2026-11-11, copied from the T&D page (uploadTorqueAndDrag.ejs, 2026-11-08 round 3).
+     The T&D page defines --cond/--mono/--sans/--text-dim/--text-bright; this page does not, so they are mapped here. */
+  .pp-help, .hp-modal { --cond: inherit; --sans: inherit; --mono: ui-monospace, Consolas, monospace; --text-dim: var(--muted); --text-bright: #fff; }
+    .pp-help {
+      margin-left: auto;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-family: var(--cond);
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0
+    }
+
+    .pp-help:hover {
+      background: var(--accent);
+      color: var(--bg)
+    }
+
+    .hp-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px
+    }
+
+    .hp-modal.open {
+      display: flex
+    }
+
+    .hp-win {
+      background: var(--panel);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      width: 100%;
+      max-width: 860px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, .5)
+    }
+
+    .hp-hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel2)
+    }
+
+    .hp-hdr h3 {
+      flex: 1;
+      font-family: var(--cond);
+      font-size: 20px;
+      letter-spacing: 1px;
+      color: var(--text-bright);
+      text-transform: uppercase
+    }
+
+    .hp-x {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      width: 34px;
+      height: 34px;
+      border-radius: 4px;
+      cursor: pointer
+    }
+
+    .hp-body {
+      padding: 6px 18px 18px;
+      overflow-y: auto;
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--text)
+    }
+
+    .hp-body h4 {
+      font-family: var(--cond);
+      font-size: 15px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 16px 0 6px
+    }
+
+    .hp-body p {
+      margin: 6px 0
+    }
+
+    .hp-eq {
+      font-family: var(--mono);
+      font-size: 15px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      line-height: 1.8;
+      overflow-x: auto
+    }
+
+    .hp-eq-in {
+      font-family: var(--mono);
+      white-space: nowrap
+    }
+
+    .hp-src {
+      font-size: 13px;
+      padding-left: 20px;
+      color: var(--text-dim)
+    }
+
+    .hp-src li {
+      margin: 4px 0
+    }
+
+  .pp-help { width: 22px; height: 22px; font-size: 13px; padding: 0; margin-left: auto; text-transform: none; }
+  .pp-help-plot { position: absolute; top: 4px; right: 4px; z-index: 5; margin: 0; }
+  .hp-tbl { border-collapse: collapse; width: 100%; font-size: 12px; margin: 6px 0; }
+  .hp-tbl th, .hp-tbl td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: top; }
+  .hp-tbl th { position: static; }
+  .hp-tbl { table-layout: fixed; } .hp-tbl th, .hp-tbl td { white-space: normal; word-wrap: break-word; } .hp-tbl th:first-child { width: 120px; }
 </style>
 </head>
 <body>
@@ -128,7 +261,7 @@
     <div class="scroll" style="max-height:320px">
       <table>
         <thead><tr><th>Use</th><th>Component</th><th>OD (mm)</th><th>ID (mm)</th><th>Length (<span class="uL">m</span>)</th>
-          <th>Wt (<span class="uW">kg/m</span>)</th><th>Stiffness factor</th><th>Material</th><th>From bit (<span class="uL">m</span>)</th><th></th></tr></thead>
+          <th>Wt (<span class="uW">kg/m</span>)</th><th>Stiffness factor</th><th title="Kinetic only (2026-11-11): tool-joint / upset OD; blank = none">TJ OD (mm)</th><th title="Kinetic only: distance between tool joints along the row">TJ spacing (<span class="uL">m</span>)</th><th>Material</th><th>From bit (<span class="uL">m</span>)</th><th></th></tr></thead>
         <tbody id="bhaBody"></tbody>
       </table>
     </div>
@@ -159,7 +292,7 @@
     <h2>3 · Sag analysis</h2>
     <div class="row">
       <div class="field"><span>Model</span><select id="modelSel" onchange="onModelChange()" style="width:120px" autocomplete="off">
-        <option value="Beam">Beam</option><option value="Kinetic" selected>Kinetic</option></select></div>   <!-- 2026-11-07 (John): Kinetic is the default model (was Beam) -->
+        <option value="Beam" selected>Beam</option><option value="Kinetic">Kinetic</option></select></div>   <!-- 2026-11-11 (John): Beam is the default again (2026-11-07 had set Kinetic). Beam = exact SurQC port, verified vs compiled SurQC source (1e-14 deg) and John's SurQC run (19/31 inc within 0.004 deg). Kinetic enforces the wall exactly and reads 0.08-0.2 deg lower at high Inc on slick BHAs. -->
       <div class="field"><span>Sensor position from bit (<span class="uL">m</span>)</span><input type="number" id="sensor" value="15" step="0.01"></div>
       <div class="field"><span>Mud weight (<span class="uM">kg/m³</span>)</span><input type="number" id="mud" value="1200" step="1"></div>
       <div class="field"><span>Distance to bend (<span class="uL">m</span>)</span><input type="number" id="bendDist" value="0" step="0.01"></div>
@@ -178,6 +311,7 @@
         <div class="field"><span>WOB source</span><select id="kWobSrc" onchange="invalidate();refreshKinOpts()">
           <option value="one">One value per run</option><option value="dm">Drilling Mechanics WOB (job)</option></select></div>
         <div class="field" id="kWobField"><span>WOB (<span class="uF">kN</span>)</span><input type="number" id="kWob" value="0" step="1" oninput="invalidate()"></div>
+        <div class="field" title="2026-11-11: effective (washed-out) hole diameter above the bit. Blank = bit OD. Kinetic only."><span>Effective hole Ø (mm)</span><input type="number" id="kHole" step="0.1" placeholder="= bit OD" oninput="invalidate()"></div>
         <div class="field"><span>Correction</span><select id="kCorr"><option value="inc">Inc only</option>
           <option value="incaz" disabled>Inc + Az (needs 3-D model — not yet available)</option></select></div>
       </div>
@@ -242,7 +376,7 @@
 
   <!-- 5. STATION VIEW ------------------------------------------------------
        ADDED 2026-11-07 (John: "3D trajectory on one side, a slider showing where we are in the trajectory, and see the
-       bend (SAG) … very mechanical-engineering sound", like SolidWorks shear / moment diagrams; both models, Kinetic default).
+       bend (SAG) … very mechanical-engineering sound", like SolidWorks shear / moment diagrams; both models; Beam default since 2026-11-11).
        No new physics: every value comes from the same solvers as panel 3 (sagKinetic.js / sagModel.js, worker
        'profileBoth'). Derived quantities: bending stress at the outer fibre sigma = M c / I, c = OD/2,
        I = pi (OD^4 - ID^4) / 64 (Timoshenko & Gere, Mechanics of Materials); distributed lateral load
@@ -368,6 +502,9 @@ function addRow(r){
     '<td><input type="number" step="0.001" value="' + len + '" oninput="refreshBha()"></td>' +
     '<td><input type="number" step="0.001" value="' + wt + '"></td>' +
     '<td><input type="number" step="0.01" value="' + (r.sf == null ? 1 : r.sf) + '"></td>' +
+    // 2026-11-11 Kinetic tool joints: TJ OD (mm, always mm like OD) and spacing (length unit); blank = none
+    '<td><input type="number" step="0.01" value="' + (r.tj_od_mm > 0 ? r.tj_od_mm : '') + '" oninput="invalidate()"></td>' +
+    '<td><input type="number" step="0.01" value="' + (r.tj_sp_m > 0 ? +L(+r.tj_sp_m).toFixed(3) : '') + '" oninput="invalidate()"></td>' +
     '<td><select class="matSel" onchange="invalidate()">' + materialOptions(r.material) + '</select></td>' +
     '<td class="fromBit">—</td>' +
     '<td><button onclick="this.closest(\'tr\').remove();refreshBha()">✕</button></td>';
@@ -382,7 +519,8 @@ function readBha(all){
     var wtD = ins[5].value === '' ? '' : (UNIT === 'metric' ? +ins[5].value : +ins[5].value / KGM2LBFT);
     return { use: ins[0].checked, name: ins[1].value, od_mm: ins[2].value === '' ? '' : +ins[2].value,
       id_mm: ins[3].value === '' ? '' : +ins[3].value, len_m: lenD, wt_kgm: wtD,
-      sf: ins[6].value === '' ? 1 : +ins[6].value, material: sel.value };
+      sf: ins[6].value === '' ? 1 : +ins[6].value, material: sel.value,
+      tj_od_mm: +ins[7].value > 0 ? +ins[7].value : '', tj_sp_m: +ins[8].value > 0 ? Lm(+ins[8].value) : '' };   // 2026-11-11 tool joints
   }).filter(function(r){ return all || (r.use && r.od_mm > 0 && r.len_m > 0 && r.id_mm >= 0 && r.id_mm < r.od_mm); });
 }
 function refreshBha(){
@@ -631,7 +769,8 @@ function engineInput(){
     // rho / E / wt are used by Kinetic only (#5); Beam ignores them (SurQC = steel, OD/ID weight).
     subComponents: rows.map(function(r){ var m = materialByName(r.material);
       return {name:r.name, od:r.od_mm / 1000, id:r.id_mm / 1000, len:r.len_m, sf:r.sf,
-              rho:m.density, E:m.youngs, wt:(r.wt_kgm === '' || !(+r.wt_kgm > 0)) ? 0 : +r.wt_kgm}; }),
+              rho:m.density, E:m.youngs, wt:(r.wt_kgm === '' || !(+r.wt_kgm > 0)) ? 0 : +r.wt_kgm,
+              tjOD: r.tj_od_mm > 0 ? r.tj_od_mm / 1000 : 0, tjSpacing: r.tj_sp_m > 0 ? +r.tj_sp_m : 0}; }),   // 2026-11-11 Kinetic tool joints
     sensorPosition: Lm(+$('sensor').value),
     mudDensity: UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG,
     gravity: +$('grav').value,
@@ -640,6 +779,8 @@ function engineInput(){
     // Kinetic-only options (#7 run-constant part; per-station values are set by the worker)
     axialLoad: $('modelSel').value === 'Kinetic' && $('kAxial').checked,
     wob: ($('modelSel').value === 'Kinetic' && $('kAxial').checked && $('kWobSrc').value === 'one') ? wobUnitToN(+$('kWob').value) : 0,
+    // 2026-11-11 Kinetic washout: effective hole diameter (m); 0 = bit OD. Beam ignores it.
+    holeDiameter: $('modelSel').value === 'Kinetic' && +$('kHole').value > 0 ? +$('kHole').value / 1000 : 0,
   };
 }
 function getWorker(){
@@ -953,7 +1094,7 @@ function caseInput(){
     mud_kgm3: UNIT === 'metric' ? +$('mud').value : +$('mud').value * PPG, bendDist_m: Lm(+$('bendDist').value),
     bendDeg: +$('bendDeg').value, grav: +$('grav').value, maxIter: +$('maxIter').value, bhaLimit_m: Lm(+$('bhaLimit').value),
     profInc: +$('profInc').value, model: $('modelSel').value,
-    kinetic: { curv: $('kCurv').checked, bendTF: $('kBendTF').value, axial: $('kAxial').checked, wobSrc: $('kWobSrc').value, wob_N: wobUnitToN(+$('kWob').value) },
+    kinetic: { curv: $('kCurv').checked, bendTF: $('kBendTF').value, axial: $('kAxial').checked, wobSrc: $('kWobSrc').value, wob_N: wobUnitToN(+$('kWob').value), hole_mm: +$('kHole').value > 0 ? +$('kHole').value : '' },
     source: { mtxJobId: job.mtxJobId, surveySource: surveySource },
     runs: (runSave(), RUNS), runsOn: $('runsOn').checked, activeRun: activeRun };   // 2026-11-07 runs
 }
@@ -986,6 +1127,7 @@ async function loadCase(){
   $('modelSel').value = c.model === 'Kinetic' ? 'Kinetic' : 'Beam';
   var kn = c.kinetic || {}; $('kCurv').checked = !!kn.curv; $('kBendTF').value = kn.bendTF === 'survey' ? 'survey' : 'hs';
   $('kAxial').checked = !!kn.axial; $('kWobSrc').value = kn.wobSrc === 'dm' ? 'dm' : 'one'; $('kWob').value = ((kn.wob_N || 0) / 1000).toFixed(2);
+  $('kHole').value = kn.hole_mm > 0 ? kn.hole_mm : '';   // 2026-11-11 washout
   onModelChange();
   if(c.unit === 'imperial'){ $('unitSel').value = 'imperial'; setUnit('imperial'); }
   $('svyInfo').textContent = survey.length ? survey.length + ' stations (from case)' : '';
@@ -1010,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', function(){
    .forEach(function(a){ addRow({use:true, name:a[0], od_mm:a[1], id_mm:a[2], len_m:a[3], wt_kgm:a[4], sf:1, material:'Steel'}); });
   refreshCases(); refreshMaterials();
   // 2026-11-07 (John): Kinetic by default — also overrides the browser restoring the last selection on reload (a loaded case still sets its own model)
-  $('modelSel').value = 'Kinetic'; try { onModelChange(); } catch(e){}
+  $('modelSel').value = 'Beam'; try { onModelChange(); } catch(e){}   // 2026-11-11 (John): Beam default so MTX matches SurQC out of the box (was 'Kinetic' since 2026-11-07)
 });
 
 // ===================================================================
@@ -1146,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 // ===================================================================
 // 5 · Station view (ADDED 2026-11-07, John) — 3D trajectory + slider; at the selected survey station both models
-// (Kinetic default, Beam/SurQC optional) are solved with that station's inclination (and, for Kinetic, its
+// (Beam/SurQC default, Kinetic optional) are solved with that station's inclination (and, for Kinetic, its
 // curvature / bend toolface / WOB per the panel-3 options, exactly as applyPerStation). Diagrams: BHA in the hole
 // (deflected centreline coloured by outer-fibre bending stress, supports / reactions, distributed load, sensor
 // slope = SAG), shear V, moment M, slope theta, deflection y — both models overlaid. Nothing here changes the
@@ -1459,7 +1601,7 @@ function rpHtml(inp, idx, secs, img3d, imgTab, logo, RI){
     inp.subComponents.map(function(c, i){ return row([i + 1, rpEsc(c.name), fmt(c.od * 1000, 2), fmt(c.id * 1000, 2), fmt(L(c.len), 2), c.wt > 0 ? fmt(c.wt, 2) : 'from OD/ID', fmt(c.E / 1e9, 1), fmt(c.rho, 0), fmt(c.E * sdI(c) / 1000, 1)]); }).join('') + '</table>';
   h += '<table class="kv">' + [['Sensor distance from bit', fmt(L(inp.sensorPosition), 2) + ' ' + u], ['Hole diameter (= bit OD)', fmt(inp.subComponents[0].od * 1000, 2) + ' mm'],
     ['Motor bend', fmt(inp.bendAngleDeg, 2) + '° at ' + fmt(L(inp.bendDistance), 2) + ' ' + u + ' from bit'], ['Mud density', fmt(inp.mudDensity, 0) + ' kg/m³'], ['Gravity', fmt(inp.gravity, 5) + ' m/s²'],
-    ['Kinetic options', 'hole curvature: ' + ($('kCurv').checked ? 'on' : 'off') + ' · bend toolface: ' + ($('kBendTF').value === 'survey' ? 'survey toolface' : 'high side') + ' · axial load / WOB: ' + ($('kAxial').checked ? 'on' : 'off')],
+    ['Kinetic options', 'hole curvature: ' + ($('kCurv').checked ? 'on' : 'off') + ' · bend toolface: ' + ($('kBendTF').value === 'survey' ? 'survey toolface' : 'high side') + ' · axial load / WOB: ' + ($('kAxial').checked ? 'on' : 'off') + ' · effective hole: ' + (+$('kHole').value > 0 ? $('kHole').value + ' mm' : 'bit OD') + ' · tool joints: ' + (readBha(false).some(function(r){ return r.tj_od_mm > 0 && r.tj_sp_m > 0; }) ? 'on' : 'off')],
     ['Survey', corrected.length + ' stations, MD ' + fmt(L(survey[0].md), 2) + '–' + fmt(L(survey[survey.length - 1].md), 2) + ' ' + u + (surveySource ? ' (MTX job well ' + rpEsc(surveySource.wellKey) + ')' : ' (imported file)')]].map(function(r){ return row(r); }).join('') + '</table>';
   return h; };
   h += '<h2 class="pb">2 · Inputs</h2>' + (RI && RI.length ? RI.map(function(R){ return inBlock(R.inp, rpEsc(R.name) + ' — bit MD ' + fmt(L(R.bitIn), 2) + '–' + fmt(L(R.bitOut), 2) + ' ' + u + ' (survey MD ' + fmt(L(R.from), 2) + '–' + fmt(L(R.to), 2) + ', ' + R.n + ' stations) · '); }).join('') : inBlock(inp, ''));
@@ -1478,7 +1620,7 @@ function rpHtml(inp, idx, secs, img3d, imgTab, logo, RI){
     '<h3>3.3 Solvers</h3><p><b>Beam</b> — port of the SurQC sag algorithm (iterative solution of the beam equation; steel only; no hole curvature, toolface or WOB). Ported code matches the original C# to 7·10⁻¹⁵°.</p>' +
     '<p><b>Kinetic</b> — finite-element solution with Hermite cubic beam elements and an active-set wall-contact algorithm; includes materials, motor bend projected by its toolface, hole curvature (build/drop component of the dogleg) and optional axial load. Checked against the Timoshenko &amp; Gere closed-form beam-column solution (agreement 10⁻⁶°) and an independent finite-difference solution (5·10⁻⁴°). Buckling is screened with the Dawson &amp; Paslay (1984) critical load.</p>' +
     '<h3>3.4 Assumptions and limitations</h3><ul>' +
-    ['Linear elastic, small deflections; plane bending in the high-side plane (lateral/azimuth sag not computed).', 'Hole is round and in gauge (diameter = bit OD); formation is rigid; no washouts.',
+    ['Linear elastic, small deflections; plane bending in the high-side plane (lateral/azimuth sag not computed).', 'Hole is round; formation is rigid. Beam: hole in gauge (diameter = bit OD). Kinetic: bit OD or the effective (washed-out) hole diameter entered.'   /* 2026-11-11 washout option */,
      'Bit centred on the hole axis; stabiliser blades in contact when the solution requires; contact tolerance 2.5 mm.', 'Surveys are taken off bottom (WOB ≈ 0) unless an axial load is entered.',
      'Inclinations above 90° are mirrored (180° − Inc), as in SurQC.', 'Bending stress is indicative only; it is not a strength or fatigue verification.',
      'The correction applies to the survey sensor position; the ISCWSA SAG/SAGE uncertainty term should be revised accordingly in the toolcode.'].map(function(t){ return '<li>' + t + '</li>'; }).join('') + '</ul>' +
@@ -1523,5 +1665,175 @@ document.addEventListener('DOMContentLoaded', function(){
   sdInit();
 });
 </script>
+<!-- ===================================================================
+     "?" HELP WINDOWS — added 2026-11-11 (John: "add the '?' that added for
+     the T&D ... explain the difference between models"). Same What / How /
+     Why / Sources layout as the T&D plot help (uploadTorqueAndDrag.ejs,
+     2026-11-08). One "?" per section header (2, 2b, 3, 4, 5, 6) and one per
+     plot in panels 3 and 5. Every technical statement was checked against
+     the SurQC 2015 source in the MTX AC folder, sagModel.js / sagKinetic.js,
+     SPE-102088 (in the folder) or John's SurQC run of 2026-11-11. Textbook
+     references cited in the code but NOT in the folder are marked so.
+     =================================================================== -->
+<div class="hp-modal" id="hpModal" onclick="if(event.target===this)closeSagHelp()">
+  <div class="hp-win" role="dialog" aria-modal="true" aria-labelledby="hpTitle">
+    <div class="hp-hdr"><h3 id="hpTitle"></h3><button class="hp-x" onclick="closeSagHelp()" aria-label="Close">&times;</button></div>
+    <div class="hp-body" id="hpBody"></div>
+  </div>
+</div>
+<script>
+var SAG_SRC = {
+  SQC: 'SurQC sag solver, C# source (June 2015) — <code>SurveyQc/SurveyQc</code>: SagAnalysis, BHAWithSag, SubComponentWithMechanicalProperties, SubComponentListExtensions (IsStabiliser / ShrinkStabilisers), BHAFiniteElementsExtensions (Stabilisers / FarEndSupport) <em>(MTX AC / SurQC Source Code)</em>',
+  RUN: 'SurQC run by John, 2026-11-11: bit 8"×5", PDM 6.5"×4" × 15 m, DC 5"×3" × 100 m, sensor 20", bend 1.5° @ 1.5", 10 ppg — correction table 0–123° <em>(screenshots in the chat; numbers recorded in claude/sagcorrection-status.md)</em>',
+  SPE: 'Studer, R. &amp; Macresy, L. (2006), "Improved BHA Sag Correction and Uncertainty Evaluation Brings Value to Wellbore Placement", SPE-102088 <em>(MTX AC / SPE102088_Improved_BHA_Sag_Correction_and_Uncertainty_Evaluation.pdf)</em>',
+  BOU: 'Bourgoyne et al., Applied Drilling Engineering, Ch. 8 — minimum curvature, dogleg and toolface (Eqs. 8.33–8.49) <em>(MTX AC / Chapters / 08_Directional_Drilling_and_Deviation_Control.pdf)</em>',
+  ISC: 'ISCWSA, Definition of the ISCWSA Error Model Rev 5 (SAG / SAGE terms) <em>(MTX AC / definition-of-iscwsa-error-model-v5-13.pdf)</em>',
+  LOG: 'Logan, D.L., A First Course in the Finite Element Method, Ch. 4 (beam element stiffness and consistent load vector) <em>(textbook — not in folder)</em>',
+  TG:  'Timoshenko, S.P. &amp; Gere, J.M., Theory of Elastic Stability / Mechanics of Materials — beam and beam-column theory <em>(textbook — not in folder)</em>',
+  PRZ: 'Przemieniecki, J.S. (1968), Theory of Matrix Structural Analysis — beam geometric stiffness matrix <em>(textbook — not in folder)</em>',
+  DP:  'Dawson, R. &amp; Paslay, P.R. (1984), "Drillpipe Buckling in Inclined Holes", JPT, SPE-11167 <em>(not in folder)</em>',
+  BEAM: 'MTX implementation, Beam: <code>public/js/sagModel.js</code> (line-by-line port of the SurQC source)',
+  KIN: 'MTX implementation, Kinetic: <code>public/js/sagKinetic.js</code>',
+  UI: 'MTX page: <code>views/sagCorrection.ejs</code>'
+};
+var SAG_EQ_Q = 'q = ρ<sub>steel</sub>·A·g·sin(Inc)·(ρ<sub>steel</sub> − ρ<sub>mud</sub>)/ρ<sub>steel</sub>, &nbsp; ρ<sub>steel</sub> = 7700 kg/m³, A = π(OD² − ID²)/4';
+var SAG_EQ_EI = 'EI = 210 GPa · π(OD⁴ − ID⁴)/64 · stiffness factor';
+var SAG_HELP = {
+  bha: {
+    title: '2 · BHA (bit first)',
+    what: '<p>The bottom-hole assembly from the bit upwards: one row per component with OD, ID, length, stiffness factor and material. Only ticked rows are used, and at most the first 60 m (or the BHA length limit) is analysed.</p>',
+    how: '<p>Each row becomes a beam section with lateral load and bending stiffness [SQC]:</p><p class="hp-eq">' + SAG_EQ_Q + '<br>' + SAG_EQ_EI + '</p>'
+      + '<p>The hole diameter is the bit OD (first row). In <b>Beam</b>, a row with OD &gt; 0.9 × bit OD and length &lt; 1.2 m is a <b>stabiliser</b>: SurQC shrinks it to one 0.1016 m element and gives the removed length to its neighbours [SQC: IsStabiliser / ShrinkStabilisers]. A motor sleeve or string stabiliser must therefore be its own short row — a long motor row with the sleeve OD is not recognised as a stabiliser.</p>'
+      + '<p>Columns used by <b>Kinetic only</b> (Beam = SurQC is steel with OD/ID weight): Wt (overrides the OD/ID weight), Material (density and Young\'s modulus), and <b>TJ OD / TJ spacing</b> (tool joints or upsets: contact points at both ends of the row and every spacing along it, at the TJ OD; body stiffness and weight unchanged) [KIN].</p>'
+      // 2026-11-11 (John): stiffness-factor recommendation table. SF multiplies EI only (SurQC SubComponentWithMechanicalProperties:
+      // Stiffness = 210e9*pi(OD^4-ID^4)/64*SF; weight is independent of SF). E and density = the built-in MATERIALS list above (datasheets in its notes).
+      + '<p><b>Stiffness factor — recommended values.</b> The factor multiplies the bending stiffness only: <span class="hp-eq-in">EI = 210 GPa · π(OD⁴ − ID⁴)/64 · SF</span>; it does not change the weight [SQC]. Beam (SurQC) always assumes steel, so for another material the factor that gives the right EI is <span class="hp-eq-in">SF = E<sub>material</sub> / 210 GPa</span>. Kinetic already takes E from the <b>Material</b> column, so there SF must stay 1 — entering both would count the material twice [KIN].</p>'
+      + '<table class="hp-tbl"><tr><th>Material</th><th>E (GPa)</th><th>Density (kg/m³)</th><th>SF for Beam</th><th>SF for Kinetic (Material set)</th><th>E / density source</th></tr><tr><td>Steel (SurQC / Beam reference)</td><td>210.0</td><td>7700</td><td><b>1.000</b></td><td>1.000</td><td>SurQC built-in</td></tr><tr><td>NMDC 15-15LC Mod (non-mag)</td><td>191.0</td><td>7760</td><td><b>0.910</b></td><td>1.000</td><td>CarTech 15-15LC Mod datasheet</td></tr><tr><td>Monel K-500</td><td>179.0</td><td>8440</td><td><b>0.852</b></td><td>1.000</td><td>Ulbrich Monel K500 datasheet</td></tr><tr><td>Titanium Ti-6Al-4V (annealed)</td><td>113.8</td><td>4430</td><td><b>0.542</b></td><td>1.000</td><td>ASM/MatWeb Grade 5</td></tr><tr><td>Aluminium 2014-T6</td><td>72.4</td><td>2800</td><td><b>0.345</b></td><td>1.000</td><td>ASM/MatWeb (Aluminum Assoc. typical)</td></tr></table>'
+      + '<p>Limits: in Beam the <b>weight</b> stays steel (7700 kg/m³) whatever SF is — fine for 15-15LC and Monel (within 10%), but an aluminium or titanium row is far too heavy in Beam; use Kinetic with the Material column for those. Values are datasheet typicals; use your vendor\'s E if you have it. For components that are not a plain tube (motor power section, MWD/LWD with internal chassis, jars) no generic factor is published; if the vendor gives an equivalent bending stiffness, <span class="hp-eq-in">SF = EI<sub>vendor</sub> / (210 GPa · π(OD⁴ − ID⁴)/64)</span>, otherwise leave 1.</p>',
+    why: '<p>Sag is set mainly by where the BHA touches the wall: the bit, stabilisers, and where the collar rests on the low side. The magnitude depends on BHA type and geometry, sensor spacing and hole size [SPE]. A slick motor with no stabiliser rows lies on the low side, so the sensor tilt — and the correction — is small. Entering stabilisers correctly matters more than any other input.</p>',
+    src: ['SQC', 'SPE', 'BEAM', 'KIN']
+  },
+  runs: {
+    title: '2b · Runs — one BHA per MD range',
+    what: '<p>Optional list of BHA runs, each with its bit MD in / out, BHA rows, sensor and bend. Each survey station is corrected with the BHA that was in the hole when it was taken. Sources: T&amp;D scenarios of the job, Excel, or manual entry.</p>',
+    how: '<p>A survey at MD<sub>s</sub> was taken with the bit at MD<sub>s</sub> + sensor distance, so a run covers the stations whose <b>survey MD = bit MD − sensor</b> lies inside its bit range. Where two runs overlap, the deeper run wins. Each run gets its own correction table (Beam) or per-station solve (Kinetic) [UI].</p>',
+    why: '<p>The correction belongs to a specific BHA: changing the motor, bend, sensor spacing or stabilisation changes it [SPE]. Using one BHA for the whole well applies the wrong correction to every other run.</p>',
+    src: ['SPE', 'UI']
+  },
+  analysis: {
+    title: '3 · Sag analysis — Beam vs Kinetic',
+    what: '<p>Solves the bent BHA lying in the hole and reports the <b>sag correction</b>: the angle between the MWD sensor axis and the hole axis. Two models solve the same beam with the same inputs; they differ in how wall contact is enforced and in which effects they can include.</p>'
+      + '<table class="hp-tbl"><tr><th></th><th>Beam (default)</th><th>Kinetic</th></tr>'
+      + '<tr><td>What it is</td><td>Line-by-line port of the SurQC solver</td><td>Finite-element beam with exact wall contact</td></tr>'
+      + '<tr><td>Contact</td><td>Iterative "push back" loop, 2.5 mm tolerance; can leave the string partly outside the wall on long slick collars</td><td>Active-set: every node stays inside the hole (checked residual ≈ 1e-15 m)</td></tr>'
+      + '<tr><td>Trajectory input</td><td>Inclination only (table every 3°, interpolated)</td><td>Inclination; optionally dogleg curvature, survey toolface, WOB</td></tr>'
+      + '<tr><td>Hole</td><td>Bit OD</td><td>Bit OD or effective (washed-out) diameter</td></tr>'
+      + '<tr><td>Extras</td><td>—</td><td>Materials, tool joints, axial load + buckling screen</td></tr>'
+      + '<tr><td>Inc 0°</td><td>0 (as SurQC)</td><td>Solved (bend only, no gravity)</td></tr>'
+      + '<tr><td>Sensor</td><td>Read 1–2 elements above the sensor (as SurQC)</td><td>Read at the exact sensor position</td></tr>'
+      + '<tr><td>Matches SurQC</td><td>Yes</td><td>Only where both rest the same way (low Inc)</td></tr></table>',
+    how: '<p><b>Common physics.</b> Euler–Bernoulli beam in the high-side plane, x from the bit face, y = lateral position (+ high side). Bit centred on the hole axis, motor bend = slope jump at the bend distance, lateral load and stiffness [SQC; TG]:</p>'
+      + '<p class="hp-eq">EI · d⁴y/dx⁴ = q(x) &nbsp;&nbsp; ' + SAG_EQ_Q + '<br>Sag θ(x) = dy/dx; &nbsp; correction = θ at the sensor; &nbsp; Corrected Inc = Inc + correction</p>'
+      + '<p><b>Beam</b> [SQC; BEAM] splits the BHA into 0.1016 m elements, picks the far-end support on the low side (SurQC FarEndSupport rule), then repeatedly moves elements that are outside the hole back to the wall until no element is more than 2.5 mm out. A stabiliser is any element within 2.5 mm of the wall. The table is solved every 3° from 0 to 90° and mirrored to 180°; each survey uses linear interpolation in that table.</p>'
+      + '<p><b>Kinetic</b> [KIN] uses Hermite cubic beam elements (exact nodal deflection and rotation for uniform load on uniform sections) [LOG] and solves the unilateral contact (−c ≤ y ≤ c, contact force pushes inward only) with an active-set method. Options: hole curvature from the survey dogleg (build/drop part) and bend projected by the survey toolface [BOU Eqs. 8.45–8.49]; axial load with geometric stiffness [PRZ] and a Dawson–Paslay buckling screen [DP]; effective hole diameter; tool joints. With all options off it is still inclination-only.</p>'
+      + '<p><b>Verification.</b> Beam was compiled against the real SurQC classes: max difference 4.5·10⁻¹⁴°. Against John\'s installed SurQC [RUN], 19 of 31 inclinations agree within 0.004°; the rest jump between the same values (≈ −0.36 / −0.40 / −0.47°) at different inclinations — SurQC\'s contact loop does not have a unique answer, and its own table shows the same jumps (57° −0.402, 60° −0.471, 63° −0.408). Kinetic was checked against the Timoshenko &amp; Gere closed-form beam-column (10⁻⁶°) and an independent finite-difference solver (5·10⁻⁴°).</p>'
+      + '<p><b>Why they differ.</b> Same case [RUN]: 6–15° agree within 0.007°; at 54° SurQC −0.357°, Kinetic −0.253°; at 90° −0.410° vs −0.266°. SurQC\'s own drop profile at 54° puts the 5" collar centre 4.5" below the hole axis, where only 1.5" is possible in an 8" hole — the collar is partly inside the rock, which lets the motor tilt more. Kinetic keeps it on the wall, so it reads less. This is inferred from the drop profile, not traced step by step through the SurQC loop.</p>',
+    why: '<p>SPE-102088 found that for a well-stabilised BHA with no bend in an in-gauge slant hole, sag is close to proportional to sin(Inc), as the ISCWSA model assumes; with a bend, washout, dogleg, high bending moments or the MWD collar lying on the wall, it is not tied to inclination, and hole overgauge and bend angle change it directly [SPE; ISC]. That is why Kinetic offers curvature, toolface, washout and tool joints.</p>'
+      + '<p><b>When to use which.</b> Use <b>Beam</b> to reproduce SurQC (vendor or historical corrections, audits). Use <b>Kinetic</b> for a physically consistent answer (no wall penetration, no jumps between neighbouring inclinations) and when washout, dogleg, toolface or WOB matter. Neither has been calibrated against field data here; comparing MWD with gyro (or rotating vs sliding) inclinations at the same depths is what would show which is closer.</p>',
+    src: ['SQC', 'RUN', 'SPE', 'ISC', 'BOU', 'LOG', 'TG', 'PRZ', 'DP', 'BEAM', 'KIN']
+  },
+  survey: {
+    title: '4 · Sag-corrected survey',
+    what: '<p>The survey with the correction applied at every station: measured Inc, correction, corrected Inc, and the recomputed TVD / N / E. Can be saved as a new survey version with its ISCWSA toolcode.</p>',
+    how: '<p class="hp-eq">Corrected Inc = measured Inc + correction &nbsp;&nbsp; (MD and Az unchanged)</p>'
+      + '<p><b>Beam</b>: correction interpolated linearly from the table at the station inclination; 90–180° use the mirrored values (180° − Inc) [SQC; BEAM]. <b>Kinetic</b> with curvature / toolface / Drilling-Mechanics WOB: each station is solved on its own [KIN]. Positions are recomputed with minimum curvature [BOU Eq. 8.33]. Non-converged rows are never applied.</p>',
+    why: '<p>Sag is the largest single contributor to the MWD inclination error budget [SPE]; at high angle a few tenths of a degree change TVD by metres over a lateral. If the survey is corrected, the SAG/SAGE uncertainty in the toolcode should be revised to match [ISC].</p>',
+    src: ['SQC', 'SPE', 'ISC', 'BOU', 'BEAM', 'KIN']
+  },
+  station: {
+    title: '5 · Station view',
+    what: '<p>Pick any survey station with the slider to see the BHA in the hole there: the 3D view, the BHA-in-hole view coloured by bending stress, and the shear, moment, slope and deflection diagrams for both models.</p>',
+    how: '<p>The station inclination (mirrored above 90°) is solved with the active run\'s BHA. Kinetic uses that station\'s dogleg, toolface and WOB if those options are on [KIN; BEAM]. Bending stress σ = M·c/I, c = OD/2, I = π(OD⁴ − ID⁴)/64 [TG] — indicative only, no stress concentration at connections, no fatigue.</p>',
+    why: '<p>Shows <em>why</em> a station has its correction: where the BHA touches the wall, how the motor bends, and how far the sensor tilts. Use it to check that stabilisers and contacts are where you expect.</p>',
+    src: ['BEAM', 'KIN', 'TG']
+  },
+  report: {
+    title: '6 · Technical report',
+    what: '<p>A printable report: summary, inputs, method / theory / assumptions, beam diagrams at representative stations, correction table, corrected survey, quality checks and sign-off.</p>',
+    how: '<p>Built from the current case and results; the method section names the model used and the Kinetic options that were on (curvature, toolface, WOB, effective hole, tool joints) [UI].</p>',
+    why: '<p>Documents which BHA, model and assumptions produced the correction, so the corrected survey can be checked and signed off.</p>',
+    src: ['UI']
+  },
+  shear: {
+    title: 'Shear force',
+    what: '<p>Lateral force carried by the BHA cross-section along its length (from the bit), at the selected inclination.</p>',
+    how: '<p class="hp-eq">V(x) = Σ reactions − ∫<sub>0</sub><sup>x</sup> q dx</p><p>Each support or wall contact is a jump in V equal to its reaction. Without axial load V = dM/dx; with axial load the moment also carries P·dy/dx, so V ≠ dM/dx [TG; KIN; SQC].</p>',
+    why: '<p>The jumps show where the BHA touches the wall and how hard. A large jump right above the bit or at a stabiliser is a main support.</p>',
+    src: ['SQC', 'TG', 'BEAM', 'KIN']
+  },
+  moment: {
+    title: 'Bending moment',
+    what: '<p>Bending moment along the BHA at the selected inclination.</p>',
+    how: '<p class="hp-eq">M(x) = EI · d²y/dx²</p><p>' + SAG_EQ_EI + ' [SQC; TG]. In Beam, M is built from the element forces exactly as in SurQC (moment = force × distance).</p>',
+    why: '<p>Curvature = M / EI, and the slope at the sensor is curvature accumulated from the supports. Peaks show where the BHA is bent hardest (often near the bend and the first contact).</p>',
+    src: ['SQC', 'TG', 'BEAM', 'KIN']
+  },
+  slope: {
+    title: 'Sag (slope)',
+    what: '<p>Angle between the BHA axis and the hole axis along the BHA. The dashed line marks the sensor: the value there is the correction.</p>',
+    how: '<p class="hp-eq">θ(x) = dy/dx &nbsp;&nbsp; correction = θ(sensor)</p><p>Beam reads θ at SurQC\'s SagAtLength element (1–2 elements above the sensor); Kinetic reads it at the exact sensor position. The value at the sensor is added to the measured Inc with its sign, exactly as SurQC does [SQC; KIN].</p>',
+    why: '<p>The slope changes along the BHA, so the sensor position matters as much as the BHA itself [SPE].</p>',
+    src: ['SQC', 'SPE', 'BEAM', 'KIN']
+  },
+  drop: {
+    title: 'Drop (deflection)',
+    what: '<p>Lateral position of the BHA centreline relative to the hole axis (negative = towards the low side).</p>',
+    how: '<p>y(x) from the beam solution. The furthest the centreline can drop is the radial clearance c = (hole diameter − OD)/2. Kinetic enforces |y| ≤ c exactly; Beam (SurQC) allows 2.5 mm per element and can exceed it on long slick collars [SQC; KIN].</p>',
+    why: '<p>Shows where the BHA rests on the wall. If the drop is larger than the clearance, that part of the solution is outside the hole — the main reason Beam and Kinetic differ at high inclination.</p>',
+    src: ['SQC', 'BEAM', 'KIN']
+  },
+  v3d: {
+    title: '3D view',
+    what: '<p>The well path around the selected station in 3D, with the BHA drawn in the hole. East and North are at the same scale; the vertical exaggeration is given in the plot title.</p>',
+    how: '<p>Positions by minimum curvature [BOU]; the BHA shape is the selected model\'s deflection at that station [BEAM; KIN].</p>',
+    why: '<p>Puts the station in context (build, turn, tangent) — useful when Kinetic\'s curvature or toolface options are on.</p>',
+    src: ['BOU', 'BEAM', 'KIN']
+  },
+  vbha: {
+    title: 'BHA in hole',
+    what: '<p>The BHA inside the hole at the selected station, coloured by bending stress. Length axis in metres, radial axis in millimetres (true radial scale, length compressed).</p>',
+    how: '<p>Deflection from the selected model; σ = M·c/I at the outer fibre, c = OD/2 [TG] — indicative only.</p>',
+    why: '<p>Quick visual check of contacts, stabilisers, the bend and where stress concentrates.</p>',
+    src: ['TG', 'BEAM', 'KIN']
+  }
+};
+function openSagHelp(key) {
+  var h = SAG_HELP[key]; if (!h) return;
+  document.getElementById('hpTitle').innerHTML = h.title;
+  document.getElementById('hpBody').innerHTML =
+    '<h4>What you are looking at</h4>' + h.what + '<h4>How it is calculated</h4>' + h.how + '<h4>Why it matters</h4>' + h.why
+    + '<h4>Sources</h4><ol class="hp-src">' + h.src.map(function (k) { return '<li><strong>[' + k + ']</strong> ' + SAG_SRC[k] + '</li>'; }).join('') + '</ol>';
+  document.getElementById('hpModal').classList.add('open');
+}
+function closeSagHelp() { document.getElementById('hpModal').classList.remove('open'); }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSagHelp(); });
+(function addSagHelpButtons() {
+  function btn(key, cls) { var b = document.createElement('button'); b.className = 'pp-help' + (cls ? ' ' + cls : ''); b.textContent = '?';
+    b.title = 'About this'; b.setAttribute('aria-label', 'About this'); b.onclick = function (ev) { ev.stopPropagation(); openSagHelp(key); }; return b; }
+  var secs = { '2 ·': 'bha', '2b ·': 'runs', '3 ·': 'analysis', '4 ·': 'survey', '5 ·': 'station', '6 ·': 'report' };
+  document.querySelectorAll('.panel > h2').forEach(function (h) {
+    var t = h.textContent.trim();
+    Object.keys(secs).forEach(function (p) { if (t.indexOf(p) === 0) { h.style.display = 'flex'; h.style.alignItems = 'center'; h.appendChild(btn(secs[p])); } });
+  });
+  var plots = { pShear: 'shear', pMoment: 'moment', pSag: 'slope', pDrop: 'drop', sd3d: 'v3d', sdBha: 'vbha', sdShear: 'shear', sdMoment: 'moment', sdSlope: 'slope', sdDefl: 'drop' };
+  Object.keys(plots).forEach(function (id) {
+    var el = document.getElementById(id); if (!el) return;
+    var w = document.createElement('div'); w.style.position = 'relative';
+    el.parentNode.insertBefore(w, el); w.appendChild(el); w.appendChild(btn(plots[id], 'pp-help-plot'));
+  });
+})();
+</script>
+<!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
+<script src="/js/mtxTheme.js"></script>
 </body>
 </html>

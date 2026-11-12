@@ -40,6 +40,38 @@
   .note{background:var(--panel2);border-left:3px solid var(--accent);padding:6px 10px;font-size:12px;color:var(--muted);margin:6px 0;}
   .note.warnbox{border-left-color:var(--warn);}
   .plot{height:380px;}
+
+  /* ── CHANGED 2026-11-11 (John): bigger, easier-to-read UI, less left/right padding (presentations + phones), and a
+        light mode (🌓 Theme button in the header; choice remembered per browser). Overrides only — ids/JS unchanged. ── */
+  body.light-mode{ --bg:#f0f4f8; --panel:#ffffff; --panel2:#f6f8fa; --border:#c8d4de; --text:#0a0d10; --muted:#454e57; --accent:#0a6fd6; --good:#14843f; --bad:#c62828; --warn:#a86400; }
+  body.light-mode button.primary{ color:#ffffff; }
+  header{ padding:12px 18px; }
+  header h1{ font-size:22px; } header .sub{ font-size:13.5px; }
+  .wrap{ max-width:none; padding:14px 18px 40px; }
+  .panel{ padding:16px 18px; }
+  .panel h2{ font-size:17px; margin-bottom:14px; }
+  table{ font-size:14px; }
+  th,td{ padding:7px 9px; }
+  input,select,button{ font-size:15px; padding:8px 11px; min-height:40px; }
+  input[type=number]{ width:120px; } td input{ min-height:34px; padding:5px 7px; font-size:14px; min-width:80px; }
+  .row{ gap:12px; margin-bottom:12px; }
+  .field{ font-size:13.5px; color:var(--text); gap:5px; }
+  .muted, .note{ font-size:14px; }
+  .note{ padding:9px 12px; line-height:1.5; }
+  .scroll{ max-height:520px; }
+  .plot{ height:480px; }
+  [style*="font-size:11px"], [style*="font-size: 11px"]{ font-size:14px !important; }
+  [style*="font-size:12px"], [style*="font-size: 12px"]{ font-size:14px !important; }
+  @media (max-width:768px){
+    header{ padding:10px; }
+    header > .row{ width:100%; }
+    header > .row > *{ flex:1 1 45%; width:auto !important; }
+    .wrap{ padding:8px 8px 30px; }
+    .panel{ padding:12px; }
+    .row > .field{ flex:1 1 45%; }
+    .row > .field input, .row > .field select{ width:100% !important; }
+    .plot{ height:340px; }
+  }
 </style>
 </head>
 <body>
@@ -51,6 +83,7 @@
     <button onclick="saveCase()" id="btnSaveCase">💾 Save case</button>
     <select id="caseList" style="width:220px"><option value="">— saved cases —</option></select>
     <button onclick="loadCase()">Load</button><button onclick="deleteCase()" id="btnDelCase">Delete</button>
+    <button type="button" id="themeToggleBtn" title="Dark / light mode">🌓 Theme</button>   <!-- 2026-11-11 light mode -->
   </div>
 </header>
 <div class="wrap">
@@ -330,14 +363,30 @@ function runStretch(){
     $('btnSaveVer').disabled = !surveySource || USER_ROLE === 'viewer';
   }catch(err){ $('runStatus').innerHTML = '<span class="bad">' + err.message + '</span>'; }
 }
+// ADDED 2026-11-11 (John): dark / light mode. Choice kept in localStorage (per browser, optional) and the plot redrawn.
+function psCss(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+// 2026-11-11 (John): ONE theme setting for every module — localStorage 'mtxThemePreference' ('light'/'dark'), the key the
+// job / Gantt / EDIT / T&D pages already use. Other open MTX tabs follow via the 'storage' event.
+(function(){
+  var K = 'mtxThemePreference';
+  try{ if(localStorage.getItem(K) === 'light') document.body.classList.add('light-mode'); }catch(e){}
+  var b = document.getElementById('themeToggleBtn');
+  if(b) b.addEventListener('click', function(){
+    var on = document.body.classList.toggle('light-mode');
+    try{ localStorage.setItem(K, on ? 'light' : 'dark'); }catch(e){}
+    try{ plotResult(); }catch(e){}
+  });
+  window.addEventListener('storage', function(e){ if(e.key === K){ document.body.classList.toggle('light-mode', e.newValue === 'light'); try{ plotResult(); }catch(x){} } });
+})();
 function plotResult(){
   if(!result || typeof Plotly === 'undefined') return;
   var x = result.stations.map(function(s){ return L(s.mdRaw); });
   var tr = function(k, name, col){ return { x: x, y: result.stations.map(function(s){ return L(s[k]); }), name: name, mode: 'lines', line: { color: col } }; };
   Plotly.newPlot('plot', [tr('mech', 'Mechanical', '#4da3ff'), tr('thermal', 'Thermal', '#f5a623'), tr('total', 'Total', '#2ecc71')],
-    { title: { text: 'Stretch (MD correction) at each survey station — ' + result.model, font: { size: 12 } }, margin: { l: 60, r: 10, t: 30, b: 40 },
-      paper_bgcolor: '#171b21', plot_bgcolor: '#171b21', font: { color: '#e6e9ef', size: 10 },
-      xaxis: { title: 'Measured depth' + uLen(), gridcolor: '#2a313c' }, yaxis: { title: 'Stretch' + uLen(), gridcolor: '#2a313c' } },
+    // 2026-11-11: colours follow the dark / light theme; larger fonts for presentations.
+    { title: { text: 'Stretch (MD correction) at each survey station — ' + result.model, font: { size: 15 } }, margin: { l: 70, r: 14, t: 40, b: 50 },
+      paper_bgcolor: psCss('--panel'), plot_bgcolor: psCss('--panel'), font: { color: psCss('--text'), size: 13 }, legend: { font: { size: 13 } },
+      xaxis: { title: 'Measured depth' + uLen(), gridcolor: psCss('--border') }, yaxis: { title: 'Stretch' + uLen(), gridcolor: psCss('--border') } },
     { displaylogo: false, responsive: true });
 }
 function renderSurvey(){

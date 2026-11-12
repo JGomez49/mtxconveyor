@@ -1160,39 +1160,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                     value="<%= note.dueDate %>">
                             </div>
 
-                            <!-- ADDED 2026-10-28 (John): Notes to Vendor — included in the Handover e-mail body -->
-                            <div class="input-group mb-2">
-                                <span class="input-group-text bg-dark text-white">Notes to Vendor</span>
-                                <textarea name="notesToVendor" rows="4" class="form-control bg-dark text-white"
-                                    placeholder="Included in the Handover e-mail"><%= note.notesToVendor || '' %></textarea>
-                            </div>
-
-                            <%# ADDED 2026-10-29 (John): Handover e-mail "Supporting Documents Checklist" (items: public/js/handoverChecklist.js).
-                                 Responsible left empty = automatic from the pad's Pad Distribution List roles (shown as placeholder). %>
-                            <% if (typeof hcRows !== 'undefined' && hcRows.length) { %>
-                            <div class="mb-2 p-2" style="border:1px solid #495057;border-radius:6px;">
-                                <div class="text-white mb-1"><b>Handover Checklist</b> <span class="text-muted small">— Supporting Documents (Handover e-mail). Leave Responsible empty to use the Pad Distribution List.</span></div>
-                                <table class="table table-dark table-sm mb-0" style="font-size:13px;">
-                                    <thead><tr><th>Item</th><th style="width:20%">In Folder</th><th style="width:24%">Status</th><th style="width:30%">Responsible</th></tr></thead>
-                                    <tbody>
-                                    <% hcRows.forEach(function(r, i){ %>
-                                        <tr>
-                                            <td><input type="hidden" name="hc[<%= i %>][key]" value="<%= r.key %>"><%= r.item %><div class="text-muted small"><%= r.provider %><%= r.key === 'dpGuidelines' && note.designCode ? ' · Design code ' + note.designCode : '' %></div></td>
-                                            <td><select name="hc[<%= i %>][inFolder]" class="form-select form-select-sm bg-dark text-white">
-                                                <% Object.keys(hcLabels.inFolder).forEach(function(k){ %><option value="<%= k %>" <%= r.inFolder === k ? 'selected' : '' %>><%= k ? hcLabels.inFolder[k] : '—' %></option><% }); %></select></td>
-                                            <td><select name="hc[<%= i %>][status]" class="form-select form-select-sm bg-dark text-white">
-                                                <% Object.keys(hcLabels.status).forEach(function(k){ %><option value="<%= k %>" <%= r.status === k ? 'selected' : '' %>><%= k ? hcLabels.status[k] : '—' %></option><% }); %></select></td>
-                                            <td><input type="text" name="hc[<%= i %>][responsible]" class="form-control form-control-sm bg-dark text-white"
-                                                    value="<%= r.manual ? r.responsible : '' %>" placeholder="<%= r.auto ? 'auto: ' + r.auto : 'auto: (no matching role in the Pad Distribution List)' %>"></td>
-                                        </tr>
-                                    <% }); %>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <% } %>
-
-
-
+                            <%# 2026-11-11 (John): Invoice and Status moved here, just below Due Date (were below the Handover Checklist). %>
                             <% if (user.role == 'admin') { %>
                                 <div class="form-group mb-2">
                                     <div class="input-group mb-2">
@@ -1232,18 +1200,36 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                 </div>
                             </div>
 
+                            <!-- ADDED 2026-10-28 (John): Notes to Vendor — included in the Handover e-mail body -->
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-dark text-white">Notes to Vendor</span>
+                                <textarea name="notesToVendor" rows="4" class="form-control bg-dark text-white"
+                                    placeholder="Included in the Handover e-mail"><%= note.notesToVendor || '' %></textarea>
+                            </div>
 
-
-
-
-
-
-
-
-
-
-
-
+                            <%# ADDED 2026-10-29 (John): Handover e-mail "Supporting Documents Checklist" (items: public/js/handoverChecklist.js).
+                                 Responsible left empty = automatic from the pad's Pad Distribution List roles (shown as placeholder). %>
+                            <% if (typeof hcRows !== 'undefined' && hcRows.length) { %>
+                            <div class="mb-2 p-2" style="border:1px solid #495057;border-radius:6px;">
+                                <div class="text-white mb-1"><b>Handover Checklist</b> <span class="text-muted small">— Supporting Documents (Handover e-mail). Leave Responsible empty to use the Pad Distribution List.</span></div>
+                                <table class="table table-dark table-sm mb-0" style="font-size:13px;">
+                                    <thead><tr><th>Item</th><th style="width:20%">In Folder</th><th style="width:24%">Status</th><th style="width:30%">Responsible</th></tr></thead>
+                                    <tbody>
+                                    <% hcRows.forEach(function(r, i){ %>
+                                        <tr>
+                                            <td><input type="hidden" name="hc[<%= i %>][key]" value="<%= r.key %>"><%= r.item %><div class="text-muted small"><%= r.provider %><%= r.key === 'dpGuidelines' && note.designCode ? ' · Design code ' + note.designCode : '' %></div></td>
+                                            <td><select name="hc[<%= i %>][inFolder]" class="form-select form-select-sm bg-dark text-white">
+                                                <% Object.keys(hcLabels.inFolder).forEach(function(k){ %><option value="<%= k %>" <%= r.inFolder === k ? 'selected' : '' %>><%= k ? hcLabels.inFolder[k] : '—' %></option><% }); %></select></td>
+                                            <td><select name="hc[<%= i %>][status]" class="form-select form-select-sm bg-dark text-white">
+                                                <% Object.keys(hcLabels.status).forEach(function(k){ %><option value="<%= k %>" <%= r.status === k ? 'selected' : '' %>><%= k ? hcLabels.status[k] : '—' %></option><% }); %></select></td>
+                                            <td><input type="text" name="hc[<%= i %>][responsible]" class="form-control form-control-sm bg-dark text-white"
+                                                    value="<%= r.manual ? r.responsible : '' %>" placeholder="<%= r.auto ? 'auto: ' + r.auto : 'auto: (no matching role in the Pad Distribution List)' %>"></td>
+                                        </tr>
+                                    <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <% } %>
 
 
 
@@ -1628,6 +1614,86 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
 
                             <!-- ---------------END OF WORK FLOW ---------------------- -->
+
+                            <%# ADDED 2026-11-11 (John): Pad Distribution List moved here from the VP Areas page (one list per pad =
+                                 first 14 characters of the site; shared by every job on that pad). Editable by admin, leader and user.
+                                 "Outlook recipients" = the To:/Cc: line copied from Outlook ("Name <address>; ..."); when filled it is
+                                 used as-is in the Handover / Notification e-mails, because bare names in an .eml draft cannot be
+                                 resolved by Outlook (pink, Check Names fails). The Role | ETS User table still drives the Handover
+                                 checklist "Responsible" and the e-mail Distribution List. Saved through POST /notes/padDistList (noteId). %>
+                            <% var pdlCan = ['admin', 'leader', 'user'].indexOf(user.role) >= 0, pdl = (typeof padDist !== 'undefined' && padDist) ? padDist : null; %>
+                            <div class="mb-3 p-2" id="pdlBox" style="border:1px solid #495057;border-radius:6px;" data-note="<%= note._id %>" data-src="<%= pdl ? (pdl.sourceFile || '') : '' %>">
+                                <div class="d-flex flex-wrap gap-2 align-items-center mb-1 text-white">
+                                    <b>Pad Distribution List</b>
+                                    <span class="text-muted small">— pad <%= String(note.project || '').trim().toUpperCase().slice(0,14) || '(no site set)' %> · shared by every job on this pad<%= pdl && pdl.updatedAt ? ' · saved ' + new Date(pdl.updatedAt).toISOString().slice(0,10) : '' %><%= pdl && pdl.sourceFile ? ' · imported ' + pdl.sourceFile : '' %></span>
+                                </div>
+                                <label class="form-label small text-white mb-0">Outlook recipients <span class="text-muted">(copy the To: line from Outlook and paste it here — e.g. <code>Vince Distefano &lt;Vince.DiStefano@cnrl.com&gt;; David Miller &lt;David.Miller@cnrl.com&gt;</code>). Used as-is in the e-mails.</span></label>
+                                <textarea id="pdlOutlook" rows="3" class="form-control form-control-sm bg-dark text-white mb-1" <%= pdlCan ? '' : 'readonly' %>><%= pdl ? (pdl.outlookTo || '') : '' %></textarea>
+                                <div id="pdlOutlookWarn" class="small mb-2"></div>
+                                <table class="table table-dark table-sm table-bordered mb-1" style="font-size:13px;">
+                                    <thead><tr><th style="width:30%;">Role</th><th>ETS User (name)</th><th style="width:6%;"></th></tr></thead>
+                                    <tbody id="pdlRows">
+                                        <% (pdl ? pdl.recipients : []).forEach(function(r){ %>
+                                            <tr class="pdl-row"><td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-role" value="<%= r.role %>" <%= pdlCan ? '' : 'readonly' %>></td>
+                                                <td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-user" value="<%= r.etsUser %>" <%= pdlCan ? '' : 'readonly' %>></td>
+                                                <td><% if (pdlCan) { %><button type="button" class="btn btn-outline-danger btn-sm pdl-rm" title="Remove row">✕</button><% } %></td></tr>
+                                        <% }); %>
+                                        <% if (pdlCan) { %>
+                                        <tr class="pdl-row"><td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-role" placeholder="New role"></td>
+                                            <td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-user" placeholder="First Last"></td><td></td></tr>
+                                        <% } %>
+                                    </tbody>
+                                </table>
+                                <% if (pdlCan) { %>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <label class="small text-white mb-0">Import ETS list (.xls / .xlsx) — replaces the table:</label>
+                                    <input type="file" id="pdlFile" class="form-control form-control-sm" style="width:auto" accept=".xls,.xlsx,.csv">
+                                    <button type="button" class="btn btn-primary btn-sm ms-auto" id="pdlSave">Save Pad Distribution List</button>
+                                </div>
+                                <% } %>
+                            </div>
+                            <script>
+                            (function(){
+                                var box = document.getElementById('pdlBox'); if(!box) return;
+                                var ta = document.getElementById('pdlOutlook'), warn = document.getElementById('pdlOutlookWarn');
+                                function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+                                function check(){ var items = ta.value.split(';').map(function(x){ return x.trim(); }).filter(Boolean), bad = items.filter(function(x){ return !/@/.test(x); });
+                                    warn.innerHTML = !items.length ? '<span class="text-muted">Empty: the e-mails will use the ETS User names (Outlook may not resolve them).</span>'
+                                        : '<span class="text-success">' + items.length + ' recipient(s)</span>' + (bad.length ? ' · <span class="text-danger">no e-mail address for: ' + esc(bad.join('; ')) + ' (Outlook will show them pink)</span>' : ''); }
+                                ta.addEventListener('input', check); check();
+                                function rowHtml(r){ return '<tr class="pdl-row"><td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-role" value="' + esc(r.role || '') + '"></td><td><input type="text" class="form-control form-control-sm bg-dark text-white pdl-user" value="' + esc(r.etsUser || '') + '"></td><td><button type="button" class="btn btn-outline-danger btn-sm pdl-rm" title="Remove row">✕</button></td></tr>'; }
+                                box.addEventListener('click', function(e){ if(e.target.classList.contains('pdl-rm')) e.target.closest('tr').remove(); });
+                                var f = document.getElementById('pdlFile');
+                                if(f) f.addEventListener('change', function(){
+                                    var file = this.files[0]; if(!file) return;
+                                    var rd = new FileReader();
+                                    rd.onload = function(ev){
+                                        try{ // same parsing as the former VP Areas import (2026-10-27): header row = first row with an "ETS User" cell
+                                            var wb = XLSX.read(ev.target.result, { type: 'array' }), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+                                            var h = rows.findIndex(function(r){ return r.some(function(c){ return /^\s*ets\s*user\s*$/i.test(String(c)); }); });
+                                            if(h < 0) throw new Error('No "ETS User" column found in ' + file.name + '.');
+                                            var cu = rows[h].findIndex(function(c){ return /^\s*ets\s*user\s*$/i.test(String(c)); }), cr = rows[h].findIndex(function(c){ return /^\s*role\s*$/i.test(String(c)); });
+                                            var list = rows.slice(h + 1).map(function(r){ return { role: cr >= 0 ? String(r[cr]).trim() : '', etsUser: String(r[cu]).trim() }; }).filter(function(r){ return r.etsUser; });
+                                            if(!list.length) throw new Error('The "ETS User" column is empty.');
+                                            document.getElementById('pdlRows').innerHTML = list.map(rowHtml).join('') + rowHtml({});
+                                            box.dataset.src = file.name;
+                                            alert(list.length + ' name(s) imported — press "Save Pad Distribution List" to keep them.');
+                                        }catch(err){ alert(err.message); }
+                                    };
+                                    rd.readAsArrayBuffer(file);
+                                });
+                                var sb = document.getElementById('pdlSave');
+                                if(sb) sb.addEventListener('click', async function(){
+                                    var rec = [];
+                                    box.querySelectorAll('.pdl-row').forEach(function(tr){ var u = tr.querySelector('.pdl-user').value.trim(); if(u) rec.push({ role: tr.querySelector('.pdl-role').value.trim(), etsUser: u }); });
+                                    try{ var r = await fetch('/notes/padDistList', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ noteId: box.dataset.note, recipients: rec, outlookTo: ta.value, sourceFile: box.dataset.src || '' }) });
+                                        var d = await r.json(); if(!d.ok) throw new Error(d.error);
+                                        alert('Pad Distribution List saved for ' + d.pad + '.' + (d.warning ? '\n\n⚠ ' + d.warning : ''));
+                                    }catch(err){ alert('Save failed: ' + err.message); }
+                                });
+                            })();
+                            </script>
 
 
 

@@ -82,6 +82,57 @@
     .lib-row{ cursor:pointer; }
     .lib-row:hover td{ background:rgba(0,200,255,.08); }
     .lib-search{ width:100%; margin-bottom:8px; }
+
+    /* ── CHANGED 2026-11-11 (John): bigger, easier-to-read UI with less left/right padding (presentations + phones),
+          same treatment as the Casing Design page. Overrides only — no ids, classes or JS changed. The [style*=...] rules
+          enlarge small inline font sizes written by the result builders. ── */
+    html{ font-size:15px; }
+    main{ max-width:none; padding:14px 18px 60px; }
+    header{ padding:12px 18px; }
+    header h1{ font-size:24px; }
+    header p{ font-size:13px; }
+    .panel{ padding:18px 20px; margin-bottom:16px; }
+    .panel h2{ font-size:19px; margin-bottom:14px; }
+    .panel h2 .dot{ width:10px; height:10px; }
+    .row{ gap:12px; margin-bottom:12px; }
+    label{ font-size:14px; color:var(--text); }
+    input[type=text], input[type=number], select{ font-size:15px; padding:8px 10px; min-height:40px; border-radius:4px; }
+    .btn{ font-size:14px; padding:10px 18px; min-height:40px; border-radius:4px; }
+    .status{ font-size:14px; line-height:1.5; }
+    table{ font-size:14px; }
+    th,td{ padding:8px 10px; }
+    th{ font-size:13px; color:var(--text); }
+    td input{ width:100px; }
+    td input.wide{ width:180px; }
+    .grid4, .grid3{ gap:14px; }
+    .field label{ margin-bottom:5px; }
+    .result-grid{ grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+    .result-card{ padding:12px 14px; }
+    .result-card .k{ font-size:12.5px; }
+    .result-card .v{ font-size:20px; }
+    .result-card .v2{ font-size:13px; }
+    .pl-bar{ height:30px; }
+    .pl-seg{ font-size:12px; }
+    .warn-box, .err-box{ font-size:14px; padding:10px 12px; }
+    .cite{ font-size:13px; line-height:1.6; }
+    .modal-hdr h3{ font-size:17px; }
+    #hydMtxJobId{ max-width:170px !important; }
+    [style*="font-size:9px"], [style*="font-size: 9px"]{ font-size:12px !important; }
+    [style*="font-size:10px"], [style*="font-size: 10px"]{ font-size:13px !important; }
+    [style*="font-size:11px"], [style*="font-size: 11px"]{ font-size:14px !important; }
+    @media (max-width:768px){
+      main{ padding:8px 8px 40px; }
+      header{ padding:10px; flex-wrap:wrap; }
+      header > div[style*="flex:1"]{ flex:1 1 calc(100% - 60px) !important; }
+      #themeToggleBtn{ flex:1 1 100%; }
+      header h1{ font-size:20px; }
+      header p{ font-size:11.5px; }
+      .panel{ padding:12px; }
+      .row > label{ width:100%; }
+      .row > input, .row > select{ flex:1 1 auto; min-width:0 !important; }
+      .btn{ flex:1 1 auto; }
+      .grid4, .grid3{ grid-template-columns:1fr 1fr; }
+    }
   </style>
 </head>
 
@@ -261,15 +312,18 @@
 </div>
 
 <script>
+// 2026-11-11 (John): ONE theme setting for every module — localStorage 'mtxThemePreference' ('light'/'dark'), the key the
+// job / Gantt / EDIT / T&D pages already use. Other open MTX tabs follow via the 'storage' event.
+// (was its own key 'mtxTheme'; a saved 'mtxTheme' is used once if the shared key isn't set yet).
 (function(){
-  if(document.body.classList) {
-    var saved = localStorage.getItem('mtxTheme');
-    if(saved === 'light') document.body.classList.add('light-mode');
-  }
+  var K = 'mtxThemePreference', saved = null;
+  try{ saved = localStorage.getItem(K) || localStorage.getItem('mtxTheme'); }catch(e){}
+  document.body.classList.toggle('light-mode', saved === 'light');
   document.getElementById('themeToggleBtn').addEventListener('click', function(){
     document.body.classList.toggle('light-mode');
-    localStorage.setItem('mtxTheme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    try{ localStorage.setItem(K, document.body.classList.contains('light-mode') ? 'light' : 'dark'); }catch(e){}
   });
+  window.addEventListener('storage', function(e){ if(e.key === K) document.body.classList.toggle('light-mode', e.newValue === 'light'); });
 })();
 
 // =============================================================

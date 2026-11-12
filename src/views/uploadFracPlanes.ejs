@@ -1133,8 +1133,18 @@ document.getElementById('themeToggle').addEventListener('change',e=>{
   darkTheme=e.target.checked;
   document.body.classList.toggle('light-mode', !darkTheme);
   e.target.closest('.sw').querySelector('.sw-label').textContent=darkTheme?'DARK':'LIGHT';
+  try{ localStorage.setItem('mtxThemePreference', darkTheme ? 'dark' : 'light'); }catch(x){}   // 2026-11-11 shared theme
   rebuild();
 });
+// 2026-11-11 (John): ONE theme setting for every module — localStorage 'mtxThemePreference' ('light'/'dark'), the key the
+// job / Gantt / EDIT / T&D pages already use. Other open MTX tabs follow via the 'storage' event.
+// Applied once here (the switch's own handler redraws the plot); not remembered before.
+(function(){
+  const K = 'mtxThemePreference', tg = document.getElementById('themeToggle');
+  const apply = v => { const dark = v !== 'light'; if(tg.checked !== dark){ tg.checked = dark; tg.dispatchEvent(new Event('change')); } };
+  try{ apply(localStorage.getItem(K)); }catch(x){}
+  window.addEventListener('storage', e => { if(e.key === K) apply(e.newValue); });
+})();
 document.getElementById('ellipsoidToggle').addEventListener('change',e=>{ showEllipsoids=e.target.checked; rebuild(); });
 document.getElementById('legendToggle').addEventListener('change',e=>{ showLegend=e.target.checked; rebuild(); });
 

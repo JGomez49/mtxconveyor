@@ -79,9 +79,8 @@
 
     /* HEADER */
     header {
-      /* sticky so Run + toggles stay reachable while scrolling (2026-11-08) */
-      position: sticky;
-      top: 0;
+      /* CHANGED 2026-11-11 (John): unpinned — scrolls away with the page (was position: sticky; top: 0 since 2026-11-08). */
+      position: relative;
       z-index: 50;
       flex-wrap: wrap;
       background: var(--bg);

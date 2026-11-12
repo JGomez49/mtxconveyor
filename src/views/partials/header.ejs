@@ -140,18 +140,16 @@
                 box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             }
 
-            /* ── Fixed navbar: always visible on all pages ── */
+            /* CHANGED 2026-11-11 (John): navbar "unpinned" — scrolls away with the page (was position: fixed, always visible). */
             #navbar {
-                position: fixed !important;
-                top: 0; left: 0; right: 0;
+                position: relative !important;
                 z-index: 1050 !important;
                 background: #1a1a2e;
             }
             body.light-mode #navbar {
                 background: #ffffff !important;
             }
-            /* Push all page content below the fixed navbar */
-            body { padding-top: 70px !important; }
+            /* 2026-11-11: no top padding needed any more (it pushed content below the fixed navbar). */
             
         </style>
 

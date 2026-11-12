@@ -84,6 +84,8 @@
         const extra = [];
         if (input.sensorPosition > 0 && input.sensorPosition < total) extra.push(input.sensorPosition);
         if (input.bendDistance > 0 && input.bendDistance < total && input.bendAngleDeg) extra.push(input.bendDistance);
+        comps.forEach((cp, k) => { if (cp.tjOD > cp.od && cp.tjSpacing > 0)   // 2026-11-11 tool-joint nodes (see below)
+            for (let x = bounds[k] + cp.tjSpacing; x < bounds[k + 1] - 1e-6; x += cp.tjSpacing) extra.push(x); });
         const key = [...new Set(bounds.concat(extra).map(v => +v.toFixed(9)))].sort((a, b) => a - b);
         const xs = [0];
         for (let k = 1; k < key.length; k++) {
@@ -99,7 +101,23 @@
         }
         // radius of each node = max OD of the elements touching it (contact surface)
         const r = xs.map((x, i) => Math.max(i > 0 ? els[i - 1].c.od / 2 : 0, i < els.length ? els[i].c.od / 2 : 0));
-        return { xs, els, r, total, bitLen: comps[0].len };
+        // ADDED 2026-11-11 (John, Kinetic improvement #2 "tool joints"): a component may carry tjOD (m) > od and
+        // tjSpacing (m) > 0. Contact nodes are placed at both ends of the component and every tjSpacing along it,
+        // and their contact radius is tjOD/2, so the string rests on its connections instead of its body.
+        // Stiffness and weight stay those of the body (assumption: joint length << joint spacing). Pure geometry,
+        // same idea as a stabiliser row; no new formula. Beam (SurQC port) ignores tool joints.
+        comps.forEach((cp, k) => {
+            if (!(cp.tjOD > cp.od) || !(cp.tjSpacing > 0)) return;
+            const a = bounds[k], b = bounds[k + 1], pos = [a, b];
+            for (let x = a + cp.tjSpacing; x < b - 1e-6; x += cp.tjSpacing) pos.push(x);
+            pos.forEach(x => { if (x <= 1e-9) return; const j = xs.findIndex(v => Math.abs(v - x) < 1e-6); if (j > 0) r[j] = Math.max(r[j], cp.tjOD / 2); });
+        });
+        // ADDED 2026-11-11 (John, Kinetic improvement #1 "washout"): effective hole diameter input.holeDiameter (m).
+        // Default = bit OD (unchanged behaviour). Over the bit length the hole stays bit gauge (bit centred, as
+        // before); above the bit the clearance uses the larger effective hole. Beam (SurQC port) ignores it.
+        const Rbit = comps[0].od / 2, Rh = Math.max(Rbit, (input.holeDiameter || 0) / 2);
+        const hR = xs.map(x => x <= comps[0].len + 1e-9 ? Rbit : Rh);
+        return { xs, els, r, hR, Rh, total, bitLen: comps[0].len };
     }
 
     function solve(input, incDeg, opts) {
@@ -128,7 +146,7 @@
         const res = { inc: incDeg, status: 'ok', iterations: 0, residualOutOfHole: 0, contacts: 0 };
         const M = buildMesh(input);
         const { xs, els, r } = M, n = xs.length, N = 2 * n, R = input.subComponents[0].od / 2;
-        const c = r.map(ri => R - ri);                       // radial clearance at each node
+        const c = r.map((ri, i) => M.hR[i] - ri);   // 2026-11-11: per-node hole radius (washout); was R - ri                       // radial clearance at each node
         const yc = xs.map(x => kv * x * x / 2);              // hole centre (planar curvature)
         // bend node index (exact position) — slope jump applied to elements starting there
         let bendNode = -1;
@@ -165,7 +183,7 @@
         // = buoyed weight per length and r = radial clearance, per element.
         if (useAxial) {
             let worst = Infinity;
-            els.forEach((e, ei) => { const cl = R - e.c.od / 2; if (cl <= 0 || Nax[ei] >= 0) return;
+            els.forEach((e, ei) => { const cl = M.Rh - e.c.od / 2;   /* 2026-11-11: effective hole */ if (cl <= 0 || Nax[ei] >= 0) return;
                 const EI = (e.c.E || E) * Math.PI * (Math.pow(e.c.od, 4) - Math.pow(e.c.id, 4)) / 64 * (e.c.sf == null ? 1 : e.c.sf);
                 const rho = e.c.rho || RHO, mpm = (e.c.wt > 0) ? e.c.wt : rho * Math.PI / 4 * (e.c.od * e.c.od - e.c.id * e.c.id);
                 const w = mpm * g * ((rho - mud) / rho) * Math.sin(inc);            // buoyed weight per m x sin(Inc)
@@ -353,7 +371,7 @@
         const res = { inc: incDeg, status: 'ok', iterations: 0, residualOutOfHole: 0, contacts: 0 };
         const M = buildMesh(input);
         const { xs, els, r } = M, n = xs.length, ND = 4, N = ND * n, R = input.subComponents[0].od / 2;
-        const c = r.map(ri => R - ri);
+        const c = r.map((ri, i) => M.hR[i] - ri);   // 2026-11-11: per-node hole radius (washout); was R - ri
         const yc = xs.map(x => kap * x * x / 2 * Math.cos(tfH)), zc = xs.map(x => kap * x * x / 2 * Math.sin(tfH));
         let bendNode = -1;
         if (bend && input.bendDistance > 0) bendNode = xs.findIndex(x => Math.abs(x - input.bendDistance) < 1e-7);

@@ -77,16 +77,14 @@ body.light-mode::before { opacity: 0; }
 
 /* everything above the grid */
 body > *, #navbar, .container_, .row, .accordion { position: relative; z-index: 1; }
-/* Fixed navbar — always visible at top of screen */
+/* CHANGED 2026-11-11 (John): navbar unpinned — scrolls with the page (was position: fixed). */
 #navbar {
-    position: fixed !important;
-    top: 0; left: 0; right: 0;
+    position: relative !important;
     z-index: 1050 !important;
 }
 .navbar { z-index: 1050 !important; }
 .navbar .dropdown-menu { z-index: 1060 !important; }
-/* Push page content below the fixed navbar (~62px) */
-.container_.p-4, div.container_.p-4 { padding-top: 72px !important; }
+/* 2026-11-11: the 72px top padding (room for the fixed navbar) removed with the unpinned navbar. */
 
 /* ════════════════════════════════════════════════════════
    NAVBAR  (Bootstrap nav — keep structure, restyle)
@@ -3293,8 +3291,19 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
     function padNamesFor(site){
         if(!padDistMap2){ try{ padDistMap2 = JSON.parse(document.getElementById('padDistMapData').textContent) || {}; }catch(e){ padDistMap2 = {}; } }
         const e = padDistMap2[String(site || '').trim().toUpperCase().slice(0,14)];
-        return e ? e.names.concat(opsGeosFor(e.names)) : [];
+        if(!e) return [];
+        // CHANGED 2026-11-11 (John): bare names cannot be resolved by Outlook in an .eml draft (they show pink and
+        // Check Names fails), so when Outlook-pasted recipients exist ("Name <address>; ..." on the job EDIT page)
+        // they are used as-is. Exp. Managers are found in both the role table and the pasted display names.
+        const out = String(e.outlook || '').split(';').map(x => x.trim()).filter(Boolean);
+        if(!out.length) return e.names.concat(opsGeosFor(e.names));
+        const disp = out.map(x => x.replace(/<[^>]*>/, '').replace(/"/g, '').trim()).filter(Boolean);
+        const seen = new Set(out.map(addrKey));
+        return out.concat(opsGeosFor(e.names.concat(disp)).filter(a => !seen.has(addrKey(a)) && seen.add(addrKey(a))));
     }
+    // 2026-11-11: compare recipients by address ("Name <a@b>" -> "a@b"); a bare name compares by itself.
+    function addrKey(x){ const m = String(x).match(/<([^>]+)>/); return (m ? m[1] : String(x)).trim().toLowerCase(); }
+    function noAddr(list){ return list.filter(x => !/@/.test(x)); }
     // ADDED 2026-10-28 (John): Ops. Geo. Distribution List (VP Areas page) —
     // if an Exp. Manager is in the pad's list, add their Ops Geo address(es)
     // to CC (appended after the pad names, duplicates dropped). Names compared
@@ -3417,7 +3426,11 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         // else (Pad Distribution List + Ops Geos), CC: prelimdirectionalplanning@cnrl.com.
         const mailOf = (g, vendor, kind) => {
             const n = g.jobs.length, first = g.jobs[0], isNotif = kind === 'notification';
-            const subject = (isNotif ? 'Notification – ' : 'Handover – ') + g.site + ' – ' + n + ' well' + (n > 1 ? 's' : '') + ' – start ' + fmtD(first.start);
+            // CHANGED 2026-11-11 (John): Handover subject = "RIG – SITE - ID <MTX ID> – N wells – DP Request" (was "Handover – SITE – N wells – start DATE").
+            // Several rigs on one pad are joined with " / ". Notification subject unchanged.
+            const rigs = [...new Set(g.jobs.map(j => String(j.rig || '').trim()).filter(Boolean))].join(' / ') || 'RIG';
+            // 2026-11-11 (John, 2nd): Notification subject = same pattern ending "– Handover" (was "Notification – SITE – N wells – start DATE").
+            const subject = rigs + ' – ' + g.site + '  - ID ' + (first.mtx || '—') + ' – ' + n + ' well' + (n > 1 ? 's' : '') + (isNotif ? ' – Handover' : ' – DP Request');
             // CHANGED 2026-10-28 (John): Design Code + Notes to Vendor (job EDIT page) ONCE at the top of the body (not per well).
             const jd = g.jobs.find(j => j.designCode || j.notesToVendor) || first;
             // ADDED 2026-10-28 (John): Notification intro text (John's wording). Folder = the job's Folder URL
@@ -3451,7 +3464,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 .concat(['', n + ' well(s):', '']));
             g.jobs.forEach((j, i) => { lines.push('--- ' + (i + 1) + '. ' + j.well + ' ---'); wellLines(j).forEach(l => lines.push(l)); lines.push(''); });
             // 2026-10-30 (John): the Handover always CCs BetterDataFaster (HANDOVER_CC_BDF); the Notification does not.
-            const to = isNotif ? g.to.slice() : vendorAddresses(vendor), cc = isNotif ? [HANDOVER_CC] : [HANDOVER_CC, HANDOVER_CC_BDF].concat(g.to.filter(a => a.toLowerCase() !== HANDOVER_CC_BDF));
+            const to = isNotif ? g.to.slice() : vendorAddresses(vendor), cc = isNotif ? [HANDOVER_CC] : [HANDOVER_CC, HANDOVER_CC_BDF].concat(g.to.filter(a => addrKey(a) !== HANDOVER_CC_BDF && addrKey(a) !== HANDOVER_CC.toLowerCase()));   /* 2026-11-11 compare by address */
             return 'mailto:' + to.map(encodeURIComponent).join(';') + '?cc=' + cc.map(encodeURIComponent).join(';') +
                 '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(lines.join('\r\n'));
         };
@@ -3540,8 +3553,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 '<table role="presentation" width="860" cellpadding="0" cellspacing="0" style="width:860px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ' + C.line + '">' +
                 '<tr><td style="background:' + C.blue + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
                 '<tr><td style="padding:24px 28px 18px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
-                  '<td valign="middle"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:' + C.blue + ';font-weight:700">PlanIT · Directional Planning</div>' +
-                  '<div style="font-size:26px;font-weight:700;color:' + C.navy + ';margin-top:4px">Handover Notification</div>' +
+                  // 2026-11-11 (John): "PlanIT · Directional Planning" kicker removed from the Notification body too.
+                  '<td valign="middle"><div style="font-size:26px;font-weight:700;color:' + C.navy + '">Handover Notification</div>' +
                   '<div style="font-size:14px;color:' + C.muted + ';margin-top:4px">' + esc(g.site) + ' · ' + g.jobs.length + ' well' + (g.jobs.length > 1 ? 's' : '') + ' · handover ' + esc('Thursday ' + fmtL(thu)) + '</div></td>' +
                   (hasLogo ? '<td align="right" valign="middle" width="190"><img src="cid:cnrllogo@mtx" alt="Canadian Natural" width="170" style="display:block;width:170px;height:auto;border:0"></td>' : '') +
                 '</tr></table></td></tr>' +
@@ -3569,8 +3582,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 rowsHc.map((r, i) => { const f = IN_F[r.inFolder] || IN_F[''], s = ST[r.status] || ST[''];
                     const item = esc(r.item); // 2026-10-30 (John): no Design code here — the full Design Code table is below the Wells table
                     return '<tr>' + td(pill(f[0], f[1], f[2]), i) + td(item, i, 'font-weight:600') + td(pill(s[0], s[1], s[2]), i) + td(esc(r.provider), i, 'color:' + C.muted) + td(esc(r.responsible || '—'), i) + '</tr>'; }).join('') + '</table>';
-            const wellsHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' + th('ETS ID') + th('Well name') + th('Drilling Lic #') + th('Total legs') + th('BHL [Leg01]') + '</tr>' +
-                g.jobs.map((j, i) => { const legs = legsOf(j.ETS); return '<tr>' + td(esc(j.ETS || '—'), i) + td(esc(j.well || '—'), i, 'font-weight:600') + td(esc(j.license || '—'), i) + td(esc(legs !== '' ? legs : '—'), i, 'text-align:center') + td(esc(bhLocOf(j.ETS) || '—'), i, 'font-family:Consolas,monospace;white-space:nowrap') + '</tr>'; }).join('') + '</table>';
+            const wellsHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' + th('ETS ID') + th('Well name') + th('Drilling Lic #') + th('BHL [Leg01]') /* 2026-11-11 (John): Total legs column removed */ + '</tr>' +
+                g.jobs.map((j, i) => { return '<tr>' + td(esc(j.ETS || '—'), i) + td(esc(j.well || '—'), i, 'font-weight:600') + td(esc(j.license || '—'), i) + td(esc(bhLocOf(j.ETS) || '—'), i, 'font-family:Consolas,monospace;white-space:nowrap') + '</tr>'; }).join('') + '</table>';
             const dc = dcCardOf(jd.designCode);
             // ADDED 2026-10-30 (John): Distribution List (DPs & Final Directional Surveys), last section of the Handover.
             const padNames = (padDistMap2 && padDistMap2[String(g.site || '').trim().toUpperCase().slice(0,14)] || {}).names || [];
@@ -3591,8 +3604,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 '<table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:760px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ' + C.line + '">' +
                 '<tr><td style="background:' + C.navy + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
                 '<tr><td style="padding:24px 28px 18px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
-                  '<td valign="middle"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:' + C.blue + ';font-weight:700">PlanIT · Directional Planning</div>' +
-                  '<div style="font-size:26px;font-weight:700;color:' + C.navy + ';margin-top:4px">Directional Planning Handover</div>' +
+                  // 2026-11-11 (John): "PlanIT · Directional Planning" kicker removed from the Handover body.
+                  '<td valign="middle"><div style="font-size:26px;font-weight:700;color:' + C.navy + '">Directional Planning Handover</div>' +
                   '<div style="font-size:14px;color:' + C.muted + ';margin-top:4px">' + esc(g.site) + ' · ' + g.jobs.length + ' well' + (g.jobs.length > 1 ? 's' : '') + '</div></td>' +
                   (hasLogo ? '<td align="right" valign="middle" width="190"><img src="cid:cnrllogo@mtx" alt="Canadian Natural" width="170" style="display:block;width:170px;height:auto;border:0"></td>' : '') +
                 '</tr></table></td></tr>' +
@@ -3647,7 +3660,8 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                 handoverVendors().map(v => '<option' + (v.name === g.vendor ? ' selected' : '') + '>' + esc(v.name) + '</option>').join('') + '</select>' +
                 (g.vendor ? ' <span style="color:#8a93a3">(' + (g.vendorFromRig ? 'from BV Rigs: ' + esc(g.jobs[0].rig) : 'from DP Company') + ')</span>'
                           : ' <span style="color:#f5a623">' + (g.jobs[0].dpCompany ? 'rig not in BV Rigs and no vendor matches DP Company "' + esc(g.jobs[0].dpCompany) + '"' : 'rig not in BV Rigs, no DP Company') + '</span>') +
-                ' — CC: ' + esc(HANDOVER_CC) + '; ' + (g.to.length ? esc(g.to.join('; ')) : '<span style="color:#f5a623">no Pad Distribution List</span>') + '</td></tr>' +
+                ' — CC: ' + esc(HANDOVER_CC) + '; ' + (g.to.length ? esc(g.to.join('; ')) : '<span style="color:#f5a623">no Pad Distribution List</span>') +
+                (noAddr(g.to).length ? ' <span style="color:#ff5c5c">⚠ no e-mail address for: ' + esc(noAddr(g.to).join('; ')) + ' — Outlook will show them pink; paste the Outlook recipients in the job EDIT page (Pad Distribution List)</span>' : '') + '</td></tr>' +   /* 2026-11-11 */
             g.jobs.map(j => '<tr class="job" data-g="' + gi + '">' +
                 '<td><span class="dot" style="background:' + (j.colour === 'Blue' ? '#0084c7' : j.colour === 'Red' ? '#ff4c4c' : '#8a93a3') + '"></span>' + esc(j.status) + (j.inRange ? '' : ' <span style="color:#8a93a3">(same pad)</span>') + '</td>' +
                 '<td>' + esc(j.mtx || '—') + '</td><td>' + esc(fmtD(j.start)) + '</td><td>' + esc(fmtD(j.end)) + '</td><td>' + esc(j.rig) + '</td><td>' + esc(j.site) + '</td><td>' + esc(j.well) + '</td>' +
