@@ -588,7 +588,10 @@ var TDModelCore = {
   computeHookload: tdComputeHookload,
   planActiveRuns: tdPlanActiveRuns,
   planSectionAt: tdPlanSectionAt,
-  planSnapshot: tdPlanSnapshot
+  planSnapshot: tdPlanSnapshot,
+  // ADDED 2026-11-12 (John, PipeStretch per run): the per-run string/hole/mud setup the Hookload calculation uses,
+  // exported unchanged so other modules model a run exactly as T&D does.
+  planRunSetup: tdPlanRunSetup
 };
 
 // UMD-lite: works as a plain <script> (attaches to window) and as a

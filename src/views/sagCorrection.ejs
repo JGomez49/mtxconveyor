@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
 <script src="/js/sagModel.js"></script>
 <script src="/js/sagKinetic.js"></script>
+<script src="/js/chainReport.js"></script>
 <style>
   /*
     SAGcorrection (added 2026-10-24). Standalone tool, same dark theme as
@@ -220,8 +221,11 @@
       <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
       <div class="field"><span>T&amp;D BHA (scenario / run)</span><select id="scenSel" style="width:320px"></select></div>
       <button onclick="loadBhaFromTD()" style="align-self:flex-end">⬇ Use saved T&amp;D BHA</button>
+      <div class="field"><span>Survey version (start from)</span><select id="verSel" style="width:320px"></select></div>
       <button onclick="loadSurveyFromJob()" style="align-self:flex-end">⬇ Use well survey</button>
+      <button onclick="chainQc()" style="align-self:flex-end" title="Combined QC report of the selected corrected version (all corrections, per-station ΔMD/ΔInc/ΔAz, final positions)">📄 Chain QC report</button>
     </div>
+    <div id="chainInfo" class="note" style="display:none"></div>
     <div id="jobStatus" class="muted"></div>
   </div>
 
@@ -683,7 +687,7 @@ async function loadJob(){
     var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id));
     var d = await r.json();
     if(!r.ok) throw new Error(d.error || r.status);
-    job = { noteId: d.noteId, title: d.title, mtxJobId: id, wells: d.subjectWells || [], td: null };
+    job = { noteId: d.noteId, title: d.title, mtxJobId: id, wells: (d.subjectWells || []).filter(function(w){ return !w.isVersion; }) /* 2026-11-12: corrected versions are picked in "Survey version", BHAs/runs come from the real well */, td: null };
     var r2 = await fetch('/notes/tdModel/' + d.noteId); job.td = await r2.json();
     $('wellSel').innerHTML = job.wells.map(function(w, i){ return '<option value="' + i + '">' + w.wellKey + '</option>'; }).join('');
     onWellChange();
@@ -729,6 +733,7 @@ function onWellChange(){
   TD_SRC.forEach(function(x, i){ if(selIdx < 0 && x.scen === act) selIdx = i; });
   $('scenSel').innerHTML = TD_SRC.length ? TD_SRC.map(function(x, i){ return '<option value="' + i + '"' + (i === selIdx ? ' selected' : '') + '>' + String(x.label).replace(/</g, '&lt;') + '</option>'; }).join('')
     : '<option value="">(no saved BHA for this well)</option>';
+  refreshVersions();   // 2026-11-12 correction chain
 }
 function loadBhaFromTD(){
   var w = job.wells[+$('wellSel').value], src = TD_SRC[+$('scenSel').value];
@@ -747,11 +752,52 @@ function loadBhaFromTD(){
   lastBhaSource = 'T&D: ' + s;   // 2026-11-07 runs
   $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + s + '" for ' + w.wellKey + ' (' + bha.length + ' components; rows beyond the BHA length limit unticked).';
 }
-function loadSurveyFromJob(){
+// ---------------- survey versions / correction chain (ADDED 2026-11-12, John — phase 3, see the project doc
+// claude/correction-chain-plan.md). SAG can start from ANY saved version (e.g. a PipeStretch one); stations keep their
+// ORIGINAL (tally) MD (origMd), which is what assigns them to BHA runs (runAssign). A version that already has a SAG
+// correction cannot get another one (server blocks it too).
+var VERSIONS = [];
+var TAGNAME = { stretch:'PipeStretch', sag:'SAG', shortcollar:'Short Collar', msa:'MSA' };
+var SRC2TYPE = { PipeStretch:'stretch', SAGcorrection:'sag', MSA:'msa', ShortCollar:'shortcollar' };
+function chainText(ch){ return ['Original'].concat((ch || []).map(function(c){ return (TAGNAME[c.type] || c.tag) + (c.model ? ' (' + c.model + ')' : ''); })).join(' → '); }
+async function refreshVersions(){
+  var w = job.wells[+$('wellSel').value]; VERSIONS = [];
+  if(!w || !job.noteId){ $('verSel').innerHTML = ''; return; }
+  try{ var d = await (await fetch('/notes/surveyVersions?noteId=' + encodeURIComponent(job.noteId) + '&wellKey=' + encodeURIComponent(w.wellKey))).json(); if(d.ok) VERSIONS = d.versions; }catch(e){}
+  $('verSel').innerHTML = VERSIONS.length ? VERSIONS.map(function(v, i){
+      return '<option value="' + i + '">' + String(v.original ? 'Original — ' + v.wellName : v.wellName + ' — ' + chainText(v.chain.length ? v.chain : [{type: SRC2TYPE[v.source]}])).replace(/</g, '&lt;') + '</option>'; }).join('')
+    : '<option value="">Original (uploaded survey)</option>';
+}
+// ADDED 2026-11-12 (John, correction chain phase 5): combined QC report of the version selected in "Survey version"
+// (public/js/chainReport.js).
+function chainQc(){
+  var v = VERSIONS[+$('verSel').value];
+  if(!v || v.original){ alert('Pick a corrected version in "Survey version (start from)" first.'); return; }
+  var o = VERSIONS.filter(function(x){ return x.original; })[0];
+  MtxChainReport.open({ versionId: v.id, originalId: o ? o.id : null, well: o ? o.wellName : '', job: job.mtxJobId ? 'MTX ' + job.mtxJobId + (job.title ? ' — ' + job.title : '') : '', unit: UNIT });
+}
+function tallyMd(s){ return s.origMd != null && isFinite(s.origMd) ? s.origMd : s.md; }
+async function loadSurveyFromJob(){
   var w = job.wells[+$('wellSel').value];
   if(!w){ alert('Load a job first.'); return; }
-  survey = w.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az}; });
-  surveySource = { noteId: job.noteId, wellKey: w.wellKey };
+  var v = VERSIONS[+$('verSel').value];
+  if(v && !v.original){
+    try{
+      var dv = await (await fetch('/notes/surveyVersion/' + v.id)).json(); if(!dv.ok) throw new Error(dv.error);
+      survey = dv.version.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az, origMd:+s.origMd}; });
+      surveySource = { noteId: job.noteId, wellKey: w.wellKey, versionId: v.id, versionName: v.wellName, toolcode: dv.version.toolcode || '',
+        chain: (dv.version.chain && dv.version.chain.length) ? dv.version.chain : [{ type: SRC2TYPE[v.source], tag: v.source, label: 'saved before 2026-11-12' }] };
+    }catch(err){ alert('Could not load the version: ' + err.message); return; }
+  } else {
+    survey = w.survey.map(function(s){ return {md:+s.md, inc:+s.inc, az:+s.az, origMd:+s.md}; });
+    surveySource = { noteId: job.noteId, wellKey: w.wellKey, versionId: v ? v.id : null, versionName: v ? v.wellName : w.wellKey, toolcode: null, chain: [] };
+  }
+  var already = surveySource.chain.some(function(c){ return c.type === 'sag'; });
+  $('chainInfo').style.display = ''; $('chainInfo').className = 'note' + (already ? ' warnbox' : '');
+  $('chainInfo').innerHTML = '<b>Starting version:</b> ' + String(surveySource.versionName).replace(/</g, '&lt;') + ' · <b>Corrections so far:</b> ' + chainText(surveySource.chain) +
+    (already ? ' · <span class="bad">this version already has a SAG correction — it cannot be saved again. Pick an earlier version.</span>' : '') +
+    (surveySource.chain.some(function(c){ return c.type === 'stretch'; }) ? ' · MD shown = stretch-corrected; BHA runs are still assigned by the original (tally) MD.' : '');
+  if(typeof runsRender === 'function') runsRender();
   if($('rpWell') && !$('rpWell').value) $('rpWell').value = w.wellKey; if($('rpJob') && !$('rpJob').value) $('rpJob').value = job.mtxJobId + (job.title ? ' — ' + job.title : '');   // 2026-11-07 report header
   $('svyInfo').textContent = survey.length + ' stations from ' + w.wellKey;
   corrected = []; renderSurvey(); $('btnSaveVer').disabled = true;
@@ -916,7 +962,7 @@ async function applyPerStation(){
   var geo = SagKinetic.stationGeometry(survey), useC = $('kCurv').checked, useTF = $('kBendTF').value === 'survey';
   var stations = survey.map(function(s, i){ var gm = geo[i];
     return { md: s.md, inc: s.inc, curvatureV: useC ? gm.kappa * Math.cos(gm.tf * Math.PI / 180) : 0,
-             bendTFDeg: useTF ? gm.tf : 0, wob: inp.axialLoad ? (wobAt ? wobAt(s.md + inp.sensorPosition) : inp.wob) : 0 }; });
+             bendTFDeg: useTF ? gm.tf : 0, wob: inp.axialLoad ? (wobAt ? wobAt(tallyMd(s) + inp.sensorPosition) /* 2026-11-12: bit depth by tally MD */ : inp.wob) : 0 }; });
   stationInfo = stations.map(function(st, i){ return { dls30: geo[i].dls30, tf: geo[i].tf, tfDefined: geo[i].tfDefined, wob: st.wob }; });
   $('svyInfo').textContent = 'Solving ' + stations.length + ' stations…';
   var t0 = Date.now(), w = getWorker();
@@ -1036,11 +1082,12 @@ function checkToolcode(){
 }
 async function saveVersion(){
   if(!surveySource || !corrected.length) return;
+  if((surveySource.chain || []).some(function(c){ return c.type === 'sag'; })){ alert('This version already has a SAG correction. Start from an earlier version.'); return; }
   try{
     if(!TOOLCODES) TOOLCODES = await (await fetch('/data/iscwsaToolcodes.json')).json();
     var lst = await (await fetch('/notes/wellboreTrajectory/list/' + surveySource.noteId)).json();
     var t = (lst.trajectories || []).find(function(x){ return x.wellName === surveySource.wellKey && x.source !== 'SAGcorrection'; });
-    svOrigCode = t ? (t.toolcode || '') : '';
+    svOrigCode = surveySource.toolcode != null ? surveySource.toolcode : (t ? (t.toolcode || '') : '');   // 2026-11-12: the starting version's toolcode
   }catch(err){ alert('Could not load toolcodes: ' + err.message); return; }
   var base = svOrigCode || 'MWD+SRGM';
   var sug = sagCounterpart(base);
@@ -1054,11 +1101,12 @@ async function saveVersion(){
 async function confirmSaveVersion(){
   try{
     var r = await fetch('/notes/sagCorrection/saveVersion', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({noteId: surveySource.noteId, wellKey: surveySource.wellKey, model: table ? table.model : 'Beam', toolcode: $('svCode').value,
+      body: JSON.stringify({noteId: surveySource.noteId, wellKey: surveySource.wellKey, versionId: surveySource.versionId || null, model: table ? table.model : 'Beam', toolcode: $('svCode').value,
+        label: (runsActive() ? RUNS.length + ' run(s)' : 'single BHA') + (table && table.model === 'Kinetic' ? ' · Kinetic options: curvature ' + ($('kCurv').checked ? 'on' : 'off') + ', toolface ' + $('kBendTF').value + ', WOB ' + ($('kAxial').checked ? 'on' : 'off') : ''),
         corrections: corrected.map(function(s){ return {md:s.md, inc:s.inc}; })})});
     var d = await r.json(); if(!d.ok) throw new Error(d.error);
     $('saveVerPanel').style.display = 'none';
-    alert('Saved as "' + d.wellName + '" with toolcode ' + d.toolcode + '. The original survey was not changed.');
+    alert('Saved as "' + d.wellName + '" with toolcode ' + d.toolcode + '. The starting version was not changed.'); refreshVersions();
   }catch(err){ alert('Save failed: ' + err.message); }
 }
 
@@ -1180,7 +1228,9 @@ function runDetach(){ if(activeRun >= 0){ runSave(); activeRun = -1; runsRender(
 function runRange(R){ return [R.bitIn_m - R.sensor_m, R.bitOut_m - R.sensor_m]; }   // survey MD range (sensor behind the bit)
 function runAssign(){   // station -> run index (-1 = none); overlap: the run with the deeper bit MD in wins
   return survey.map(function(s){ var best = -1;
-    RUNS.forEach(function(R, k){ var r = runRange(R); if(s.md >= r[0] - 1e-6 && s.md <= r[1] + 1e-6 && (best < 0 || R.bitIn_m > RUNS[best].bitIn_m)) best = k; });
+    // CHANGED 2026-11-12 (John): by the ORIGINAL (tally) MD — after a PipeStretch correction s.md is the stretched MD
+    var m = tallyMd(s);
+    RUNS.forEach(function(R, k){ var r = runRange(R); if(m >= r[0] - 1e-6 && m <= r[1] + 1e-6 && (best < 0 || R.bitIn_m > RUNS[best].bitIn_m)) best = k; });
     return best; });
 }
 function runForStation(i){   // station view / report: load the station's run (single-BHA mode: always true)
@@ -1260,7 +1310,7 @@ async function applyRuns(){
       if(per){
         var sts = idx.map(function(i){ var gm = geo[i], s = survey[i];
           return { md:s.md, inc:s.inc, curvatureV: $('kCurv').checked ? gm.kappa * Math.cos(gm.tf * Math.PI / 180) : 0, bendTFDeg: $('kBendTF').value === 'survey' ? gm.tf : 0,
-                   wob: inp.axialLoad ? (wobAt ? wobAt(s.md + inp.sensorPosition) : inp.wob) : 0 }; });
+                   wob: inp.axialLoad ? (wobAt ? wobAt(tallyMd(s) + inp.sensorPosition) /* 2026-11-12: bit depth by tally MD */ : inp.wob) : 0 }; });
         var rs = await workerStations(inp, sts);
         idx.forEach(function(i, q){ corrs[i] = rs[q].status === 'ok' ? rs[q].corr : null; stat[i] = rs[q].status; stationInfo[i] = { dls30:geo[i].dls30, tf:geo[i].tf, tfDefined:geo[i].tfDefined, wob:sts[q].wob }; });
         runTables[k] = {model:'Kinetic', rows:[], full:[]};
@@ -1592,7 +1642,16 @@ function rpHtml(inp, idx, secs, img3d, imgTab, logo, RI){
      ['Stations corrected', cs.length + ' of ' + corrected.length + (unc ? ' <span class="bad">(' + unc + ' left uncorrected)</span>' : '')],
      ['Largest correction', fmt(maxC, 3) + '°'], ['ΔTVD at last station', fmt(L(last.dTvd), 3) + ' ' + u], ['ΔN / ΔE at last station', fmt(L(last.dN), 3) + ' / ' + fmt(L(last.dE), 3) + ' ' + u],
      ['Runs / BHAs', RI && RI.length ? RI.map(function(R){ return rpEsc(R.name) + ': bit MD ' + fmt(L(R.bitIn), 1) + '–' + fmt(L(R.bitOut), 1) + ' ' + u + ' (' + R.n + ' st.)'; }).join('<br>') : 'single BHA'],
+     ['Starting survey version', rpEsc(surveySource ? (surveySource.versionName || surveySource.wellKey) : '(imported file)')],
      ['Comments', rpEsc($('rpNotes').value || '—')]].map(function(r){ return row(r); }).join('') + '</table>';
+  // ADDED 2026-11-12 (John, correction chain): corrections already in the starting version
+  var chn = (surveySource && surveySource.chain) || [];
+  h += '<h3>Corrections applied before this one</h3>' + (chn.length ? '<table>' + row(['#', 'Correction', 'Model', 'Details', 'Date', 'By'], true) + chn.map(function(c, i){
+      var mx = function(a){ return a && a.length ? Math.max.apply(null, a.map(Math.abs)) : null; };
+      var det = [c.label || '', mx(c.dMd) ? 'max |ΔMD| ' + fmt(L(mx(c.dMd)), 3) + ' ' + u : '', mx(c.dInc) ? 'max |ΔInc| ' + fmt(mx(c.dInc), 3) + '°' : '', mx(c.dAz) ? 'max |ΔAz| ' + fmt(mx(c.dAz), 3) + '°' : ''].filter(Boolean).join(' · ');
+      return row([i + 1, rpEsc(TAGNAME[c.type] || c.tag), rpEsc(c.model || '—'), rpEsc(det), c.date ? new Date(c.date).toISOString().slice(0, 10) : '—', rpEsc(c.userName || '—')]); }).join('') + '</table>' +
+      (chn.some(function(c){ return c.type === 'stretch'; }) ? '<div class="note">Survey MDs are stretch-corrected; BHA runs were assigned by the original (tally) MD.</div>' : '')
+    : '<p>None — SAG is applied to the original (uploaded) survey.</p>');
   h += '<div class="sec"><img class="fig" src="' + img3d + '"><div class="note">3D view as set in the station view (panel 5). Measured (blue), SAG-corrected (green, dashed), BHA at the selected station (orange bar); orange dots = stations analysed in section 4.</div></div>';
   // 2 inputs
   // 2026-11-07: one block per run when runs are used (RI), else the single BHA

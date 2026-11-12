@@ -156,7 +156,9 @@
         const rows = TD.computeModel(input.survey, input.casings || [], input.bha, p);
         const key = CASE_KEY[input.loadCase] || 'etRotOff';
         const E = input.E, dpDef = { od_m: 0.1143, id_m: 0.0714 };
-        const area = md => { const c = TD.pipeAt(md, bitMd, input.bha) || dpDef; return Math.PI * (c.od_m * c.od_m - c.id_m * c.id_m) / 4; };
+        // 2026-11-12: above the listed string use the run's top drill pipe (T&D plan runs, params._pipeTop) like
+        // tdModel's own pipe lookup; before, always the default 4-1/2" DP.
+        const area = md => { const c = TD.pipeAt(md, bitMd, input.bha) || (p && p._pipeTop) || dpDef; return Math.PI * (c.od_m * c.od_m - c.id_m * c.id_m) / 4; };
         // F (N) at nodes: effective tension without the block weight
         const F = rows.map(r => r[key] * 1000 - (p.blockW || 0));
         let mech = 0, therm = 0;
