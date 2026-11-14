@@ -78,6 +78,8 @@ const {
     saveDsiDefaults,
     getModuleDefaults,
     getIpmToolcodes,
+    getUserPrefs,
+    saveUserPref,
     saveIpmToolcode,
     saveModuleDefaults,
     savePipeStretchCase,
@@ -430,6 +432,9 @@ router.post('/notes/moduleDefaults/:module', isAuthenticated, saveModuleDefaults
 // 2026-11-14 (John): Compass .ipm survey tools imported in the AC module (shared, SiteConfig 'ipmToolcodes')
 router.get('/notes/ipmToolcodes', isAuthenticated, getIpmToolcodes);
 router.post('/notes/ipmToolcodes', isAuthenticated, saveIpmToolcode);
+// 2026-11-14 (John): per-user display preferences (public/js/userPrefs.js)
+router.get('/notes/userPrefs', isAuthenticated, getUserPrefs);
+router.post('/notes/userPrefs', isAuthenticated, saveUserPref);
 router.post('/notes/pipeStretch/case', isAuthenticated, canUseModelersJson, blockViewerFromSaving, savePipeStretchCase);
 router.get('/notes/pipeStretch/cases', isAuthenticated, canUseModelersJson, listPipeStretchCases);
 router.get('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, getPipeStretchCase);

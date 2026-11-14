@@ -19,6 +19,7 @@ const HydraulicsModelCore = require("../public/js/hydraulicsModel.js");
 const CasingDesign = require("../models/CasingDesign");
 const CasingLoadCasesCore = require("../public/js/casingLoadCases.js");
 const PasonPlots = require("../models/PasonPlots");
+const MotorYieldCore = require("../public/js/motorYield.js");   // 2026-11-14 Motor Yield per slide (Slide Sheet)
 const PadAC       = require("../models/PadAC");
 const SixAxisCase = require("../models/SixAxisCase");
 const { buildActivityReport } = require("../helpers/activityStats");
@@ -927,6 +928,22 @@ notesCrtl.renderJob = async (req,res)=>{
     // 2026-11-13 (John): Slide Sheet accordion (after Hydraulics) — only shown when the job has saved slide sheets.
     let slideSheets = [];
     try{ slideSheets = await SlideSheet.find({ noteId: noteid }).select('-segments -settings -roles').populate('user', 'name').sort({ wellKey: 1, updatedAt: -1 }).lean(); }catch(err){ console.error('[SlideSheet] job page', err); }
+    // 2026-11-14 (John): Motor Yield per slide (public/js/motorYield.js: MY = interval DLS x CL / slid, deg/30 m) from the
+    // well's ORIGINAL uploaded survey (wellName === slide sheet wellKey, not a correction version). Stored on each
+    // interval as i.my (null when the slide is not bracketed by two surveys). Display only; nothing is saved.
+    try{
+        slideSheets.forEach(function(x){
+            const t = (wellboreTrajectories || []).find(w => w.wellName === x.wellKey && CORR_SOURCES.indexOf(w.source) < 0);
+            if(!t || !t.survey || !t.survey.length){ x.myNote = 'no survey for ' + x.wellKey; return; }
+            const sv = t.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim, interp: !!s.interp }));
+            // 2026-11-14: + rotation correction (MTX choice, motorYield.js analyse()) and per-run averages (x.myRuns)
+            const iv = x.intervals || [], mainIv = iv.filter(i => !i.leg || i.leg === 'Main');
+            const runOf = md => { const c = mainIv.filter(i => i.from <= md && md <= i.to); return c.length ? (c[c.length - 1].run || '') : ''; };
+            const r = MotorYieldCore.analyse(sv, iv, runOf, { minRotLen: 30 });
+            iv.forEach(function(i, k){ const q = r.slides[k]; i.my = q ? q.my : null; i.myCorr = q ? q.myCorr : null; i.myFlag = q ? [q.reason, q.flag].filter(Boolean).join(' · ') : ''; i.myStatus = q ? q.status : null; i.myNoisy = q ? !!q.noisy : false; });   // 2026-11-14: quality rules, defaults 3 m / 20 %
+            x.myRuns = Object.keys(r.runs).map(k => r.runs[k]).filter(q => q.myAvg != null);
+        });
+    }catch(err){ console.error('[SlideSheet] motor yield', err); }
     res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist, slideSheets})
 }
 
@@ -3092,6 +3109,19 @@ notesCrtl.saveIpmToolcode = async(req,res)=>{
         else { if (!text || String(text).length > 100000) return res.status(400).json({ ok:false, error:'Missing or too large .ipm text.' });
             v[name] = { text: String(text), fileName: String(fileName || '').slice(0, 120), by: u.name || u.username || '', at: new Date() }; }
         await SiteConfig.findOneAndUpdate({ key: 'ipmToolcodes' }, { value: JSON.stringify(v), updatedBy: u._id, updatedAt: new Date() }, { upsert: true });
+        res.json({ ok:true });
+    } catch (err) { res.status(500).json({ ok:false, error: err.message }); }
+};
+// 2026-11-14 (John): per-user display preferences, stored on the user (User.uiPrefs, key -> short string).
+notesCrtl.getUserPrefs = async(req,res)=>{
+    try { const u = await User.findById(req.session.passport.user).lean(); res.json({ ok:true, prefs: (u && u.uiPrefs) || {} }); }
+    catch (err) { res.status(500).json({ ok:false, error: err.message }); }
+};
+notesCrtl.saveUserPref = async(req,res)=>{
+    try {
+        const { key, value } = req.body || {};
+        if (!key || !/^[A-Za-z0-9_]{1,40}$/.test(key)) return res.status(400).json({ ok:false, error:'Invalid preference key.' });
+        await User.updateOne({ _id: req.session.passport.user }, { $set: { ['uiPrefs.' + key]: String(value == null ? '' : value).slice(0, 200) } });
         res.json({ ok:true });
     } catch (err) { res.status(500).json({ ok:false, error: err.message }); }
 };

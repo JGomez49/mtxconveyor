@@ -44,6 +44,12 @@ const UserSchema = new Schema({
         required: false,
         default: ''
     },
+    // 2026-11-14 (John): per-user display preferences (key -> short string), e.g. tdCurveStyle = 'sharp'|'round'.
+    // Read/written by public/js/userPrefs.js via GET/POST /notes/userPrefs.
+    uiPrefs: {
+        type: Schema.Types.Mixed,
+        default: {}
+    },
 },{timestamps: true});
 
 UserSchema.methods.encryptPassword = async password => {
