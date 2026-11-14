@@ -23,6 +23,9 @@ const SurveyPointSchema = new Schema(
     origMd:   { type: Number },
     origIncl: { type: Number },
     origAzim: { type: Number },
+    // ADDED 2026-11-13 (John): true = fill-in station inserted by the Slide Sheet Analysis (SSA) correction (ISCWSA
+    // eBook pp. 57-58) at the start / end of a slide — not a measured survey.
+    interp:   { type: Boolean },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },

@@ -73,7 +73,13 @@ const {
     saveSagMaterial,
     deleteSagMaterial,
     renderPipeStretch,
+    renderSlideSheet, saveSsaVersion, saveSlideSheet, listSlideSheets, getSlideSheet, deleteSlideSheet,
     renderDsi,
+    saveDsiDefaults,
+    getModuleDefaults,
+    getIpmToolcodes,
+    saveIpmToolcode,
+    saveModuleDefaults,
     savePipeStretchCase,
     listPipeStretchCases,
     getPipeStretchCase,
@@ -406,8 +412,24 @@ router.delete('/notes/sagCorrection/material/:id', isAuthenticated, canUseModele
 //MD-correction tool. Same access as SAGcorrection: Geo/GeoM blocked,
 //viewer read-only for cases / save-version.
 router.get('/notes/pipeStretch', isAuthenticated, canUseModelers, renderPipeStretch);
+// Slide Sheet (2026-11-13): slides from the rig EDR (Pason LAS). Same access as PipeStretch.
+router.get('/notes/slideSheet', isAuthenticated, canUseModelers, renderSlideSheet);
+// 2026-11-13: Slide Sheet Analysis survey correction -> new survey version with fill-in stations
+router.post('/notes/ssa/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSsaVersion);
+router.post('/notes/slideSheet/save', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveSlideSheet);
+router.get('/notes/slideSheet/list/:noteId', isAuthenticated, canUseModelersJson, listSlideSheets);
+router.get('/notes/slideSheet/item/:id', isAuthenticated, canUseModelersJson, getSlideSheet);
+router.delete('/notes/slideSheet/item/:id', isAuthenticated, canUseModelersJson, blockViewerFromSaving, deleteSlideSheet);
 // DSI — Drill String Interference (2026-10-25): standalone page, same guard as PipeStretch.
 router.get('/notes/dsi', isAuthenticated, canUseModelers, renderDsi);
+// 2026-11-14 (John): DSI page defaults, admin-only save (stored in SiteConfig key 'dsiDefaults')
+router.post('/notes/dsi/defaults', isAuthenticated, canUseModelers, saveDsiDefaults);
+// 2026-11-14 (John): generic admin page defaults (public/js/mtxDefaults.js), SiteConfig 'defaults:<module>'
+router.get('/notes/moduleDefaults/:module', isAuthenticated, getModuleDefaults);
+router.post('/notes/moduleDefaults/:module', isAuthenticated, saveModuleDefaults);
+// 2026-11-14 (John): Compass .ipm survey tools imported in the AC module (shared, SiteConfig 'ipmToolcodes')
+router.get('/notes/ipmToolcodes', isAuthenticated, getIpmToolcodes);
+router.post('/notes/ipmToolcodes', isAuthenticated, saveIpmToolcode);
 router.post('/notes/pipeStretch/case', isAuthenticated, canUseModelersJson, blockViewerFromSaving, savePipeStretchCase);
 router.get('/notes/pipeStretch/cases', isAuthenticated, canUseModelersJson, listPipeStretchCases);
 router.get('/notes/pipeStretch/case/:id', isAuthenticated, canUseModelersJson, getPipeStretchCase);

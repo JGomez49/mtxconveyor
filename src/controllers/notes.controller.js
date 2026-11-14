@@ -41,6 +41,7 @@ const IPlanScenario = require("../models/IPlanScenario");
 // 2026-10-24: SAGcorrection module (SurQC sag-solver port) — saved cases + shared math.
 const SagCorrectionCase = require("../models/SagCorrectionCase");
 const SagModelCore = require("../public/js/sagModel.js");
+const SlideSheet = require("../models/SlideSheet");   // 2026-11-13 slide sheets from the EDR
 const SagMaterial = require("../models/SagMaterial");
 // 2026-10-25: PipeStretch module (drill-pipe stretch MD correction) — saved cases.
 const PipeStretchCase = require("../models/PipeStretchCase");
@@ -497,7 +498,7 @@ notesCrtl.deleteNotesBulk = async (req,res)=>{
 // requester.role !== 'admin').
 notesCrtl.renderVPAreas = async (req,res)=>{
     const requester = await User.findById(req.session.passport.user);
-    if(!requester || requester.role !== 'admin'){
+    if(!requester || !['admin','leader','user'].includes(requester.role)){   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         req.flash('error_msg','Only admin accounts can manage VP Areas.');
         return res.redirect('/notes');
     }
@@ -594,7 +595,7 @@ notesCrtl.renderVPAreas = async (req,res)=>{
 // into VPArea by vpName. Same admin check as renderVPAreas above.
 notesCrtl.saveVPAreas = async (req,res)=>{
     const requester = await User.findById(req.session.passport.user);
-    if(!requester || requester.role !== 'admin'){
+    if(!requester || !['admin','leader','user'].includes(requester.role)){   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         req.flash('error_msg','Only admin accounts can manage VP Areas.');
         return res.redirect('/notes');
     }
@@ -662,7 +663,7 @@ notesCrtl.savePadDistList = async (req,res)=>{
 notesCrtl.saveVendorDistList = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage distribution lists.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const name = String(req.body.name || '').trim().slice(0, 100), emails = String(req.body.emails || '').trim().slice(0, 5000);
         if(!name) return res.status(400).json({ok:false, error:'Enter the vendor name.'});
         const clash = await VendorDistList.findOne({ name: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
@@ -680,7 +681,7 @@ notesCrtl.saveVendorDistList = async (req,res)=>{
 notesCrtl.saveOpsGeoDistList = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage distribution lists.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const expManager = String(req.body.expManager || '').trim().slice(0, 100), opsGeos = String(req.body.opsGeos || '').trim().slice(0, 2000);
         if(!expManager) return res.status(400).json({ok:false, error:'Enter the Exp. Manager name.'});
         const clash = await OpsGeoDistList.findOne({ expManager: new RegExp('^' + expManager.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
@@ -694,7 +695,7 @@ notesCrtl.saveOpsGeoDistList = async (req,res)=>{
 notesCrtl.deleteOpsGeoDistList = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage distribution lists.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const r = await OpsGeoDistList.deleteOne({ _id: req.params.id });
         if(!r.deletedCount) return res.status(404).json({ok:false, error:'Row not found.'});
         res.json({ok:true});
@@ -858,7 +859,7 @@ notesCrtl.handoverLogo = (req,res)=>{
 notesCrtl.saveBvRig = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage BV Rigs.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage BV Rigs.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const f = k => String(req.body[k] || '').trim().slice(0, 300);
         const rig = f('rig'); if(!rig) return res.status(400).json({ok:false, error:'Enter the rig name.'});
         const clash = await BvRig.findOne({ rig: new RegExp('^' + rig.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }).lean();
@@ -872,7 +873,7 @@ notesCrtl.saveBvRig = async (req,res)=>{
 notesCrtl.deleteBvRig = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage BV Rigs.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage BV Rigs.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const r = await BvRig.deleteOne({ _id: req.params.id });
         if(!r.deletedCount) return res.status(404).json({ok:false, error:'Rig not found.'});
         res.json({ok:true});
@@ -881,7 +882,7 @@ notesCrtl.deleteBvRig = async (req,res)=>{
 notesCrtl.deleteVendorDistList = async (req,res)=>{
     try{
         const requester = await User.findById(req.session.passport.user);
-        if(!requester || requester.role !== 'admin') return res.status(403).json({ok:false, error:'Only admin accounts can manage distribution lists.'});
+        if(!requester || !['admin','leader','user'].includes(requester.role)) return res.status(403).json({ok:false, error:'Only admin, leader and user accounts can manage distribution lists.'});   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
         const r = await VendorDistList.deleteOne({ _id: req.params.id });
         if(!r.deletedCount) return res.status(404).json({ok:false, error:'Vendor not found.'});
         res.json({ok:true});
@@ -923,7 +924,10 @@ notesCrtl.renderJob = async (req,res)=>{
     // 2026-11-11 (John): show the pad's Pad Distribution List (saved on the EDIT page) on the job page, read-only.
     let padDist = null;
     try{ const k = PadDistList.keyOf(String((note && note.project) || '').trim()); if(k) padDist = await PadDistList.findOne({ padKey: k }).lean(); }catch(err){ console.error('[PadDistList] job page', err); }
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist})
+    // 2026-11-13 (John): Slide Sheet accordion (after Hydraulics) — only shown when the job has saved slide sheets.
+    let slideSheets = [];
+    try{ slideSheets = await SlideSheet.find({ noteId: noteid }).select('-segments -settings -roles').populate('user', 'name').sort({ wellKey: 1, updatedAt: -1 }).lean(); }catch(err){ console.error('[SlideSheet] job page', err); }
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist, slideSheets})
 }
 
 
@@ -2989,9 +2993,119 @@ notesCrtl.deleteSagMaterial = async(req,res)=>{
 // DSI — Drill String Interference (added 2026-10-25, John). Standalone page,
 // engine public/js/dsiModel.js; no server-side data of its own (it reads the
 // existing job lookup / T&D endpoints). Same role guard as PipeStretch/SAG.
+// ADDED 2026-11-13 (John): Slide Sheet — slides / rotations from the rig EDR (Pason LAS, 1 s). Standalone page,
+// engine public/js/slideSheetModel.js; reads only the existing job lookup / T&D endpoints. Same guard as PipeStretch.
+notesCrtl.renderSlideSheet = async(req,res)=>{
+    let user = await User.findById(req.session.passport.user);
+    res.render('slideSheet.ejs', {user});
+};
+// 2026-11-13 (John): Slide Sheet save / list / get / delete (models/SlideSheet.js). Save REPLACES a sheet with the
+// same job + well + name. Delete: owner or admin (same rule as the saved cases of the other modules).
+notesCrtl.saveSlideSheet = async(req,res)=>{
+    try{
+        const b = req.body || {};
+        const name = String(b.name || '').trim().slice(0, 120), wellKey = String(b.wellKey || '').trim();
+        if(!b.noteId || !wellKey || !name) return res.status(400).json({ok:false, error:'Job, well and a name are required.'});
+        if(!Array.isArray(b.intervals) || !b.intervals.length) return res.status(400).json({ok:false, error:'Nothing to save — build the slide sheet first.'});
+        if(b.intervals.length > 20000) return res.status(400).json({ok:false, error:'Too many intervals.'});
+        const note = await Note.findById(b.noteId).select('_id mtxJobId').lean();
+        if(!note) return res.status(404).json({ok:false, error:'Job not found.'});
+        const num = v => (v == null || !isFinite(+v)) ? null : +v;
+        const intervals = b.intervals.map(x => ({ leg: String(x.leg || 'Main').slice(0, 20), run: String(x.run || '').slice(0, 80), mode: x.mode === 'slide' ? 'slide' : 'rotate',
+            from: num(x.from), to: num(x.to), len: num(x.len), tf: num(x.tf), tfRef: String(x.tfRef || '').slice(0, 4), tfSd: num(x.tfSd), rop: num(x.rop), wob: num(x.wob),
+            difp: num(x.difp), rpm: num(x.rpm), incStart: num(x.incStart), incEnd: num(x.incEnd), azStart: num(x.azStart), azEnd: num(x.azEnd), tStart: num(x.tStart), tEnd: num(x.tEnd) }));
+        const doc = await SlideSheet.findOneAndUpdate({ noteId: note._id, wellKey, name },
+            { $set: { mtxJobId: note.mtxJobId || '', tdScenario: String(b.tdScenario || '').slice(0, 100), las: b.las || {}, settings: b.settings || {},
+                roles: Array.isArray(b.roles) ? b.roles.map(String) : [], segments: Array.isArray(b.segments) ? b.segments.slice(0, 200) : [],
+                intervals, summary: b.summary || {}, user: req.user ? req.user._id : null } }, { upsert: true, new: true });
+        res.json({ok:true, id: doc._id, name: doc.name});
+    }catch(err){ console.error('[SlideSheet] save failed', err); res.status(500).json({ok:false, error:'Failed to save the slide sheet.'}); }
+};
+notesCrtl.listSlideSheets = async(req,res)=>{
+    try{
+        const docs = await SlideSheet.find({ noteId: req.params.noteId }).select('wellKey name tdScenario las summary updatedAt user').populate('user', 'name').sort({ wellKey: 1, updatedAt: -1 }).lean();
+        res.json({ok:true, sheets: docs.map(d => ({ id: d._id, wellKey: d.wellKey, name: d.name, tdScenario: d.tdScenario, las: d.las, summary: d.summary, updatedAt: d.updatedAt, by: d.user ? d.user.name : '' }))});
+    }catch(err){ console.error('[SlideSheet] list failed', err); res.status(500).json({ok:false, error:'Failed to list slide sheets.'}); }
+};
+notesCrtl.getSlideSheet = async(req,res)=>{
+    try{ const d = await SlideSheet.findById(req.params.id).lean(); if(!d) return res.status(404).json({ok:false, error:'Slide sheet not found.'}); res.json({ok:true, sheet: d}); }
+    catch(err){ console.error('[SlideSheet] get failed', err); res.status(500).json({ok:false, error:'Failed to load the slide sheet.'}); }
+};
+notesCrtl.deleteSlideSheet = async(req,res)=>{
+    try{
+        const filter = { _id: req.params.id };
+        if(!req.user || req.user.role !== 'admin') filter.user = req.session.passport.user;
+        const r = await SlideSheet.deleteOne(filter);
+        if(!r.deletedCount) return res.status(404).json({ok:false, error:'Not found, or you do not have permission to delete it.'});
+        res.json({ok:true});
+    }catch(err){ console.error('[SlideSheet] delete failed', err); res.status(500).json({ok:false, error:'Failed to delete.'}); }
+};
+// 2026-11-14 (John): DSI defaults saved by an admin ("Save this setup as default") in SiteConfig
+// key 'dsiDefaults' (JSON of input id -> value). Applied when the page opens; built-in defaults otherwise.
+const DSI_DEFAULT_KEYS = ['method','pUsel','pU','pLsel','pL','bitDip','muR','bands','allow','c3d','perRun','unitSel'];
 notesCrtl.renderDsi = async(req,res)=>{
     let user = await User.findById(req.session.passport.user);
-    res.render('dsi.ejs', {user});
+    let dsiDefaults = null;
+    try { const cfg = await SiteConfig.findOne({ key: 'dsiDefaults' }).lean(); if (cfg && cfg.value) dsiDefaults = JSON.parse(cfg.value); } catch (e) { dsiDefaults = null; }
+    res.render('dsi.ejs', {user, dsiDefaults});
+};
+// 2026-11-14 (John): generic "Save this setup as default" for other modules (public/js/mtxDefaults.js).
+// Values are the page's own setting inputs (metric display units), keyed by input id. Admin-only save.
+const MODULE_DEFAULTS = ['sag', 'pipeStretch', 'slideSheet', 'hydraulics', 'casingDesign', 'torqueAndDrag'];
+notesCrtl.getModuleDefaults = async(req,res)=>{
+    try {
+        const mod = req.params.module; if (!MODULE_DEFAULTS.includes(mod)) return res.status(404).json({ error: 'unknown module' });
+        const u = await User.findById(req.session.passport.user);
+        let values = null; const cfg = await SiteConfig.findOne({ key: 'defaults:' + mod }).lean();
+        if (cfg && cfg.value) { try { values = JSON.parse(cfg.value); } catch (e) { values = null; } }
+        res.json({ values, isAdmin: !!(u && u.role === 'admin') });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+notesCrtl.saveModuleDefaults = async(req,res)=>{
+    try {
+        const mod = req.params.module; if (!MODULE_DEFAULTS.includes(mod)) return res.status(404).json({ ok:false, error: 'unknown module' });
+        const u = await User.findById(req.session.passport.user);
+        if (!u || u.role !== 'admin') return res.status(403).json({ ok:false, error: 'Only admin accounts can change page defaults.' });
+        const body = req.body || {};
+        if (body.reset) { await SiteConfig.deleteOne({ key: 'defaults:' + mod }); return res.json({ ok:true, reset:true }); }
+        const v = {}; let n = 0;
+        Object.keys(body.values || {}).forEach(k => { if (n < 80 && /^[A-Za-z0-9_-]{1,40}$/.test(k)) { v[k] = String(body.values[k]).slice(0, 80); n++; } });
+        await SiteConfig.findOneAndUpdate({ key: 'defaults:' + mod }, { value: JSON.stringify(v), updatedBy: u._id, updatedAt: new Date() }, { upsert: true });
+        res.json({ ok:true, saved: v });
+    } catch (err) { res.status(500).json({ ok:false, error: err.message }); }
+};
+// 2026-11-14 (John): Compass survey-tool files (.ipm) imported in the AC module. Stored RAW (the text of the
+// file) in SiteConfig key 'ipmToolcodes' as {name: {text, fileName, by, at}}, shared by every user; the browser
+// converts them with public/js/ipmImport.js, so a converter fix applies to files already stored.
+notesCrtl.getIpmToolcodes = async(req,res)=>{
+    try { const cfg = await SiteConfig.findOne({ key: 'ipmToolcodes' }).lean(); let v = {}; if (cfg && cfg.value) { try { v = JSON.parse(cfg.value); } catch (e) { v = {}; } } res.json({ ok:true, tools: v }); }
+    catch (err) { res.status(500).json({ ok:false, error: err.message }); }
+};
+notesCrtl.saveIpmToolcode = async(req,res)=>{
+    try {
+        const u = await User.findById(req.session.passport.user);
+        if (!u || !['admin','leader','user'].includes(u.role)) return res.status(403).json({ ok:false, error:'Only admin, leader and user accounts can import survey tools.' });
+        const { name, text, fileName, remove } = req.body || {};
+        if (!name || !/^IPM: [\w+\-. ()]{1,60}$/.test(name)) return res.status(400).json({ ok:false, error:'Invalid tool name.' });
+        const cfg = await SiteConfig.findOne({ key: 'ipmToolcodes' }).lean(); let v = {}; if (cfg && cfg.value) { try { v = JSON.parse(cfg.value); } catch (e) { v = {}; } }
+        if (remove) delete v[name];
+        else { if (!text || String(text).length > 100000) return res.status(400).json({ ok:false, error:'Missing or too large .ipm text.' });
+            v[name] = { text: String(text), fileName: String(fileName || '').slice(0, 120), by: u.name || u.username || '', at: new Date() }; }
+        await SiteConfig.findOneAndUpdate({ key: 'ipmToolcodes' }, { value: JSON.stringify(v), updatedBy: u._id, updatedAt: new Date() }, { upsert: true });
+        res.json({ ok:true });
+    } catch (err) { res.status(500).json({ ok:false, error: err.message }); }
+};
+notesCrtl.saveDsiDefaults = async(req,res)=>{
+    try {
+        const requester = await User.findById(req.session.passport.user);
+        if (!requester || requester.role !== 'admin') return res.status(403).json({ ok:false, error:'Only admin accounts can change the DSI defaults.' });
+        const body = req.body || {};
+        if (body.reset) { await SiteConfig.deleteOne({ key: 'dsiDefaults' }); return res.json({ ok:true, reset:true }); }
+        const v = {};
+        DSI_DEFAULT_KEYS.forEach(k => { if (body.values && body.values[k] !== undefined) v[k] = String(body.values[k]).slice(0, 40); });
+        await SiteConfig.findOneAndUpdate({ key: 'dsiDefaults' }, { value: JSON.stringify(v), updatedBy: requester._id, updatedAt: new Date() }, { upsert: true });
+        res.json({ ok:true, saved: v });
+    } catch (err) { console.error('saveDsiDefaults', err); res.status(500).json({ ok:false, error: err.message }); }
 };
 notesCrtl.renderPipeStretch = async(req,res)=>{
     let user = await User.findById(req.session.passport.user);
@@ -3049,7 +3163,7 @@ notesCrtl.deletePipeStretchCase = async(req,res)=>{
 //     saveSagVersion / savePipeStretchVersion since 2026-10-24/25, so a zero
 //     correction moves nothing.
 // =====================================================================
-const CORR_SOURCES = ['SAGcorrection', 'PipeStretch', 'ShortCollar', 'MSA'];
+const CORR_SOURCES = ['SAGcorrection', 'PipeStretch', 'ShortCollar', 'MSA', 'SSA'];   // 2026-11-13: + SSA
 const CORR_CONFLICT = { shortcollar: ['shortcollar', 'msa'], msa: ['shortcollar', 'msa'] };
 // Source version for a save: req.body.versionId if given (any version of this job), else the uploaded original
 // (legacy behaviour: {noteId, wellName: wellKey, source not a correction}).
@@ -3060,6 +3174,8 @@ async function corrSourceVersion(noteId, wellKey, versionId){
 // stations: [{md, inc, az}] corrected values, same length/order as src.survey.
 async function saveCorrectedVersion(req, src, o){
     let chain = Array.isArray(src.correctionChain) ? src.correctionChain : [];
+    // 2026-11-13: SSA adds fill-in stations, so the station-by-station corrections cannot follow it — SSA must be last.
+    if(chain.some(c => c.type === 'ssa')) { const e = new Error('This version already has a Slide Sheet Analysis (SSA) correction, which adds fill-in stations — SSA must be the last correction. Start from the version before SSA.'); e.status = 400; throw e; }
     // versions saved before 2026-11-12 have no chain: their source tells which correction they carry
     const LEGACY = { SAGcorrection: ['sag', 'SAG'], PipeStretch: ['stretch', 'STRETCH'], ShortCollar: ['shortcollar', 'SC'], MSA: ['msa', 'MSA'] };
     if(!chain.length && LEGACY[src.source]) chain = [{ type: LEGACY[src.source][0], tag: LEGACY[src.source][1], label: 'saved before 2026-11-12 (no per-station history)', sourceName: src.wellName }];
@@ -3095,6 +3211,59 @@ async function saveCorrectedVersion(req, src, o){
         surveyCount: survey.length, survey, user: req.user ? req.user._id : null, uploadedDate: new Date(),
     });
 }
+
+// ADDED 2026-11-13 (John): save a Slide Sheet Analysis (SSA) version — the measured stations of the starting version
+// are kept unchanged and fill-in stations (computed in the browser by public/js/ssaModel.js per ISCWSA eBook pp. 57-58)
+// are inserted; minimum curvature (SagModelCore, Bourgoyne Ch.8) is run through all stations from the original tie.
+// Measured stations get the MC position change added to their stored values (same convention as saveCorrectedVersion);
+// a fill-in takes the stored position of the measured station before it + the MC difference between the two.
+// Latitude / longitude of fill-ins are left at 0 (no projection in MTX to convert N/E). SSA must be the last correction.
+notesCrtl.saveSsaVersion = async (req, res) => {
+    try{
+        const { noteId, wellKey, versionId, fillIns } = req.body;
+        if(!noteId || !wellKey || !Array.isArray(fillIns) || !fillIns.length) return res.status(400).json({ ok: false, error: 'noteId, wellKey and fill-in stations are required.' });
+        const src = await corrSourceVersion(noteId, wellKey, versionId);
+        if(!src || !src.survey || src.survey.length < 2) return res.status(404).json({ ok: false, error: 'Source well survey not found.' });
+        const chain = Array.isArray(src.correctionChain) ? src.correctionChain : [];
+        if(chain.some(c => c.type === 'ssa') || src.survey.some(s => s.interp)) return res.status(400).json({ ok: false, error: 'This version already has an SSA correction.' });
+        const mdMin = src.survey[0].md, mdMax = src.survey[src.survey.length - 1].md;
+        for(const f of fillIns) if(!isFinite(+f.md) || !isFinite(+f.inc) || !isFinite(+f.az) || +f.md <= mdMin || +f.md >= mdMax || +f.inc < 0 || +f.inc > 180)
+            return res.status(400).json({ ok: false, error: 'Invalid fill-in station.' });
+        const merged = src.survey.map((s, i) => ({ real: true, i, md: s.md, inc: s.incl, az: s.azim }))
+            .concat(fillIns.map(f => ({ real: false, md: +f.md, inc: +f.inc, az: ((+f.az % 360) + 360) % 360, f })))
+            .sort((a, b) => a.md - b.md || (a.real ? -1 : 1));
+        const s0 = src.survey[0], tie = { tvd: s0.tvd, n: s0.localN, e: s0.localE };
+        const mc0 = SagModelCore.minimumCurvature(src.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim })), tie);
+        const mc = SagModelCore.minimumCurvature(merged.map(m => ({ md: m.md, inc: m.inc, az: m.az })), tie);
+        const survey = []; let lastReal = null;
+        merged.forEach((m, j) => {
+            if(m.real){
+                const s = src.survey[m.i], dT = mc[j].tvd - mc0[m.i].tvd, dN = mc[j].n - mc0[m.i].n, dE = mc[j].e - mc0[m.i].e, pos = s.position || { x: 0, y: 0, z: 0 };
+                const o = Object.assign({}, s, { origMd: s.origMd != null ? s.origMd : s.md, origIncl: s.origIncl != null ? s.origIncl : s.incl, origAzim: s.origAzim != null ? s.origAzim : s.azim,
+                    tvd: s.tvd + dT, localN: s.localN + dN, localE: s.localE + dE, dogleg: mc[j].dls, subSea: s.subSea - dT, northing: s.northing + dN, easting: s.easting + dE,
+                    position: { x: pos.x + dE, y: pos.y - dT, z: pos.z - dN }, interp: false });
+                survey.push(o); lastReal = { o, j };
+            } else {
+                const b = lastReal.o, k = lastReal.j, dT = mc[j].tvd - mc[k].tvd, dN = mc[j].n - mc[k].n, dE = mc[j].e - mc[k].e, f = m.f, sl = f.slide || {};
+                survey.push({ well: b.well, md: m.md, incl: mc[j].inc, azim: m.az, origMd: m.md, origIncl: m.inc, origAzim: m.az, interp: true,
+                    tvd: b.tvd + dT, subSea: b.subSea - dT, vertSec: 0, localN: b.localN + dN, localE: b.localE + dE, dogleg: mc[j].dls, northing: b.northing + dN, easting: b.easting + dE,
+                    latitude: 0, longitude: 0, position: { x: b.position.x + dE, y: b.position.y - dT, z: b.position.z - dN },
+                    comments: 'SSA fill-in (' + (f.at || '') + ' of slide ' + (+sl.from).toFixed(1) + '-' + (+sl.to).toFixed(1) + ' m, TF ' + (+sl.tf).toFixed(0) + '°' + (sl.run ? ', ' + String(sl.run).slice(0, 40) : '') + ')' });
+            }
+        });
+        const realIdx = survey.map((s, i) => s.interp ? -1 : i).filter(i => i >= 0);
+        const step = { type: 'ssa', tag: 'SSA', model: 'ISCWSA eBook pp.57-58', label: String(req.body.label || '').slice(0, 300), inputs: req.body.inputs || {},
+            sourceId: src._id, sourceName: src.wellName, userName: req.user ? (req.user.name || req.user.email || '') : '', date: new Date(),
+            // per MEASURED station (same order/length as the source survey): MD and angles unchanged by SSA
+            dMd: realIdx.map(() => 0), dInc: realIdx.map(() => 0), dAz: realIdx.map(() => 0) };
+        const base = src.baseWellName || (CORR_SOURCES.indexOf(src.source) < 0 ? src.wellName : wellKey);
+        const newChain = chain.concat([step]), date = new Date().toISOString().slice(0, 10);
+        const doc = await WellboreTrajectory.create({ noteId: src.noteId, wellName: base + ' ' + newChain.map(c => c.tag).join('+') + ' ' + date, source: 'SSA',
+            baseWellName: base, correctionChain: newChain, wellCategory: src.wellCategory || '', pad: src.pad || '', colorHex: '', toolcode: src.toolcode || '',
+            surveyCount: survey.length, survey, user: req.user ? req.user._id : null, uploadedDate: new Date() });
+        res.json({ ok: true, wellName: doc.wellName, id: doc._id, fillIns: fillIns.length });
+    }catch(err){ console.error('[SSA] save version failed', err); res.status(err.status || 500).json({ ok: false, error: err.message }); }
+};
 // GET /notes/surveyVersions?noteId=&wellKey=  -> the uploaded well + every correction version derived from it
 // (new versions by baseWellName; versions saved before 2026-11-12 by name prefix "<well> ").
 notesCrtl.listSurveyVersions = async (req, res) => {
@@ -3120,7 +3289,7 @@ notesCrtl.getSurveyVersion = async (req, res) => {
         if(!d) return res.status(404).json({ ok: false, error: 'Version not found.' });
         res.json({ ok: true, version: { id: d._id, noteId: d.noteId, wellName: d.wellName, source: d.source, baseWellName: d.baseWellName || '', toolcode: d.toolcode || '',
             chain: d.correctionChain || [], survey: (d.survey || []).map(s => ({ md: s.md, inc: s.incl, az: s.azim, tvd: s.tvd, n: s.localN, e: s.localE,
-                origMd: s.origMd != null ? s.origMd : s.md, origInc: s.origIncl != null ? s.origIncl : s.incl, origAz: s.origAzim != null ? s.origAzim : s.azim })) } });
+                origMd: s.origMd != null ? s.origMd : s.md, origInc: s.origIncl != null ? s.origIncl : s.incl, origAz: s.origAzim != null ? s.origAzim : s.azim, interp: !!s.interp })) } });
     }catch(err){ console.error('[surveyVersions] get failed', err); res.status(500).json({ ok: false, error: err.message }); }
 };
 
