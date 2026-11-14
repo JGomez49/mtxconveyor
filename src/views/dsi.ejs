@@ -231,6 +231,22 @@
     <div class="note warnbox">Pending the original SPE 11382 paper. With the confirmed pole formula the ISCWSA eBook worked example (900/90 µWb, 2 m steel below, 50 000 nT, Dip 72°, Inc 60°, Az 35°, 0.25°) gives the optimum sensor position ≈ 26–32 % from the NMDC bottom (eBook: 30 %) but a required length of ≈ 35–41 m instead of the eBook's 24 m, so the chart is withheld until the paper's Eq. 2 can be checked.
       The ΔBz-vs-sensor-position plot above uses only the confirmed formulas.</div>
   </div>
+
+  <%# 2026-11-14 (John): technical report, same fields as SAGcorrection / PipeStretch / SSA / Short Collar %>
+  <div class="panel">
+    <h2>6 · Technical report</h2>
+    <div class="row">
+      <div class="field"><span>Well</span><input id="rpDWell" style="width:220px" placeholder="blank = well selected above"></div>
+      <div class="field"><span>Job / MTX ID</span><input id="rpDJob" style="width:130px"></div>
+      <div class="field"><span>Run / section</span><input id="rpDRun" style="width:150px"></div>
+      <div class="field"><span>Prepared by</span><input id="rpDBy" style="width:150px" value="<%= (user && user.name) || '' %>"></div>
+      <div class="field"><span>Checked by</span><input id="rpDChk" style="width:150px"></div>
+      <div class="field"><span>Toolcode</span><input id="rpDTool" style="width:150px" placeholder="e.g. MWD+HRGM"></div>
+      <div class="field" style="flex:1;min-width:240px"><span>Comments</span><input id="rpDNotes" style="width:100%"></div>
+      <button class="primary" onclick="dsiReport()">📄 Build report (PDF)</button>
+    </div>
+    <div class="note">Uses the last <b>Calculate</b> result and the plots on this page. Opens in a new tab — use <b>Print → Save as PDF</b>.</div>
+  </div>
 </div>
 
 <script>
@@ -643,6 +659,56 @@ function exportResults(){
   if(survey.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(survey.map(function(s){ var o = {}; o['MD (' + uL + ')'] = +L(s.md).toFixed(3); o['Inc (deg)'] = s.inc; o['Az (deg)'] = s.az;
     o['Magnetic Az (deg)'] = +(((magAz(s.az) % 360) + 360) % 360).toFixed(3); o['Azimuth error (deg)'] = +last.err(s.inc, s.az).toFixed(4); o['ISCWSA allowance 1sd (deg, SPE 67616)'] = +allowance(s.inc, s.az).toFixed(4); return o; })), 'Survey');
   XLSX.writeFile(wb, 'DSI_results.xlsx');
+}
+// ---- Technical report (ADDED 2026-11-14, John: same layout as SAGcorrection / PipeStretch / SSA / Short Collar) ----
+// Printable page (Print -> Save as PDF): summary (the Results text of panel 4, which already carries its sources),
+// report fields, inputs (reference field, method, poles / induced sections), BHA table, plots (Plotly.toImage of the
+// plots on this page), survey table with the SPE 67616 allowance, sources, sign-off. Nothing is recomputed here.
+
+function dsiReport(){
+  if(!last){ alert('Press Calculate first.'); return; }
+  var w = window.open('', '_blank'); if(!w){ alert('Allow pop-ups to open the report.'); return; }
+  w.document.write('<p style="font-family:Arial">Building report…</p>');
+  var ids = ['plotMd', 'plotHeat', 'plotPos', 'plot3d'], uL = UNIT === 'metric' ? 'm' : 'ft';
+  Promise.all(ids.map(function(id){ var el = $(id); if(!el || !el.data || typeof Plotly === 'undefined') return Promise.resolve(null);
+    var lay = { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff', 'font.color': '#111' };
+    return Plotly.toImage(el, { format: 'png', width: 1000, height: id === 'plot3d' ? 650 : 420 }).then(function(img){ return img; }, function(){ return null; }); }))
+  .then(function(imgs){
+    var v = function(id){ var e = $(id); return e ? String(e.value || '').trim() : ''; }, today = new Date().toISOString().slice(0, 10), B = '#00539B';
+    var kv = function(r){ return '<table class="kv">' + r.map(function(x){ return '<tr><th>' + x[0] + '</th><td>' + x[1] + '</td></tr>'; }).join('') + '</table>'; };
+    var wellTxt = v('rpDWell') || ($('wellSel').selectedOptions[0] ? $('wellSel').selectedOptions[0].text : ''), jobTxt = v('rpDJob') || v('mtxId');
+    var runTxt = v('rpDRun') || ($('runSel').selectedOptions[0] ? $('runSel').selectedOptions[0].text : '');
+    var mName = last.method === 'pole' ? 'Pole model (SPE 7748 / ISCWSA eBook §5.2.2)' : last.method === 'induced' ? 'Lalji 2020 + Osborn 1945 (induced magnetisation, μr ' + (v('muR') || '∞') + ')' : 'SNIPER v1-3 (legacy — no published source)';
+    var inputs = [['Reference BT', fmt(last.bt, 0) + ' nT'], ['Dip', fmt(last.dip, 3) + '°'], ['Declination', v('dec') + '°'], ['Survey azimuths', $('azRef').value === 'grid' ? 'Grid (convergence ' + v('conv') + '°)' : 'True north'],
+      ['Sensor from bit', v('sensor') + ' ' + uL + (+$('xnR').value ? ' · what-if extra NMDC ' + $('xnR').value + ' ' + uL : '')], ['Method', mName]];
+    if(last.method === 'pole') inputs.push(['Steel above / below NMDC', esc($('pUsel').options[$('pUsel').selectedIndex].text) + ' / ' + esc($('pLsel').options[$('pLsel').selectedIndex].text) + ($('bitDip').checked ? ' · steel below modelled as a dipole' : '')],
+      ['Poles', last.poles.poles.map(function(p){ return esc(p.label) + ' @ ' + fmt(L(p.x), 2) + ' ' + uL + ': ' + p.P + ' µWb'; }).join('<br>')]);
+    var bha = '<table><tr><th>#</th><th>Component</th><th>OD (in)</th><th>ID (in)</th><th>Length (' + uL + ')</th><th>Material</th></tr>' + readBha().map(function(r, i){ return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + fmt(r.od, 3) + '</td><td>' + fmt(r.id, 3) + '</td><td>' + fmt(L(r.len || 0), 2) + '</td><td>' + esc(r.material) + '</td></tr>'; }).join('') + '</table>';
+    var ind = last.method === 'induced' || last.method === 'sniper' ? '<h3>' + (last.method === 'induced' ? 'Steel sections (induced)' : 'SNIPER poles') + '</h3><table>' + $(last.method === 'induced' ? 'indBody' : 'sniperBody').parentNode.innerHTML + '</table>' : '';
+    var nx = survey.filter(function(s){ return Math.abs(last.err(s.inc, s.az)) > allowance(s.inc, s.az); }).length;
+    var sv = survey.length ? '<table><tr><th>MD (' + uL + ')</th><th>Inc (°)</th><th>Az (°)</th><th>Mag. Az (°)</th><th>ΔA predicted (°)</th><th>ISCWSA allowance 1σ (°)</th></tr>' + survey.map(function(s){ var e = last.err(s.inc, s.az), a = allowance(s.inc, s.az);
+      return '<tr' + (Math.abs(e) > a ? ' style="background:#fde8e8"' : '') + '><td>' + fmt(L(s.md), 2) + '</td><td>' + fmt(s.inc, 2) + '</td><td>' + fmt(s.az, 2) + '</td><td>' + fmt(((magAz(s.az) % 360) + 360) % 360, 2) + '</td><td>' + fmt(e, 3) + '</td><td>' + fmt(a, 3) + '</td></tr>'; }).join('') + '</table>' : '<p>No survey loaded.</p>';
+    var cap = ['ΔBz / azimuth error along the well', 'Azimuth error vs Inc / Az (heat map)', 'ΔBz vs sensor position', '3D trajectory coloured by predicted interference'];
+    var plots = imgs.map(function(im, i){ return im ? '<div class="fig"><img src="' + im + '"><div class="cap">Figure ' + (i + 1) + ' — ' + cap[i] + '</div></div>' : ''; }).join('');
+    var css = 'body{font-family:Segoe UI,Arial,sans-serif;color:#111;margin:24px 30px;font-size:12px}h1{color:' + B + ';font-size:22px;margin:0}h2{color:' + B + ';font-size:16px;border-bottom:2px solid ' + B + ';padding-bottom:3px;margin-top:22px}h3{font-size:13px}' +
+      'table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:3px 5px;text-align:right}th{background:#eef3f9}td:first-child,th:first-child{text-align:left}.kv th{width:30%;text-align:left}.kv td{text-align:left}' +
+      '.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid ' + B + ';padding-bottom:8px}.fig{break-inside:avoid;margin:8px 0}.fig img{width:100%;border:1px solid #ddd}.cap{font-size:11px;color:#555}' +
+      '.sum .bad,.sum .warn{color:#b00020}.sum .ok{color:#1a7f37}.sum .muted{color:#555}@media print{.np{display:none}h2{break-after:avoid}}';
+    var h = '<!doctype html><html><head><meta charset="utf-8"><title>DSI report</title><style>' + css + '</style></head><body><div class="np" style="margin-bottom:10px"><button onclick="print()">🖨 Print / Save as PDF</button></div>' +
+      '<div class="hdr"><div><h1>Drillstring Magnetic Interference (DSI)</h1><div>' + esc(wellTxt) + (jobTxt ? ' · ' + esc(jobTxt) : '') + (runTxt ? ' · ' + esc(runTxt) : '') + '</div></div><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png" style="height:54px"></div>' +
+      '<h2>1 · Summary</h2>' + kv([['Well', esc(wellTxt || '—')], ['Job / MTX ID', esc(jobTxt || '—')], ['Run / section', esc(runTxt || '—')], ['Date', today], ['Prepared by', esc(v('rpDBy') || '—')], ['Checked by', esc(v('rpDChk') || '—')],
+        ['Toolcode', esc(v('rpDTool') || '—')], ['Method', mName], ['Result', '<div class="sum">' + $('summary').innerHTML + '</div>'], ['Single direction checked', 'Inc ' + v('incOne') + '° / Az ' + v('azOne') + '°: ' + fmt(last.err(+v('incOne'), +v('azOne')), 3) + '°'],
+        ['Stations above the ISCWSA allowance', survey.length ? nx + ' of ' + survey.length + ' (shaded in the survey table)' : '—'], ['Comments', esc(v('rpDNotes') || '—')]]) +
+      '<h2>2 · Inputs</h2>' + kv(inputs) + '<h3>BHA (bit first)</h3>' + bha + ind +
+      '<h2>3 · Plots</h2>' + (plots || '<p>No plots available.</p>') +
+      '<h2>4 · Survey</h2>' + sv +
+      '<h2>5 · Sources</h2><ul><li>Pole model B = P/4πr², pole strengths and 0.25° good-magnetic limit: ISCWSA, Introduction to Wellbore Positioning (eBook), §5.2.2–5.2.3; SPE 7748.</li><li>Azimuth error from ΔBz: SPE 9223 eq. 2.</li>' +
+      '<li>Pole-strength presets (RMS, 1 s.d.) and interference allowance 0.25° + 0.6°·sinI·sinAm: SPE 67616 (Williamson 2000).</li><li>Induced magnetisation: Lalji et al. 2020 (Eq. 3); demagnetising factor: Osborn 1945. Remanent magnetisation not included.</li>' +
+      '<li>SNIPER v1-3: legacy method, no known published source (comparison only).</li></ul>' +
+      '<h2>6 · Sign-off</h2><table><tr><th></th><th>Name</th><th>Signature</th><th>Date</th></tr><tr><td>Prepared by</td><td>' + esc(v('rpDBy')) + '</td><td></td><td>' + today + '</td></tr><tr><td>Checked by</td><td>' + esc(v('rpDChk')) + '</td><td></td><td></td></tr></table>' +
+      '<p style="font-size:10.5px;color:#555;margin-top:14px">MTX Conveyor · DSI module · prediction only — confirm with field QC (BT / Dip checks, MSA or Short Collar when surveys are available).</p></body></html>';
+    w.document.open(); w.document.write(h); w.document.close();
+  });
 }
 document.addEventListener('DOMContentLoaded', function(){
   var t = new Date(); $('yr').value = (t.getFullYear() + (t - new Date(t.getFullYear(), 0, 1)) / 864e5 / 365.25).toFixed(3);

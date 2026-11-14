@@ -297,7 +297,6 @@
         <input type="file" id="svyFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importSurvey(event)"></label>
       <button onclick="exportSurvey()">⬇ Export corrected survey</button>
       <button onclick="saveVersion()" id="btnSaveVer" disabled title="Available when the survey came from an MTX job well">💾 Save as new version in job</button>
-      <button onclick="openReport()" id="btnReport" disabled>📄 Report</button>
       <span id="svyInfo" class="muted"></span>
     </div>
     <div class="note">Corrected MD = measured MD + total stretch of the pipe above that depth (mechanical + thermal). Inc and Az are unchanged; TVD/N/E are
@@ -307,6 +306,24 @@
       <thead><tr><th>MD meas</th><th>Run</th><th>Inc (°)</th><th>Az (°)</th><th>Mechanical</th><th>Thermal</th><th>Total ΔMD</th><th>MD corr</th><th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th></tr></thead>
       <tbody id="svyBody"></tbody></table></div>
     <div class="muted">*TVD relative to the first station.</div>
+  </div>
+  <!-- 2026-11-14 (John): Technical report panel, same layout as SAGcorrection's panel 6 — the report header, summary and sign-off
+       take these fields. -->
+  <div class="panel">
+    <h2>5 · Technical report</h2>
+    <div class="row">
+      <div class="field"><span>Well</span><input id="rpWell" style="width:240px"></div>
+      <div class="field"><span>Job / MTX ID</span><input id="rpJob" style="width:140px"></div>
+      <div class="field"><span>Run / section</span><input id="rpRun" style="width:140px"></div>
+      <div class="field"><span>Prepared by</span><input id="rpBy" style="width:160px" value="<%= (user && user.name) || '' %>"></div>
+      <div class="field"><span>Checked by</span><input id="rpChk" style="width:160px"></div>
+      <div class="field"><span>Toolcode (corrected well)</span><input id="rpTool" style="width:160px" placeholder="e.g. MWD+HRGM+STRETCH"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><span>Comments (shown in the summary)</span><input id="rpNotes" style="width:100%"></div>
+      <button class="primary" onclick="openReport()" id="btnReport" disabled style="align-self:flex-end">📄 Build report (PDF)</button>
+    </div>
+    <div class="note">Needs the stretch analysis (panel 3) and the corrected survey (panel 4). The report opens in a new tab — use <b>Print → Save as PDF</b> there (A4/Letter, headers and backgrounds on). Well and Job fill in from the loaded job when left empty.</div>
   </div>
 </div>
 
@@ -666,6 +683,13 @@ async function saveVersion(){
   }catch(err){ alert('Save failed: ' + err.message); }
 }
 
+
+// 2026-11-14 (John): technical-report panel values (same fields as SAGcorrection). Empty Well / Job fall back to the loaded job.
+function rpVal(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function rpEscS(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function rpRows(){ return [['Run / section', rpEscS(rpVal('rpRun') || '—')], ['Prepared by', rpEscS(rpVal('rpBy') || '—')], ['Checked by', rpEscS(rpVal('rpChk') || '—')],
+  ['Toolcode of the corrected well', rpEscS(rpVal('rpTool') || '—')], ['Comments', rpEscS(rpVal('rpNotes') || '—')]]; }
+function rpSignoff(today){ return '<table><tr><th></th><th>Name</th><th>Signature</th><th>Date</th></tr><tr><td>Prepared by</td><td>' + rpEscS(rpVal('rpBy')) + '</td><td></td><td>' + today + '</td></tr><tr><td>Checked by</td><td>' + rpEscS(rpVal('rpChk')) + '</td><td></td><td></td></tr></table>'; }
 // ---------------- report (ADDED 2026-11-12, John: per-module report like SAGcorrection's, with the corrections
 // applied before this one). Printable page -> browser "Save as PDF". Same CNRL logo / blue as the SAG report.
 var RP_LOGO = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png', RP_COLOR = '#00539B';
@@ -707,24 +731,25 @@ async function openReport(){
     : '<p><b>SurQC model.</b> Port of SurQC\'s stretch correction: 1 m elements, inclination-only soft string, μ = 0.25, E = 210 GPa, steel 7700 kg/m³, α = 12×10⁻⁶ /°C, thermal = α × gradient × TVD. As SurQC, one tension profile with the bit at the last survey MD is used for every station.</p>';
   method += '<p>Corrected MD = measured MD + total stretch (mechanical + thermal). Inc and Az unchanged; TVD/N/E recomputed by minimum curvature (Bourgoyne et al., Applied Drilling Engineering, Ch. 8).</p>';
   var rows = st.map(function(s){ return '<tr><td>' + fmt(L(s.mdRaw), 2) + '</td><td>' + esc(s.run || (result.runs ? 'none' : '—')) + '</td><td>' + fmt(s.inc, 2) + '</td><td>' + fmt(s.az, 2) + '</td><td>' + fmt(L(s.mech), 3) + '</td><td>' + fmt(L(s.thermal), 3) + '</td><td>' + fmt(L(s.total), 3) + '</td><td>' + fmt(L(s.md), 2) + '</td><td>' + fmt(L(s.dTvd), 3) + '</td><td>' + fmt(L(s.dN), 3) + '</td><td>' + fmt(L(s.dE), 3) + '</td></tr>'; }).join('');
-  var well = surveySource ? surveySource.wellKey : '(imported survey)', today = new Date().toISOString().slice(0, 10);
+  var well = rpVal('rpWell') || (surveySource ? surveySource.wellKey : '(imported survey)'), today = new Date().toISOString().slice(0, 10);
+  var jobT = rpVal('rpJob') || (job.mtxJobId ? 'MTX ' + job.mtxJobId + (job.title ? ' — ' + job.title : '') : '');   // 2026-11-14 report panel
   var css = 'body{font-family:Segoe UI,Arial,sans-serif;color:#111;margin:24px 32px;font-size:12.5px}h1{color:' + RP_COLOR + ';font-size:22px;margin:0}h2{color:' + RP_COLOR + ';font-size:16px;border-bottom:2px solid ' + RP_COLOR + ';padding-bottom:3px;margin-top:22px}' +
     'table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:4px 6px;text-align:right}th{background:#eef3f9}td:first-child,th:first-child{text-align:left}.kv th{width:32%;text-align:left}.kv td{text-align:left}' +
     '.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid ' + RP_COLOR + ';padding-bottom:8px}.small{font-size:11px;color:#444}@media print{.np{display:none}h2{break-after:avoid}}';
   var h = '<!doctype html><html><head><meta charset="utf-8"><title>PipeStretch report — ' + esc(well) + '</title><style>' + css + '</style></head><body>' +
     '<div class="np" style="margin-bottom:10px"><button onclick="print()">🖨 Print / Save as PDF</button></div>' +
-    '<div class="hdr"><div><h1>Pipe Stretch MD Correction</h1><div>' + esc(well) + (job.mtxJobId ? ' · MTX ' + esc(job.mtxJobId) + (job.title ? ' — ' + esc(job.title) : '') : '') + '</div></div><img src="' + RP_LOGO + '" style="height:54px"></div>' +
+    '<div class="hdr"><div><h1>Pipe Stretch MD Correction</h1><div>' + esc(well) + (jobT ? ' · ' + esc(jobT) : '') + (rpVal('rpRun') ? ' · ' + esc(rpVal('rpRun')) : '') + '</div></div><img src="' + RP_LOGO + '" style="height:54px"></div>' +
     '<h2>1 · Summary</h2>' + kv([['Starting survey version', esc(surveySource ? surveySource.versionName : '(imported survey)')], ['Model', esc(inp.model)], ['Load case', esc(inp.loadCase)],
       ['Stations', st.length + (result.runs ? ' (' + st.filter(function(s){ return !s.run; }).length + ' outside every run, uncorrected)' : '')],
       ['At deepest corrected station (' + fmt(L(last.mdRaw), 1) + ' ' + u + ')', 'mechanical ' + fmt(L(last.mech), 3) + ' ' + u + ' · thermal ' + fmt(L(last.thermal), 3) + ' ' + u + ' · <b>total ' + fmt(L(last.total), 3) + ' ' + u + '</b> · ΔTVD ' + fmt(L(last.dTvd), 3) + ' ' + u],
-      ['Date', today]]) +
+      ['Date', today]].concat(rpRows())) +
     '<h2>2 · Corrections applied before this one</h2>' + chainHtml +
     '<h2>3 · Inputs</h2>' + kv(Object.keys(inp).filter(function(k){ return k !== 'runs'; }).map(function(k){ return [esc(k), esc(inp[k])]; })) +
     '<h3>BHA runs</h3>' + runsHtml +
     '<h2>4 · Method</h2>' + method +
     '<h2>5 · Stretch along the well</h2>' + (img ? '<img src="' + img + '" style="width:100%">' : '<p>(plot unavailable)</p>') +
     '<h2>6 · Corrected survey</h2><table><tr><th>MD meas (' + u + ')</th><th>Run</th><th>Inc (°)</th><th>Az (°)</th><th>Mech (' + u + ')</th><th>Thermal (' + u + ')</th><th>Total ΔMD (' + u + ')</th><th>MD corr (' + u + ')</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th></tr>' + rows + '</table>' +
-    '<h2>7 · Sign-off</h2><table><tr><th></th><th>Name</th><th>Signature</th><th>Date</th></tr><tr><td>Prepared by</td><td></td><td></td><td>' + today + '</td></tr><tr><td>Checked by</td><td></td><td></td><td></td></tr></table>' +
+    '<h2>7 · Sign-off</h2>' + rpSignoff(today) +
     '</body></html>';
   w.document.open(); w.document.write(h); w.document.close();
 }

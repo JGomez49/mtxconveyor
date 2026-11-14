@@ -1505,7 +1505,7 @@
           <!-- BHA runs (added 2026-11-08) -->
           <div class="tbl-wrap">
             <table class="dt">
-              <thead><tr><th title="Run shown in the BHA / Drill Pipe tables below">Edit</th><th title="Use this run in the T&amp;D model">T&amp;D</th><th>Run</th><th id="th_rfrom">From (m)</th><th id="th_rto">To (m)</th><th id="th_rwobr">WOB Rot (kDaN)</th><th id="th_rwobs">WOB Slide (kDaN)</th><th>Torque @ Bit (N.m)</th><th id="th_rsens" title="MWD directional sensor distance from the bit (used by the DSI page)">MWD sensor from bit (m)</th><th></th></tr></thead>
+              <thead><tr><th title="Run shown in the BHA / Drill Pipe tables below">Edit</th><th title="Use this run in the T&amp;D model">T&amp;D</th><th>Run</th><th id="th_rfrom">From (m)</th><th id="th_rto">To (m)</th><th id="th_rwobr">WOB Rot (kDaN)</th><th id="th_rwobs">WOB Slide (kDaN)</th><th>Torque @ Bit (N.m)</th><th id="th_rsens" title="MWD directional sensor distance from the bit (used by the DSI page)">MWD sensor from bit (m)</th><th title="Motor bend angle (deg). Saved with the run; used by the SAG correction when this run is loaded there.">Bend (°)</th><th id="th_rbend" title="Distance from the bit to the motor bend. Saved with the run; used by the SAG correction.">Bend to bit (m)</th><th></th></tr></thead>
               <tbody id="runBody"></tbody>
             </table>
           </div>
@@ -3935,6 +3935,8 @@
         r.from = dSI(+g('from').value); r.to = dSI(+g('to').value);
         r.wobRot = fSI(+g('wobr').value); r.wobSlid = fSI(+g('wobs').value); r.torqBit = +g('tqb').value || 0;
         r.sensor = g('sens') && g('sens').value !== '' ? dSI(+g('sens').value) : null;   // 2026-11-14 DSI
+        r.bendDeg = g('bdeg') && g('bdeg').value !== '' ? +g('bdeg').value : null;          // 2026-11-14 motor bend (deg)
+        r.bendDist = g('bdist') && g('bdist').value !== '' ? dSI(+g('bdist').value) : null;  // 2026-11-14 bend to bit (SI m)
         return r;
       });
       var cur = planCurRun(); document.getElementById('runEditName').textContent = cur ? cur.name : '—';
@@ -3998,6 +4000,9 @@
           + '<td><input type="number" step="any" data-k="wobs" value="' + r2(fDisp(r.wobSlid), 2) + '"/></td>'
           + '<td><input type="number" step="any" data-k="tqb" value="' + r2(r.torqBit, 0) + '"/></td>'
           + '<td><input type="number" step="any" data-k="sens" placeholder="—" value="' + (r.sensor != null && isFinite(r.sensor) ? r2(dDisp(r.sensor), 2) : '') + '"/></td>'   // 2026-11-14 DSI: MWD sensor (SI m)
+          // 2026-11-14 (John): motor bend per run — angle (deg) and distance from the bit to the bend (SI m); used by SAG
+          + '<td><input type="number" step="any" data-k="bdeg" placeholder="—" value="' + (r.bendDeg != null && isFinite(r.bendDeg) ? r2(r.bendDeg, 2) : '') + '"/></td>'
+          + '<td><input type="number" step="any" data-k="bdist" placeholder="—" value="' + (r.bendDist != null && isFinite(r.bendDist) ? r2(dDisp(r.bendDist), 2) : '') + '"/></td>'
           + '<td><button class="del" title="Delete run" onclick="planDelRun(\'' + r.id + '\')">x</button></td></tr>';
       }).join('');
     }
@@ -4030,7 +4035,7 @@
       var M = pM(), dU = M ? '(m)' : '(ft)', fU = M ? '(kDaN)' : '(klbf)';
       var set = function (id, t) { var e = document.getElementById(id); if (e) e.textContent = t; };
       set('th_sfrom', 'From ' + dU); set('th_sto', 'To ' + dU); set('th_smw', M ? 'MW (kg/m3)' : 'MW (ppg)');
-      set('th_rfrom', 'From ' + dU); set('th_rsens', 'MWD sensor from bit ' + dU); set('th_rto', 'To ' + dU); set('th_rwobr', 'WOB Rot ' + fU); set('th_rwobs', 'WOB Slide ' + fU);
+      set('th_rfrom', 'From ' + dU); set('th_rsens', 'MWD sensor from bit ' + dU); set('th_rbend', 'Bend to bit ' + dU); set('th_rto', 'To ' + dU); set('th_rwobr', 'WOB Rot ' + fU); set('th_rwobs', 'WOB Slide ' + fU);
       set('th_dlen', M ? 'Length (m)' : 'Length (ft)'); set('th_dwt', M ? 'Wt (kg/m)' : 'Wt (lb/ft)');
       set('lLibLen', M ? 'Length (m)' : 'Length (ft)');
     }

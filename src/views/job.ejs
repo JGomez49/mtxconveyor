@@ -1689,6 +1689,21 @@ body.light-mode #statusTextbox {
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
                                         <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well:</label>
                                         <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
+                                        <%# 2026-11-14 (John): optional actual Pason curve next to the calculated (planned) curve %>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);display:flex;align-items:center;gap:4px;" title="Show the actual Hole Depth vs Time from the Pason export (its Average line) next to the calculated planned curve"><input type="checkbox" id="pasonTDShowActual" checked> Show actual (Pason Avg)</label>
+                                        <%# 2026-11-14 (John): actual curve sharp/rounded, saved per user (public/js/userPrefs.js, key tdCurveStyle — same as the Pason Plots page) %>
+                                        <select id="pasonTDCurveStyle" class="form-select form-select-sm" style="max-width:110px;" title="Actual curve: Sharp = straight lines between points; Rounded = smoothed. Saved for your user (also used on the Pason Plots page)."><option value="sharp">Sharp</option><option value="round">Rounded</option></select>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Sharp: a point is dropped when it lies within this % of the plot size from the straight line through its neighbours. Smaller = more points; larger = fewer, longer straight segments. Saved for your user (shared with the Pason Plots page).">Tol %</label>
+                                        <input type="number" id="pasonTDSharpTol" class="form-control form-control-sm" style="max-width:70px;" value="1" min="0.05" max="20" step="0.1">
+                                        <%# 2026-11-14 (John): compare planned vs actual — align the planned curve to the actual drilling start and/or calibrate it for non-drilling time %>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Off: planned curve as calculated (drilling time from Avg ROP + pauses, starting at day 0). Align start: shift the planned curve so it starts where the actual drilling resumes (end of the longest flat period of the actual curve, or the day/depth you enter). Calibrate: stretch the planned time by actual time / planned time over the depth range both curves cover (accounts for trips, connections, casing, waiting). Align + calibrate: both.">Planned vs actual:</label>
+                                        <select id="pasonTDCompare" class="form-select form-select-sm" style="max-width:150px;">
+                                            <option value="off">Off (as calculated)</option><option value="align">Align start</option><option value="cal">Calibrate</option><option value="both">Align + calibrate</option>
+                                        </select>
+                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Day and depth where the actual drilling resumes. Leave blank = automatic (end of the longest flat period in the actual curve).">Start day / depth (m):</label>
+                                        <input type="number" id="pasonTDStartDay" class="form-control form-control-sm" style="max-width:70px;" step="0.1" placeholder="auto">
+                                        <input type="number" id="pasonTDStartMd" class="form-control form-control-sm" style="max-width:80px;" step="1" placeholder="auto">
+                                        <span id="pasonTDCompareInfo" style="font-size:11px;color:#b264ff;font-family:monospace;"></span>
                                         <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                         <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Pause per milestone (days):</label>
                                         <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
@@ -1952,13 +1967,17 @@ body.light-mode #statusTextbox {
                                             <span style="color:var(--an-text-dim,#5a7080);"> · <%= x.las && x.las.file ? x.las.file : 'EDR' %> · <%= x.user && x.user.name ? x.user.name : '' %> · <%= x.updatedAt ? new Date(x.updatedAt).toISOString().slice(0,10) : '' %></span>
                                             <% if (canUseModelers) { %> · <a href="/notes/slideSheet?mtxJobId=<%= encodeURIComponent(note.mtxJobId || '') %>&id=<%= x._id %>" target="_blank">🧭 Open in Slide Sheet</a><% } %>
                                         </summary>
+                                        <%# 2026-11-14 (John): Motor Yield average per BHA run (distinct survey brackets) + rotary tendency %>
+                                        <% if ((x.myRuns || []).length) { %><div style="font-size:12px;margin-top:6px;">MY per run (°/30 m): <% x.myRuns.forEach(function(q, n){ %><%= n ? ' · ' : '' %><b><%= q.run || 'All' %></b> <%= _f(q.myAvg, 2) %><%= q.myCorrAvg != null ? ' (corr ' + _f(q.myCorrAvg, 2) + ')' : '' %><%= q.rotBuild != null ? ' · rot build/walk ' + _f(q.rotBuild, 2) + '/' + _f(q.rotWalk, 2) : '' %><% }); %></div><% } %>
                                         <div class="wbt-table-wrap" style="max-height:360px;overflow:auto;margin-top:6px;">
                                             <table class="wbt-table">
-                                                <thead><tr><th>#</th><% if (legs.length > 1) { %><th>Leg</th><% } %><th>Run</th><th>From (m)</th><th>To (m)</th><th>Length (m)</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th><th>ROP (m/h)</th><th>Inc</th><th>Az</th></tr></thead>
+                                                <thead><tr><th>#</th><% if (legs.length > 1) { %><th>Leg</th><% } %><th>Run</th><th>From (m)</th><th>To (m)</th><th>Length (m)</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th><th>ROP (m/h)</th><th title="Motor Yield = interval DLS × course length ÷ slid length (all curvature assumed from sliding; Pason Slide Performance / ISCWSA eBook pp. 57-58). Surveys bracketing the slide, original well survey.">MY (°/30 m)</th><th title="Motor Yield after removing the run's rotary build/walk measured on survey intervals without sliding — MTX choice, no published formula (public/js/motorYield.js)">MY corr (°/30 m)</th><th>Inc</th><th>Az</th></tr></thead>
                                                 <tbody>
                                                 <% sl.forEach(function(i, k){ %>
                                                     <tr><td><%= k + 1 %></td><% if (legs.length > 1) { %><td><%= i.leg || 'Main' %></td><% } %><td><%= i.run || '—' %></td><td><%= _f(i.from, 2) %></td><td><%= _f(i.to, 2) %></td><td><%= _f(i.len, 2) %></td>
-                                                        <td><b><%= _f(i.tf, 0) %></b></td><td><%= i.tfRef %></td><td><%= _f(i.tfSd, 0) %></td><td><%= _f(i.rop, 1) %></td><td><%= _f(i.incStart, 2) %></td><td><%= _f(i.azStart, 2) %></td></tr>
+                                                        <td><b><%= _f(i.tf, 0) %></b></td><td><%= i.tfRef %></td><td><%= _f(i.tfSd, 0) %></td><td><%= _f(i.rop, 1) %></td><%# 2026-11-14: blank (≤) when too little slid (min 3 m / 20 % of the survey interval), grey * when survey noise > 25 % of MY %>
+                                                        <% var _myS = i.myNoisy ? 'color:var(--an-text-dim,#5a7080)' : ''; var _myB = i.myStatus === 'short' || i.myStatus === 'lowpct'; %>
+                                                        <td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.my, 2) + (i.myNoisy ? '*' : '') %></td><td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.myCorr, 2) + (i.myNoisy ? '*' : '') %></td><td><%= _f(i.incStart, 2) %></td><td><%= _f(i.azStart, 2) %></td></tr>
                                                 <% }); %>
                                                 </tbody>
                                             </table>
@@ -1966,7 +1985,7 @@ body.light-mode #statusTextbox {
                                     </details>
                                     <% }); %>
                                 <% }); %>
-                                <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;">Slides and rotations detected from the rig EDR (Pason LAS, 1 s). Toolface = measured mean while sliding. Detection rules and settings: Slide Sheet page.</div>
+                                <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;">Slides and rotations detected from the rig EDR (Pason LAS, 1 s). Toolface = measured mean while sliding. MY = Motor Yield (interval DLS × course length ÷ slid length between the surveys bracketing the slide; rotation assumed to add no curvature; — = slide not between two surveys; ≤ = too little slid for a per-slide MY: under 3 m or 20 % of the survey interval, still counted in the run average; grey * = survey noise over 25 % of MY, assuming ±0.1° Inc per survey; hover for details). Detection rules and settings: Slide Sheet page.</div>
                             </div>
                         </div>
                     </div>
@@ -9926,7 +9945,8 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
 <!-- ================= ANTI-COLLISION PLOTS SCRIPT ================= -->
 <script src="/js/wmmModel.js"></script>
 <script src="/js/iscwsaModel.js"></script>
-<script src="/js/ipmImport.js"></script><%# 2026-11-14: Compass .ipm survey tools %>
+<script src="/js/ipmImport.js"></script>
+<script src="/js/userPrefs.js"></script><%# 2026-11-14: per-user display preferences %><%# 2026-11-14: Compass .ipm survey tools %>
 <script>
 (function(){
     const dataEl = document.getElementById('wbtData');
@@ -12557,6 +12577,32 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     let _chart = null;
 
     const el = id => document.getElementById(id);
+    // 2026-11-14 (John): "Sharp" Time vs Depth = the curve reduced to straight segments between its break points
+    // (flat = rig not making hole, slope = drilling), like a hand-drawn time/depth chart. Method: Ramer-Douglas-Peucker
+    // line simplification, with time and depth each scaled to 0-1 so the tolerance (1 % of the plot) is unit-free.
+    // Only the drawing changes; the stored data are untouched. (Just setting Chart.js tension 0 was not enough: the
+    // Pason Average is itself a smoothed, densely sampled curve, so it still looked rounded.)
+    function mtxSharpenTD(pts, tolFrac){
+      if(!pts || pts.length < 3) return pts;
+      var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+      var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+      var sx = (x1 - x0) || 1, sy = (y1 - y0) || 1, tol = tolFrac == null ? 0.01 : tolFrac;
+      var keep = new Array(pts.length); keep[0] = keep[pts.length - 1] = true;
+      var stack = [[0, pts.length - 1]];
+      while(stack.length){
+        var seg = stack.pop(), a = seg[0], b = seg[1];
+        var ax = (pts[a].x - x0) / sx, ay = (pts[a].y - y0) / sy, bx = (pts[b].x - x0) / sx, by = (pts[b].y - y0) / sy;
+        var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx*dx + dy*dy) || 1e-12, best = -1, bi = -1;
+        for(var i = a + 1; i < b; i++){
+          var px = (pts[i].x - x0) / sx, py = (pts[i].y - y0) / sy;
+          var d = Math.abs(dy*px - dx*py + bx*ay - by*ax) / len;
+          if(d > best){ best = d; bi = i; }
+        }
+        if(best > tol){ keep[bi] = true; stack.push([a, bi], [bi, b]); }
+      }
+      return pts.filter(function(_, i){ return keep[i]; });
+    }
+    
 
     function setStatus(msg){ const s = el('pasonPlotsStatus'); if(s) s.textContent = msg; }
 
@@ -12628,6 +12674,11 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         // For "Hole Depth vs Time (days)" specifically, only the Calculated
         // Time vs Depth curve is shown — the raw Min/Max/Average lines from
         // the EDR export aren't meaningful for a planned-trajectory view.
+        // 2026-11-14 (John): on the Time vs Depth view the actual Pason Average can now be shown (checkbox
+        // #pasonTDShowActual, on by default) next to the calculated planned curve. Min/Max stay hidden there.
+        const tdSharp = !(el('pasonTDCurveStyle') && el('pasonTDCurveStyle').value === 'round');
+        if(plotId === 'td' && avgPts.length && (!el('pasonTDShowActual') || el('pasonTDShowActual').checked))
+            datasets.push({ label:'Actual (Pason Avg)', data: tdSharp ? mtxSharpenTD(avgPts, (function(){ const v = parseFloat(el('pasonTDSharpTol') && el('pasonTDSharpTol').value); return (isFinite(v) && v > 0 ? v : 1) / 100; })()) : avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension: (el('pasonTDCurveStyle') && el('pasonTDCurveStyle').value === 'round') ? 0.25 : 0 });   // 2026-11-14: Sharp (default) / Rounded, per-user preference
         if(plotId !== 'td'){
             if(minPts.length) datasets.push({ label:'Min', data:minPts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
             if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
@@ -12680,10 +12731,53 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         const tdPreviewNote = el('pasonTDPreviewNote');
         if(tdPreviewNote) tdPreviewNote.style.display = (plotId === 'td' && isPreview) ? '' : 'none';
 
+        // 2026-11-14 (John): planned vs actual comparison (display only; the saved calculated curve is not changed).
+        //  - start point (T0, D0): end of the longest flat period of the actual curve (depth gain < 2 m), or user entry;
+        //  - align: t' = T0 + (t - tPlan(D0)), shown from D0 down;
+        //  - calibrate: factor = actual time / planned time between D0 and the deepest depth both curves reach
+        //    (with "cal" alone D0 = shallowest common depth and the curve keeps its own start);
+        //  - interpolation of time at a depth = linear between curve points (both curves are monotonic in depth
+        //    where used; flat stretches take the LAST time at that depth).
+        let planPts = (plotId === 'td' && calc && calc.points) ? calc.points.map(p => [p[0], p[1]]) : null;
+        const cmpMode = el('pasonTDCompare') ? el('pasonTDCompare').value : 'off', cmpInfo = el('pasonTDCompareInfo');
+        if(cmpInfo) cmpInfo.textContent = '';
+        if(planPts && planPts.length > 1 && cmpMode !== 'off' && avgPts.length > 1){
+            const act = avgPts.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
+            const tAt = (pts, d) => { // time when the curve first reaches depth d (going down)
+                for(let i = 1; i < pts.length; i++){ const a = pts[i-1], b = pts[i];
+                    if(a[1] <= d && b[1] >= d && b[1] > a[1]) return a[0] + (b[0]-a[0]) * (d - a[1]) / (b[1] - a[1]); }
+                return null; };
+            let T0 = parseFloat(el('pasonTDStartDay') && el('pasonTDStartDay').value), D0 = parseFloat(el('pasonTDStartMd') && el('pasonTDStartMd').value), auto = false;
+            if(!isFinite(T0) || !isFinite(D0)){ // longest flat period of the actual curve
+                let best = null, i0 = 0;
+                for(let i = 1; i <= act.length; i++){
+                    if(i === act.length || act[i][1] - act[i0][1] > 2){ const dur = act[i-1][0] - act[i0][0]; if(!best || dur > best.dur) best = { dur, T: act[i-1][0], D: act[i-1][1] }; i0 = i; }
+                }
+                if(best && best.dur > 1){ T0 = best.T; D0 = best.D; } else { T0 = act[0][0]; D0 = act[0][1]; }
+                auto = true;
+            }
+            const useAlign = (cmpMode === 'align' || cmpMode === 'both');
+            const useCal = (cmpMode === 'cal' || cmpMode === 'both');
+            const dStart = useAlign ? D0 : Math.max(act[0][1], planPts[0][1]);
+            const tp0 = tAt(planPts, dStart);
+            const dEnd = Math.min(act[act.length-1][1], planPts[planPts.length-1][1]);
+            let factor = 1;
+            if(useCal){
+                const ta0 = useAlign ? T0 : tAt(act, dStart), ta1 = tAt(act, dEnd), tp1 = tAt(planPts, dEnd);
+                if(ta0 != null && ta1 != null && tp0 != null && tp1 != null && tp1 - tp0 > 1e-6) factor = (ta1 - ta0) / (tp1 - tp0);
+            }
+            if(tp0 != null){
+                planPts = planPts.filter(p => !useAlign || p[1] >= dStart - 1e-6).map(p => [useAlign ? T0 + factor * (p[0] - tp0) : tp0 + factor * (p[0] - tp0), p[1]]);
+                if(!useAlign) planPts = calc.points.filter(p => p[1] < dStart).map(p => [p[0], p[1]]).concat(planPts);
+                if(useAlign && (!planPts.length || planPts[0][1] > dStart + 1e-6)) planPts.unshift([T0, dStart]);   // start exactly at the aligned point
+                if(cmpInfo) cmpInfo.textContent = (useAlign ? 'start ' + T0.toFixed(1) + ' d @ ' + D0.toFixed(0) + ' m' + (auto ? ' (auto)' : '') : '') +
+                    (useCal ? (useAlign ? ' · ' : '') + 'factor ' + factor.toFixed(2) + ' (actual/planned time, ' + dStart.toFixed(0) + '–' + dEnd.toFixed(0) + ' m)' : '');
+            } else if(cmpInfo) cmpInfo.textContent = 'planned curve does not reach ' + dStart.toFixed(0) + ' m';
+        }
         if(plotId === 'td' && calc && calc.points && calc.points.length){
             datasets.push({
-                label: isPreview ? 'Calculated Time vs Depth (preview, unsaved)' : 'Calculated Time vs Depth',
-                data: calc.points.map(p => ({x:p[0], y:p[1]})),
+                label: (isPreview ? 'Calculated Time vs Depth (preview, unsaved)' : 'Calculated Time vs Depth') + ({align:' — aligned', cal:' — calibrated', both:' — aligned + calibrated'}[cmpMode] || ''),
+                data: planPts.map(p => ({x:p[0], y:p[1]})),
                 showLine:true, pointRadius:0, borderWidth:2, borderDash:[6,3], fill:false, tension:0,
                 borderColor:'#b264ff', backgroundColor:'#b264ff',
             });
@@ -13090,6 +13184,15 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             if(sel && sel.value === 'td') renderPasonChart('td');
         });
     }
+    ['pasonTDCompare','pasonTDStartDay','pasonTDStartMd'].forEach(function(id){ const e = el(id); if(e) e.addEventListener('change', function(){ const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); });
+    const tdCurveStyleEl = el('pasonTDCurveStyle');
+    if(tdCurveStyleEl && window.MTXPrefs){ tdCurveStyleEl.value = MTXPrefs.get('tdCurveStyle', 'sharp');
+        tdCurveStyleEl.addEventListener('change', function(){ MTXPrefs.set('tdCurveStyle', tdCurveStyleEl.value); const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); }
+    const tdTolEl = el('pasonTDSharpTol');
+    if(tdTolEl && window.MTXPrefs){ tdTolEl.value = MTXPrefs.get('tdSharpTol', '1');
+        tdTolEl.addEventListener('change', function(){ MTXPrefs.set('tdSharpTol', tdTolEl.value); const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); }
+    const tdShowActualEl = el('pasonTDShowActual');
+    if(tdShowActualEl) tdShowActualEl.addEventListener('change', function(){ const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); });
 
     const tdCalcBtn = el('pasonTDCalcBtn');
     if(tdCalcBtn){

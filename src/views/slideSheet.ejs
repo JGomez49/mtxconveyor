@@ -10,6 +10,7 @@
 <script src="/js/slideSheetModel.js"></script>
 <script src="/js/sagModel.js"></script>
 <script src="/js/ssaModel.js"></script>
+<script src="/js/motorYield.js"></script><%# 2026-11-14 Motor Yield per slide %>
 <script src="/js/chainReport.js"></script>
 <style>
   /* 2026-11-13 (John): "?" help buttons — books and papers only, no test results. Same pattern as SAG / PipeStretch;
@@ -110,14 +111,21 @@
     <h2>3 · Slide sheet</h2>
     <div id="summary" class="muted"></div>
     <div class="scroll" style="max-height:220px;margin:8px 0"><table>
-      <thead><tr><th>Run</th><th>Bit MD (<span class="uL">m</span>)</th><th>Drilled</th><th>Slid</th><th>Rotated</th><th>Slide %</th><th>Slides</th></tr></thead>
+      <thead><tr><th>Run</th><th>Bit MD (<span class="uL">m</span>)</th><th>Drilled</th><th>Slid</th><th>Rotated</th><th>Slide %</th><th>Slides</th><th title="Rotary tendency from survey intervals of this run with no sliding (MTX choice — no published formula)">Rot build / walk (°/30 m)</th><th title="Sum of bracket curvature / sum of slid length, distinct survey brackets">MY avg (°/30 m)</th><th title="Same, after removing the rotary build/walk (MTX choice)">MY corr avg (°/30 m)</th></tr></thead>
       <tbody id="runBody"></tbody></table></div>
     <div class="row"><label class="field" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="showRot" onchange="render()"> Show rotating intervals too</label></div>
     <div class="scroll"><table>
       <thead><tr><th>#</th><th>Run</th><th>Mode</th><th>From (<span class="uL">m</span>)</th><th>To (<span class="uL">m</span>)</th><th>Length</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th>
-        <th>ROP (<span class="uL">m</span>/h)</th><th>WOB</th><th>Diff P</th><th>RPM</th><th>Inc start→end</th><th>Az start→end</th><th>Start (local)</th></tr></thead>
+        <th>ROP (<span class="uL">m</span>/h)</th><th title="Motor Yield = interval DLS × course length ÷ slid length between the surveys bracketing the slide (original well survey of the selected well; rotation assumed to add no curvature). Pason Slide Performance; ISCWSA eBook pp. 57-58.">MY (°/30 m)</th><th title="Motor Yield after removing the rotary build/walk of the run (MTX choice — no published formula; see public/js/motorYield.js). — = no rotate-only survey interval in the run (hover for reason).">MY corr (°/30 m)</th><th>WOB</th><th>Diff P</th><th>RPM</th><th>Inc start→end</th><th>Az start→end</th><th>Start (local)</th></tr></thead>
       <tbody id="ivBody"></tbody></table></div>
     <div id="plot" class="plot" style="margin-top:12px"></div>
+    <%# 2026-11-14 (John): Motor Yield vs MD, coloured by run; rotation-correction setting %>
+    <div class="row" style="margin-top:10px"><div class="field"><span>Min. rotate-only footage per run for the rotation correction (m)</span><input type="number" id="myMinRot" value="30" min="0" step="1" style="width:90px" onchange="render()"></div>
+      <%# 2026-11-14 (John): per-slide quality rules (MTX choices) %>
+      <div class="field"><span>MY: min. slid between surveys (m)</span><input type="number" id="myMinSlid" value="3" min="0" step="0.5" style="width:80px" onchange="render()"></div>
+      <div class="field"><span>MY: min. slide % of survey interval</span><input type="number" id="myMinPct" value="20" min="0" max="100" step="1" style="width:80px" onchange="render()"></div>
+      <span class="muted" style="font-size:12px">MY = interval DLS × CL ÷ slid (Pason; ISCWSA eBook pp. 57–58). Blank (≤) = too little slid for a per-slide MY (still counted in the run averages); <b>*</b> grey = survey noise &gt; 25 % of MY (±0.1° Inc per survey assumed). <b>MY corr</b> removes the run's rotary build/walk measured on survey intervals without sliding — <b>MTX choice, no published formula</b>.</span></div>
+    <div id="myPlot" class="plot" style="margin-top:8px"></div>
   </div>
 
   <div class="panel">
@@ -145,7 +153,6 @@
       <div class="field"><span>Min. inclination for ΔAz (°)</span><input type="number" id="ssaMinInc" value="3" step="0.5"></div>
       <button class="primary" onclick="ssaRun()" id="btnSsa" disabled>Calculate SSA</button>
       <button onclick="ssaSave()" id="btnSsaSave" disabled>💾 Save as new version in job</button>
-      <button onclick="ssaReport()" id="btnSsaRep" disabled>📄 SSA report</button>
       <button onclick="ssaChainQc()" title="Combined QC report of the version selected here">📄 Chain QC report</button>
     </div>
     <div id="ssaInfo" class="muted"></div>
@@ -159,6 +166,24 @@
       <div class="scroll" style="max-height:260px"><table><thead><tr><th>Survey interval (<span class="uL">m</span>)</th><th>Predicted Inc / Az</th><th>Measured Inc / Az</th><th>ΔInc (°)</th><th>ΔAz (°)</th></tr></thead><tbody id="ssaQc"></tbody></table></div>
       <div id="ssaSkip" class="muted" style="margin-top:8px"></div>
     </div>
+  </div>
+  <!-- 2026-11-14 (John): Technical report panel, same layout as SAGcorrection's panel 6 — the report header, summary and sign-off
+       take these fields. -->
+  <div class="panel">
+    <h2>6 · Technical report</h2>
+    <div class="row">
+      <div class="field"><span>Well</span><input id="rpWell" style="width:240px"></div>
+      <div class="field"><span>Job / MTX ID</span><input id="rpJob" style="width:140px"></div>
+      <div class="field"><span>Run / section</span><input id="rpRun" style="width:140px"></div>
+      <div class="field"><span>Prepared by</span><input id="rpBy" style="width:160px" value="<%= (user && user.name) || '' %>"></div>
+      <div class="field"><span>Checked by</span><input id="rpChk" style="width:160px"></div>
+      <div class="field"><span>Toolcode (corrected well)</span><input id="rpTool" style="width:160px" placeholder="e.g. MWD+HRGM+SSA"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><span>Comments (shown in the summary)</span><input id="rpNotes" style="width:100%"></div>
+      <button class="primary" onclick="ssaReport()" id="btnSsaRep" disabled style="align-self:flex-end">📄 Build report (PDF)</button>
+    </div>
+    <div class="note">Needs the SSA calculation (panel 5). The report opens in a new tab — use <b>Print → Save as PDF</b> there (A4/Letter, headers and backgrounds on). Well and Job fill in from the loaded job when left empty.</div>
   </div>
 
 </div>
@@ -217,7 +242,52 @@ function onWellChange(){
   if(td && td.scenarios && w) Object.keys(td.scenarios).forEach(function(s){ var e = (td.scenarios[s].resultsByWell || {})[w.wellKey]; if(e && e.params && e.params.plan && (e.params.plan.runs || []).length) opts.push(s); });
   $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') : '<option value="">(no T&D runs for this well)</option>';
   if(LAS) run(); else render();
-  ssaRefreshVersions();
+  ssaRefreshVersions(); myLoadSurvey();
+}
+// ---- Motor Yield (ADDED 2026-11-14, John) — engine + sources: public/js/motorYield.js
+// Uses the ORIGINAL uploaded survey of the selected well (not a correction version); measured stations only.
+var MY_SV = null, MY_RES = null;
+async function myLoadSurvey(){
+  MY_SV = null; var w = job.wells[+$('wellSel').value]; if(!w || !job.noteId) return;
+  try{
+    var d = await (await fetch('/notes/surveyVersions?noteId=' + encodeURIComponent(job.noteId) + '&wellKey=' + encodeURIComponent(w.wellKey))).json();
+    var o = d.ok && (d.versions || []).find(function(v){ return v.original; });
+    if(o){ var e = await (await fetch('/notes/surveyVersion/' + o.id)).json(); if(e.ok) MY_SV = e.version.survey; }
+  }catch(err){ MY_SV = null; }
+  if(RES) render();
+}
+// 2026-11-14: + rotation correction (MTX choice, see public/js/motorYield.js analyse()), per-run averages, MY vs MD plot.
+// nameFn = the run-name function of render() so runs match the per-run table. Returns { m: Map interval -> slide result, runs }.
+function myFor(nameFn){
+  var m = new Map(), out = { m: m, runs: {} }; if(!MY_SV || !RES) return out;
+  nameFn = nameFn || function(x){ return x.run || ''; };
+  var mainIv = RES.intervals.filter(function(x){ return !x.leg || x.leg === 'Main'; });
+  var runOf = function(md){ var c = mainIv.filter(function(x){ return x.from <= md && md <= x.to; }); return c.length ? (nameFn(c[c.length - 1]) || '') : ''; };
+  var a = MotorYield.analyse(MY_SV, RES.intervals, runOf, { minRotLen: +$('myMinRot').value || 30, minSlid: $('myMinSlid').value === '' ? 3 : +$('myMinSlid').value, minPct: $('myMinPct').value === '' ? 20 : +$('myMinPct').value });
+  RES.intervals.forEach(function(x, i){ if(a.slides[i]) m.set(x, a.slides[i]); }); out.runs = a.runs; return out;
+}
+// 2026-11-14: MY / MY corr cells with the quality rules: blank + reason (short / low %), greyed when noisy
+function myCells(sl, o){
+  if(!sl) return '</td><td>';
+  if(!o) return '—</td><td>—';
+  var tip = esc(o.reason || '') + (o.flag ? (o.reason ? ' · ' : '') + esc(o.flag) : ''), st = o.noisy ? ' style="color:var(--muted)"' : '';
+  if(o.status !== 'ok') return '<span title="' + tip + ' (raw ' + fmt(o.myRaw, 1) + ')">≤</span></td><td title="' + tip + '">≤';
+  return '<span' + st + ' title="' + tip + '">' + fmt(o.my, 2) + (o.noisy ? '*' : '') + '</span></td><td' + st + ' title="' + tip + '">' + (o.myCorr != null ? fmt(o.myCorr, 2) + (o.noisy ? '*' : '') : '—');
+}
+function myPlot(MY){
+  if(!window.Plotly || !$('myPlot')) return;
+  var pts = RES.slides.filter(function(x){ return MY.m.has(x) && MY.m.get(x).my != null; }), runs = [];
+  pts.forEach(function(x){ var r = MY.m.get(x).run || '—'; if(runs.indexOf(r) < 0) runs.push(r); });
+  var pal = ['#4da3ff', '#f5a623', '#2ecc71', '#ff5c5c', '#b37feb', '#36cfc9', '#ffd666', '#ff85c0', '#95de64', '#adc6ff'], tr = [];
+  runs.forEach(function(r, i){ var p = pts.filter(function(x){ return (MY.m.get(x).run || '—') === r; }), c = pal[i % pal.length];
+    var txt = p.map(function(x){ var o = MY.m.get(x); return esc(r) + ' · ' + fmt(L(x.from), 1) + '–' + fmt(L(x.to), 1) + ' · TF ' + fmt(x.tf, 0) + '°<br>MY ' + fmt(o.my, 2) + (o.myCorr != null ? ' · corrected ' + fmt(o.myCorr, 2) : '') + ' °/30 m'; });
+    tr.push({ x: p.map(function(x){ return L((x.from + x.to) / 2); }), y: p.map(function(x){ return MY.m.get(x).my; }), mode: 'markers', name: r + ' — MY', legendgroup: r, marker: { size: 8, color: c, symbol: 'circle-open', line: { width: 2 } }, text: txt, hoverinfo: 'text' });
+    var pc = p.filter(function(x){ return MY.m.get(x).myCorr != null; });
+    if(pc.length) tr.push({ x: pc.map(function(x){ return L((x.from + x.to) / 2); }), y: pc.map(function(x){ return MY.m.get(x).myCorr; }), mode: 'markers', name: r + ' — MY corrected', legendgroup: r, marker: { size: 7, color: c }, hoverinfo: 'skip' });
+  });
+  Plotly.newPlot('myPlot', tr, { title: { text: 'Motor Yield along the well (open = MY, filled = rotation-corrected)', font: { size: 15 } }, paper_bgcolor: css('--panel'), plot_bgcolor: css('--panel'), font: { color: css('--text'), size: 13 },
+    margin: { l: 60, r: 14, t: 40, b: 50 }, xaxis: { title: 'Bit depth (' + (UNIT === 'metric' ? 'm' : 'ft') + ')', gridcolor: css('--border') }, yaxis: { title: 'Motor Yield (°/30 m)', gridcolor: css('--border'), rangemode: 'tozero' }, legend: { orientation: 'h', y: -0.2 } },
+    { displaylogo: false, responsive: true });
 }
 function tdRuns(){
   var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
@@ -274,16 +344,18 @@ function render(){
   var name = function(x){ var r = runs.length && (!x.leg || x.leg === 'Main') ? runAt(runs, x.from) : null; return (multi ? (x.leg || 'Main') + ' · ' : '') + (r ? (r.name || r.id) : x.run ? x.run : (runs.length && (!x.leg || x.leg === 'Main') ? '—' : '')); };   // x.run = saved run name
   // per-run summary
   var groups = {}, order = [];
+  var MY = myFor(name);   // 2026-11-14 Motor Yield (+ rotation correction, per-run averages)
   RES.intervals.forEach(function(x){ var k = name(x) || 'All'; if(!groups[k]){ groups[k] = { d:0, s:0, n:0, a:Infinity, b:-Infinity }; order.push(k); } var g = groups[k]; g.d += x.len; if(x.mode === 'slide'){ g.s += x.len; g.n++; } g.a = Math.min(g.a, x.from); g.b = Math.max(g.b, x.to); });
-  $('runBody').innerHTML = order.map(function(k){ var g = groups[k]; return '<tr><td>' + esc(k) + '</td><td>' + fmt(L(g.a), 1) + ' – ' + fmt(L(g.b), 1) + '</td><td>' + fmt(L(g.d), 1) + '</td><td>' + fmt(L(g.s), 1) + '</td><td>' + fmt(L(g.d - g.s), 1) + '</td><td>' + fmt(g.d ? 100 * g.s / g.d : 0, 1) + '</td><td>' + g.n + '</td></tr>'; }).join('');
+  $('runBody').innerHTML = order.map(function(k){ var g = groups[k]; return '<tr><td>' + esc(k) + '</td><td>' + fmt(L(g.a), 1) + ' – ' + fmt(L(g.b), 1) + '</td><td>' + fmt(L(g.d), 1) + '</td><td>' + fmt(L(g.s), 1) + '</td><td>' + fmt(L(g.d - g.s), 1) + '</td><td>' + fmt(g.d ? 100 * g.s / g.d : 0, 1) + '</td><td>' + g.n + '</td>' +
+    (function(q){ return q ? '<td>' + (q.rotBuild == null ? '—' : fmt(q.rotBuild, 2) + ' / ' + (q.rotWalk == null ? '—' : fmt(q.rotWalk, 2))) + '</td><td>' + (q.myAvg == null ? '—' : fmt(q.myAvg, 2)) + '</td><td>' + (q.myCorrAvg == null ? '—' : fmt(q.myCorrAvg, 2)) + '</td>' : '<td>—</td><td>—</td><td>—</td>'; })(MY.runs[k === 'All' ? '' : k]) + '</tr>'; }).join('');
   var list = $('showRot').checked ? RES.intervals : RES.slides, k = 0;
   $('ivBody').innerHTML = list.map(function(x){
     var sl = x.mode === 'slide'; if(sl) k++;
     return '<tr class="' + x.mode + '"><td>' + (sl ? k : '') + '</td><td>' + esc(name(x)) + '</td><td><span class="tag ' + (sl ? 's' : 'r') + '">' + (sl ? 'SLIDE' : 'ROTATE') + '</span></td><td>' + fmt(L(x.from), 2) + '</td><td>' + fmt(L(x.to), 2) + '</td><td>' + fmt(L(x.len), 2) + '</td>' +
-      '<td>' + (sl ? '<b>' + fmt(x.tf, 0) + '</b>' : '') + '</td><td>' + (sl ? x.tfRef : '') + '</td><td>' + (sl ? fmt(x.tfSd, 0) : '') + '</td><td>' + fmt(L(x.rop), 1) + '</td><td>' + fmt(x.wob, 1) + '</td><td>' + fmt(x.difp, 0) + '</td><td>' + fmt(x.rpm, 0) + '</td>' +
+      '<td>' + (sl ? '<b>' + fmt(x.tf, 0) + '</b>' : '') + '</td><td>' + (sl ? x.tfRef : '') + '</td><td>' + (sl ? fmt(x.tfSd, 0) : '') + '</td><td>' + fmt(L(x.rop), 1) + '</td><td>' + myCells(sl, MY.m.get(x)) + '</td><td>' + fmt(x.wob, 1) + '</td><td>' + fmt(x.difp, 0) + '</td><td>' + fmt(x.rpm, 0) + '</td>' +
       '<td>' + fmt(x.incStart, 2) + ' → ' + fmt(x.incEnd, 2) + '</td><td>' + fmt(x.azStart, 1) + ' → ' + fmt(x.azEnd, 1) + '</td><td>' + tstr(x.tStart) + '</td></tr>';
   }).join('');
-  plot();
+  plot(); myPlot(MY);
 }
 function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
 function plot(){
@@ -434,6 +506,13 @@ function ssaChainQc(){
   var o = SSA_VERS.filter(function(x){ return x.original; })[0];
   MtxChainReport.open({ versionId: v.id, originalId: o ? o.id : null, well: o ? o.wellName : '', job: job.mtxJobId ? 'MTX ' + job.mtxJobId + (job.title ? ' — ' + job.title : '') : '', unit: UNIT });
 }
+
+// 2026-11-14 (John): technical-report panel values (same fields as SAGcorrection). Empty Well / Job fall back to the loaded job.
+function rpVal(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function rpEscS(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function rpRows(){ return [['Run / section', rpEscS(rpVal('rpRun') || '—')], ['Prepared by', rpEscS(rpVal('rpBy') || '—')], ['Checked by', rpEscS(rpVal('rpChk') || '—')],
+  ['Toolcode of the corrected well', rpEscS(rpVal('rpTool') || '—')], ['Comments', rpEscS(rpVal('rpNotes') || '—')]]; }
+function rpSignoff(today){ return '<table><tr><th></th><th>Name</th><th>Signature</th><th>Date</th></tr><tr><td>Prepared by</td><td>' + rpEscS(rpVal('rpBy')) + '</td><td></td><td>' + today + '</td></tr><tr><td>Checked by</td><td>' + rpEscS(rpVal('rpChk')) + '</td><td></td><td></td></tr></table>'; }
 async function ssaReport(){
   if(!SSA) return;
   var w = window.open('', '_blank'); if(!w){ alert('Allow pop-ups to open the report.'); return; }
@@ -445,25 +524,26 @@ async function ssaReport(){
   var css2 = 'body{font-family:Segoe UI,Arial,sans-serif;color:#111;margin:24px 30px;font-size:12px}h1{color:' + B + ';font-size:22px;margin:0}h2{color:' + B + ';font-size:16px;border-bottom:2px solid ' + B + ';padding-bottom:3px;margin-top:22px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:3px 6px;text-align:right}th{background:#eef3f9}td:first-child,th:first-child{text-align:left}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid ' + B + ';padding-bottom:8px}@media print{.np{display:none}}';
   var chain = (SSA_SRC.chain || []).map(function(c){ return c.tag || c.type; });
   var h = '<!doctype html><html><head><meta charset="utf-8"><title>SSA report</title><style>' + css2 + '</style></head><body><div class="np"><button onclick="print()">🖨 Print / Save as PDF</button></div>' +
-    '<div class="hdr"><div><h1>Survey Correction — Slide Sheet Analysis</h1><div>' + esc(job.wells[+$('wellSel').value].wellKey) + (job.mtxJobId ? ' · MTX ' + esc(job.mtxJobId) : '') + '</div></div><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png" style="height:54px"></div>' +
+    '<div class="hdr"><div><h1>Survey Correction — Slide Sheet Analysis</h1><div>' + esc(rpVal('rpWell') || job.wells[+$('wellSel').value].wellKey) + ((rpVal('rpJob') || job.mtxJobId) ? ' · ' + esc(rpVal('rpJob') || ('MTX ' + job.mtxJobId)) : '') + (rpVal('rpRun') ? ' · ' + esc(rpVal('rpRun')) : '') + '</div></div><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png" style="height:54px"></div>' +
     '<h2>1 · Summary</h2>' + tb(['Item', 'Value'], [['Starting survey version', esc(SSA_SRC.version.wellName)], ['Corrections before SSA', chain.length ? esc(['Original'].concat(chain).join(' → ')) : 'none (original survey)'], ['Slide sheet', esc(SAVED ? SAVED.name : ($('ssName').value || 'built from ' + LASFILE)) + ' — from the rig EDR'],
-      ['Fill-in stations', r.fillIns.length + ' (from ' + r.slides + ' slides; ' + r.skipped.length + ' slide piece(s) skipped)'], ['At the last survey', 'ΔTVD ' + fmt(L(last.dTvd), 3) + ' ' + u + ' · ΔN ' + fmt(L(last.dN), 3) + ' · ΔE ' + fmt(L(last.dE), 3) + ' ' + u], ['Date', new Date().toISOString().slice(0, 10)]].map(function(x){ return '<tr><td>' + x[0] + '</td><td style="text-align:left">' + x[1] + '</td></tr>'; })) +
+      ['Fill-in stations', r.fillIns.length + ' (from ' + r.slides + ' slides; ' + r.skipped.length + ' slide piece(s) skipped)'], ['At the last survey', 'ΔTVD ' + fmt(L(last.dTvd), 3) + ' ' + u + ' · ΔN ' + fmt(L(last.dN), 3) + ' · ΔE ' + fmt(L(last.dE), 3) + ' ' + u], ['Date', new Date().toISOString().slice(0, 10)]].concat(rpRows()).map(function(x){ return '<tr><td>' + x[0] + '</td><td style="text-align:left">' + x[1] + '</td></tr>'; })) +
     '<h2>2 · Method</h2><p>ISCWSA eBook V9.10 (2017), pp. 57–58: per BHA run the dogleg capability is the total curvature between the run\'s surveys (minimum curvature; Bourgoyne et al. Eq. 8.33) divided by the footage slid (all curvature is assumed to happen while sliding). Fill-in stations at the start and end of each slide: ΔInc = DLS × length × cos(toolface), ΔAz = DLS × length × sin(toolface) / sin(Inc). Minimum curvature through the original + fill-in stations. Assumptions (eBook): DLS unchanged during the run; curvature only while sliding; toolface constant during the slide — "a rough guide to the likely TVD adjustment". Slides and measured toolface from the rig EDR (Pason LAS); magnetic-toolface slides and legs other than Main are not used.</p>' +
     '<h2>3 · BHA runs</h2>' + tb(['Run', 'Survey MD range (' + u + ')', 'Surveys', 'Total curvature (°)', 'Slid (' + u + ')', 'DLS (°/30 m)'], r.runs.map(function(x){ return '<tr><td>' + esc(x.name) + '</td><td>' + (x.mdFrom == null ? '—' : fmt(L(x.mdFrom), 1) + '–' + fmt(L(x.mdTo), 1)) + '</td><td>' + x.surveys + '</td><td>' + fmt(x.curv, 2) + '</td><td>' + fmt(L(x.slid), 1) + '</td><td>' + (x.dls == null ? 'not used' : fmt(x.dls * 30, 2)) + '</td></tr>'; })) +
     '<h2>4 · Position change at the measured stations</h2>' + (img ? '<img src="' + img + '" style="width:100%">' : '') +
     '<h2>5 · Fill-in stations</h2>' + tb(['MD (' + u + ')', 'Inc (°)', 'Az (°)', 'At', 'Slide (' + u + ')', 'Toolface (°)', 'Run'], r.fillIns.map(function(f){ return '<tr><td>' + fmt(L(f.md), 2) + '</td><td>' + fmt(f.inc, 2) + '</td><td>' + fmt(f.az, 2) + '</td><td>' + f.at + '</td><td>' + fmt(L(f.slide.from), 1) + '–' + fmt(L(f.slide.to), 1) + '</td><td>' + fmt(f.slide.tf, 0) + '</td><td>' + esc(f.slide.run) + '</td></tr>'; })) +
     '<h2>6 · QC — predicted vs measured attitude at the next survey</h2>' + tb(['Interval (' + u + ')', 'Predicted Inc / Az', 'Measured Inc / Az', 'ΔInc (°)', 'ΔAz (°)'], r.qc.map(function(q){ return '<tr><td>' + fmt(L(q.from), 1) + '–' + fmt(L(q.to), 1) + '</td><td>' + fmt(q.predInc, 2) + ' / ' + fmt(q.predAz, 2) + '</td><td>' + fmt(q.measInc, 2) + ' / ' + fmt(q.measAz, 2) + '</td><td>' + fmt(q.dInc, 2) + '</td><td>' + fmt(q.dAz, 2) + '</td></tr>'; })) +
-    '<h2>7 · Sign-off</h2>' + tb(['', 'Name', 'Signature', 'Date'], ['<tr><td>Prepared by</td><td></td><td></td><td>' + new Date().toISOString().slice(0, 10) + '</td></tr>', '<tr><td>Checked by</td><td></td><td></td><td></td></tr>']) + '</body></html>';
+    '<h2>7 · Sign-off</h2>' + rpSignoff(new Date().toISOString().slice(0, 10)) + '</body></html>';
   w.document.open(); w.document.write(h); w.document.close();
 }
 // ---------------- Excel export
 function exportExcel(){
   if(!RES) return;
   var runs = tdRuns(), u = UNIT === 'metric' ? 'm' : 'ft';
+  var MY = myFor(function(x){ var r = runs.length && (!x.leg || x.leg === 'Main') ? runAt(runs, x.from) : null; return r ? (r.name || r.id) : (x.run || ''); }).m;   // 2026-11-14 Motor Yield
   var data = RES.intervals.map(function(x){ var o = {}, r = runs.length ? runAt(runs, x.from) : null;
     o['Leg'] = x.leg || 'Main'; o['Run'] = x.run || (r ? (r.name || r.id) : ''); o['Mode'] = x.mode === 'slide' ? 'Slide' : 'Rotate'; o['From (' + u + ')'] = +L(x.from).toFixed(2); o['To (' + u + ')'] = +L(x.to).toFixed(2); o['Length (' + u + ')'] = +L(x.len).toFixed(2);
     o['Toolface (deg)'] = x.mode === 'slide' ? +x.tf.toFixed(1) : ''; o['TF ref'] = x.tfRef; o['TF spread (deg)'] = x.mode === 'slide' ? +x.tfSd.toFixed(1) : '';
-    o['ROP (' + u + '/h)'] = isFinite(x.rop) ? +L(x.rop).toFixed(1) : ''; o['WOB'] = isFinite(x.wob) ? +x.wob.toFixed(1) : ''; o['Diff P'] = isFinite(x.difp) ? +x.difp.toFixed(0) : ''; o['RPM'] = isFinite(x.rpm) ? +x.rpm.toFixed(0) : '';
+    o['ROP (' + u + '/h)'] = isFinite(x.rop) ? +L(x.rop).toFixed(1) : ''; o['Motor Yield (deg/30 m)'] = MY.has(x) && MY.get(x).my != null ? +MY.get(x).my.toFixed(2) : ''; o['MY status'] = MY.has(x) ? (MY.get(x).noisy ? 'noisy: ' : '') + (MY.get(x).reason || MY.get(x).status) : ''; o['MY rotation-corrected (deg/30 m, MTX choice)'] = MY.has(x) && MY.get(x).myCorr != null ? +MY.get(x).myCorr.toFixed(2) : ''; o['WOB'] = isFinite(x.wob) ? +x.wob.toFixed(1) : ''; o['Diff P'] = isFinite(x.difp) ? +x.difp.toFixed(0) : ''; o['RPM'] = isFinite(x.rpm) ? +x.rpm.toFixed(0) : '';
     o['Inc start'] = x.incStart; o['Inc end'] = x.incEnd; o['Az start'] = x.azStart; o['Az end'] = x.azEnd; o['Start'] = new Date(x.tStart * 1000).toISOString(); o['End'] = new Date(x.tEnd * 1000).toISOString(); return o; });
   var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Slide sheet');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([Object.assign({ Well: LAS ? (LAS.well.WELL || '') : (SAVED && SAVED.las ? SAVED.las.well : ''), 'Segment roles': (ROLE || []).map(function(r, i){ return (i + 1) + ':' + r; }).join(', ') }, RES.opts, { exclude: undefined, legs: undefined })]), 'Settings');

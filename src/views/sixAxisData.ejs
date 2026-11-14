@@ -1610,6 +1610,21 @@ function scMountPanel(rows){
     <div id="scCmpWrap" style="overflow-x:auto;max-height:420px;overflow-y:auto;margin-top:10px;"></div>
     <div id="scActions" style="display:none;margin-top:8px;">
       <button type="button" class="secondary" id="scExportBtn">Export corrected surveys (Excel)</button>
+      <!-- 2026-11-14 (John): Technical report, same fields as SAGcorrection / PipeStretch / SSA -->
+      <div class="panel" style="margin-top:10px;background:var(--panel2);">
+        <h3>Technical report <span style="text-transform:none;">(selected model)</span></h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:12px;">Well<br><input id="rpScWell" style="width:220px;"></label>
+          <label style="font-size:12px;">Job / MTX ID<br><input id="rpScJob" style="width:140px;"></label>
+          <label style="font-size:12px;">Run / section<br><input id="rpScRun" style="width:130px;"></label>
+          <label style="font-size:12px;">Prepared by<br><input id="rpScBy" style="width:150px;" value="${scEsc(SC_USER_NAME)}"></label>
+          <label style="font-size:12px;">Checked by<br><input id="rpScChk" style="width:150px;"></label>
+          <label style="font-size:12px;">Toolcode (corrected well)<br><input id="rpScTool" style="width:160px;" placeholder="e.g. MWD+HRGM+AX"></label>
+          <label style="font-size:12px;flex:1;min-width:240px;">Comments (shown in the summary)<br><input id="rpScNotes" style="width:100%;"></label>
+          <button type="button" id="scReportBtn">📄 Build report (PDF)</button>
+        </div>
+        <div class="note">Opens in a new tab — use <b>Print → Save as PDF</b> there. Well and Job fall back to the job loaded below when empty.</div>
+      </div>
       <div class="panel" style="margin-top:10px;background:var(--panel2);">
         <h3>Save as new version in a job <span id="scSaveModel" style="text-transform:none;"></span></h3>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -1632,7 +1647,7 @@ function scMountPanel(rows){
   </details>`;
   scEl('scRefSrc').onchange = scRefSrcChange; scEl('scWmmBtn').onclick = scComputeWmm;
   scEl('scModel').onchange = scModeChange; scEl('scExMode').onchange = scModeChange;
-  scEl('scRunBtn').onclick = scRun; scEl('scExportBtn').onclick = scExport;
+  scEl('scRunBtn').onclick = scRun; scEl('scExportBtn').onclick = scExport; scEl('scReportBtn').onclick = scReport;   // 2026-11-14 report
   scEl('scShowOnPlots').onchange = function(){ if(document.getElementById('qcPlotsPanel')) scOverlay(); };
   scEl('scLoadJobBtn').onclick = scLoadJob; scEl('scWellSel').onchange = scMatchPreview; scEl('scMdTol').oninput = scMatchPreview;
   scEl('scMdUnit').onchange = scMatchPreview; scEl('scSkipExcl').onchange = scMatchPreview;
@@ -1871,6 +1886,73 @@ function scExport(){
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meta), 'Settings');
   XLSX.writeFile(wb, (R.main.model === 'msa' ? 'MSA' : 'ShortCollar') + '_corrected_survey.xlsx');
+}
+
+// ---- Technical report (ADDED 2026-11-14, John: same layout as SAGcorrection / PipeStretch / SSA reports) ----
+// Opens a printable page (browser Print -> Save as PDF). Contents: header (CNRL logo), summary + report fields,
+// inputs, method with the sources this page already cites (SurQC port; ISCWSA eBook App. D6 for the short-collar
+// accuracy limit), fitted result (average Z-bias or MSA biases / scale factors), dAz plot (inline SVG), corrected
+// survey table, sign-off. Uses the currently selected model (the comparison model, if shown, is summarised too).
+var SC_USER_NAME = <%- JSON.stringify((user && user.name) || '') %>;
+function scRpVal(id){ var e = scEl(id); return e ? String(e.value || '').trim() : ''; }
+function scSvgPlot(xs, ys, xLab, yLab){
+  var W = 1000, H = 300, ml = 60, mr = 15, mt = 12, mb = 42;
+  var pts = xs.map(function(x, i){ return [x, ys[i]]; }).filter(function(p){ return isFinite(p[0]) && isFinite(p[1]); });
+  if(pts.length < 2) return '';
+  var x0 = Math.min.apply(null, pts.map(function(p){ return p[0]; })), x1 = Math.max.apply(null, pts.map(function(p){ return p[0]; }));
+  var y0 = Math.min(0, Math.min.apply(null, pts.map(function(p){ return p[1]; }))), y1 = Math.max(0, Math.max.apply(null, pts.map(function(p){ return p[1]; })));
+  if(x1 === x0) x1 = x0 + 1; if(y1 === y0) y1 = y0 + 1;
+  var X = function(v){ return ml + (v - x0) / (x1 - x0) * (W - ml - mr); }, Y = function(v){ return H - mb - (v - y0) / (y1 - y0) * (H - mt - mb); };
+  var tick = function(a, b, n){ var out = []; for(var i = 0; i <= n; i++) out.push(a + (b - a) * i / n); return out; };
+  var g = tick(x0, x1, 6).map(function(v){ return '<line x1="' + X(v) + '" y1="' + mt + '" x2="' + X(v) + '" y2="' + (H - mb) + '" stroke="#ddd"/><text x="' + X(v) + '" y="' + (H - mb + 16) + '" font-size="11" text-anchor="middle">' + v.toFixed(0) + '</text>'; }).join('') +
+    tick(y0, y1, 4).map(function(v){ return '<line x1="' + ml + '" y1="' + Y(v) + '" x2="' + (W - mr) + '" y2="' + Y(v) + '" stroke="#ddd"/><text x="' + (ml - 6) + '" y="' + (Y(v) + 4) + '" font-size="11" text-anchor="end">' + v.toFixed(2) + '</text>'; }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">' + g +
+    '<line x1="' + ml + '" y1="' + Y(0) + '" x2="' + (W - mr) + '" y2="' + Y(0) + '" stroke="#999"/>' +
+    '<polyline fill="none" stroke="#00539B" stroke-width="2" points="' + pts.map(function(p){ return X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1); }).join(' ') + '"/>' +
+    pts.map(function(p){ return '<circle cx="' + X(p[0]).toFixed(1) + '" cy="' + Y(p[1]).toFixed(1) + '" r="2.5" fill="#00539B"/>'; }).join('') +
+    '<text x="' + ((ml + W - mr) / 2) + '" y="' + (H - 6) + '" font-size="12" text-anchor="middle">' + xLab + '</text>' +
+    '<text x="14" y="' + ((mt + H - mb) / 2) + '" font-size="12" text-anchor="middle" transform="rotate(-90 14 ' + ((mt + H - mb) / 2) + ')">' + yLab + '</text></svg>';
+}
+function scReport(){
+  var R = SC_STATE.result; if(!R){ alert('Run the correction first.'); return; }
+  var w = window.open('', '_blank'); if(!w){ alert('Allow pop-ups to open the report.'); return; }
+  var M = R.main, p = R.p, k = p.k, u = k === 1 ? 'µT' : 'nT', mdU = scEl('scMdUnit').value, rows = M.rows, today = new Date().toISOString().slice(0, 10);
+  var e = scEsc, f = scFmt, B = '#00539B', LOGO = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png';
+  var kv = function(r){ return '<table class="kv">' + r.map(function(x){ return '<tr><th>' + x[0] + '</th><td>' + x[1] + '</td></tr>'; }).join('') + '</table>'; };
+  var nAuto = R.auto.filter(Boolean).length, nMan = R.manualFlags.filter(Boolean).length, hi = +scEl('scHiU').value || Infinity;
+  var corrected = rows.filter(function(r){ return isFinite(r.dAz); }), maxDaz = corrected.length ? Math.max.apply(null, corrected.map(function(r){ return Math.abs(r.dAz); })) : null;
+  var fit = function(S){ if(S.model === 'sc') return 'Average Z-bias (excluding flagged stations): <b>' + f(S.sc.averageZBias / k * 1000, 1) + ' nT</b> from ' + S.sc.nUsed + ' of ' + S.rows.length + ' stations; correction applied: ' + (scEl('scApply').value === 'average' ? 'average Z-bias to all stations' : 'per-station Z-bias (SurQC)');
+    var c = S.msa.corr; return 'X: bias ' + f(c.x.b, 0) + ' nT, SF ' + f(c.x.sf, 4) + ' · Y (page frame): bias ' + f(-c.y.b, 0) + ' nT, SF ' + f(c.y.sf, 4) + ' · Z: bias ' + f(c.z.b, 0) + ' nT, SF ' + f(c.z.sf, 4) +
+      '<br>Fitted on ' + S.msa.nUsed + ' of ' + S.rows.length + ' stations · error sum² ' + f(S.msa.errBefore, 0) + ' → ' + f(S.msa.errAfter, 0) + ' nT² · toolface spread of fitted stations ' + f(S.msa.tfSpread, 0) + '°' +
+      (S.msa.tfSpread < 90 ? ' (small spread: X/Y biases and scale factors poorly determined — MTX check)' : ''); };
+  var name = SC_MODEL_NAME[M.model];
+  var method = M.model === 'sc'
+    ? '<p><b>Short Collar (SurQC port).</b> The along-hole magnetometer (Bz) is not used: for each station Bz is recomputed from the two cross-axial magnetometers and the reference field (BT, Dip), and azimuth is recalculated with the corrected Bz. Each station gets its own Z-bias (Bz measured − Bz computed); exclusions only remove stations from the average, or the average Z-bias is applied to all stations when that option is chosen.</p><p>Accuracy degrades as the along-hole field component tends to zero (high inclination, close to magnetic East/West) — ISCWSA eBook, App. D6; the azimuth-uncertainty column shows where.</p>'
+    : '<p><b>MSA — Multi-Station Analysis (SurQC port).</b> One set of six magnetometer corrections (bias and scale factor for X, Y and Z) is fitted on the non-excluded stations so that the corrected total field and dip agree with the reference (BT, Dip) at all of them, then applied to every station. Fitting uses SurQC\'s step sizes (5 nT, 1×10⁻⁴). A small toolface spread among the fitted stations leaves the X/Y terms poorly determined.</p>';
+  method += '<p>Frame: the page\'s mapped sensor data are fed to SurQC with Gy and By negated (SurQC\'s sensor frame is the mirror image); biases are reported back in the page frame. Azimuth uncertainty uses the BT and Dip uncertainties entered. Automatic exclusion: ' + e(scEl('scExMode').options[scEl('scExMode').selectedIndex].text) + '.</p>';
+  var css = 'body{font-family:Segoe UI,Arial,sans-serif;color:#111;margin:24px 30px;font-size:12px}h1{color:' + B + ';font-size:22px;margin:0}h2{color:' + B + ';font-size:16px;border-bottom:2px solid ' + B + ';padding-bottom:3px;margin-top:22px}' +
+    'table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:3px 5px;text-align:right}th{background:#eef3f9}td:first-child,th:first-child{text-align:left}.kv th{width:32%;text-align:left}.kv td{text-align:left}' +
+    '.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid ' + B + ';padding-bottom:8px}@media print{.np{display:none}h2{break-after:avoid}}';
+  var well = scRpVal('rpScWell') || (SC_STATE.job && scEl('scWellSel') && scEl('scWellSel').selectedOptions[0] ? scEl('scWellSel').selectedOptions[0].text : ''),
+      jobT = scRpVal('rpScJob') || (SC_STATE.job ? SC_STATE.job.title : '');
+  var tbl = '<table><tr><th>MD (' + mdU + ')</th><th>Inc (°)</th><th>Az meas (°)</th>' + (M.model === 'sc' ? '<th>Z-bias (nT)</th>' : '') + '<th>Az corr (°)</th><th>ΔAz (°)</th><th>Az unc ± (°)</th><th>BT meas (' + u + ')</th><th>BT corr (' + u + ')</th><th>Dip meas (°)</th><th>Dip corr (°)</th><th>Excluded</th></tr>' +
+    rows.map(function(r, i){ return '<tr' + (r.azUnc > hi ? ' style="background:#fde8e8"' : '') + '><td>' + f(r.md, 2) + '</td><td>' + f(r.inc, 2) + '</td><td>' + f(r.azTrue, 3) + '</td>' + (M.model === 'sc' ? '<td>' + f(r.bzApplied / k * 1000, 1) + '</td>' : '') +
+      '<td>' + f(r.azTrueCorr, 3) + '</td><td>' + f(r.dAz, 3) + '</td><td>' + f(r.azUnc, 3) + '</td><td>' + f(r.btMeas, 3) + '</td><td>' + f(r.btCorr, 3) + '</td><td>' + f(r.dipMeas, 3) + '</td><td>' + f(r.dipCorr, 3) + '</td><td>' + e(r.excluded ? (R.auto[i] || 'manual') : '') + '</td></tr>'; }).join('') + '</table>';
+  var h = '<!doctype html><html><head><meta charset="utf-8"><title>' + name + ' report</title><style>' + css + '</style></head><body><div class="np" style="margin-bottom:10px"><button onclick="print()">🖨 Print / Save as PDF</button></div>' +
+    '<div class="hdr"><div><h1>Survey Correction — ' + e(name) + '</h1><div>' + e(well) + (jobT ? ' · ' + e(jobT) : '') + (scRpVal('rpScRun') ? ' · ' + e(scRpVal('rpScRun')) : '') + '</div></div><img src="' + LOGO + '" style="height:54px"></div>' +
+    '<h2>1 · Summary</h2>' + kv([['Well', e(well || '—')], ['Job / MTX ID', e(jobT || '—')], ['Run / section', e(scRpVal('rpScRun') || '—')], ['Date', today], ['Prepared by', e(scRpVal('rpScBy') || '—')], ['Checked by', e(scRpVal('rpScChk') || '—')],
+      ['Correction model', e(name) + ' (SurQC port)'], ['Toolcode of the corrected well', e(scRpVal('rpScTool') || '—')], ['Stations', rows.length + ' · auto-excluded ' + nAuto + ' · manually excluded ' + nMan],
+      ['Result', fit(M)], ['Largest |ΔAz|', maxDaz == null ? '—' : f(maxDaz, 3) + '°'], ['Az uncertainty above ' + (isFinite(hi) ? hi + '°' : '—'), rows.filter(function(r){ return r.azUnc > hi; }).length + ' station(s) (shaded in the table)'],
+      ['Comments', e(scRpVal('rpScNotes') || '—')]].concat(R.cmp ? [['Comparison — ' + e(SC_MODEL_NAME[R.cmp.model]), fit(R.cmp)]] : [])) +
+    '<h2>2 · Inputs</h2>' + kv([['Reference source', scEl('scRefSrc').value === 'wmm' ? 'WMM2025' : 'Manual'], ['Reference BT', f(p.refBT / k, 4) + ' µT'], ['Reference Dip', f(p.refDip, 3) + '°'], ['Declination', f(p.dec, 3) + '°'],
+      ['BT / Dip uncertainty ±', e(scEl('scUBT').value) + ' nT / ' + f(p.uDip, 3) + '°'], ['Magnetometer data unit', u], ['Automatic exclusion', e(scEl('scExMode').options[scEl('scExMode').selectedIndex].text) + ' · BT tol ' + e(scEl('scTolBT').value) + ' nT, Dip tol ' + e(scEl('scTolDip').value) + '°'],
+      ['MD unit of the imported data', mdU]]) +
+    '<h2>3 · Method</h2>' + method +
+    '<h2>4 · Azimuth correction along the well</h2>' + scSvgPlot(rows.map(function(r){ return r.md; }), rows.map(function(r){ return r.dAz; }), 'MD (' + mdU + ')', 'ΔAz (°)') +
+    '<h2>5 · Corrected survey</h2>' + tbl +
+    '<h2>6 · Sign-off</h2><table><tr><th></th><th>Name</th><th>Signature</th><th>Date</th></tr><tr><td>Prepared by</td><td>' + e(scRpVal('rpScBy')) + '</td><td></td><td>' + today + '</td></tr><tr><td>Checked by</td><td>' + e(scRpVal('rpScChk')) + '</td><td></td><td></td></tr></table>' +
+    '<p style="font-size:10.5px;color:#555;margin-top:14px">MTX Conveyor · 6-axis Data · ' + e(name) + ' (SurQC port). Sources: SurQC (survey QC/correction program; MTX engines public/js/shortCollarModel.js and msaModel.js, validated against the SurQC classes to 1×10⁻¹³°); ISCWSA, Introduction to Wellbore Positioning (eBook V9.10, 2017), App. D6.</p></body></html>';
+  w.document.open(); w.document.write(h); w.document.close();
 }
 
 // ---- Save as new version (same pattern as SAGcorrection) -------------

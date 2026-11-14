@@ -125,6 +125,13 @@
               <input type="range" id="smoothWindow" class="form-range" min="1" max="25" step="2" value="5" />
               <span id="smoothValue" class="small-note">5</span>
             </div>
+            <%# 2026-11-14 (John): Hole Depth vs Time drawn with sharp corners or rounded; saved per user (userPrefs.js) %>
+            <div class="d-flex align-items-center gap-2" title="Hole Depth vs Time only: Sharp = straight lines between points (true depth/time record); Rounded = smoothed curve. Saved for your user.">
+              <label for="tdCurveStyle" class="form-label mb-0">Time vs Depth curve</label>
+              <select id="tdCurveStyle" class="form-select form-select-sm" style="width:auto"><option value="sharp">Sharp</option><option value="round">Rounded</option></select>
+              <label for="tdSharpTol" class="form-label mb-0" title="Sharp: a point is dropped when it lies within this % of the plot size from the straight line through its neighbours. Smaller = more points; larger = fewer, longer straight segments. Saved for your user.">Tol %</label>
+              <input type="number" id="tdSharpTol" class="form-control form-control-sm" style="width:70px" value="1" min="0.05" max="20" step="0.1">
+            </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="showLegend" />
               <label class="form-check-label" for="showLegend">Show legend</label>
@@ -315,7 +322,7 @@
       items.forEach(({key,label})=>{ const id='chk_'+btoa(p.id+'|'+key).replace(/=/g,''); const wrap=document.createElement('div'); wrap.className='form-check'; const inp=document.createElement('input'); inp.className='form-check-input'; inp.type='checkbox'; inp.id=id; inp.checked=isSeriesEnabled(p.id, key); const lab=document.createElement('label'); lab.className='form-check-label'; lab.htmlFor=id; lab.textContent=label; wrap.appendChild(inp); wrap.appendChild(lab); menu.appendChild(wrap); inp.addEventListener('change', ()=>{ setSeriesEnabled(p.id, key, inp.checked); renderMain(); }); });
     }
 
-    function prepareForPlot(points){ const reject=document.getElementById('rejectSpikes').checked; const thresh=parseFloat(document.getElementById('spikeThreshold').value)||0; const useIqr=document.getElementById('useIqrReject').checked; const smoothOn=document.getElementById('applySmoothing').checked; const win=parseInt(document.getElementById('smoothWindow').value,10)||1; let out=points; if(reject){ out=useIqr?rejectSpikesIqr(out,51,3.0):rejectSpikes(out,thresh); } if(smoothOn) out=smoothSeries(out,win); return out; }
+    function prepareForPlot(points, noSmooth){ /* 2026-11-14: noSmooth = Time vs Depth (never smoothed) */ const reject=document.getElementById('rejectSpikes').checked; const thresh=parseFloat(document.getElementById('spikeThreshold').value)||0; const useIqr=document.getElementById('useIqrReject').checked; const smoothOn=document.getElementById('applySmoothing').checked; const win=parseInt(document.getElementById('smoothWindow').value,10)||1; let out=points; if(reject){ out=useIqr?rejectSpikesIqr(out,51,3.0):rejectSpikes(out,thresh); } if(smoothOn && !noSmooth) out=smoothSeries(out,win); return out; }
 
     function makeDatasetFor(plotId,label,data,baseColor){ const grayMode=document.getElementById('paletteMode').value==='gray'; const style=getStyleOptionsFor(plotId); const {radius:dotRadius,alpha:dotAlpha}=dotParams(); const showPts=document.getElementById('showPoints').checked; const lineColor=grayMode?'#b0b0b0':baseColor; const pointColor=colorToRgba(lineColor,dotAlpha); return { label, data, borderColor:lineColor, backgroundColor:lineColor, showLine:style.showLine, borderDash:style.borderDash, borderWidth:style.borderWidth, fill:false, tension:0.2, pointRadius: showPts?dotRadius:0, pointBackgroundColor:pointColor, pointBorderColor:pointColor, order:10, hidden: !!style.hide }; }
 
@@ -325,7 +332,7 @@
     function getAllProcessedSeriesROP(){ const out=[]; state.ropSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('rop', `rop:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
     function getAllProcessedSeriesMSE(){ const out=[]; state.mseSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('mse', `mse:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
     function getAllProcessedSeriesFLOW(){ const out=[]; state.flowSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('flow', `flow:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
-    function getAllProcessedSeriesTD(){ const out=[]; state.timeDepthSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    function getAllProcessedSeriesTD(){ const out=[]; state.timeDepthSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`)) out.push(prepareForPlot(s.raw, true)); }); return out; }
 
     function computeAdaptiveStepTD(seriesList){ const {minX,maxX}=xRange(seriesList); if(!(Number.isFinite(minX)&&Number.isFinite(maxX)&&maxX>minX)) return 0.05; const range=maxX-minX; const target=800; let step=range/target; step=Math.max(0.001, Math.min(step, Math.max(0.5, range/50)) ); return step; }
 
@@ -360,9 +367,12 @@
         buildSpecialCurves(datasets, getAllProcessedSeriesFLOW(), 'Flow');
       }
       else if(plot.id==='td'){
-        const nTD=state.timeDepthSeries.length; state.timeDepthSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`))) return; const col=s.color||colorByIndex(idx,nTD); datasets.push(makeDatasetFor('td', `${s.name} — Depth vs Time`, prepareForPlot(s.raw), col)); });
+        const nTD=state.timeDepthSeries.length; state.timeDepthSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`))) return; const col=s.color||colorByIndex(idx,nTD); datasets.push(makeDatasetFor('td', `${s.name} — Depth vs Time`, prepareForPlot(s.raw, true), col)); });
         const tdSeries=getAllProcessedSeriesTD(); const tdStep=computeAdaptiveStepTD(tdSeries);
-        buildSpecialCurves(datasets, tdSeries, 'Depth', { stepOverride: tdStep, minSeriesOverride: 1 });
+        buildSpecialCurves(datasets, tdSeries, 'Depth', { stepOverride: tdStep, minSeriesOverride: 1, noSmooth: true });
+        // 2026-11-14: Sharp (default) = straight segments; Rounded = the previous tension 0.25 (per-user preference)
+        const tdRound = (document.getElementById('tdCurveStyle') && document.getElementById('tdCurveStyle').value === 'round');
+        datasets.forEach(d => { d.tension = tdRound ? 0.25 : 0; if(!tdRound && typeof mtxSharpenTD === 'function' && Array.isArray(d.data) && d.data.length > 2 && d.data[0] && typeof d.data[0].x === 'number') d.data = mtxSharpenTD(d.data, tdTolFrac()); });
       }
 
       const axesSelected = plot.id==='hl'?state.axesHL: plot.id==='tq'?state.axesTQ: plot.id==='wob'?state.axesWOB: plot.id==='rop'?state.axesROP: plot.id==='mse'?state.axesMSE: plot.id==='flow'?state.axesFLOW: state.axesTD;
@@ -386,7 +396,7 @@
       buildSeriesToggleMenu();
     }
 
-    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix, opts){ const showAvg=document.getElementById('showAverage').checked; const showMax=document.getElementById('showMax').checked; const showMin=document.getElementById('showMin').checked; const userStep=parseFloat(document.getElementById('avgStep').value)||5; const step=(opts && Number.isFinite(opts.stepOverride))?opts.stepOverride:Math.max(0.0001, userStep); const userMinSeries=parseInt(document.getElementById('avgMinSeries').value,10)||2; const minSeries=(opts && Number.isFinite(opts.minSeriesOverride))?opts.minSeriesOverride:Math.max(1,userMinSeries); const smoothOn=document.getElementById('applySmoothing').checked; const win=parseInt(document.getElementById('smoothWindow').value,10)||1; const maxPctVal=Math.min(100,Math.max(50, parseFloat(document.getElementById('maxPct').value)||90))/100; const minPctVal=Math.min(50,Math.max(0,  parseFloat(document.getElementById('minPct').value)||10))/100; lastCurvesSpecial={avg:[],max:[],min:[]}; if(showMin){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win); lastCurvesSpecial.min=pts; if(pts.length){ datasets.push({ label:`Min ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(255,0,0,0.20)', backgroundColor:'rgba(255,0,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:993 }); datasets.push({ label:`Min ${labelPrefix}`, data:pts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:994 }); } } if(showMax){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win); lastCurvesSpecial.max=pts; if(pts.length){ datasets.push({ label:`Max ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,255,0,0.20)', backgroundColor:'rgba(0,255,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:995 }); datasets.push({ label:`Max ${labelPrefix}`, data:pts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:996 }); } } if(showAvg){ const pts=buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win); lastCurvesSpecial.avg=pts; if(pts.length){ datasets.push({ label:`Average ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,229,255,0.20)', backgroundColor:'rgba(0,229,255,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:997 }); datasets.push({ label:`Average ${labelPrefix}`, data:pts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:998 }); } } }
+    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix, opts){ const showAvg=document.getElementById('showAverage').checked; const showMax=document.getElementById('showMax').checked; const showMin=document.getElementById('showMin').checked; const userStep=parseFloat(document.getElementById('avgStep').value)||5; const step=(opts && Number.isFinite(opts.stepOverride))?opts.stepOverride:Math.max(0.0001, userStep); const userMinSeries=parseInt(document.getElementById('avgMinSeries').value,10)||2; const nSeries=(seriesForGrid||[]).filter(a=>Array.isArray(a)&&a.length>0).length; const minSeries=(opts && Number.isFinite(opts.minSeriesOverride))?opts.minSeriesOverride:Math.max(1,Math.min(userMinSeries, nSeries||1)); /* 2026-11-14: clamp to the number of loaded wells (see computeCurvesForPlot) */ const noSm=!!(opts && opts.noSmooth); const smoothOn=!noSm && document.getElementById('applySmoothing').checked; const win=noSm ? 1 : (parseInt(document.getElementById('smoothWindow').value,10)||1); const maxPctVal=Math.min(100,Math.max(50, parseFloat(document.getElementById('maxPct').value)||90))/100; const minPctVal=Math.min(50,Math.max(0,  parseFloat(document.getElementById('minPct').value)||10))/100; lastCurvesSpecial={avg:[],max:[],min:[]}; if(showMin){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win); lastCurvesSpecial.min=pts; if(pts.length){ datasets.push({ label:`Min ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(255,0,0,0.20)', backgroundColor:'rgba(255,0,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:993 }); datasets.push({ label:`Min ${labelPrefix}`, data:pts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:994 }); } } if(showMax){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win); lastCurvesSpecial.max=pts; if(pts.length){ datasets.push({ label:`Max ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,255,0,0.20)', backgroundColor:'rgba(0,255,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:995 }); datasets.push({ label:`Max ${labelPrefix}`, data:pts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:996 }); } } if(showAvg){ const pts=buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win); lastCurvesSpecial.avg=pts; if(pts.length){ datasets.push({ label:`Average ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,229,255,0.20)', backgroundColor:'rgba(0,229,255,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:997 }); datasets.push({ label:`Average ${labelPrefix}`, data:pts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:998 }); } } }
 
     async function processFile1(file, hasHeader){ const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames.length) throw new Error('No sheets'); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null}); if(!rows.length) throw new Error('Empty sheet'); const start=hasHeader?1:0; const A=[],B=[],C=[]; for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; A.push(row[0]); B.push(row[1]); C.push(row[2]); } const {pts:rawB,replaced:replacedB}=cleanAndBuildXY(A,B); const {pts:rawC,replaced:replacedC}=cleanAndBuildXY(A,C); state.file1={name:file.name, rawB, rawC, rows:rows.length-start, replacedB, replacedC}; }
 
@@ -447,8 +457,9 @@
       if(!getter) return { avg:[], max:[], min:[] };
       const seriesForGrid = getter();
 
-      const smoothOn = document.getElementById('applySmoothing').checked;
-      const win = parseInt(document.getElementById('smoothWindow').value,10) || 1;
+      // 2026-11-14 (John): Time vs Depth is never smoothed (smoothing rounded the flat/drilling corners); other plots as set
+      const smoothOn = plotId !== 'td' && document.getElementById('applySmoothing').checked;
+      const win = plotId === 'td' ? 1 : (parseInt(document.getElementById('smoothWindow').value,10) || 1);
       const maxPctVal = Math.min(100, Math.max(50, parseFloat(document.getElementById('maxPct').value)||90)) / 100;
       const minPctVal = Math.min(50,  Math.max(0,  parseFloat(document.getElementById('minPct').value)||10)) / 100;
 
@@ -460,7 +471,12 @@
         const userStep = parseFloat(document.getElementById('avgStep').value) || 5;
         const userMinSeries = parseInt(document.getElementById('avgMinSeries').value,10) || 2;
         step = Math.max(0.0001, userStep);
-        minSeries = Math.max(1, userMinSeries);
+        // 2026-11-14 (John): clamp "min series per point" to the number of wells actually loaded. With ONE well and
+        // the default 2, no grid point qualified, so every MD-based plot (HL, Torque, WOB, ROP, MSE, Flow) had empty
+        // Avg/Max/Min and was silently left out of "Export All Plots" — only Hole Depth vs Time (fixed at 1) was
+        // exported, and the job page's Drilling Mechanics then had no ROP for "Calculate Time vs Depth".
+        const nSeries = seriesForGrid.filter(a => Array.isArray(a) && a.length > 0).length;
+        minSeries = Math.max(1, Math.min(userMinSeries, nSeries || 1));
       }
 
       return {
@@ -521,5 +537,43 @@
   </script>
 <!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
 <script src="/js/mtxTheme.js"></script>
+<!-- 2026-11-14: per-user preference for the Time vs Depth curve style -->
+<script>
+// 2026-11-14 (John): "Sharp" Time vs Depth = the curve reduced to straight segments between its break points
+// (flat = rig not making hole, slope = drilling), like a hand-drawn time/depth chart. Method: Ramer-Douglas-Peucker
+// line simplification, with time and depth each scaled to 0-1 so the tolerance (1 % of the plot) is unit-free.
+// Only the drawing changes; the stored data are untouched. (Just setting Chart.js tension 0 was not enough: the
+// Pason Average is itself a smoothed, densely sampled curve, so it still looked rounded.)
+function tdTolFrac(){ var t = document.getElementById('tdSharpTol'); var v = t ? parseFloat(t.value) : 1; return (isFinite(v) && v > 0 ? v : 1) / 100; }
+function mtxSharpenTD(pts, tolFrac){
+  if(!pts || pts.length < 3) return pts;
+  var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+  var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+  var sx = (x1 - x0) || 1, sy = (y1 - y0) || 1, tol = tolFrac == null ? 0.01 : tolFrac;
+  var keep = new Array(pts.length); keep[0] = keep[pts.length - 1] = true;
+  var stack = [[0, pts.length - 1]];
+  while(stack.length){
+    var seg = stack.pop(), a = seg[0], b = seg[1];
+    var ax = (pts[a].x - x0) / sx, ay = (pts[a].y - y0) / sy, bx = (pts[b].x - x0) / sx, by = (pts[b].y - y0) / sy;
+    var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx*dx + dy*dy) || 1e-12, best = -1, bi = -1;
+    for(var i = a + 1; i < b; i++){
+      var px = (pts[i].x - x0) / sx, py = (pts[i].y - y0) / sy;
+      var d = Math.abs(dy*px - dx*py + bx*ay - by*ax) / len;
+      if(d > best){ best = d; bi = i; }
+    }
+    if(best > tol){ keep[bi] = true; stack.push([a, bi], [bi, b]); }
+  }
+  return pts.filter(function(_, i){ return keep[i]; });
+}
+</script>
+<script src="/js/userPrefs.js"></script>
+<script>
+  (function(){ var e = document.getElementById('tdCurveStyle'); if(!e || !window.MTXPrefs) return;
+    e.value = MTXPrefs.get('tdCurveStyle', 'sharp');
+    var t = document.getElementById('tdSharpTol');
+    if(t){ t.value = MTXPrefs.get('tdSharpTol', '1'); t.addEventListener('change', function(){ MTXPrefs.set('tdSharpTol', t.value); if(typeof renderMain === 'function') renderMain(); }); }
+    e.addEventListener('change', function(){ MTXPrefs.set('tdCurveStyle', e.value); if(typeof renderMain === 'function') renderMain(); });
+    if(typeof renderMain === 'function') renderMain(); })();
+</script>
 </body>
 </html>

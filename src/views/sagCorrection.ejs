@@ -748,9 +748,18 @@ function loadBhaFromTD(){
   $('bhaBody').innerHTML = '';
   bha.forEach(function(c){ addRow({ use:true, name:c.name, od_mm:+(c.od_m * 1000).toFixed(2), id_mm:+(c.id_m * 1000).toFixed(2),
     len_m:+c.len, wt_kgm:c.wt == null ? '' : +c.wt, sf:1, material:'Steel' }); });
+  // 2026-11-14 (John): the T&D run now carries the MWD sensor distance and the motor bend (angle + distance from the
+  // bit, set in the T&D "BHA Runs" table) — fill them in when present. Bend sign: T&D stores the motor setting; SAG's
+  // convention is + = bend toward high side (enter it negative when the bend faces low side / dropping angle).
+  var tdNote = [];
+  if(src.run){
+    if(src.run.sensor != null && isFinite(src.run.sensor)){ $('sensor').value = +L(+src.run.sensor).toFixed(3); tdNote.push('sensor ' + fmt(L(+src.run.sensor), 2)); }
+    if(src.run.bendDist != null && isFinite(src.run.bendDist)){ $('bendDist').value = +L(+src.run.bendDist).toFixed(3); tdNote.push('bend at ' + fmt(L(+src.run.bendDist), 2)); }
+    if(src.run.bendDeg != null && isFinite(src.run.bendDeg)){ $('bendDeg').value = +src.run.bendDeg; tdNote.push('bend ' + fmt(+src.run.bendDeg, 2) + '°'); }
+  }
   applyLimit(); invalidate();
   lastBhaSource = 'T&D: ' + s;   // 2026-11-07 runs
-  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + s + '" for ' + w.wellKey + ' (' + bha.length + ' components; rows beyond the BHA length limit unticked).';
+  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + s + '" for ' + w.wellKey + ' (' + bha.length + ' components; rows beyond the BHA length limit unticked' + (tdNote.length ? '; from T&D run: ' + tdNote.join(', ') : '') + ').';
 }
 // ---------------- survey versions / correction chain (ADDED 2026-11-12, John — phase 3, see the project doc
 // claude/correction-chain-plan.md). SAG can start from ANY saved version (e.g. a PipeStretch one); stations keep their
