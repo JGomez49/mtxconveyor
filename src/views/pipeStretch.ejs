@@ -868,5 +868,8 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePs
   if(el){ var w = document.createElement('div'); w.style.position = 'relative'; el.parentNode.insertBefore(w, el); w.appendChild(el); w.appendChild(btn('plot', 'pp-help-plot')); }
 })();
 </script>
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'pipeStretch', keys: ["bhaLimit", "dpOD", "dpID", "modelSel", "mud", "grad", "tSurf", "tCal", "alpha", "youngE", "sensorOff"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
 </body>
 </html>

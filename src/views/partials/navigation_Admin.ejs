@@ -78,31 +78,32 @@
                     </a>
                     <div class="dropdown-menu" aria-labelledby="navbarDropdownMember">
                         <a class="dropdown-item" href="/notes/quickPlan" target="_blank">🧭 Quick Plan</a>
+                        <%# 2026-11-13 (John): T&D moved up after Quick Plan, 🔧 icon; hidden for Geo/GeoM (route guarded by canUseModelers) %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/uploadTorqueAndDrag">🔧 T&D</a><% } %>
                         <a class="dropdown-item" href="/notes/sixAxisData" target="_blank">🧲 6-axis Data</a>
                         <%# 2026-10-24: SAGcorrection — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
-                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/sagCorrection" target="_blank">📐 SAGcorrection</a><% } %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/sagCorrection" target="_blank">📐 SAG</a><% } %>
                         <%# 2026-10-25: PipeStretch — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
                         <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/pipeStretch" target="_blank">🌡 PipeStretch</a><% } %>
+                        <%# 2026-11-13: Slide Sheet (EDR) — label "Slide Sheet", icon 📈 (unique icons per item) %><% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/slideSheet" target="_blank">📈 Slide Sheet</a><% } %>
                         <%# 2026-10-25: DSI (Drill String Interference) — hidden for Geo/GeoM (route also guarded by canUseModelers) %>
-                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/dsi" target="_blank">🧲 DSI</a><% } %>
+                        <% if (!(user && ['Geo','GeoM'].includes(user.rank))) { %><a class="dropdown-item" href="/notes/dsi" target="_blank">⚙️ DSI</a><% } %>
                         <%# 2026-10-28: Design Codes (trajectory design guidelines) — visible to everyone; only admin can edit on the page %>
                         <a class="dropdown-item" href="/notes/designCodes" target="_blank">📏 Design Codes</a>
-                                                <a class="dropdown-item" href="/notes/uploadNewSchedule">New Schedule</a>
-                                                <a class="dropdown-item" href="/notes/uploadDPStats">DP Stats</a>
-                        <a class="dropdown-item" href="/notes/uploadDPI">DPI</a>
-                        <a class="dropdown-item" href="/notes/uploadPason">Pason Plots</a>
-                        <a class="dropdown-item" href="/notes/uploadPadAC">PAD AC Risk</a>
-                        <a class="dropdown-item" href="/notes/uploadFracPlanes">Frac Planes</a>
-                        <a class="dropdown-item" href="/notes/uploadTorqueAndDrag">T&D</a>
+                                                <a class="dropdown-item" href="/notes/uploadNewSchedule">📅 New Schedule</a>
+                                                <a class="dropdown-item" href="/notes/uploadDPStats">🧮 DP Stats</a>
+                        <a class="dropdown-item" href="/notes/uploadDPI">🎯 DPI</a>
+                        <a class="dropdown-item" href="/notes/uploadPason">📉 Pason Plots</a>
+                        <a class="dropdown-item" href="/notes/uploadPadAC">⚠️ PAD AC Risk</a>
+                        <a class="dropdown-item" href="/notes/uploadFracPlanes">🪨 Frac Planes</a>
                         <a class="dropdown-item" href="/notes/banner">🖼 Banner</a>
                         <a class="dropdown-item" href="/users/activity">📊 Usage Dashboard</a>
                         <a class="dropdown-item" href="/users/manage">👤 Manage Users</a>
-                        <!-- ADDED 2026-09-14: admin-only VP Areas mapping page, backs the
-                             New Schedule Gantt's Snapshot section (all-notes.ejs). -->
+                        <!-- ADDED 2026-09-14: VP Areas mapping page (New Schedule Gantt Snapshot); 2026-11-13 open to admin/leader/user -->
                         <a class="dropdown-item" href="/notes/vpAreas">🗺️ VP Areas</a>
                         <a class="dropdown-item" href="/notes/help" target="_blank">❓ Help</a>
                         <a class="dropdown-item" href="/users/change-password">🔐 Change Password</a>
-                        <a class="dropdown-item" href="/users/logout">Logout</a>
+                        <a class="dropdown-item" href="/users/logout">🚪 Logout</a>
                     </div>
                 </li>
             </ul>

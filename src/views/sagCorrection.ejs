@@ -195,7 +195,7 @@
 <header>
   <div>
     <h1>📐 SAGcorrection</h1>
-    <div class="sub">BHA sag inclination correction — port of SurQC's sag solver</div>
+    <div class="sub">BHA sag inclination correction</div><%# 2026-11-13 (John): removed "— port of SurQC's sag solver" %>
   </div>
   <div class="row" style="margin:0">
     <select id="unitSel" onchange="setUnit(this.value)">
@@ -324,7 +324,7 @@
         one before it (Bourgoyne Eqs. 8.45–8.49); for rotated intervals the survey toolface is the hole's, not necessarily the motor's at survey time.
         Surveys are usually taken off bottom — WOB is then ~0. Curvature, survey toolface or Drilling-Mechanics WOB switch to per-station solving.</div>
     </div>
-    <div class="note">Per the SurQC manual: the bend is assumed to face high side — when dropping angle enter a <b>negative</b> bend angle.
+    <div class="note">The bend is assumed to face high side — when dropping angle enter a <b>negative</b> bend angle.
       Gravity defaults to standard gravity 9.80665 m/s² (SurQC's own default value is not in the available source).</div>
     <div class="row">
       <div class="field"><span>Plot inclination (°)</span><input type="number" id="profInc" value="45" step="1" min="0" max="180"></div>
@@ -1113,8 +1113,8 @@ async function confirmSaveVersion(){
 // Model selector (2026-10-24). Beam = SurQC port (default, matches SurQC);
 // Kinetic = same physics, exact FE + active-set wall contact (sagKinetic.js).
 var MODEL_NOTES = {
-  Beam: '<b>Beam</b> — line-by-line port of SurQC (2016 source), matches SurQC to round-off. Known SurQC limits kept: ' +
-    'no convergence with a stabiliser directly above the bit; sensor read 0.1–0.2 m above the entered position; Inc 0° = 0; ' +
+  // 2026-11-13 (John): removed the SurQC-port / convergence-limit wording from the note text
+  Beam: '<b>Beam</b> — sensor read 0.1–0.2 m above the entered position; Inc 0° = 0; ' +
     'BHA may sit up to 2.5 mm inside the hole wall (contact tolerance).',
   Kinetic: '<b>Kinetic</b> — same physics as Beam (beam theory, buoyed weight, bit centred, top on low side), solved exactly: ' +
     'finite elements + exact wall contact (converges with near-bit stabilisers), slope read at the exact sensor position, bend at its exact ' +
@@ -1894,5 +1894,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 </script>
 <!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
 <script src="/js/mtxTheme.js"></script>
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'sag', keys: ["bhaLimit", "modelSel", "sensor", "mud", "grav", "maxIter", "kCurv", "kBendTF", "kAxial", "kWobSrc", "kWob", "kHole", "kCorr", "profInc", "rpIncs"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
 </body>
 </html>

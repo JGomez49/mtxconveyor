@@ -1505,7 +1505,7 @@
           <!-- BHA runs (added 2026-11-08) -->
           <div class="tbl-wrap">
             <table class="dt">
-              <thead><tr><th title="Run shown in the BHA / Drill Pipe tables below">Edit</th><th title="Use this run in the T&amp;D model">T&amp;D</th><th>Run</th><th id="th_rfrom">From (m)</th><th id="th_rto">To (m)</th><th id="th_rwobr">WOB Rot (kDaN)</th><th id="th_rwobs">WOB Slide (kDaN)</th><th>Torque @ Bit (N.m)</th><th></th></tr></thead>
+              <thead><tr><th title="Run shown in the BHA / Drill Pipe tables below">Edit</th><th title="Use this run in the T&amp;D model">T&amp;D</th><th>Run</th><th id="th_rfrom">From (m)</th><th id="th_rto">To (m)</th><th id="th_rwobr">WOB Rot (kDaN)</th><th id="th_rwobs">WOB Slide (kDaN)</th><th>Torque @ Bit (N.m)</th><th id="th_rsens" title="MWD directional sensor distance from the bit (used by the DSI page)">MWD sensor from bit (m)</th><th></th></tr></thead>
               <tbody id="runBody"></tbody>
             </table>
           </div>
@@ -1525,6 +1525,7 @@
                   <th>ID (mm)</th>
                   <th id="th_blen">Length (m)</th>
                   <th id="th_bwt">Wt (kg/m)</th>
+                  <th title="Magnetic or non-magnetic — used by the DSI (drill string interference) page. Default from the name (NMDC, Monel, non-mag…); check it.">Material</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1907,10 +1908,17 @@
       document.getElementById('casBody').appendChild(tr);
     }
 
-    function addBHA(nm, od, id_, len, wt) {
+    // 2026-11-14 (John): Material column (Steel / Non-mag) for the DSI page, saved with each BHA component
+    // (getBHA -> material). Not used by the T&D calculation. Default when not given: from the name, same
+    // pattern as the DSI page (NMDC, Monel, non-mag, NM…).
+    var BHA_NM_RE = /non.?mag|nmdc|monel|\bnm\b|nm[ -]?(dc|pony|flex|collar)|n\.m\./i;
+    function addBHA(nm, od, id_, len, wt, mat) {
       nm = nm || ''; od = od || ''; id_ = id_ || ''; len = len || ''; wt = wt || '';
+      mat = mat || (BHA_NM_RE.test(nm) ? 'Non-mag' : 'Steel');
       var tr = document.createElement('tr');
-      tr.innerHTML = mkText(nm, 'Component') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(len, 'Len') + mkCell(wt, 'Wt') + delBtn();
+      var msel = '<td><select data-k="mat" style="background:var(--panel);border:1px solid var(--border);color:var(--text-bright);font-family:var(--mono);font-size:9px;width:100%;padding:3px">'
+        + '<option' + (mat === 'Steel' ? ' selected' : '') + '>Steel</option><option' + (mat === 'Non-mag' ? ' selected' : '') + '>Non-mag</option></select></td>';
+      tr.innerHTML = mkText(nm, 'Component') + mkCell(od, 'OD') + mkCell(id_, 'ID') + mkCell(len, 'Len') + mkCell(wt, 'Wt') + msel + delBtn();
       document.getElementById('bhaBody').appendChild(tr);
     }
 
@@ -1963,7 +1971,7 @@
     function exportBHAExcel() {
       var rows = Array.from(document.querySelectorAll('#bhaBody tr')).map(function (r) {
         var ins = r.querySelectorAll('input');
-        return { name: ins[0].value, od: ins[1].value, id: ins[2].value, len: ins[3].value, wt: ins[4].value };
+        var ms = r.querySelector('select[data-k="mat"]'); return { name: ins[0].value, od: ins[1].value, id: ins[2].value, len: ins[3].value, wt: ins[4].value, mat: ms ? ms.value : 'Steel' };
       });
       if (!rows.length) { alert('BHA table is empty — nothing to export.'); return; }
       var M = (UNIT === 'metric');
@@ -1976,6 +1984,7 @@
         o['ID (mm)'] = +r.id || 0;
         o[lenLabel] = +r.len || 0;
         o[wtLabel] = +r.wt || 0;
+        o['Material'] = r.mat;   // 2026-11-14 DSI
         return o;
       });
       var ws = XLSX.utils.json_to_sheet(sheetRows);
@@ -2012,6 +2021,7 @@
           var cID = findCol(/^id\b|id\s*\(/i);
           var cLen = findCol(/length|len\b/i);
           var cWt = findCol(/wt|weight/i);
+          var cMat = findCol(/material/i);   // 2026-11-14 optional (DSI)
           if (!cName || !cOD || !cID || !cLen || !cWt) {
             alert('Could not find all expected columns (Component, OD, ID, Length, Wt) in that file.\nFound columns: ' + headers.join(', '));
             return;
@@ -2028,7 +2038,8 @@
             var wt_kgm = (wtIsLbFt ? (+row[cWt] || 0) / KGM2LBFT : (+row[cWt] || 0));
             var lenOut = M ? len_m : len_m / FT;
             var wtOut = M ? wt_kgm : wt_kgm * KGM2LBFT;
-            addBHA(String(row[cName] || ''), od_mm, id_mm, +lenOut.toFixed(3), +wtOut.toFixed(3));
+            var mt = cMat ? (/non/i.test(String(row[cMat])) ? 'Non-mag' : /steel/i.test(String(row[cMat])) ? 'Steel' : '') : '';
+            addBHA(String(row[cName] || ''), od_mm, id_mm, +lenOut.toFixed(3), +wtOut.toFixed(3), mt);
           });
           setStatus('ok', 'Imported ' + rows.length + ' BHA component(s) from "' + file.name + '" — replaced the previous table.');
         } catch (err) {
@@ -2230,7 +2241,8 @@
           od_m: +ins[1].value / 1000,
           id_m: +ins[2].value / 1000,
           len: M ? +ins[3].value : +ins[3].value * FT,
-          wt: M ? +ins[4].value : +ins[4].value / KGM2LBFT
+          wt: M ? +ins[4].value : +ins[4].value / KGM2LBFT,
+          material: r.querySelector('select[data-k="mat"]') ? r.querySelector('select[data-k="mat"]').value : 'Steel'   // 2026-11-14 DSI
         };
       }).filter(function (r) { return r.od_m > 0 && r.len > 0; });
     }
@@ -2455,7 +2467,7 @@
           document.getElementById('bhaBody').innerHTML = '';
           doc.bha.forEach(function (c) {
             addBHA(c.name, (c.od_m * 1000).toFixed(1), (c.id_m * 1000).toFixed(1),
-              c.len.toFixed(2), c.wt.toFixed(3));
+              c.len.toFixed(2), c.wt.toFixed(3), c.material);
           });
         }
         if (doc.params) {
@@ -3922,6 +3934,7 @@
         r.use = g('use').checked; r.name = g('name').value;
         r.from = dSI(+g('from').value); r.to = dSI(+g('to').value);
         r.wobRot = fSI(+g('wobr').value); r.wobSlid = fSI(+g('wobs').value); r.torqBit = +g('tqb').value || 0;
+        r.sensor = g('sens') && g('sens').value !== '' ? dSI(+g('sens').value) : null;   // 2026-11-14 DSI
         return r;
       });
       var cur = planCurRun(); document.getElementById('runEditName').textContent = cur ? cur.name : '—';
@@ -3951,7 +3964,7 @@
       var M = pM();
       document.getElementById('bhaBody').innerHTML = '';
       document.getElementById('dpBody').innerHTML = '';
-      (r.bha || []).forEach(function (c) { addBHA(c.name, r2(c.od_m * 1000), r2(c.id_m * 1000), r2(M ? c.len : c.len / FT), r2(M ? c.wt : c.wt * KGM2LBFT)); });
+      (r.bha || []).forEach(function (c) { addBHA(c.name, r2(c.od_m * 1000), r2(c.id_m * 1000), r2(M ? c.len : c.len / FT), r2(M ? c.wt : c.wt * KGM2LBFT), c.material); });
       (r.dp || []).forEach(function (c) { addDP(c.name, r2(c.od_m * 1000), r2(c.id_m * 1000), r2(M ? c.len : c.len / FT), r2(M ? c.wt : c.wt * KGM2LBFT)); });
       document.getElementById('runEditName').textContent = r.name;
     }
@@ -3984,6 +3997,7 @@
           + '<td><input type="number" step="any" data-k="wobr" value="' + r2(fDisp(r.wobRot), 2) + '"/></td>'
           + '<td><input type="number" step="any" data-k="wobs" value="' + r2(fDisp(r.wobSlid), 2) + '"/></td>'
           + '<td><input type="number" step="any" data-k="tqb" value="' + r2(r.torqBit, 0) + '"/></td>'
+          + '<td><input type="number" step="any" data-k="sens" placeholder="—" value="' + (r.sensor != null && isFinite(r.sensor) ? r2(dDisp(r.sensor), 2) : '') + '"/></td>'   // 2026-11-14 DSI: MWD sensor (SI m)
           + '<td><button class="del" title="Delete run" onclick="planDelRun(\'' + r.id + '\')">x</button></td></tr>';
       }).join('');
     }
@@ -4016,7 +4030,7 @@
       var M = pM(), dU = M ? '(m)' : '(ft)', fU = M ? '(kDaN)' : '(klbf)';
       var set = function (id, t) { var e = document.getElementById(id); if (e) e.textContent = t; };
       set('th_sfrom', 'From ' + dU); set('th_sto', 'To ' + dU); set('th_smw', M ? 'MW (kg/m3)' : 'MW (ppg)');
-      set('th_rfrom', 'From ' + dU); set('th_rto', 'To ' + dU); set('th_rwobr', 'WOB Rot ' + fU); set('th_rwobs', 'WOB Slide ' + fU);
+      set('th_rfrom', 'From ' + dU); set('th_rsens', 'MWD sensor from bit ' + dU); set('th_rto', 'To ' + dU); set('th_rwobr', 'WOB Rot ' + fU); set('th_rwobs', 'WOB Slide ' + fU);
       set('th_dlen', M ? 'Length (m)' : 'Length (ft)'); set('th_dwt', M ? 'Wt (kg/m)' : 'Wt (lb/ft)');
       set('lLibLen', M ? 'Length (m)' : 'Length (ft)');
     }
@@ -4367,6 +4381,9 @@
       <div class="hp-body" id="hpBody"></div>
     </div>
   </div>
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'torqueAndDrag', keys: ["mudWeight", "blockWeight", "wobRot", "wobSlid", "steelDens", "normLen", "torqBit", "tripSpeed", "tripInRPM", "tripOutRPM", "ohDiam"], unit: function(){ return (typeof UNIT !== 'undefined') ? UNIT : 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
 </body>
 
 </html>

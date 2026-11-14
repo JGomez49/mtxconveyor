@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
 <script src="/js/wmmModel.js"></script>
 <script src="/js/dsiModel.js"></script>
+<script src="/js/tdModel.js"></script><%# 2026-11-14: T&D plan runs (planActiveRuns) for the per-run DSI %>
 <style>
   /*
     DSI — Drill String Interference (added 2026-10-25, John). Standalone tool,
@@ -39,8 +40,50 @@
   .note{background:var(--panel2);border-left:3px solid var(--accent);padding:6px 10px;font-size:12px;color:var(--muted);margin:6px 0;}
   .note.warnbox{border-left-color:var(--warn);}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;} @media(max-width:1000px){.grid2{grid-template-columns:1fr;}}
+  /* 2026-11-13 (John): easier to read on PC and phone.
+     - ONE tile per row on every screen (.grid2 forced to a single column; was 2 columns on PC).
+     - PC: same sizes as PipeStretch / Slide Sheet.
+     - Phone (<=700 px): bigger text and touch targets; the job-connect and toolbar rows stack; wide tables
+       scroll inside their own box (min-width:0 stops a wide table from pushing the panel off-screen — the
+       first attempt let the BHA table widen the whole page). Plot / heat-map drawing code untouched. */
+  .grid2{grid-template-columns:1fr !important;}
+  .grid2 > *, .panel{min-width:0;}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;}
+  header h1{font-size:22px;} header .sub{font-size:13.5px;}
+  .panel h2{font-size:17px;margin-bottom:14px;}
+  table{font-size:14px;} input,select,button{font-size:14px;padding:7px 10px;}
+  .field{font-size:13px;} .muted,.note{font-size:13.5px;}
+  .plot{height:420px !important;}
+  @media(max-width:700px){
+    body{font-size:16px;-webkit-text-size-adjust:100%;overflow-x:hidden;}
+    header{padding:12px 14px;flex-direction:column;align-items:stretch;}
+    header h1{font-size:21px;} header .sub{font-size:14px;}
+    header .row{flex-direction:row;flex-wrap:wrap;gap:8px;}
+    header .row > *{width:auto;flex:1 1 140px;}
+    .wrap{padding:10px 8px 30px !important;}
+    .panel{padding:14px 12px !important;}
+    .panel h2{font-size:18px;}
+    .row{flex-direction:column;align-items:stretch;gap:10px;}
+    .row > *{width:100%;}
+    .field{white-space:normal;font-size:15px;}
+    .field input,.field select{width:100% !important;}
+    input,select,button{font-size:16px;padding:10px 12px;min-height:44px;}
+    td input,td select,td button{font-size:15px;min-height:38px;padding:6px 8px;}
+    .muted,.note{font-size:15px;}
+    table{font-size:15px;white-space:nowrap;}
+    th,td{padding:8px 8px;}
+    .plot{height:340px !important;}
+    input[type=checkbox]{width:22px !important;height:22px;min-height:0;padding:0;flex:0 0 auto;}
+    .row > label,.row > .chk{display:flex;align-items:center;gap:10px;}
+    td input{min-width:90px;} td:nth-child(2) input{min-width:130px;}
+  }
   .plot{height:360px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;}
   .badge{display:inline-block;padding:3px 10px;border-radius:5px;font-weight:600;color:#061325;}
+  /* 2026-11-14: "?" help (μr table) — same pattern as SAG / PipeStretch / Slide Sheet */
+  .pp-help{padding:0!important;min-height:0!important;width:24px!important;height:24px!important;border-radius:50%!important;margin-left:6px;font-weight:700;cursor:pointer;background:var(--panel2);color:var(--accent);border:1px solid var(--border);display:inline-block!important;}
+  .hp-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;}
+  .hp-modal .hp-box{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;max-width:780px;width:94%;max-height:86vh;overflow:auto;padding:18px 20px;font-size:14.5px;line-height:1.5;}
+  .hp-modal h3{margin:0 0 10px;font-size:18px;} .hp-modal .ref{color:var(--muted);font-size:13px;border-top:1px solid var(--border);margin-top:12px;padding-top:8px;}
 </style>
 </head>
 <body>
@@ -58,9 +101,12 @@
       <div class="field"><span>MTX Job ID</span><input id="mtxId" placeholder="e.g. 2423" style="width:120px"></div>
       <button onclick="loadJob()">Load job</button>
       <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
-      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px"></select></div>
+      <div class="field"><span>T&amp;D scenario</span><select id="scenSel" style="width:180px" onchange="fillRunSel()"></select></div>
+      <%# 2026-11-14 (John): pick any BHA run of the T&D plan (was: only the scenario's BHA = the run being edited in T&D) %>
+      <div class="field"><span>BHA run</span><select id="runSel" style="width:220px"></select></div>
       <button onclick="loadBhaFromTD()">⬇ Use saved T&amp;D BHA</button>
       <button onclick="loadSurveyFromJob()">⬇ Use well survey</button>
+      <button onclick="saveRunToTD()" title="Writes the Material column and the sensor distance of the BHA table into the selected T&amp;D run (same components required)">💾 Save Material + sensor to T&amp;D run</button>
     </div>
     <div id="jobStatus" class="muted"></div>
   </div>
@@ -94,7 +140,9 @@
         <button onclick="wmm()">WMM2025 → BT/Dip/Dec</button>
       </div>
       <div class="row">
-        <div class="field"><span>Method</span><select id="method" onchange="onMethod()"><option value="pole">Pole model (SPE 7748 / ISCWSA eBook) — default</option><option value="sniper">SNIPER v1-3 (legacy, no published source)</option></select></div>
+        <div class="field"><span>Method</span><select id="method" onchange="onMethod()"><option value="pole" selected>Pole model (SPE 7748 / ISCWSA eBook)</option><option value="induced">Lalji 2020 + Osborn 1945</option><option value="sniper">SNIPER v1-3 (legacy, no published source)</option></select></div>
+        <%# 2026-11-14 (John): admin can store the current settings as the page defaults (SiteConfig 'dsiDefaults') %>
+        <% if (user && user.role === 'admin') { %><button type="button" onclick="saveDefaults(false)" title="Method, pole presets / strengths, dipole option, μr, colour bands, allowance, 3D colour, per-run, units">💾 Save this setup as default</button><button type="button" onclick="saveDefaults(true)" title="Back to the built-in defaults">↺ Built-in defaults</button><span id="defMsg" class="muted"></span><% } %>
       </div>
       <div id="poleOpts">
         <div class="row">
@@ -118,6 +166,19 @@
         <div class="note">Pole strengths: ISCWSA eBook §5.2.2 (Shell field data, North Sea, N. hemisphere — "a guide and certainly not an upper limit"; reverse signs in the S. hemisphere). Every value below can be edited; poles at other steel/non-mag boundaries have no published default and start at 0.</div>
         <div class="scroll" style="max-height:200px"><table><thead><tr><th>Pole</th><th>From bit (<span class="uL">m</span>)</th><th>To sensor (<span class="uL">m</span>)</th><th>Strength (µWb)</th><th>ΔBz at sensor (nT)</th></tr></thead><tbody id="poleBody"></tbody></table></div>
       </div>
+      <!-- 2026-11-14 (John): induced-magnetisation method — pole strengths from geometry. Sources and
+           implementation choices: header of public/js/dsiModel.js ("INDUCED"). -->
+      <div id="inducedOpts" style="display:none">
+        <div class="row">
+          <%# 2026-11-14 (John): default method = Lalji 2020 + Osborn 1945; μr default 80 (John's choice, inside the hardened-martensitic / carbon-steel ranges in the "?" table) %>
+          <div class="field"><span>Steel relative permeability μr (blank = ∞) <button type="button" class="pp-help" onclick="openMuHelp()" title="Typical μr values and references">?</button></span><input type="number" id="muR" value="80" step="any" min="1" placeholder="∞" oninput="invalidate()"></div>
+        </div>
+        <div class="note warnbox">Induced magnetisation only: Q = (μr−1)·B<sub>ax</sub>·A / (1 + N(μr−1)), μr → ∞ gives Q = B<sub>ax</sub>·A / N (Lalji et al. 2020, Eq. 3);
+          N = axial demagnetising factor of a prolate spheroid with m = length / OD (Osborn 1945); field B = Q/(4πr²).
+          B<sub>ax</sub> = B·(cos I·sin Dip + sin I·cos Dip·cos Am) changes with every station, so ΔBz is station-dependent.
+          Each contiguous steel section is one body (+Q at its bottom end, −Q at its top end). <b>Remanent magnetisation (magnetic-particle inspection, handling) is not included</b> and can add to or cancel the induced part; only the BHA rows entered are modelled.</div>
+        <div class="scroll" style="max-height:200px"><table><thead><tr><th>Steel section (rows)</th><th>From–to bit (<span class="uL">m</span>)</th><th>m = L/OD</th><th>N</th><th>A (cm²)</th><th>Q at Inc/Az above (µWb)</th></tr></thead><tbody id="indBody"></tbody></table></div>
+      </div>
       <div id="sniperOpts" style="display:none">
         <div class="note warnbox">SNIPER v1-3 (port of Form1.vb Calcular_DSI): pole strength P = 300·OD/ID of the element next to each non-mag run, ΔBz = ΣP/Z² (Z in ft). <b>The 300·OD/ID rule has no known published source</b> — kept for comparison with SNIPER results only.</div>
         <div class="scroll" style="max-height:200px"><table><thead><tr><th>Pole</th><th>Pole-Bit (ft)</th><th>Z (ft)</th><th>Bm</th><th>Rel. (OD/ID)</th><th>Ps</th></tr></thead><tbody id="sniperBody"></tbody></table></div>
@@ -140,6 +201,20 @@
     <div class="grid2" style="margin-top:8px">
       <div id="plotMd" class="plot"></div>
       <div id="plotHeat" class="plot"></div>
+      <%# 2026-11-14 (John): 3D trajectory coloured by the predicted interference of the chosen method %>
+      <div>
+        <%# 2026-11-14 (John): live what-if sliders + per-BHA-run colouring (T&D plan runs) %>
+        <div class="row" style="margin:4px 0 6px">
+          <div class="field" style="min-width:220px"><span>What-if sensor distance from bit: <b id="sdV">—</b> <span class="uL">m</span></span><input type="range" id="sdR" min="0" max="50" step="0.1" oninput="whatIf()"></div>
+          <div class="field" style="min-width:220px"><span>What-if extra NMDC length: <b id="xnV">0</b> <span class="uL">m</span></span><input type="range" id="xnR" min="0" max="30" step="0.1" value="0" oninput="whatIf()"></div>
+          <label class="field chk" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="perRun" onchange="plot3d()" style="width:auto"> Colour each BHA run with its own BHA (T&amp;D plan runs)</label>
+        </div>
+        <div id="runInfo" class="muted"></div>
+        <div class="scroll" id="runTblW" style="max-height:200px;display:none"><table><thead><tr><th>Run</th><th>From–to MD (<span class="uL">m</span>)</th><th>BHA</th><th>Sensor from bit (<span class="uL">m</span>)</th><th>ΔBz at sensor (nT)</th><th>Status</th></tr></thead><tbody id="runBody"></tbody></table></div>
+        <div class="row" style="margin:4px 0 6px"><div class="field"><span>3D trajectory colour</span><select id="c3d" onchange="plot3d()">
+          <option value="abs">|ΔA| predicted (°)</option><option value="ratio">|ΔA| / ISCWSA allowance (SPE 67616)</option><option value="dbz">|ΔBz| (nT)</option><option value="band">Pass / fail (colour bands)</option></select></div></div>
+        <div id="plot3d" class="plot" style="height:520px !important"></div>
+      </div>
     </div>
     <div class="grid2" style="margin-top:8px">
       <div id="plotPos" class="plot"></div>
@@ -213,16 +288,48 @@ function onWellChange(){
   var w = job.wells[+$('wellSel').value], td = job.td, opts = [];
   if(td && td.scenarios && w) Object.keys(td.scenarios).forEach(function(s){ var rb = td.scenarios[s].resultsByWell || {}; if(rb[w.wellKey] && rb[w.wellKey].bha && rb[w.wellKey].bha.length) opts.push(s); });
   $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') : '<option value="">(no saved BHA for this well)</option>';
+  fillRunSel();
+}
+function runKey(r){ return String(r.id != null ? r.id : r.name); }
+function fillRunSel(){   // 2026-11-14: every run of the plan (active or not), scenario BHA as fallback
+  var w = job && job.wells ? job.wells[+$('wellSel').value] : null, sc = $('scenSel').value;
+  var e = w && sc && job.td && job.td.scenarios[sc] ? job.td.scenarios[sc].resultsByWell[w.wellKey] : null;
+  var runs = e && e.params && e.params.plan ? (e.params.plan.runs || []) : [];
+  $('runSel').innerHTML = runs.map(function(r){ return '<option value="' + esc(runKey(r)) + '">' + esc(r.name || runKey(r)) + ' — ' + fmt(L(r.from), 0) + '–' + fmt(L(r.to), 0) + ' ' + (UNIT === 'metric' ? 'm' : 'ft') + ' · ' + (r.bha || []).length + ' parts' + (r.use === false ? ' (not in T&D)' : '') + '</option>'; }).join('') + '<option value="">Scenario BHA (no runs)</option>';
+}
+function tdEntry(){ var w = job.wells[+$('wellSel').value], sc = $('scenSel').value; return { w: w, sc: sc, e: (w && sc && job.td && job.td.scenarios[sc]) ? job.td.scenarios[sc].resultsByWell[w.wellKey] : null }; }
+async function saveRunToTD(){
+  var t = tdEntry(), k = $('runSel').value;
+  if(!t.e || !t.e.params || !t.e.params.plan || !k){ alert('Load a job and pick a BHA run first.'); return; }
+  var plan = JSON.parse(JSON.stringify(t.e.params.plan)), run = (plan.runs || []).filter(function(r){ return runKey(r) === k; })[0];
+  var rows = readBha();
+  if(!run || (run.bha || []).length !== rows.length || run.bha.some(function(c, i){ return String(c.name || '').trim() !== String(rows[i].name || '').trim(); })){
+    alert('The BHA table is not the BHA of run "' + (run ? run.name : k) + '" (different components). Load the run with "⬇ Use saved T&D BHA" first, then change Material / sensor and save.'); return; }
+  run.bha.forEach(function(c, i){ c.material = rows[i].material; });
+  run.sensor = Lm(+$('sensor').value);
+  var params = Object.assign({}, t.e.params, { plan: plan });
+  try{
+    var r = await fetch('/notes/tdModel/' + job.noteId, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteId: job.noteId, wellKey: t.w.wellKey, casings: t.e.casings || [], bha: t.e.bha || [], params: params, scenario: t.sc }) });
+    var d = await r.json().catch(function(){ return {}; }); if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    t.e.params = params;   // keep the local copy in step
+    $('jobStatus').innerHTML += '<br><span class="ok">✔ Saved Material + sensor (' + fmt(+$('sensor').value, 2) + ') to run "' + esc(run.name) + '" (scenario ' + esc(t.sc) + '). Open it in T&amp;D to see the Material column.</span>';
+    if(last) plot3d();
+  }catch(err){ $('jobStatus').innerHTML += '<br><span class="bad">Save failed: ' + esc(err.message) + '</span>'; }
 }
 function loadBhaFromTD(){
   var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
   if(!w || !s){ alert('Load a job and pick a well with a saved T&D BHA first.'); return; }
-  var bha = job.td.scenarios[s].resultsByWell[w.wellKey].bha; // T&D getBHA(): {name, od_m, id_m, len (m), wt}, bit first
+  var bha = job.td.scenarios[s].resultsByWell[w.wellKey].bha; // T&D getBHA(): {name, od_m, id_m, len (m), wt, material}, bit first
+  var pl = job.td.scenarios[s].resultsByWell[w.wellKey].params, rk = $('runSel').value, rr = null;   // 2026-11-14: selected run
+  if(rk && pl && pl.plan) rr = (pl.plan.runs || []).filter(function(r){ return runKey(r) === rk; })[0] || null;
+  if(rr){ bha = rr.bha || []; if(rr.sensor != null && isFinite(rr.sensor)) $('sensor').value = +L(rr.sensor).toFixed(2); }
   $('bhaBody').innerHTML = ''; var nNM = 0;
   bha.forEach(function(c){ var nm = NM_RE.test(c.name || ''); if(nm) nNM++;
-    addRow({ name: c.name, od: +(c.od_m / 0.0254).toFixed(3), id: +(c.id_m / 0.0254).toFixed(3), len: +c.len, material: nm ? 'Non-mag' : 'Steel' }); });
+    var mat = c.material || (nm ? 'Non-mag' : 'Steel'); if(c.material){ if(nm) nNM--; if(c.material === 'Non-mag') nNM++; }   // saved Material wins (2026-11-14)
+    addRow({ name: c.name, od: +(c.od_m / 0.0254).toFixed(3), id: +(c.id_m / 0.0254).toFixed(3), len: +c.len, material: mat }); });
   invalidate();
-  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + esc(s) + '" (' + bha.length + ' components, ' + nNM + ' marked Non-mag by name — please check the Material column).';
+  $('jobStatus').innerHTML += '<br>Loaded T&D BHA "' + esc(s) + (rr ? ' / ' + esc(rr.name) : '') + '" (' + bha.length + ' components, ' + nNM + ' Non-mag' + (bha.some(function(c){ return c.material; }) ? ' — Material as saved in T&D' : ' by name — please check the Material column') + (rr && rr.sensor != null ? '; sensor ' + fmt(L(rr.sensor), 2) + ' from T&D' : '') + ').';
 }
 function loadSurveyFromJob(){
   var w = job.wells[+$('wellSel').value]; if(!w){ alert('Load a job first.'); return; }
@@ -275,13 +382,13 @@ function wmm(){
 function magAz(az){ var t = $('azRef').value === 'grid' ? az + (+$('conv').value || 0) : az; return t - (+$('dec').value || 0); }
 
 // ---- method / poles ----
-function onMethod(){ var p = $('method').value === 'pole'; $('poleOpts').style.display = p ? '' : 'none'; $('sniperOpts').style.display = p ? 'none' : ''; invalidate(); }
+function onMethod(){ var v = $('method').value; $('poleOpts').style.display = v === 'pole' ? '' : 'none'; $('inducedOpts').style.display = v === 'induced' ? '' : 'none'; $('sniperOpts').style.display = v === 'sniper' ? '' : 'none'; invalidate(); }
 function onUpperPreset(){ var v = $('pUsel').value; if(v !== 'custom') $('pU').value = v; refreshPoles(); }
 function onLowerPreset(){ var v = $('pLsel').value; if(v !== 'custom') $('pL').value = v; refreshPoles(); }
 var POLES = null, POLE_EDITS = {};
 function refreshPoles(){
   var body = $('poleBody'); if(!body) return;
-  var rows = readBha().filter(function(r){ return r.len > 0; }), s = Lm(+$('sensor').value);
+  var s = Lm(+$('sensor').value), rows = withExtraNM(readBha().filter(function(r){ return r.len > 0; }), s);   // 2026-11-14: + what-if NMDC slider
   try{
     var d = DsiModel.defaultPoles(rows, s, { pUpper: +$('pU').value, pLower: +$('pL').value, bitDipole: $('bitDip').checked });
     d.poles.forEach(function(p){ var k = p.x.toFixed(4); if(p.noDefault && POLE_EDITS[k] != null) p.P = POLE_EDITS[k]; });
@@ -299,7 +406,7 @@ function bandColor(a){
   return a > 0.25 ? '#ff5c5c' : '#2ecc71';
 }
 function compute(){
-  var rows = readBha().filter(function(r){ return r.len > 0; }), s = Lm(+$('sensor').value);
+  var s = Lm(+$('sensor').value), rows = withExtraNM(readBha().filter(function(r){ return r.len > 0; }), s);   // 2026-11-14: + what-if NMDC slider
   var bt = +$('bt').value, dip = +$('dip').value;
   if(!(bt > 0) || !isFinite(dip)) throw new Error('Enter the reference BT (nT) and Dip.');
   if($('method').value === 'sniper'){
@@ -309,6 +416,20 @@ function compute(){
     return { method: 'sniper', dBz: sn.dBzNT, sn: sn, bt: bt, dip: dip, warnings: sn.warnings,
       err: function(inc, az){ return DsiModel.sniperAzError(sn.bmSum, inc, magAz(az) + 0, 0, bt, dip); } };
   }
+  if($('method').value === 'induced'){   // 2026-11-14: ΔBz per nT of axial field, scaled per station
+    var mu = $('muR').value === '' ? null : +$('muR').value;
+    if(mu != null && !(mu > 1)) throw new Error('μr must be > 1 (or blank for ∞).');
+    var ind = DsiModel.inducedSections(rows, mu), run = DsiModel.sensorRun(rows, s);
+    if(!run) throw new Error('The sensor is not inside a non-magnetic component. Check the sensor distance and the Material column.');
+    var kS = DsiModel.fieldAt(ind.poles, s);   // nT of ΔBz per nT of axial field
+    var bax = function(inc, az){ return DsiModel.axialField(bt, dip, inc, magAz(az)); };
+    var baxM = function(inc, am){ return DsiModel.axialField(bt, dip, inc, am); };
+    var b1 = bax(+$('incOne').value, +$('azOne').value);
+    $('indBody').innerHTML = ind.sections.map(function(c){ return '<tr><td>' + c.rows.join(', ') + '</td><td>' + fmt(L(c.bottom), 2) + '–' + fmt(L(c.top), 2) + '</td><td>' + fmt(c.m, 1) + '</td><td>' + fmt(c.N, 5) + '</td><td>' + fmt(c.A * 1e4, 1) + '</td><td>' + fmt(c.qPerNT * b1, 0) + '</td></tr>'; }).join('');
+    return { method: 'induced', dBz: kS * b1, k: kS, ind: ind, poles: { poles: ind.poles, run: run }, bt: bt, dip: dip, warnings: ind.warnings, bax1: b1,
+      err: function(inc, az){ return DsiModel.azError(kS * bax(inc, az), inc, magAz(az), bt, dip); },
+      errMag: function(inc, am){ return DsiModel.azError(kS * baxM(inc, am), inc, am, bt, dip); } };
+  }
   if(!POLES) refreshPoles(); if(!POLES) throw new Error('Fix the BHA / sensor first (see the pole table).');
   var dBz = DsiModel.fieldAt(POLES.poles, s);
   return { method: 'pole', dBz: dBz, poles: POLES, bt: bt, dip: dip, warnings: [],
@@ -316,13 +437,14 @@ function compute(){
 }
 function calculate(){
   try{ last = compute(); }catch(err){ last = null; $('summary').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; return; }
-  var run = last.method === 'pole' ? last.poles.run : null, s = Lm(+$('sensor').value), html = 'ΔBz at sensor: <b>' + fmt(last.dBz, 1) + ' nT</b> (' + (last.method === 'pole' ? 'pole model' : 'SNIPER') + ')';
+  var run = last.method !== 'sniper' ? last.poles.run : null, s = Lm(+$('sensor').value), html = 'ΔBz at sensor: <b>' + fmt(last.dBz, 1) + ' nT</b> (' + (last.method === 'pole' ? 'pole model' : last.method === 'induced' ? 'Lalji 2020 + Osborn 1945, at Inc ' + $('incOne').value + '° / Az ' + $('azOne').value + '°: axial Earth field ' + fmt(last.bax1, 0) + ' nT, ΔBz = ' + fmt(last.k * 1e3, 3) + ' nT per µT of axial field' : 'SNIPER') + ')';
   if(run){ var o = DsiModel.optimum(last.poles.poles, run);
     html += ' · NMDC run ' + fmt(L(run.bottom), 2) + '–' + fmt(L(run.top), 2) + ' (' + (UNIT === 'metric' ? 'm' : 'ft') + ' from bit) · sensor at ' + fmt(100 * (s - run.bottom) / (run.top - run.bottom), 1) +
       ' % from NMDC bottom · lowest |ΔBz| in this run: ' + fmt(o.b, 1) + ' nT at ' + fmt(100 * (o.s - run.bottom) / (run.top - run.bottom), 1) + ' % from bottom'; }
   if(last.warnings.length) html += '<br><span class="warn">' + last.warnings.map(esc).join('<br>') + '</span>';
   var bh = last.bt * Math.cos(last.dip * Math.PI / 180);
-  html += '<br>Worst case (Inc 90°, magnetic E/W): ' + fmt(last.dBz * 180 / Math.PI / bh, 3) + '° · horizontal field ' + fmt(bh, 0) + ' nT. ' +
+  if(last.method === 'induced'){ var wc = 0; for(var wi = 0; wi <= 90; wi++) for(var wa = 0; wa < 360; wa += 2){ var we = Math.abs(last.errMag(wi, wa)); if(we > wc) wc = we; } html += '<br>Worst case over all Inc / magnetic Az (induced ΔBz changes with direction): ' + fmt(wc, 3) + '° · horizontal field ' + fmt(bh, 0) + ' nT. '; }
+  else html += '<br>Worst case (Inc 90°, magnetic E/W): ' + fmt(last.dBz * 180 / Math.PI / bh, 3) + '° · horizontal field ' + fmt(bh, 0) + ' nT. ' +
     '<span class="muted">Sign: + when ΔBz points downhole (SPE 9223 eq. 2 convention); compare magnitudes against the limits.</span>';
   if(survey.length){ var nx = survey.filter(function(sv){ return Math.abs(last.err(sv.inc, sv.az)) > allowance(sv.inc, sv.az); }).length;
     html += '<br>Stations where the predicted error exceeds the ISCWSA interference allowance (SPE 67616, 1σ): <b' + (nx ? ' class="bad"' : ' class="ok"') + '>' + nx + ' of ' + survey.length + '</b>'; }
@@ -363,22 +485,157 @@ function plotAll(){
   } else Plotly.newPlot('plotMd', [], Object.assign({}, LAY, { title: { text: 'Azimuth error along the survey — load or paste a survey', font: { size: 11 } } }));
   var incs = [], azs = [], z = [];
   for(var i = 0; i <= 90; i += 2) incs.push(i); for(var a = 0; a <= 360; a += 5) azs.push(a);
-  incs.forEach(function(inc){ z.push(azs.map(function(am){ return Math.abs(DsiModel.azError(last.dBz, inc, am, last.bt, last.dip)); })); });
+  incs.forEach(function(inc){ z.push(azs.map(function(am){ return Math.abs(last.errMag ? last.errMag(inc, am) : DsiModel.azError(last.dBz, inc, am, last.bt, last.dip)); /* 2026-11-14: induced ΔBz varies with direction (plot itself unchanged) */ })); });
   Plotly.newPlot('plotHeat', [{ x: azs, y: incs, z: z, type: 'contour', colorscale: 'RdYlGn', reversescale: true, contours: { coloring: 'heatmap', showlabels: true, labelfont: { color: '#fff' } }, colorbar: { title: '|ΔA| °' } }],
     Object.assign({}, LAY, { title: { text: '|ΔA| vs Inc and MAGNETIC azimuth (this BHA)', font: { size: 11 } }, xaxis: { title: 'Magnetic azimuth (°)', dtick: 45 }, yaxis: { title: 'Inc (°)' } }));
-  if(last.method === 'pole'){
-    var run = last.poles.run, prof = DsiModel.fieldProfile(last.poles.poles, run, 300), s = Lm(+$('sensor').value), o = DsiModel.optimum(last.poles.poles, run);
+  if(last.method !== 'sniper'){   // 2026-11-14: induced poles are per nT of axial field -> scaled to the Inc/Az box
+    var run = last.poles.run, sc = last.method === 'induced' ? last.bax1 : 1, pp = last.poles.poles.map(function(p){ return Object.assign({}, p, { P: p.P * sc }); });
+    var prof = DsiModel.fieldProfile(pp, run, 300), s = Lm(+$('sensor').value), o = DsiModel.optimum(pp, run);
     Plotly.newPlot('plotPos', [{ x: prof.map(function(p){ return L(p.s); }), y: prof.map(function(p){ return p.b; }), mode: 'lines', name: 'ΔBz', line: { color: '#4da3ff' } },
-      { x: [L(s)], y: [DsiModel.fieldAt(last.poles.poles, s)], mode: 'markers', name: 'Sensor', marker: { size: 10, color: '#f5a623' } },
+      { x: [L(s)], y: [DsiModel.fieldAt(pp, s)], mode: 'markers', name: 'Sensor', marker: { size: 10, color: '#f5a623' } },
       { x: [L(o.s)], y: [o.b], mode: 'markers', name: 'Lowest |ΔBz|', marker: { size: 10, color: '#2ecc71', symbol: 'diamond' } }],
-      Object.assign({}, LAY, { title: { text: 'ΔBz vs sensor position inside the NMDC run (pole model)', font: { size: 11 } }, xaxis: { title: 'Distance from bit (' + uL + ')' }, yaxis: { title: 'ΔBz (nT)', range: (function(){ var y = Math.max(Math.abs(DsiModel.fieldAt(last.poles.poles, s)), Math.abs(o.b)) * 3; return [Math.min(0, -y * 0.05), y]; })() } })); // y clipped: the field → ∞ at the poles
+      Object.assign({}, LAY, { title: { text: 'ΔBz vs sensor position inside the NMDC run (' + (last.method === 'induced' ? 'induced, at the Inc/Az above' : 'pole model') + ')', font: { size: 11 } }, xaxis: { title: 'Distance from bit (' + uL + ')' }, yaxis: { title: 'ΔBz (nT)', range: (function(){ var y = Math.max(Math.abs(DsiModel.fieldAt(pp, s)), Math.abs(o.b)) * 3; return [Math.min(0, -y * 0.05), y]; })() } })); // y clipped: the field → ∞ at the poles
   } else Plotly.newPlot('plotPos', [], Object.assign({}, LAY, { title: { text: 'Sensor-position plot: pole model only', font: { size: 11 } } }));
+  plot3d();
+}
+// ---- 2026-11-14 (John): what-if sliders and per-BHA-run DSI ----------------------------------------
+// Extra NMDC (what-if): added to the top non-mag row of the run holding the sensor, so the steel above
+// moves up by that length (sensor distance from the bit unchanged). Slider value in display units.
+var XNM = 0;
+function withExtraNM(rows, s){
+  if(!(XNM > 0)) return rows;
+  var run = DsiModel.sensorRun(rows, s); if(!run) return rows;
+  var x = 0, k = -1; rows.forEach(function(r, i){ x += +r.len; if(DsiModel.isNM(r) && Math.abs(x - run.top) < 1e-6) k = i; });
+  if(k < 0) return rows;
+  return rows.map(function(r, i){ return i === k ? Object.assign({}, r, { len: +r.len + XNM }) : r; });
+}
+var _wiT = null;
+function whatIf(){
+  var sd = +$('sdR').value, xn = +$('xnR').value;
+  $('sensor').value = sd; $('sdV').textContent = fmt(sd, 1); $('xnV').textContent = fmt(xn, 1); XNM = Lm(xn);
+  if(_wiT) cancelAnimationFrame(_wiT);
+  _wiT = requestAnimationFrame(function(){ last = null; refreshPoles(); calculate(); });
+}
+function syncSliders(){   // slider range = current BHA length, value = sensor input
+  var tot = readBha().reduce(function(a, r){ return a + (+r.len || 0); }, 0);
+  $('sdR').max = Math.max(1, +L(tot).toFixed(1)); $('sdR').value = +$('sensor').value; $('sdV').textContent = fmt(+$('sensor').value, 1);
+}
+// one DSI evaluation for a given BHA (rows: od/id in, len m) and sensor (m) with the page's method settings
+function dsiFor(rows, s){
+  var bt = +$('bt').value, dip = +$('dip').value, m = $('method').value;
+  if(m === 'sniper'){ var sn = DsiModel.sniper(rows, s); return { dBz: sn.dBzNT, err: function(inc, az){ return DsiModel.sniperAzError(sn.bmSum, inc, magAz(az), 0, bt, dip); } }; }
+  if(m === 'induced'){ var mu = $('muR').value === '' ? null : +$('muR').value, ind = DsiModel.inducedSections(rows, mu);
+    if(!DsiModel.sensorRun(rows, s)) throw new Error('sensor not in a non-mag component');
+    var k = DsiModel.fieldAt(ind.poles, s);
+    return { k: k, dBz: null, err: function(inc, az){ return DsiModel.azError(k * DsiModel.axialField(bt, dip, inc, magAz(az)), inc, magAz(az), bt, dip); } }; }
+  var d = DsiModel.defaultPoles(rows, s, { pUpper: +$('pU').value, pLower: +$('pL').value, bitDipole: $('bitDip').checked }), b = DsiModel.fieldAt(d.poles, s);
+  return { dBz: b, err: function(inc, az){ return DsiModel.azError(b, inc, magAz(az), bt, dip); } };
+}
+var RUN_SENSOR = {};   // per-run sensor distance edits (m), keyed by run id
+function jobRuns(){
+  if(!job || !job.td || !job.wells) return [];
+  var w = job.wells[+$('wellSel').value], sc = $('scenSel').value;
+  var e = w && sc && job.td.scenarios[sc] && job.td.scenarios[sc].resultsByWell ? job.td.scenarios[sc].resultsByWell[w.wellKey] : null;
+  if(!e || !e.params || !e.params.plan || !window.TDModelCore) return [];
+  return TDModelCore.planActiveRuns(e.params.plan);
+}
+// run drilling at a depth: same rule as the T&D Hookload / Slide Sheet (deepest start wins)
+function runAtMd(runs, md){ var c = runs.filter(function(r){ return r.from <= md && md <= r.to; }); return c.length ? c[c.length - 1] : null; }
+// 2026-11-14 (John) FIX: run BHAs used ONLY the name pattern for Material, so parts the user had set Non-mag
+// by hand in the BHA table (XO sub, centralizer, gap sub…) were Steel in the runs -> "sensor not in a non-mag
+// component". Now the Material chosen in the BHA table is reused for any run part with the same name; other
+// parts fall back to the name pattern. Each run can also be loaded into the BHA table (⬇) to check / edit.
+function matMap(){ var m = {}; readBha().forEach(function(r){ if(r.name) m[r.name.trim().toLowerCase()] = r.material; }); return m; }
+function runRows(r){
+  var mm = matMap();
+  return (r.bha || []).map(function(c){ var k = String(c.name || '').trim().toLowerCase();
+    return { name: c.name, od: c.od_m / 0.0254, id: c.id_m / 0.0254, len: +c.len, material: c.material || mm[k] || (NM_RE.test(c.name || '') ? 'Non-mag' : 'Steel') }; }).filter(function(x){ return x.len > 0; });   // saved T&D Material first
+}
+function loadRunBha(key){
+  var o = jobRuns().filter(function(r){ return String(r.id != null ? r.id : r.name) === key; })[0]; if(!o) return;
+  var rows = runRows(o); $('bhaBody').innerHTML = ''; if($('runSel')) $('runSel').value = key;
+  if(RUN_SENSOR[key] == null && o.sensor != null && isFinite(o.sensor)) $('sensor').value = +L(o.sensor).toFixed(2);
+  rows.forEach(function(c){ addRow({ name: c.name, od: +c.od.toFixed(3), id: +c.id.toFixed(3), len: +c.len, material: c.material }); });
+  if(RUN_SENSOR[key] != null) $('sensor').value = +L(RUN_SENSOR[key]).toFixed(2);
+  invalidate(); $('jobStatus').innerHTML += '<br>Loaded BHA of run "' + esc(o.name || key) + '" into the BHA table.';
+}
+function runEvals(){
+  var runs = jobRuns(), s0 = Lm(+$('sensor').value);
+  return runs.map(function(r){
+    var rows = runRows(r);
+    var key = String(r.id != null ? r.id : r.name), s = RUN_SENSOR[key] != null ? RUN_SENSOR[key] : (r.sensor != null && isFinite(r.sensor) ? +r.sensor : s0), /* T&D-saved sensor (2026-11-14) */ o = { run: r, key: key, rows: rows, s: s };
+    try{ o.ev = dsiFor(rows, s); }catch(err){ o.error = err.message;
+      if(/non-mag/.test(err.message)){ var x = 0, at = null; rows.forEach(function(c){ var x0 = x; x += c.len; if(s > x0 && s <= x) at = c; });
+        o.error = at ? 'sensor (' + fmt(L(s), 2) + ') is in "' + at.name + '" = ' + at.material + ' — if it is non-magnetic set it Non-mag (⬇ loads this BHA into the table)' : 'sensor beyond the BHA length'; } }
+    return o;
+  });
+}
+function renderRuns(ev){
+  var on = $('perRun').checked; $('runTblW').style.display = on && ev.length ? '' : 'none';
+  if(!ev.length){ $('runInfo').textContent = job && job.td ? 'No T&D plan runs for this well / scenario — run starts cannot be marked.' : 'Load an MTX job with a T&D plan to mark BHA run starts (and colour each run with its own BHA).'; }
+  else $('runInfo').innerHTML = ev.length + ' BHA run(s) from the T&D plan · run starts are marked on the 3D plot' + (on ? ' · each run coloured with its own BHA (sliders apply to the BHA table only)' : '') + '. Material: same as the BHA table for parts with the same name, otherwise by name (NMDC, Monel…) — ⬇ loads a run into the table to check.';
+  $('runBody').innerHTML = ev.map(function(o){ var bAt = o.ev ? (o.ev.dBz != null ? fmt(o.ev.dBz, 1) : 'varies (induced)') : '';
+    return '<tr><td>' + esc(o.run.name || o.key) + '</td><td>' + fmt(L(o.run.from), 1) + '–' + fmt(L(o.run.to), 1) + '</td><td>' + o.rows.length + ' parts, ' + o.rows.filter(function(x){ return x.material === 'Non-mag'; }).length + ' non-mag</td>' +
+      '<td><input type="number" step="any" data-k="' + esc(o.key) + '" value="' + fmt(L(o.s), 2) + '" style="width:90px"> <button type="button" title="Load this run\'s BHA into the BHA table" onclick="loadRunBha(\'' + esc(o.key).replace(/'/g, '') + '\')">⬇</button></td><td>' + bAt + '</td><td' + (o.error ? ' class="bad"' : ' class="ok"') + '>' + esc(o.error || 'ok') + '</td></tr>'; }).join('');
+  $('runBody').querySelectorAll('input').forEach(function(e){ e.onchange = function(){ RUN_SENSOR[e.dataset.k] = Lm(+e.value); plot3d(); }; });
+}
+
+// 2026-11-14 (John): 3D trajectory coloured by interference. Positions by minimum curvature
+// (ISCWSA eBook ch.7; Bourgoyne et al., Applied Drilling Engineering, Ch. 8): dogleg β from Eq. 8.33,
+// ratio factor RF = (2/β)·tan(β/2) (RF = 1 when β = 0). North/East follow the survey azimuth reference.
+function minCurv(sv){
+  var d = Math.PI / 180, out = [{ n: 0, e: 0, v: 0 }];
+  for(var i = 1; i < sv.length; i++){
+    var a = sv[i - 1], b = sv[i], dm = b.md - a.md, i1 = a.inc * d, i2 = b.inc * d, a1 = a.az * d, a2 = b.az * d;
+    var cb = Math.cos(i2 - i1) - Math.sin(i1) * Math.sin(i2) * (1 - Math.cos(a2 - a1)), be = Math.acos(Math.max(-1, Math.min(1, cb)));
+    var rf = be > 1e-9 ? 2 / be * Math.tan(be / 2) : 1, p = out[i - 1];
+    out.push({ n: p.n + dm / 2 * (Math.sin(i1) * Math.cos(a1) + Math.sin(i2) * Math.cos(a2)) * rf,
+               e: p.e + dm / 2 * (Math.sin(i1) * Math.sin(a1) + Math.sin(i2) * Math.sin(a2)) * rf,
+               v: p.v + dm / 2 * (Math.cos(i1) + Math.cos(i2)) * rf });
+  }
+  return out;
+}
+// run-start markers: position at each run's start MD interpolated between stations (linear in MD — display only)
+function runStartTrace(ev, sv, pos){
+  if(!ev.length) return [];
+  var x = [], y = [], z = [], t = [];
+  ev.forEach(function(o){ var md = o.run.from; if(md < sv[0].md || md > sv[sv.length - 1].md) return;
+    var i = 1; while(i < sv.length - 1 && sv[i].md < md) i++; var f = (md - sv[i - 1].md) / ((sv[i].md - sv[i - 1].md) || 1), a = pos[i - 1], b = pos[i];
+    x.push(L(a.e + f * (b.e - a.e))); y.push(L(a.n + f * (b.n - a.n))); z.push(L(a.v + f * (b.v - a.v))); t.push(o.run.name || o.key); });
+  return [{ type: 'scatter3d', mode: 'markers+text', x: x, y: y, z: z, text: t, textposition: 'middle right', textfont: { color: '#4da3ff', size: 11 },
+    marker: { size: 6, color: '#4da3ff', symbol: 'diamond', line: { color: '#ffffff', width: 1 } }, name: 'BHA run start', hovertemplate: 'Run %{text} starts<extra></extra>' }];
+}
+function plot3d(){
+  var el = $('plot3d'); if(!el) return; var uL = UNIT === 'metric' ? 'm' : 'ft';
+  if(!last || survey.length < 2){ Plotly.newPlot('plot3d', [], Object.assign({}, LAY, { title: { text: '3D trajectory — load a survey and press Calculate', font: { size: 11 } } })); return; }
+  var sv = survey.slice().sort(function(a, b){ return a.md - b.md; }), pos = minCurv(sv), mode = $('c3d').value;
+  var ev = runEvals(); renderRuns(ev); syncSliders();
+  var per = $('perRun').checked && ev.length, noRes = [];
+  var e = sv.map(function(s, k){ if(!per) return last.err(s.inc, s.az);
+    var r = runAtMd(ev.map(function(o){ return Object.assign({}, o.run, { _o: o }); }), s.md);
+    if(!r || !r._o.ev){ noRes.push(k); return NaN; } return r._o.ev.err(s.inc, s.az); });
+  var dbz = sv.map(function(s, k){ if(per) { if(isNaN(e[k])) return NaN; } var den = Math.sin(s.inc * Math.PI / 180) * Math.sin(magAz(s.az) * Math.PI / 180) * 180 / Math.PI / (last.bt * Math.cos(last.dip * Math.PI / 180)); return Math.abs(den) > 1e-9 ? Math.abs(e[k] / den) : per ? NaN : (last.method === 'induced' ? Math.abs(last.k * DsiModel.axialField(last.bt, last.dip, s.inc, magAz(s.az))) : Math.abs(last.dBz)); });
+  var c, title, cs = [[0, '#1a9850'], [0.5, '#fee08b'], [1, '#d73027']], rev = false, cmax;   // explicit green→yellow→red (same look as the heat map; named scales are not honoured by 3D lines)
+  if(mode === 'ratio'){ c = sv.map(function(s, k){ return Math.abs(e[k]) / allowance(s.inc, s.az); }); title = '|ΔA| / allowance'; cmax = Math.max(1.5, Math.max.apply(null, c)); }
+  else if(mode === 'dbz'){ c = dbz; title = '|ΔBz| nT'; cmax = Math.max.apply(null, c) || 1; }
+  else { c = e.map(Math.abs); title = '|ΔA| °'; cmax = Math.max($('bands').value === 'sniper' ? 1 : 0.5, Math.max.apply(null, c.filter(isFinite))); }
+  if(mode === 'ratio') cmax = Math.max(1.5, Math.max.apply(null, c.filter(isFinite))); if(mode === 'dbz') cmax = Math.max.apply(null, c.filter(isFinite)) || 1;
+  c = c.map(function(v){ return isFinite(v) ? v : null; });   // stations with no result: grey gap
+  var line = { width: 8 }, mk = { size: 3 };
+  if(mode === 'band'){ var col = e.map(function(v){ return isFinite(v) ? bandColor(v) : '#777'; }); line.color = col; mk.color = col; }
+  else { line.color = c; line.colorscale = cs; line.reversescale = rev; line.cmin = 0; line.cmax = cmax; line.showscale = true; line.colorbar = { title: title }; mk.color = c; mk.colorscale = cs; mk.reversescale = rev; mk.cmin = 0; mk.cmax = cmax; }
+  var txt = sv.map(function(s, k){ return 'MD ' + fmt(L(s.md), 1) + ' ' + uL + '<br>Inc ' + fmt(s.inc, 2) + '° Az ' + fmt(s.az, 2) + '°<br>ΔA ' + fmt(e[k], 3) + '° (allow ' + fmt(allowance(s.inc, s.az), 3) + '°)<br>|ΔBz| ' + fmt(dbz[k], 1) + ' nT'; });
+  var mName = last.method === 'induced' ? 'Lalji 2020 + Osborn 1945' : last.method === 'pole' ? 'pole model' : 'SNIPER';
+  Plotly.newPlot('plot3d', [{ type: 'scatter3d', mode: 'lines+markers', x: pos.map(function(p){ return L(p.e); }), y: pos.map(function(p){ return L(p.n); }), z: pos.map(function(p){ return L(p.v); }),
+      line: line, marker: mk, text: txt, hoverinfo: 'text', name: 'Survey' }].concat(runStartTrace(ev, sv, pos)),
+    Object.assign({}, LAY, { title: { text: '3D trajectory coloured by predicted interference (' + mName + (per ? ', each BHA run with its own BHA' : '') + ')' + (noRes.length ? ' — ' + noRes.length + ' station(s) without a run result (grey)' : ''), font: { size: 11 } }, margin: { l: 0, r: 0, t: 30, b: 0 },
+      scene: { xaxis: { title: 'East (' + uL + ')' }, yaxis: { title: 'North (' + uL + ')' }, zaxis: { title: 'TVD (' + uL + ')', autorange: 'reversed' }, aspectmode: 'data' } }));
 }
 function exportResults(){
   if(!last) return;
   var wb = XLSX.utils.book_new(), uL = UNIT === 'metric' ? 'm' : 'ft';
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(readBha().map(function(r, i){ var o = { '#': i + 1, Name: r.name, 'OD (in)': r.od, 'ID (in)': r.id }; o['Length (' + uL + ')'] = +L(r.len || 0).toFixed(3); o.Material = r.material; return o; })), 'BHA');
-  var info = [{ Item: 'Method', Value: last.method === 'pole' ? 'Pole model (SPE 7748, B=P/4πr², eBook §5.2.2, SPE 9223 eq.2)' : 'SNIPER v1-3 (legacy, no published source)' },
+  var info = [{ Item: 'Method', Value: last.method === 'pole' ? 'Pole model (SPE 7748, B=P/4πr², eBook §5.2.2, SPE 9223 eq.2)' : last.method === 'induced' ? 'Lalji 2020 + Osborn 1945 (Eq.3/4, Osborn 1945 N; remanence not included; μr ' + ($('muR').value || '∞') + ')' : 'SNIPER v1-3 (legacy, no published source)' },
     { Item: 'Sensor from bit (' + uL + ')', Value: +$('sensor').value }, { Item: 'BT (nT)', Value: last.bt }, { Item: 'Dip (deg)', Value: last.dip }, { Item: 'Declination (deg)', Value: +$('dec').value },
     { Item: 'Survey azimuths', Value: $('azRef').value === 'grid' ? 'Grid (convergence ' + $('conv').value + '°)' : 'True' }, { Item: 'dBz at sensor (nT)', Value: +last.dBz.toFixed(2) }, { Item: 'Upper pole preset', Value: $('pUsel').options[$('pUsel').selectedIndex].text }, { Item: 'Lower pole preset', Value: $('pLsel').options[$('pLsel').selectedIndex].text }];
   if(last.method === 'pole') last.poles.poles.forEach(function(p){ info.push({ Item: 'Pole ' + p.label + ' @ ' + fmt(L(p.x), 2) + ' ' + uL, Value: p.P + ' µWb' }); });
@@ -392,9 +649,50 @@ document.addEventListener('DOMContentLoaded', function(){
   [{ name: 'Bit', od: 8.75, id: 2.5, len: 0.3, material: 'Steel' }, { name: 'Motor', od: 6.75, id: 2.5, len: 8.5, material: 'Steel' },
    { name: 'NMDC (MWD)', od: 6.75, id: 3.25, len: 9.4, material: 'Non-mag' }, { name: 'NMDC', od: 6.75, id: 3.25, len: 9.4, material: 'Non-mag' },
    { name: 'Drill collar', od: 6.5, id: 2.81, len: 9.4, material: 'Steel' }].forEach(addRow);
+  applyDefaults();   // 2026-11-14: admin-saved defaults (built-in: Pole model, Drill collars +900 µWb)
   refreshPoles(); plotAll();
 });
+var DSI_DEFAULTS = <%- JSON.stringify(typeof dsiDefaults !== 'undefined' && dsiDefaults ? dsiDefaults : null).replace(/</g, '\\u003c') %>;
+var DEF_KEYS = ['method','pUsel','pU','pLsel','pL','bitDip','muR','bands','allow','c3d','perRun','unitSel'];
+function applyDefaults(){
+  if(!DSI_DEFAULTS) return;
+  DEF_KEYS.forEach(function(k){ var e = $(k), v = DSI_DEFAULTS[k]; if(!e || v === undefined) return;
+    if(e.type === 'checkbox') e.checked = v === 'true' || v === true; else e.value = v; });
+  if(DSI_DEFAULTS.unitSel && DSI_DEFAULTS.unitSel !== UNIT) setUnit(DSI_DEFAULTS.unitSel);
+  var m = $('method').value; $('poleOpts').style.display = m === 'pole' ? '' : 'none'; $('inducedOpts').style.display = m === 'induced' ? '' : 'none'; $('sniperOpts').style.display = m === 'sniper' ? '' : 'none';
+}
+async function saveDefaults(reset){
+  var v = {}; DEF_KEYS.forEach(function(k){ var e = $(k); if(e) v[k] = e.type === 'checkbox' ? String(e.checked) : e.value; });
+  if(reset && !confirm('Go back to the built-in DSI defaults for everyone?')) return;
+  try{ var r = await fetch('/notes/dsi/defaults', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reset ? { reset: true } : { values: v }) });
+    var d = await r.json(); if(!r.ok || !d.ok) throw new Error(d.error || r.status);
+    DSI_DEFAULTS = reset ? null : d.saved; $('defMsg').innerHTML = ' <span class="ok">' + (reset ? 'Built-in defaults restored (reload to see them).' : 'Saved as default for everyone.') + '</span>';
+  }catch(err){ $('defMsg').innerHTML = ' <span class="bad">' + esc(err.message) + '</span>'; }
+}
 </script>
+<!-- 2026-11-14 (John): μr help. Table = values John found by web search (Engineering Toolbox / Lucefin); the
+     book references are general sources on permeability, NOT checked value-by-value against this table. -->
+<div class="hp-modal" id="muHelp" onclick="if(event.target===this)this.style.display='none'"><div class="hp-box">
+  <h3>Steel relative permeability μr</h3>
+  <p>μr = μ / μ₀, with μ₀ = 4π×10⁻⁷ H/m. In steel μr is not a constant: it changes non-linearly with the applied field H and saturation, and with alloy, heat treatment and manufacturing.
+  In the Lalji (2020) Eq. 3 pole strength, Q = (μr−1)·B<sub>ax</sub>·A / (1 + N(μr−1)), a long part (small N) is very sensitive to μr: for N ≈ 0.001, μr = 80 gives about 1/12 of the μr = ∞ value.</p>
+  <div class="scroll"><table><thead><tr><th>Material</th><th>μr (typical)</th></tr></thead><tbody>
+    <tr><td>Electrical steel</td><td>≈ 4 000 (higher depending on grade and flux density)</td></tr>
+    <tr><td>Carbon steel</td><td>≈ 100 – 600+ (carbon content, field strength)</td></tr>
+    <tr><td>Ferritic stainless steel (annealed)</td><td>≈ 1 000 – 1 800</td></tr>
+    <tr><td>Martensitic stainless steel (annealed)</td><td>≈ 750 – 950</td></tr>
+    <tr><td>Martensitic stainless steel (hardened)</td><td>≈ 40 – 95</td></tr>
+    <tr><td>Austenitic stainless steel (304, 316)</td><td>≈ 1.003 – 7 (classed non-magnetic; cold work can raise it)</td></tr>
+  </tbody></table></div>
+  <p class="muted">MTX default μr = 80. The Earth's field is weak (about 40 A/m), so the relevant value is the low-field (initial) permeability of the actual collar steel, which is not published for drilling components.</p>
+  <div class="ref"><b>References</b><br>
+    Table values: Engineering Toolbox, "Permeability"; Lucefin, "Magnetic permeability" (web, via search, 2026-11-14).<br>
+    Definition and behaviour of permeability: Cullity &amp; Graham, <i>Introduction to Magnetic Materials</i>, 2nd ed., Wiley-IEEE (2009); Jiles, <i>Introduction to Magnetism and Magnetic Materials</i>, CRC Press.<br>
+    Pole strength: Lalji, Haneef, Khan &amp; Ali (2020), J. Petrol. Explor. Prod. Technol. 10:821–828, Eqs. 3–4.<br>
+    Demagnetising factor: Osborn (1945), "Demagnetizing factors of the general ellipsoid", Phys. Rev. 67:351.</div>
+  <p style="text-align:right;margin:12px 0 0"><button type="button" onclick="document.getElementById('muHelp').style.display='none'">Close</button></p>
+</div></div>
+<script>function openMuHelp(){ document.getElementById('muHelp').style.display = 'flex'; }</script>
 <!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
 <script src="/js/mtxTheme.js"></script>
 </body>

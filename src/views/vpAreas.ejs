@@ -14,9 +14,10 @@
 
 <%- include ('partials/header.ejs') %>
 
-<% if (user.role == 'admin') { %>
+<%# 2026-11-13 (John): open to admin, leader and user (was admin-only); nav partial follows the role %>
+<% if (['admin','leader','user'].includes(user.role)) { %>
 
-    <%- include ('partials/navigation_Admin.ejs') %>
+    <%- include (user.role == 'admin' ? 'partials/navigation_Admin.ejs' : user.role == 'leader' ? 'partials/navigation_Leader.ejs' : 'partials/navigation_Member.ejs') %>
 
     <div class="container mt-4 mb-5">
         <h3>VP Areas</h3>

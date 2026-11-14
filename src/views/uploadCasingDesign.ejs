@@ -888,5 +888,8 @@ async function runAndSave(){
 })();
 </script>
 
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'casingDesign', keys: ["cdDfBurst", "cdDfCollapse", "cdDfTension"], unit: function(){ return 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
 </body>
 </html>

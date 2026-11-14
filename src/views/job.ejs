@@ -1458,8 +1458,18 @@ body.light-mode #statusTextbox {
                                     <select id="acpToolcode" class="form-select form-select-sm" style="max-width:220px;">
                                         <option value="">— Simplified (approximate) —</option>
                                     </select>
+                                    <%# 2026-11-14 (John): import a Compass survey tool (.ipm) — shared with all users; appears as "IPM: <name>" in Toolcode %>
+                                    <button type="button" id="acpIpmBtn" class="btn btn-sm btn-outline-info" title="Import a COMPASS survey tool file (.ipm). It is added to the Toolcode list as 'IPM: <tool name>' for everyone, so the AC calculation uses exactly the tool CNRL's Compass uses. Unsupported rows (e.g. vector 'S') are listed and left out — nothing is guessed.">⬆ Import .ipm</button>
+                                    <input type="file" id="acpIpmFile" accept=".ipm,.IPM,.txt" style="display:none">
                                     <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="sigma_sep multiplier for SF = dist / (K * sigma_sep). Default 2 = flat sigma multiplier, matching Compass's documented default report convention (its .xls AC reports state 'Output errors are at 2.00 sigma'). The dimensionally-correct 3-DOF chi-square 95% value would be 2.7955 instead - use that if reconciling against a report/policy that specifies a true multi-DOF confidence level rather than a flat sigma multiple. Adjust freely to match whatever confidence convention another tool's report used.">Confidence K (sigma):</label>
                                     <input type="number" id="acpKSF" step="0.001" min="0.01" value="2" class="form-control form-control-sm" style="max-width:90px;">
+                                    <%# 2026-11-14 (John): Error Surface = how the two wells' errors are combined for SF (Compass "Error Surface" options). CNRL standard: Combined Pedal Curve. %>
+                                    <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="How the reference and offset errors are combined for the Separation Factor (COMPASS Training Manual 2003.5, ch.6 pp.225-227). Combined Pedal Curve (CNRL standard; 'Combined Covariance' in that manual): the two covariances are added first, then projected on the centre-to-centre line -> radius = sqrt(UR_ref^2 + UR_off^2). Elliptical Conic: each ellipsoid projected separately, radii added -> UR_ref + UR_off (ISCWSA 2010 Common Practice R-type rule; MTX's only method before 2026-11-14). Circular Conic: major axis of each ellipsoid, radii added (most conservative).">Error Surface:</label>
+                                    <select id="acpErrSurf" class="form-select form-select-sm" style="max-width:220px;">
+                                        <option value="combined" selected>Combined Pedal Curve (CNRL std)</option>
+                                        <option value="elliptical">Elliptical Conic (radii added)</option>
+                                        <option value="circular">Circular Conic (major axis)</option>
+                                    </select>
                                     <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Evaluate C2C/SF at a specific reference-well MD against every offset well, e.g. to cross-check a specific row from another program's report — interpolated between the reference well's own survey stations, not snapped to the nearest one.">Evaluate at Ref MD:</label>
                                     <input type="number" id="acpEvalMd" step="0.01" placeholder="e.g. 775" class="form-control form-control-sm" style="max-width:100px;">
                                     <button id="acpEvalMdBtn" class="btn btn-sm btn-outline-info">Evaluate</button>
@@ -1916,6 +1926,53 @@ body.light-mode #statusTextbox {
                     </div>
                 </div>
                 <!-- ================= END BIT HYDRAULICS PROGRAM ================= -->
+
+                <%# ================= SLIDE SHEET (ADDED 2026-11-13, John) =================
+                     Slide sheets built from the rig EDR in the Slide Sheet page (views/slideSheet.ejs) and saved to this
+                     job (models/SlideSheet.js). Shown only when the job has at least one; grouped per well. %>
+                <% var _ss = (typeof slideSheets !== 'undefined' && slideSheets) ? slideSheets : []; %>
+                <% if (_ss.length) { %>
+                <div class="accordion mb-2" id="accordionSlideSheet">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSlideSheet" aria-expanded="false">
+                                <%# 2026-11-13 (John): label "Slide Sheet", icon 📈 = Member menu %>📈 Slide Sheet
+                            </button>
+                        </h2>
+                        <div id="collapseSlideSheet" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                                <% var _f = function(v, d){ return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }; %>
+                                <% var _wells = []; _ss.forEach(function(x){ if (_wells.indexOf(x.wellKey) < 0) _wells.push(x.wellKey); }); %>
+                                <% _wells.forEach(function(wk){ %>
+                                    <div style="font-weight:700;font-size:14px;margin:8px 0 4px;color:var(--an-text-bright,#e8f4ff);"><%= wk %></div>
+                                    <% _ss.filter(function(x){ return x.wellKey === wk; }).forEach(function(x){ var sl = (x.intervals || []).filter(function(i){ return i.mode === 'slide'; }), sm = x.summary || {}; var legs = []; (x.intervals || []).forEach(function(i){ if (legs.indexOf(i.leg || 'Main') < 0) legs.push(i.leg || 'Main'); }); %>
+                                    <details class="mb-2" style="border:1px solid var(--an-border,#1e2d3d);border-radius:6px;padding:6px 10px;">
+                                        <summary style="cursor:pointer;font-size:13px;">
+                                            <b><%= x.name %></b> · <%= sl.length %> slides · drilled <%= _f(sm.drilled, 1) %> m · slid <%= _f(sm.slid, 1) %> m (<%= _f(sm.slidePct, 1) %> %)<%= legs.length > 1 ? ' · legs: ' + legs.join(', ') : '' %>
+                                            <span style="color:var(--an-text-dim,#5a7080);"> · <%= x.las && x.las.file ? x.las.file : 'EDR' %> · <%= x.user && x.user.name ? x.user.name : '' %> · <%= x.updatedAt ? new Date(x.updatedAt).toISOString().slice(0,10) : '' %></span>
+                                            <% if (canUseModelers) { %> · <a href="/notes/slideSheet?mtxJobId=<%= encodeURIComponent(note.mtxJobId || '') %>&id=<%= x._id %>" target="_blank">🧭 Open in Slide Sheet</a><% } %>
+                                        </summary>
+                                        <div class="wbt-table-wrap" style="max-height:360px;overflow:auto;margin-top:6px;">
+                                            <table class="wbt-table">
+                                                <thead><tr><th>#</th><% if (legs.length > 1) { %><th>Leg</th><% } %><th>Run</th><th>From (m)</th><th>To (m)</th><th>Length (m)</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th><th>ROP (m/h)</th><th>Inc</th><th>Az</th></tr></thead>
+                                                <tbody>
+                                                <% sl.forEach(function(i, k){ %>
+                                                    <tr><td><%= k + 1 %></td><% if (legs.length > 1) { %><td><%= i.leg || 'Main' %></td><% } %><td><%= i.run || '—' %></td><td><%= _f(i.from, 2) %></td><td><%= _f(i.to, 2) %></td><td><%= _f(i.len, 2) %></td>
+                                                        <td><b><%= _f(i.tf, 0) %></b></td><td><%= i.tfRef %></td><td><%= _f(i.tfSd, 0) %></td><td><%= _f(i.rop, 1) %></td><td><%= _f(i.incStart, 2) %></td><td><%= _f(i.azStart, 2) %></td></tr>
+                                                <% }); %>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </details>
+                                    <% }); %>
+                                <% }); %>
+                                <div style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;">Slides and rotations detected from the rig EDR (Pason LAS, 1 s). Toolface = measured mean while sliding. Detection rules and settings: Slide Sheet page.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <% } %>
+                <%# ================= END SLIDE SHEET ================= %>
 
 
 
@@ -3430,7 +3487,10 @@ body.light-mode #statusTextbox {
                 fieldLabels.forEach(f => {
                     const td = document.createElement('td');
                     const val = r[f.key];
-                    td.textContent = (val !== undefined && val !== null) ? val : '';
+                    // CHANGED 2026-11-13 (John): uniform decimals — 2 for every number, 5 for latitude / longitude (was raw floats,
+                    // e.g. 2750.7551882734156). Display only; the stored values and the Excel download keep full precision.
+                    td.textContent = (val === undefined || val === null || val === '') ? '' :
+                        (f.key !== 'well' && f.key !== 'comments' && String(val).trim() !== '' && isFinite(+val)) ? (+val).toFixed(f.key === 'latitude' || f.key === 'longitude' ? 5 : 2) : val;
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
@@ -9866,6 +9926,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
 <!-- ================= ANTI-COLLISION PLOTS SCRIPT ================= -->
 <script src="/js/wmmModel.js"></script>
 <script src="/js/iscwsaModel.js"></script>
+<script src="/js/ipmImport.js"></script><%# 2026-11-14: Compass .ipm survey tools %>
 <script>
 (function(){
     const dataEl = document.getElementById('wbtData');
@@ -10115,9 +10176,45 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
         return K_SF * Math.sqrt(Math.max(varAlong, 0));
     }
     // SF = S / (UR_ref + UR_off) — see header comment above.
-    function sfFromTwoRadii(dist, urRef, urOff){
-        var denom = urRef + urOff;
-        return { sf: denom > 1e-9 ? dist / denom : Infinity, urRef: urRef, urOff: urOff };
+    // ── Error Surface (ADDED 2026-11-14, John) ─────────────────────────
+    // WHAT WAS WRONG: MTX always used SF = S/(UR_ref + UR_off) — Compass's "Elliptical Conic" error surface
+    // (and the ISCWSA 2010 Common Practice R-type rule). CNRL's Compass AC reports (16-34-026-18W4 [P1-2359],
+    // wells [01] ETS 161582 / [02] ETS 161583) state "Error Surface: Combined Pedal Curve", and their
+    // Minimum Separation = sqrt(UR_ref^2 + UR_off^2) (e.g. 25 m: sqrt(0.31^2 + 0.26^2) = 0.40 as printed).
+    // SOURCE: COMPASS Training Manual 2003.5, ch.6 pp.225-227 — "Combined Covariance: combines the errors on the
+    // reference and offset by covariance addition before any distance calculations are performed. The error
+    // distance is then computed by the elliptical conic method on the resulting single ellipsoid." Projecting
+    // C_ref + C_off on the centre-to-centre unit vector u gives K*sqrt(u'C_ref u + u'C_off u) = sqrt(UR_ref^2 + UR_off^2)
+    // (no cross-well correlation, same as before). Circular Conic (same manual): major axis of each ellipsoid,
+    // radii added.
+    // CHECK (before the change, scripts in "MTX AC\Claude outputs\welleng comparison"): MTX covariances with the
+    // combined form reproduce Compass's SF on 319 report rows (both directions, MD > 100 m) to a median of 0.0/-0.1 %;
+    // the old sum gave a median of -29 %. This explains the old "near-parallel diverges, oblique matches" pattern
+    // (equal radii -> sum/RSS = sqrt 2; one radius dominating -> sum ~ RSS). Residual shallow differences are the
+    // surface tie-on gap in iscwsaModel.js, not this.
+    // NOTE: Combined gives a HIGHER (less conservative) SF than Elliptical Conic — it is the default because it is
+    // CNRL's standard error surface (John, 2026-11-14).
+    var ERR_SURF = 'combined';
+    try { var _es = localStorage.getItem('mtxAcErrSurf'); if(_es === 'combined' || _es === 'elliptical' || _es === 'circular') ERR_SURF = _es; } catch(e){}
+    // largest eigenvalue of a symmetric 3x3 local covariance (power iteration) -> K * sqrt(lambda_max) = major semi-axis
+    function majorRadius(c){
+        if(!c) return null;
+        var v = [1, 1, 1], lam = 0;
+        for(var it = 0; it < 60; it++){
+            var w = [c.xx*v[0] + (c.xy||0)*v[1] + (c.xz||0)*v[2], (c.xy||0)*v[0] + c.yy*v[1] + (c.yz||0)*v[2], (c.xz||0)*v[0] + (c.yz||0)*v[1] + c.zz*v[2]];
+            var n = Math.sqrt(w[0]*w[0] + w[1]*w[1] + w[2]*w[2]); if(n < 1e-30) return 0;
+            lam = n / Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]); v = [w[0]/n, w[1]/n, w[2]/n];
+        }
+        return K_SF * Math.sqrt(Math.max(lam, 0));
+    }
+    // urComb = combined error radius used for SF and for "Between Ellipses" (= S - urComb).
+    // majRef/majOff (optional): major-axis radii, only used by Circular Conic.
+    function sfFromTwoRadii(dist, urRef, urOff, majRef, majOff){
+        var denom;
+        if(ERR_SURF === 'combined') denom = Math.sqrt(urRef*urRef + urOff*urOff);
+        else if(ERR_SURF === 'circular' && majRef != null && majOff != null) denom = majRef + majOff;
+        else denom = urRef + urOff;
+        return { sf: denom > 1e-9 ? dist / denom : Infinity, urRef: urRef, urOff: urOff, urComb: denom, errSurf: ERR_SURF };
     }
 
     function rad(d){ return d * Math.PI / 180; }
@@ -10137,7 +10234,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
         return { xx: varH/2, yy: varH/2, zz: varZ };
     }
     function separationFactorSimplified(refPt, offPt, dist){
-        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0 };
+        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0, urComb: 0 };
         var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
         var ux=dx/dist, uy=dy/dist, uz=dz/dist;
         var cRef = simplifiedCovariance(refPt.md, refPt.incl);
@@ -10152,7 +10249,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
         // path below instead.
         var urRef = projectedRadius(ux, uy, uz, cRef.xx, cRef.yy, cRef.zz);
         var urOff = projectedRadius(ux, uy, uz, cOff.xx, cOff.yy, cOff.zz);
-        return sfFromTwoRadii(dist, urRef, urOff);
+        return sfFromTwoRadii(dist, urRef, urOff, majorRadius(cRef), majorRadius(cOff));
     }
 
     // REAL model: NEV covariance (N,E,V) needs rotating into our plot's
@@ -10170,14 +10267,14 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
     }
     function separationFactorReal(refPt, offPt, dist, refCovStation, offCovStation){
         if(!refCovStation || !offCovStation) return null;
-        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0 };
+        if(dist < 1e-9) return { sf: 0, urRef: 0, urOff: 0, urComb: 0 };
         var dx=refPt.x-offPt.x, dy=refPt.y-offPt.y, dz=refPt.z-offPt.z;
         var ux=dx/dist, uy=dy/dist, uz=dz/dist;
         var localRef = nevToLocalCov(refCovStation.cov);
         var localOff = nevToLocalCov(offCovStation.cov);
         var urRef = projectedRadius(ux, uy, uz, localRef.xx, localRef.yy, localRef.zz, localRef.xy, localRef.xz, localRef.yz);
         var urOff = projectedRadius(ux, uy, uz, localOff.xx, localOff.yy, localOff.zz, localOff.xy, localOff.xz, localOff.yz);
-        var r = sfFromTwoRadii(dist, urRef, urOff);
+        var r = sfFromTwoRadii(dist, urRef, urOff, majorRadius(localRef), majorRadius(localOff));
         // SECONDARY diagnostic only (not used for the SF above): the
         // Eq-35 correlation-aware combined radius, for reconciling
         // against a specific Compass report that had "Reduce Global
@@ -10291,7 +10388,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
             '<th style="padding:2px 8px 2px 0;">Offset Well</th><th style="padding:2px 8px;">Offset MD (m)</th>' +
             '<th style="padding:2px 8px;">C2C / "Between Centres" (m)</th>' +
             '<th style="padding:2px 8px;">UR_ref (m)</th><th style="padding:2px 8px;">UR_off (m)</th>' +
-            '<th style="padding:2px 8px;">SF (default, no correlation)</th>' +
+            '<th style="padding:2px 8px;">SF (' + ({combined:'Combined Pedal Curve', elliptical:'Elliptical Conic', circular:'Circular Conic'}[ERR_SURF]) + ', no correlation)</th>' +
             '<th style="padding:2px 8px;color:var(--an-text-dim,#5a7080);">for comparison: correlation-aware combined radius (Eq35, "Reduce Global Lateral Errors" equivalent) (m)</th></tr>' +
             rows.map(function(r){
                 return '<tr><td style="padding:2px 8px 2px 0;">' + r.name + '</td>' +
@@ -10694,7 +10791,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
     //   - Between Ellipses / Minimum Separation: Between Centres minus
     //     (Semi Major Axis Ref + Semi Major Axis Off) — the same pedal-
     //     curve subtraction that sfFromTwoRadii() uses internally to get
-    //     SF (S/(urRef+urOff)); reported as its own column here so it can
+    //     SF; since 2026-11-14 it is S - urComb, the combined radius of the selected Error Surface; reported as its own column here so it can
     //     be read directly like Compass's own "Between Ellipses" column.
     //     Minimum Separation is set equal to Between Ellipses (no TBR
     //     term available to distinguish the two — see Wall-Wall Distance
@@ -10763,7 +10860,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
                 } else {
                     sf = separationFactorSimplified(P, offPt, ca.dist);
                 }
-                var betweenEllipses = ca.dist - (sf.urRef + sf.urOff);
+                var betweenEllipses = ca.dist - (sf.urComb != null ? sf.urComb : (sf.urRef + sf.urOff));   // 2026-11-14: combined radius of the selected Error Surface
 
                 // Raw (unscaled, no Confidence-K) local-frame covariance for
                 // each well at this pair of points — reuses the SAME
@@ -11894,17 +11991,57 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
         } catch(err){ console.error('[AC Plots] Failed to save toolcode for', well.wellName, err); }
     }
 
+    // 2026-11-14 (John): Compass .ipm tools (stored raw on the server, converted here by IPMImport —
+    // see public/js/ipmImport.js for the format source and the conversion rules). IPM_META[name] keeps the
+    // tool's own XCL tortuosity and the rows that could not be used.
+    var IPM_META = {};
+    function addIpmTool(name, text, fileName){
+        if(typeof IPMImport === 'undefined') return null;
+        var c = IPMImport.convert(text, { fileName: fileName });
+        if(name) c.name = name;
+        TOOLCODES[c.name] = c.terms;
+        IPM_META[c.name] = { xclTortuosity: c.xclTortuosity, skipped: c.skipped, description: c.description, fileName: fileName };
+        return c;
+    }
+    function fillToolcodeSelect(){
+        var names = Object.keys(TOOLCODES).filter(function(n){
+            return (n.indexOf('MWD') === 0 || n.indexOf('EMS') === 0 || n.indexOf('DIPMETER') === 0) && n.indexOf('GYRO') === -1;
+        }).sort();
+        var ipm = Object.keys(IPM_META).sort();
+        toolcodeSelect.innerHTML = (ipm.length ? '<optgroup label="Compass .ipm (imported)">' + ipm.map(function(n){ return '<option value="' + n.replace(/"/g, '&quot;') + '">' + n.replace(/</g, '&lt;') + '</option>'; }).join('') + '</optgroup><optgroup label="ISCWSA / OWSG toolcodes">' : '') +
+            names.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('') + (ipm.length ? '</optgroup>' : '');
+        syncToolcodeSelectToRefWell();
+    }
     function loadToolcodes(){
         if(!toolcodeSelect || typeof ISCWSAModel === 'undefined') return Promise.resolve(null);
         return fetch('/data/iscwsaToolcodes.json').then(function(r){ return r.json(); }).then(function(data){
             TOOLCODES = data;
-            var names = Object.keys(data).filter(function(n){
-                return (n.indexOf('MWD') === 0 || n.indexOf('EMS') === 0 || n.indexOf('DIPMETER') === 0) && n.indexOf('GYRO') === -1;
-            }).sort();
-            toolcodeSelect.innerHTML = names.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('');
-            syncToolcodeSelectToRefWell();
-            return data;
+            return fetch('/notes/ipmToolcodes').then(function(r){ return r.json(); }).then(function(d){
+                Object.keys((d && d.tools) || {}).forEach(function(n){ try { addIpmTool(n, d.tools[n].text, d.tools[n].fileName); } catch(e){ console.error('[AC Plots] .ipm', n, e); } });
+            }).catch(function(){ /* no stored .ipm tools */ }).then(function(){ fillToolcodeSelect(); return data; });
         }).catch(function(err){ console.error('[AC Plots] Failed to load ISCWSA toolcodes:', err); return null; });
+    }
+    function importIpmFile(file){
+        if(!file) return;
+        var rd = new FileReader();
+        rd.onload = async function(){
+            var c;
+            try { c = IPMImport.convert(String(rd.result), { fileName: file.name }); } catch(e){ alert('Could not read that .ipm file: ' + e.message); return; }
+            if(!c.terms.length){ alert('No usable error terms in ' + file.name + '.'); return; }
+            var msg = 'Import "' + c.name + '" (' + c.terms.length + ' error terms' + (c.xclTortuosity != null ? ', XCL tortuosity ' + c.xclTortuosity : '') + ')?' +
+                (c.skipped.length ? '\n\nLeft out (not supported, nothing is guessed):\n' + c.skipped.map(function(x){ return '  ' + x.name + ' ' + x.vector + '/' + x.tie + ' ' + x.value + ' — ' + x.why; }).join('\n') : '') +
+                (TOOLCODES[c.name] ? '\n\nA tool with this name exists and will be replaced for everyone.' : '');
+            if(!confirm(msg)) return;
+            try {
+                var r = await fetch('/notes/ipmToolcodes', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: c.name, text: String(rd.result), fileName: file.name }) });
+                var d = await r.json(); if(!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status));
+            } catch(e){ alert('Could not save the tool: ' + e.message); return; }
+            addIpmTool(c.name, String(rd.result), file.name);
+            WELL_COVARIANCE = {};
+            fillToolcodeSelect();
+            var st = document.getElementById('acpStatus'); if(st) st.textContent = 'Imported ' + c.name + (c.skipped.length ? ' (' + c.skipped.length + ' row(s) left out)' : '');
+        };
+        rd.readAsText(file);
     }
 
     // Per-well, per-toolcode ISCWSA covariance, computed once via
@@ -11930,6 +12067,11 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
             declination: mag.declination_deg * Math.PI/180,
             gField: 9.80665
         };
+        // 2026-11-14: an imported Compass tool carries its own XCL tortuosity ("tort" row of the .ipm)
+        if(IPM_META[toolcodeName] && IPM_META[toolcodeName].xclTortuosity != null) wellParams.xclTortuosity = IPM_META[toolcodeName].xclTortuosity;
+        // 2026-11-14: latitude (deg) is needed by stationary-gyro terms (Earth-rate x cos(latitude)); from the
+        // well's surface location, same source as the WMM magnetics. Was not passed before (MWD terms don't use it).
+        (function(){ var s0 = well.survey.slice().sort(function(a,b){ return num(a.md)-num(b.md); })[0]; var la = num(s0.latitude); if(la) wellParams.latitude = la; })();
         var result;
         try {
             result = ISCWSAModel.computeWellCovariance(survey, terms, wellParams);
@@ -12025,6 +12167,11 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
         if(colorModeEl) colorModeEl.addEventListener('change', renderPlot);
         var kInputEl = document.getElementById('acpKSF');
         if(kInputEl) kInputEl.addEventListener('change', function(){ renderPlot(); evaluateAtMd(); });
+        // 2026-11-14: Error Surface selector (see ERR_SURF above); remembered per browser
+        var errSurfEl = document.getElementById('acpErrSurf');
+        if(errSurfEl){ errSurfEl.value = ERR_SURF;
+            errSurfEl.addEventListener('change', function(){ ERR_SURF = errSurfEl.value; try { localStorage.setItem('mtxAcErrSurf', ERR_SURF); } catch(e){}
+                renderPlot(); evaluateAtMd(); if(typeof renderTravelingCylinder === 'function') renderTravelingCylinder(); }); }
         ['acpC2cXMin','acpC2cXMax','acpC2cYMin','acpC2cYMax','acpSfXMin','acpSfXMax','acpSfYMin','acpSfYMax'].forEach(function(id){
             var el = document.getElementById(id);
             if(el) el.addEventListener('change', renderPlot);
@@ -12039,6 +12186,10 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
             acpChartTCV.options.plugins.tcvLabels = { show: tcvShowLabels.checked };
             acpChartTCV.update('none');
         });
+        // 2026-11-14: Compass .ipm import
+        var ipmBtn = document.getElementById('acpIpmBtn'), ipmFile = document.getElementById('acpIpmFile');
+        if(ipmBtn && ipmFile){ ipmBtn.addEventListener('click', function(){ ipmFile.value = ''; ipmFile.click(); });
+            ipmFile.addEventListener('change', function(){ importIpmFile(ipmFile.files[0]); }); }
         if(toolcodeSelect) toolcodeSelect.addEventListener('change', function(){
             var refWell = WELLS.find(function(w){ return w.wellName === refSelect.value; });
             if(refWell) saveWellToolcode(refWell, toolcodeSelect.value);

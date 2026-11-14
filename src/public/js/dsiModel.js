@@ -24,6 +24,29 @@
 //      B_N = B·cosDip); ISCWSA eBook §5.2.3. A = MAGNETIC azimuth.
 //  [5] Short-NMDC screening: error_used ≈ error_acc·(L_req/L_used)²
 //      (ISCWSA eBook §5.2.4) — exported for display only.
+//  INDUCED (added 2026-11-14, John): pole strengths from the component
+//      geometry, induced magnetisation only.
+//      Lalji, Haneef, Khan & Ali (2020), "Demagnetizing the drill string
+//      magnetic interference in Far North and in Pakistan", J. Petrol. Explor.
+//      Prod. Technol. 10:821-828, doi 10.1007/s13202-019-00801-7:
+//        Eq. 3  Q = mu0 (mu - 1) H A / (1 + N (mu - 1))   [Wb]
+//               with mu0*H = axial Earth field B_ax  =>  Q = (mu-1) B_ax A / (1 + N (mu-1));
+//               mu -> infinity gives Q = B_ax A / N.
+//        Eq. 4  B = Q / (4 pi r^2)   (same law as [2]).
+//      N = axial demagnetising factor of a prolate spheroid, m = length/diameter
+//      (Osborn 1945, Phys. Rev. 67:351; Lalji Eq. 2 — as printed it has a typo,
+//      ln((m+s)/(m-s)) with s = sqrt(m^2-1) equals 2 ln(m+s), so the two agree):
+//        N = [ m/s * ln(m + s) - 1 ] / (m^2 - 1)
+//      Axial component of the Earth field along the tool, downhole positive
+//      (standard tool-frame geometry): B_ax = B (cosI sinDip + sinI cosDip cosAm).
+//      MTX IMPLEMENTATION CHOICES (stated, not from the paper):
+//        - each CONTIGUOUS steel section (between non-mag runs / bit / BHA top)
+//          is one body: length = section length, A = length-weighted steel area
+//          pi/4 (OD^2-ID^2), diameter for m = length-weighted OD;
+//        - magnetised along +z (downhole): +Q at its bottom end, -Q at its top
+//          end (gives the eBook signs: upper pole +, lower pole -);
+//        - only the BHA rows entered are modelled (string above the last row
+//          is not); REMANENT magnetisation (NDT/MPI, handling) is NOT included.
 //  SNIPER (legacy, optional, NOT default): line-for-line port of John's
 //      SNIPER v1-3 Form1.vb Calcular_DSI(). Its pole strength P = 300·OD/ID
 //      has NO known published source (confirmed with John 2026-10-25); its
@@ -129,6 +152,39 @@
     return best;
   }
 
+
+  // ---------------- INDUCED (geometry) — see header -----------------------
+  function demagN(m) {                 // Osborn 1945 prolate spheroid, axial
+    if (!(m > 1.0001)) return 1 / 3;   // sphere limit (short parts; flagged by caller)
+    var s = Math.sqrt(m * m - 1);
+    return (m / s * Math.log(m + s) - 1) / (m * m - 1);
+  }
+  function axialField(btNT, dipDeg, incDeg, azMagDeg) {
+    return btNT * (Math.cos(incDeg * D2R) * Math.sin(dipDeg * D2R) + Math.sin(incDeg * D2R) * Math.cos(dipDeg * D2R) * Math.cos(azMagDeg * D2R));
+  }
+  // rows: [{od,id (in), len (m), material}], bit first. mu: relative permeability (null/Infinity = geometry-limited).
+  // Returns poles with P in µWb PER nT of axial field (multiply by B_ax), plus the section list.
+  function inducedSections(rows, mu) {
+    var IN = 0.0254, secs = [], x = 0, cur = null, warn = [];
+    rows.forEach(function (r, i) {
+      var x0 = x; x += +r.len;
+      if (isNM(r)) { cur = null; return; }
+      if (!(r.od > 0) || !(r.id >= 0) || r.id >= r.od) throw new Error('Induced method needs OD > ID on every steel row (row ' + (i + 1) + ').');
+      if (!cur) { cur = { bottom: x0, top: x, sumA: 0, sumOD: 0, rows: [] }; secs.push(cur); }
+      cur.top = x; cur.sumA += Math.PI / 4 * (Math.pow(r.od * IN, 2) - Math.pow(r.id * IN, 2)) * r.len; cur.sumOD += r.od * IN * r.len; cur.rows.push(i + 1);
+    });
+    var poles = [];
+    secs.forEach(function (c) {
+      var Ls = c.top - c.bottom; c.len = Ls; c.A = c.sumA / Ls; c.D = c.sumOD / Ls; c.m = Ls / c.D; c.N = demagN(c.m);
+      if (c.m <= 1.0001) warn.push('Steel section rows ' + c.rows.join(',') + ' is shorter than its diameter: N = 1/3 (sphere) used.');
+      // Q per nT of axial field, in µWb:  (mu-1) A / (1 + N(mu-1))  ->  A/N  when mu -> inf;  1 nT = 1e-9 T, 1 Wb = 1e6 µWb
+      var g = (mu > 1 && isFinite(mu)) ? (mu - 1) * c.A / (1 + c.N * (mu - 1)) : c.A / c.N;
+      c.qPerNT = g * 1e-9 * 1e6;
+      poles.push({ x: c.bottom, P: c.qPerNT, label: 'Steel rows ' + c.rows.join(',') + ' — bottom end (+)', sec: c });
+      poles.push({ x: c.top, P: -c.qPerNT, label: 'Steel rows ' + c.rows.join(',') + ' — top end (−)', sec: c });
+    });
+    return { sections: secs, poles: poles, warnings: warn };
+  }
   // ---------------- SNIPER (legacy) — port of Form1.vb Calcular_DSI() -------
   // Input lengths in metres (SNIPER "CAN" units), converted to ft with SNIPER's
   // own factor. Returns {bmSum (SNIPER units), dBzNT (=1000·bmSum), table, warnings}.
@@ -180,5 +236,6 @@
   }
 
   return { PRESETS: PRESETS, isNM: isNM, boundaries: boundaries, sensorRun: sensorRun, defaultPoles: defaultPoles,
-    fieldAt: fieldAt, azError: azError, fieldProfile: fieldProfile, optimum: optimum, sniper: sniper, sniperAzError: sniperAzError };
+    fieldAt: fieldAt, azError: azError, fieldProfile: fieldProfile, optimum: optimum, sniper: sniper, sniperAzError: sniperAzError,
+    demagN: demagN, axialField: axialField, inducedSections: inducedSections };
 }));

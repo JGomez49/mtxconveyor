@@ -799,5 +799,8 @@ async function runAndSave(){
 })();
 </script>
 
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'hydraulics', keys: ["p_bypass", "p_mw", "p_pv", "p_yp", "p_q", "p_ppmax", "p_fm", "p_se", "p_nn"], unit: function(){ return 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
 </body>
 </html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slide Sheet — MTX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<script src="/js/tdModel.js"></script>
+<script src="/js/slideSheetModel.js"></script>
+<script src="/js/sagModel.js"></script>
+<script src="/js/ssaModel.js"></script>
+<script src="/js/chainReport.js"></script>
+<style>
+  /* 2026-11-13 (John): "?" help buttons — books and papers only, no test results. Same pattern as SAG / PipeStretch;
+     the size override is needed because of the page-wide button padding. */
+  .pp-help{padding:0!important;min-height:0!important;width:28px!important;height:28px!important;border-radius:50%!important;margin-left:8px;font-weight:700;vertical-align:middle;cursor:pointer;background:var(--panel2);color:var(--accent);border:1px solid var(--border);}
+  .hp-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;}
+  .hp-modal .hp-box{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;max-width:760px;width:92%;max-height:84vh;overflow:auto;padding:18px 22px;font-size:14.5px;line-height:1.5;}
+  .hp-modal h3{margin:0 0 10px;font-size:18px;} .hp-modal .ref{color:var(--muted);font-size:13px;border-top:1px solid var(--border);margin-top:12px;padding-top:8px;}
+  /*
+    Slide Sheet (ADDED 2026-11-13, John — step 1 of "survey correction by slide-sheet analysis").
+    Builds the slide sheet from the rig EDR (Pason LAS, 1 s) instead of the directional driller's hand-written
+    sheet. Engine + detection rules + validation notes: public/js/slideSheetModel.js and the project doc
+    claude/slidesheet-edr-findings.md. Same layout / theme / sizes as PipeStretch (2026-11-11).
+    Step 2 (later): survey correction from these slides (ISCWSA eBook pp. 57-58).
+  */
+  :root{ --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --border:#2a313c; --text:#e6e9ef; --muted:#8a93a3; --accent:#4da3ff; --good:#2ecc71; --bad:#ff5c5c; --warn:#f5a623; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:22px;margin:0;font-weight:600;} header .sub{color:var(--muted);font-size:13.5px;}
+  .wrap{padding:14px 18px 40px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;}
+  .panel h2{font-size:17px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{border-bottom:1px solid var(--border);padding:7px 9px;text-align:right;white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel2);} td:first-child,th:first-child{text-align:left;}
+  input,select,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:15px;padding:8px 11px;min-height:40px;}
+  input[type=number]{width:110px;} input[type=checkbox]{min-height:0;width:auto;}
+  button{cursor:pointer;} button.primary{background:var(--accent);border-color:var(--accent);color:#061325;font-weight:600;} button:disabled{opacity:.5;cursor:not-allowed;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+  .field{display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--text);white-space:nowrap;}
+  .muted{color:var(--muted);font-size:14px;} .ok{color:var(--good);} .bad{color:var(--bad);} .warn{color:var(--warn);}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:9px 12px;font-size:14px;color:var(--muted);margin:6px 0;line-height:1.5;}
+  .scroll{max-height:560px;overflow:auto;border:1px solid var(--border);border-radius:6px;}
+  .plot{height:420px;}
+  #prog{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;width:260px;display:inline-block;vertical-align:middle;} #prog div{height:100%;width:0;background:var(--accent);}
+  tr.slide td{color:var(--text);} tr.rotate td{color:var(--muted);}
+  .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;} .tag.s{background:rgba(245,166,35,.18);color:var(--warn);} .tag.r{background:rgba(77,163,255,.15);color:var(--accent);}
+  body.light-mode{ --bg:#f0f4f8; --panel:#ffffff; --panel2:#f6f8fa; --border:#c8d4de; --text:#0a0d10; --muted:#454e57; --accent:#0a6fd6; --good:#14843f; --bad:#c62828; --warn:#a86400; }
+  body.light-mode button.primary{color:#fff;}
+  @media (max-width:768px){ .wrap{padding:8px 8px 30px;} .panel{padding:12px;} .row > .field{flex:1 1 45%;} .row > .field input,.row > .field select{width:100% !important;} .plot{height:320px;} }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>🧭 Slide Sheet</h1><div class="sub">Slides and rotations from the rig EDR (Pason LAS, 1 s) — measured depths and toolface</div></div>
+  <div class="row" style="margin:0">
+    <select id="unitSel" onchange="setUnit(this.value)"><option value="metric">Metric (m)</option><option value="imperial">Imperial (ft)</option></select>
+    <input id="ssName" placeholder="Slide sheet name" style="width:190px">
+    <button onclick="saveSheet()" id="btnSave" disabled title="Saves the slide sheet (not the LAS) to the job + well selected in panel 1">💾 Save to job</button>
+    <select id="savedSel" style="width:240px"><option value="">— saved in this job —</option></select>
+    <button onclick="openSaved()">Load</button><button onclick="delSaved()">Delete</button>
+    <button onclick="exportExcel()" id="btnXls" disabled>⬇ Export slide sheet (Excel)</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="panel">
+    <h2>1 · EDR data (Pason LAS) and job (optional)</h2>
+    <div class="row">
+      <label><button onclick="document.getElementById('lasFile').click()">⬆ Load LAS file</button>
+        <input type="file" id="lasFile" accept=".las,.txt,.LAS" style="display:none" onchange="loadLas(event)"></label>
+      <span id="prog"><div></div></span> <span id="lasInfo" class="muted"></span>
+    </div>
+    <div class="note">Use the <b>LAS export (1-second data)</b>. The 10-minute Drilling Mechanics CSV comes from the same EDR but cannot show slides — a slide lasts minutes, so one 10-minute sample mixes sliding and rotating.
+      Needed curves: TIME, DEPT (hole depth), BDEP (bit depth), RPM, TF (Pason: gravity toolface, or 1000 + magnetic toolface); optional ROP, WOB, DIFP, INCL, AZ.</div>
+    <div class="row">
+      <div class="field"><span>MTX Job ID (optional — groups slides by T&amp;D BHA run)</span><input id="mtxId" placeholder="e.g. 1838" style="width:140px"></div>
+      <button onclick="loadJob()">Load job</button>
+      <div class="field"><span>Well / leg</span><select id="wellSel" style="width:260px" onchange="onWellChange()"></select></div>
+      <div class="field"><span>T&amp;D scenario (runs)</span><select id="scenSel" style="width:200px" onchange="run()"></select></div>
+    </div>
+    <div id="jobStatus" class="muted"></div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Detection settings</h2>
+    <div class="row">
+      <div class="field"><span>Bit on bottom: hole − bit depth &lt; (m)</span><input type="number" id="oBot" value="0.5" step="0.1"></div>
+      <div class="field"><span>RPM window (s)</span><input type="number" id="oWin" value="61" step="1"></div>
+      <div class="field"><span>Slide: |mean RPM| &lt;</span><input type="number" id="oMean" value="5" step="1"></div>
+      <div class="field"><span>Slide: max |RPM| ≤ (rocking)</span><input type="number" id="oMax" value="20" step="1"></div>
+      <div class="field"><span>Merge gap (m)</span><input type="number" id="oGap" value="1" step="0.1"></div>
+      <div class="field"><span>Shortest slide (m)</span><input type="number" id="oMin" value="0.5" step="0.1"></div>
+      <button class="primary" onclick="run()" id="btnRun" disabled>Build slide sheet</button>
+      <button onclick="resetOpts()">Defaults</button>
+    </div>
+    <div class="note"><b>Rules</b> (every threshold can be changed):
+      new hole = hole depth increasing with the bit on bottom; <b>slide</b> = over the RPM window the average RPM is ~0 and RPM never exceeds the rocking limit (top-drive rocking reads about ±10 RPM while sliding); otherwise <b>rotate</b>.
+      Slide toolface = circular mean of the measured toolface while making hole; spread = circular standard deviation.</div>
+    <h3 class="muted" style="font-size:15px;margin:14px 0 6px">Hole-depth segments</h3>
+    <div class="note warnbox" id="segNote" style="display:none;border-left-color:var(--warn)"></div>
+    <div class="scroll" style="max-height:240px"><table>
+      <thead><tr><th>Segment is</th><th>#</th><th>From (time)</th><th>To (time)</th><th>Drilled from</th><th>Drilled to</th><th>New hole (<span class="uL">m</span>)</th><th>Note</th></tr></thead>
+      <tbody id="segBody"><tr><td colspan="8" class="muted">Load a LAS file and press "Build slide sheet".</td></tr></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Slide sheet</h2>
+    <div id="summary" class="muted"></div>
+    <div class="scroll" style="max-height:220px;margin:8px 0"><table>
+      <thead><tr><th>Run</th><th>Bit MD (<span class="uL">m</span>)</th><th>Drilled</th><th>Slid</th><th>Rotated</th><th>Slide %</th><th>Slides</th></tr></thead>
+      <tbody id="runBody"></tbody></table></div>
+    <div class="row"><label class="field" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="showRot" onchange="render()"> Show rotating intervals too</label></div>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Run</th><th>Mode</th><th>From (<span class="uL">m</span>)</th><th>To (<span class="uL">m</span>)</th><th>Length</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th>
+        <th>ROP (<span class="uL">m</span>/h)</th><th>WOB</th><th>Diff P</th><th>RPM</th><th>Inc start→end</th><th>Az start→end</th><th>Start (local)</th></tr></thead>
+      <tbody id="ivBody"></tbody></table></div>
+    <div id="plot" class="plot" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>4 · Compare with the directional driller's slide sheet (optional)</h2>
+    <div class="row">
+      <label><button onclick="document.getElementById('ddFile').click()" id="btnDD" disabled>⬆ Load DD slide sheet (Excel)</button>
+        <input type="file" id="ddFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadDD(event)"></label>
+      <div class="field"><span>Match tolerance (<span class="uL">m</span>)</span><input type="number" id="ddTol" value="2" step="0.5" onchange="renderCompare()"></div>
+      <span id="ddInfo" class="muted"></span>
+    </div>
+    <div class="note">The sheet's "Slide From / To" columns are found automatically (the CNRL layout: Slide From | To | Meters | Set @). The DD sheet records the <b>intended</b> ("set") toolface; the EDR gives the <b>measured</b> one.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>DD from</th><th>DD to</th><th>DD set TF</th><th>EDR from</th><th>EDR to</th><th>Δ from</th><th>Δ to</th><th>EDR toolface (°)</th><th>Ref</th></tr></thead>
+      <tbody id="cmpBody"></tbody></table></div>
+  </div>
+  <!-- ADDED 2026-11-13 (John): survey correction by Slide Sheet Analysis (SSA), ISCWSA eBook pp. 57-58 (public/js/ssaModel.js) -->
+  <div class="panel">
+    <h2>5 · Survey correction — Slide Sheet Analysis (SSA)</h2>
+    <div class="note"><b>ISCWSA eBook (2017) pp. 57–58.</b> Per BHA run, the dogleg capability = total curvature between the run's surveys ÷ footage slid (all curvature happens while sliding).
+      Fill-in stations are added at the start and end of every slide: ΔInc = DLS × length × cos(toolface), ΔAz = DLS × length × sin(toolface) / sin(Inc); minimum curvature is then run through the original + fill-in stations.
+      The eBook calls it "a rough guide to the likely TVD adjustment" (assumptions: constant DLS per run, curvature only while sliding, constant toolface per slide).
+      Only the <b>Main</b> leg and <b>high-side (gravity) toolface</b> slides are used; magnetic-toolface slides (near vertical) are skipped and listed. SSA adds stations, so it must be the <b>last</b> correction of a chain.</div>
+    <div class="row">
+      <div class="field"><span>Survey version (start from)</span><select id="ssaVer" style="width:360px"></select></div>
+      <div class="field"><span>Min. inclination for ΔAz (°)</span><input type="number" id="ssaMinInc" value="3" step="0.5"></div>
+      <button class="primary" onclick="ssaRun()" id="btnSsa" disabled>Calculate SSA</button>
+      <button onclick="ssaSave()" id="btnSsaSave" disabled>💾 Save as new version in job</button>
+      <button onclick="ssaReport()" id="btnSsaRep" disabled>📄 SSA report</button>
+      <button onclick="ssaChainQc()" title="Combined QC report of the version selected here">📄 Chain QC report</button>
+    </div>
+    <div id="ssaInfo" class="muted"></div>
+    <div id="ssaOut" style="display:none">
+      <h3 class="muted" style="font-size:15px;margin:12px 0 6px">BHA runs — dogleg capability</h3>
+      <div class="scroll" style="max-height:220px"><table><thead><tr><th>Run</th><th>Survey MD range (<span class="uL">m</span>)</th><th>Surveys</th><th>Total curvature (°)</th><th>Slid (<span class="uL">m</span>)</th><th>DLS (°/30 m)</th></tr></thead><tbody id="ssaRuns"></tbody></table></div>
+      <div id="ssaPlot" class="plot" style="height:380px;margin-top:12px"></div>
+      <h3 class="muted" style="font-size:15px;margin:12px 0 6px">Fill-in stations</h3>
+      <div class="scroll" style="max-height:320px"><table><thead><tr><th>MD (<span class="uL">m</span>)</th><th>Inc (°)</th><th>Az (°)</th><th>At</th><th>Slide (<span class="uL">m</span>)</th><th>Toolface (°)</th><th>Run</th></tr></thead><tbody id="ssaFill"></tbody></table></div>
+      <h3 class="muted" style="font-size:15px;margin:12px 0 6px">QC — attitude predicted at the next survey vs measured</h3>
+      <div class="scroll" style="max-height:260px"><table><thead><tr><th>Survey interval (<span class="uL">m</span>)</th><th>Predicted Inc / Az</th><th>Measured Inc / Az</th><th>ΔInc (°)</th><th>ΔAz (°)</th></tr></thead><tbody id="ssaQc"></tbody></table></div>
+      <div id="ssaSkip" class="muted" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+var USER_ROLE = <%- JSON.stringify(user && user.role || '') %>;
+var LASFILE = '', FT = 0.3048, UNIT = 'metric', LAS = null, RES = null, DD = null, job = { noteId:null, wells:[], td:null, mtxJobId:'' };
+var EXCL = [], ROLE = null, SAVED = null;   // ROLE[i] = 'Main' | 'Leg 2' | 'Leg 3' | 'Leg 4' | 'Ignore' per hole-depth segment (2026-11-13)
+function $(id){ return document.getElementById(id); }
+function L(v){ return UNIT === 'metric' ? v : v / FT; }
+function fmt(v, d){ return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }
+function esc(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function tstr(t){ if(!isFinite(t)) return '—'; var d = new Date(t * 1000); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+function setUnit(u){ UNIT = u; document.querySelectorAll('.uL').forEach(function(e){ e.textContent = u === 'metric' ? 'm' : 'ft'; }); render(); renderCompare(); }
+function opts(){ return { onBottomTol:+$('oBot').value, window:+$('oWin').value, slideMeanRpm:+$('oMean').value, slideMaxRpm:+$('oMax').value, mergeGap:+$('oGap').value, minSlide:+$('oMin').value,
+  exclude: (ROLE || []).map(function(r, i){ return r === 'Ignore' ? i : -1; }).filter(function(i){ return i >= 0; }),
+  legs: (ROLE || []).map(function(r){ return r === 'Ignore' ? 'Main' : r; }),
+  breaks: (typeof tdRuns === 'function' ? tdRuns() : []).map(function(r){ return r.from; }) }; }   // split at T&D run starts
+function resetOpts(){ var d = SlideSheetModel.DEFAULTS; $('oBot').value = d.onBottomTol; $('oWin').value = d.window; $('oMean').value = d.slideMeanRpm; $('oMax').value = d.slideMaxRpm; $('oGap').value = d.mergeGap; $('oMin').value = d.minSlide; }
+
+// ---------------- LAS loading: streamed in 8 MB chunks (the test file is 228 MB / 1.07 M rows)
+async function loadLas(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var p = new SlideSheetModel.LasParser(), dec = new TextDecoder(), CH = 8 << 20, t0 = Date.now();
+  $('lasInfo').textContent = 'Reading ' + f.name + '…'; $('btnRun').disabled = true;
+  try{
+    for(var off = 0; off < f.size; off += CH){
+      var buf = await f.slice(off, Math.min(off + CH, f.size)).arrayBuffer();
+      p.push(dec.decode(buf, {stream: off + CH < f.size}));
+      $('prog').firstChild.style.width = Math.min(100, 100 * (off + CH) / f.size) + '%';
+      await new Promise(function(r){ setTimeout(r, 0); });
+    }
+    LAS = p.finish(); ROLE = null; RES = null; SAVED = null; LASFILE = f.name;
+    var w = LAS.well;
+    $('lasInfo').innerHTML = '<span class="ok">✔ ' + esc(w.WELL || f.name) + '</span> · ' + LAS.n.toLocaleString() + ' rows · ' + tstr(LAS.TIME[0]) + ' → ' + tstr(LAS.TIME[LAS.n - 1]) +
+      (w.RIG ? ' · ' + esc(w.RIG) : '') + ' · ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s' + (LAS.missing.length ? ' · <span class="warn">missing curves: ' + esc(LAS.missing.join(', ')) + '</span>' : '');
+    $('btnRun').disabled = false; run();
+  }catch(err){ $('lasInfo').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; }
+  evt.target.value = '';
+}
+
+// ---------------- job + T&D runs (bit-MD ranges of the T&D modeler's BHA runs)
+async function loadJob(){
+  var id = $('mtxId').value.trim(); if(!id) return;
+  $('jobStatus').textContent = 'Loading…';
+  try{
+    var r = await fetch('/notes/tdModel/lookupByMtxId/' + encodeURIComponent(id)), d = await r.json(); if(!r.ok) throw new Error(d.error || r.status);
+    job = { noteId: d.noteId, mtxJobId: id, title: d.title, wells: (d.subjectWells || []).filter(function(w){ return !w.isVersion; }), td: await (await fetch('/notes/tdModel/' + d.noteId)).json() };
+    $('wellSel').innerHTML = job.wells.map(function(w, i){ return '<option value="' + i + '">' + esc(w.wellKey) + '</option>'; }).join('');
+    onWellChange();
+    $('jobStatus').innerHTML = '<span class="ok">✔ ' + esc(d.title) + '</span> · ' + job.wells.length + ' subject well(s)' + (job.td ? '' : ' · no saved T&D model');
+    refreshSaved(); $('btnSave').disabled = !RES || USER_ROLE === 'viewer';
+  }catch(err){ $('jobStatus').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; }
+}
+function onWellChange(){
+  var w = job.wells[+$('wellSel').value], td = job.td, opts = [];
+  if(td && td.scenarios && w) Object.keys(td.scenarios).forEach(function(s){ var e = (td.scenarios[s].resultsByWell || {})[w.wellKey]; if(e && e.params && e.params.plan && (e.params.plan.runs || []).length) opts.push(s); });
+  $('scenSel').innerHTML = opts.length ? opts.map(function(s){ return '<option' + (td.activeScenario === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') : '<option value="">(no T&D runs for this well)</option>';
+  if(LAS) run(); else render();
+  ssaRefreshVersions();
+}
+function tdRuns(){
+  var w = job.wells[+$('wellSel').value], s = $('scenSel').value;
+  if(!w || !s || !job.td) return [];
+  var e = job.td.scenarios[s].resultsByWell[w.wellKey]; if(!e || !e.params || !e.params.plan) return [];
+  return TDModelCore.planActiveRuns(e.params.plan);
+}
+// slide footage belongs to the run drilling at that depth (same rule as the T&D Hookload: deepest start wins)
+function runAt(runs, md){ var c = runs.filter(function(r){ return r.from <= md && md <= r.to; }); return c.length ? c[c.length - 1] : null; }
+
+// ---------------- detection + rendering
+function run(){
+  if(!LAS) return;
+  try{
+    // 2026-11-13 (John): hole-depth segments. Usually a jump back in hole depth is an EDR error, sometimes another leg
+    // (multilateral). Default on first build: a segment whose DRILLED depth range overlaps an earlier segment's is
+    // "Ignore" when it made < 50 m of new hole (EDR glitch, e.g. FOXCK 495-507 m) and "Leg 2/3…" otherwise; the user
+    // confirms or changes each one.
+    if(!ROLE){
+      var g0 = SlideSheetModel.detect(LAS, Object.assign(opts(), { exclude: [], legs: [] })).segments, nLeg = 1;
+      // overlap is checked against EVERY other segment (FOXCK: the 12 m glitch comes BEFORE the real 495-3073 m segment)
+      var ovl = function(g, h){ return g.drilledFrom != null && h.drilledFrom != null && g.drilledFrom < h.drilledTo - 1 && g.drilledTo > h.drilledFrom + 1; };
+      ROLE = g0.map(function(g, i){
+        if(g.drilledFrom == null) return 'Main';
+        var others = g0.filter(function(h, j){ return j !== i && ovl(g, h); });
+        if(!others.length) return 'Main';
+        if(g.drilled < 50 && others.some(function(h){ return h.drilled > g.drilled; })) return 'Ignore';
+        return g0.slice(0, i).some(function(h){ return ovl(g, h) && h.drilled >= 50; }) ? 'Leg ' + (++nLeg) : 'Main';
+      });
+    }
+    RES = SlideSheetModel.detect(LAS, opts());
+  }catch(err){ $('summary').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; return; }
+  render(); renderCompare(); $('btnXls').disabled = false; $('btnDD').disabled = false; $('btnSave').disabled = !job.noteId || USER_ROLE === 'viewer'; $('btnSsa').disabled = !SSA_VERS.length;
+}
+function setRole(i, v){ ROLE[i] = v; run(); }
+function render(){
+  if(!RES) return;
+  var u = UNIT === 'metric' ? ' m' : ' ft', runs = tdRuns();
+  // segments: flag a segment whose depth range overlaps an earlier one (depth reset / other well / re-drill)
+  var segs = RES.segments, flagged = 0;
+  $('segBody').innerHTML = segs.map(function(g, i){
+    var ov = g.drilledFrom != null && segs.slice(0, i).some(function(h){ return h.drilledFrom != null && g.drilledFrom < h.drilledTo - 1 && g.drilledTo > h.drilledFrom + 1; });
+    var note = i === 0 ? '' : ov ? '<span class="warn">re-drills ' + fmt(L(g.drilledFrom), 1) + '–' + fmt(L(g.drilledTo), 1) + u + ' already drilled in an earlier segment — EDR error (Ignore) or another leg (Leg 2…)?</span>' : 'hole depth jumped back; drilling continues from ' + fmt(L(g.drilledFrom), 1) + u;
+    if(ov) flagged++;
+    var role = ROLE ? ROLE[i] : 'Main', ro = ['Main', 'Leg 2', 'Leg 3', 'Leg 4', 'Ignore'];
+    return '<tr' + (role === 'Ignore' ? ' style="opacity:.55"' : '') + '><td><select ' + (LAS ? '' : 'disabled ') + 'onchange="setRole(' + i + ', this.value)" style="min-height:32px;padding:3px 6px">' + ro.map(function(o){ return '<option' + (o === role ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></td><td>' + (i + 1) + '</td><td>' + tstr(g.tStart) + '</td><td>' + tstr(g.tEnd) + '</td><td>' + fmt(L(g.drilledFrom), 1) + '</td><td>' + fmt(L(g.drilledTo), 1) + '</td><td>' + fmt(L(g.drilled), 1) + '</td><td style="text-align:left;white-space:normal">' + note + '</td></tr>';
+  }).join('');
+  $('segNote').style.display = segs.length > 1 ? '' : 'none';
+  $('segNote').innerHTML = segs.length > 1 ? '<b>The hole depth jumps back ' + (segs.length - 1) + ' time(s) in this file.</b> On pad wells the EDR can carry another well\'s depth, or the depth is reset by hand. Usually that is an EDR error (set the segment to <b>Ignore</b>); on a multilateral well it can be another leg (<b>Leg 2…</b>, kept and reported separately). Defaults: of two segments that drill the same depths, the shorter one is set to Ignore if it made &lt; 50 m; if both are long, the later one becomes the next leg — please confirm' + (flagged ? ' (' + flagged + ' re-drill segment(s) here)' : '') + '. Example (FOXCK): a 12 m "slide" at 495–507 m existed only in a short segment after a reset.' : '';
+  var S = RES.summary;
+  $('summary').innerHTML = '<b>' + RES.slides.length + ' slides</b> · drilled ' + fmt(L(S.drilled), 1) + u + ' · slid ' + fmt(L(S.slid), 1) + u + ' (' + fmt(S.slidePct, 1) + ' %)' + (runs.length ? ' · grouped by T&amp;D runs of scenario "' + esc($('scenSel').value) + '"' : ' · load a job to group by BHA run');
+  var multi = RES.intervals.some(function(x){ return x.leg && x.leg !== 'Main'; });
+  // T&D runs are those of the selected well (main bore); other legs are listed without a run
+  var name = function(x){ var r = runs.length && (!x.leg || x.leg === 'Main') ? runAt(runs, x.from) : null; return (multi ? (x.leg || 'Main') + ' · ' : '') + (r ? (r.name || r.id) : x.run ? x.run : (runs.length && (!x.leg || x.leg === 'Main') ? '—' : '')); };   // x.run = saved run name
+  // per-run summary
+  var groups = {}, order = [];
+  RES.intervals.forEach(function(x){ var k = name(x) || 'All'; if(!groups[k]){ groups[k] = { d:0, s:0, n:0, a:Infinity, b:-Infinity }; order.push(k); } var g = groups[k]; g.d += x.len; if(x.mode === 'slide'){ g.s += x.len; g.n++; } g.a = Math.min(g.a, x.from); g.b = Math.max(g.b, x.to); });
+  $('runBody').innerHTML = order.map(function(k){ var g = groups[k]; return '<tr><td>' + esc(k) + '</td><td>' + fmt(L(g.a), 1) + ' – ' + fmt(L(g.b), 1) + '</td><td>' + fmt(L(g.d), 1) + '</td><td>' + fmt(L(g.s), 1) + '</td><td>' + fmt(L(g.d - g.s), 1) + '</td><td>' + fmt(g.d ? 100 * g.s / g.d : 0, 1) + '</td><td>' + g.n + '</td></tr>'; }).join('');
+  var list = $('showRot').checked ? RES.intervals : RES.slides, k = 0;
+  $('ivBody').innerHTML = list.map(function(x){
+    var sl = x.mode === 'slide'; if(sl) k++;
+    return '<tr class="' + x.mode + '"><td>' + (sl ? k : '') + '</td><td>' + esc(name(x)) + '</td><td><span class="tag ' + (sl ? 's' : 'r') + '">' + (sl ? 'SLIDE' : 'ROTATE') + '</span></td><td>' + fmt(L(x.from), 2) + '</td><td>' + fmt(L(x.to), 2) + '</td><td>' + fmt(L(x.len), 2) + '</td>' +
+      '<td>' + (sl ? '<b>' + fmt(x.tf, 0) + '</b>' : '') + '</td><td>' + (sl ? x.tfRef : '') + '</td><td>' + (sl ? fmt(x.tfSd, 0) : '') + '</td><td>' + fmt(L(x.rop), 1) + '</td><td>' + fmt(x.wob, 1) + '</td><td>' + fmt(x.difp, 0) + '</td><td>' + fmt(x.rpm, 0) + '</td>' +
+      '<td>' + fmt(x.incStart, 2) + ' → ' + fmt(x.incEnd, 2) + '</td><td>' + fmt(x.azStart, 1) + ' → ' + fmt(x.azEnd, 1) + '</td><td>' + tstr(x.tStart) + '</td></tr>';
+  }).join('');
+  plot();
+}
+function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+function plot(){
+  if(!RES || !window.Plotly) return;
+  var s = RES.slides, mk = function(x){ return [L(x.from), L(x.to), null]; };
+  var lines = { x: [], y: [] }; s.forEach(function(x){ lines.x.push(L(x.from), L(x.to), null); lines.y.push(x.tf, x.tf, null); });
+  Plotly.newPlot('plot', [
+    { x: lines.x, y: lines.y, mode: 'lines', line: { width: 8, color: '#f5a623' }, name: 'Slide (measured toolface)', hoverinfo: 'skip' },
+    { x: s.map(function(x){ return L((x.from + x.to) / 2); }), y: s.map(function(x){ return x.tf; }), mode: 'markers', marker: { size: 6, color: '#f5a623' }, name: '', showlegend: false,
+      text: s.map(function(x){ return fmt(L(x.from), 1) + '–' + fmt(L(x.to), 1) + ' · TF ' + fmt(x.tf, 0) + '° ' + x.tfRef + ' ± ' + fmt(x.tfSd, 0); }), hoverinfo: 'text' }],
+    { title: { text: 'Slides along the well — measured toolface', font: { size: 15 } }, paper_bgcolor: css('--panel'), plot_bgcolor: css('--panel'), font: { color: css('--text'), size: 13 }, margin: { l: 60, r: 14, t: 40, b: 50 },
+      xaxis: { title: 'Bit depth (' + (UNIT === 'metric' ? 'm' : 'ft') + ')', gridcolor: css('--border') }, yaxis: { title: 'Toolface (°)', range: [0, 360], dtick: 45, gridcolor: css('--border') }, legend: { orientation: 'h', y: -0.2 } },
+    { displaylogo: false, responsive: true });
+}
+
+// ---------------- DD sheet comparison
+function loadDD(evt){
+  var f = evt.target.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      DD = SlideSheetModel.readDDSheet(rows); DD.file = f.name; renderCompare();
+    }catch(err){ $('ddInfo').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; }
+    evt.target.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+function renderCompare(){
+  if(!DD || !RES) return;
+  var C = SlideSheetModel.compare(RES.slides, DD.slides, Lm(+$('ddTol').value));
+  var tot = function(a){ return a.reduce(function(s, x){ return s + (x.to - x.from); }, 0); };
+  $('ddInfo').innerHTML = esc(DD.file) + ': ' + DD.slides.length + ' slides, ' + fmt(L(tot(DD.slides)), 1) + (UNIT === 'metric' ? ' m' : ' ft') + ' · EDR: ' + RES.slides.length + ' slides, ' + fmt(L(tot(RES.slides)), 1) +
+    ' · <b>' + (DD.slides.length - C.ddMissing) + ' / ' + DD.slides.length + '</b> DD slides found in the EDR' + (C.edrOnly.length ? ' · <span class="warn">' + C.edrOnly.length + ' EDR slide(s) not on the DD sheet</span>' : '');
+  var rows = C.rows.map(function(r){
+    var q = r.dd, e = r.edr;
+    if(!e.length) return '<tr><td>' + fmt(L(q.from), 1) + '</td><td>' + fmt(L(q.to), 1) + '</td><td>' + esc(q.set) + '</td><td colspan="6" class="bad" style="text-align:left">not found in the EDR</td></tr>';
+    return e.map(function(x, j){ return '<tr><td>' + (j ? '' : fmt(L(q.from), 1)) + '</td><td>' + (j ? '' : fmt(L(q.to), 1)) + '</td><td>' + (j ? '' : esc(q.set)) + '</td><td>' + fmt(L(x.from), 1) + '</td><td>' + fmt(L(x.to), 1) + '</td><td>' + fmt(L(x.from - q.from), 1) + '</td><td>' + fmt(L(x.to - q.to), 1) + '</td><td><b>' + fmt(x.tf, 0) + '</b></td><td>' + x.tfRef + '</td></tr>'; }).join('');
+  }).join('') + C.edrOnly.map(function(x){ return '<tr><td colspan="3" class="warn" style="text-align:left">not on the DD sheet</td><td>' + fmt(L(x.from), 1) + '</td><td>' + fmt(L(x.to), 1) + '</td><td></td><td></td><td><b>' + fmt(x.tf, 0) + '</b></td><td>' + x.tfRef + '</td></tr>'; }).join('');
+  $('cmpBody').innerHTML = rows;
+}
+function Lm(v){ return UNIT === 'metric' ? v : v * FT; }
+
+
+// ---------------- save / load (ADDED 2026-11-13, John): result only, never the LAS (models/SlideSheet.js)
+function runNameOf(x, runs){ if(x.leg && x.leg !== 'Main') return ''; var r = runs.length ? runAt(runs, x.from) : null; return r ? (r.name || r.id) : ''; }
+async function refreshSaved(){
+  if(!job.noteId) return;
+  try{ var d = await (await fetch('/notes/slideSheet/list/' + job.noteId)).json();
+    $('savedSel').innerHTML = '<option value="">— saved in this job —</option>' + (d.sheets || []).map(function(x){ return '<option value="' + x.id + '">' + esc(x.wellKey + ' · ' + x.name + ' · ' + new Date(x.updatedAt).toLocaleDateString()) + '</option>'; }).join('');
+  }catch(e){}
+}
+async function saveSheet(){
+  var w = job.wells[+$('wellSel').value], name = $('ssName').value.trim();
+  if(!RES || !job.noteId || !w){ alert('Load a job and a well (panel 1) and build the slide sheet first.'); return; }
+  if(!name){ alert('Enter a name for the slide sheet.'); return; }
+  var runs = tdRuns();
+  var body = { noteId: job.noteId, wellKey: w.wellKey, name: name, tdScenario: $('scenSel').value || '',
+    las: LAS ? { file: LASFILE, well: LAS.well.WELL || '', rig: LAS.well.RIG || '', rows: LAS.n, tStart: LAS.TIME[0], tEnd: LAS.TIME[LAS.n - 1] } : (SAVED ? SAVED.las : {}),
+    settings: Object.assign({}, RES.opts), roles: ROLE || [], segments: RES.segments, summary: RES.summary,
+    intervals: RES.intervals.map(function(x){ return Object.assign({}, x, { run: runNameOf(x, runs) }); }) };
+  try{ var r = await fetch('/notes/slideSheet/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); var d = await r.json(); if(!d.ok) throw new Error(d.error);
+    alert('Saved "' + name + '" for ' + w.wellKey + '. It is shown in the job page (Slide Sheet accordion).'); refreshSaved();
+  }catch(err){ alert('Save failed: ' + err.message); }
+}
+async function openSaved(id){
+  id = id || $('savedSel').value; if(!id) return;
+  try{ var d = await (await fetch('/notes/slideSheet/item/' + id)).json(); if(!d.ok) throw new Error(d.error);
+    var s = d.sheet; SAVED = s; LAS = null; ROLE = s.roles || null;
+    RES = { intervals: s.intervals, slides: s.intervals.filter(function(x){ return x.mode === 'slide'; }), summary: s.summary || {}, segments: s.segments || [], opts: s.settings || {} };
+    var o = s.settings || {}; if(o.onBottomTol != null){ $('oBot').value = o.onBottomTol; $('oWin').value = o.window; $('oMean').value = o.slideMeanRpm; $('oMax').value = o.slideMaxRpm; $('oGap').value = o.mergeGap; $('oMin').value = o.minSlide; }
+    $('ssName').value = s.name;
+    var wi = job.wells.findIndex(function(w){ return w.wellKey === s.wellKey; }); if(wi >= 0){ $('wellSel').value = wi; onWellChange(); }
+    if(s.tdScenario && [].some.call($('scenSel').options, function(o){ return o.value === s.tdScenario; })) $('scenSel').value = s.tdScenario;
+    $('lasInfo').innerHTML = 'Saved slide sheet <b>' + esc(s.name) + '</b> (' + esc(s.wellKey) + ') — from ' + esc((s.las && s.las.file) || 'LAS') + ', ' + ((s.las && s.las.rows) || 0).toLocaleString() + ' rows. Load the LAS again to change the settings or segments.';
+    $('btnRun').disabled = true; render(); renderCompare(); $('btnSsa').disabled = !SSA_VERS.length; $('btnXls').disabled = false; $('btnDD').disabled = false; $('btnSave').disabled = USER_ROLE === 'viewer';
+  }catch(err){ alert('Could not load: ' + err.message); }
+}
+async function delSaved(){
+  var id = $('savedSel').value; if(!id || !confirm('Delete this saved slide sheet?')) return;
+  try{ var d = await (await fetch('/notes/slideSheet/item/' + id, { method:'DELETE' })).json(); if(!d.ok) throw new Error(d.error); refreshSaved(); }catch(err){ alert(err.message); }
+}
+// deep link from the job page: /notes/slideSheet?mtxJobId=…&id=…
+(async function(){
+  var q = new URLSearchParams(location.search);
+  if(q.get('mtxJobId')){ $('mtxId').value = q.get('mtxJobId'); await loadJob(); if(q.get('id')){ $('savedSel').value = q.get('id'); openSaved(q.get('id')); } }
+})();
+
+// ---------------- SSA survey correction (ADDED 2026-11-13, John) — engine public/js/ssaModel.js
+var SSA = null, SSA_VERS = [], SSA_SRC = null;
+async function ssaRefreshVersions(){
+  var w = job.wells[+$('wellSel').value]; SSA_VERS = [];
+  if(!w || !job.noteId){ $('ssaVer').innerHTML = ''; $('btnSsa').disabled = true; return; }
+  try{ var d = await (await fetch('/notes/surveyVersions?noteId=' + encodeURIComponent(job.noteId) + '&wellKey=' + encodeURIComponent(w.wellKey))).json(); if(d.ok) SSA_VERS = d.versions; }catch(e){}
+  var nm = { stretch:'PipeStretch', sag:'SAG', shortcollar:'Short Collar', msa:'MSA', ssa:'SSA' };
+  $('ssaVer').innerHTML = SSA_VERS.map(function(v, i){ var ch = (v.chain || []).map(function(c){ return nm[c.type] || c.tag; }).join(' → ');
+    return '<option value="' + i + '">' + esc(v.original ? 'Original — ' + v.wellName : v.wellName + (ch ? ' — ' + ch : '')) + '</option>'; }).join('');
+  $('btnSsa').disabled = !RES || !SSA_VERS.length;
+}
+async function ssaRun(){
+  var v = SSA_VERS[+$('ssaVer').value]; if(!v || !RES){ alert('Load a job, pick a well and build or load the slide sheet first.'); return; }
+  if((v.chain || []).some(function(c){ return c.type === 'ssa'; })){ alert('This version already has an SSA correction.'); return; }
+  try{
+    var d = await (await fetch('/notes/surveyVersion/' + v.id)).json(); if(!d.ok) throw new Error(d.error);
+    var sv = d.version.survey.filter(function(s){ return !s.interp; });
+    SSA_SRC = { version: v, survey: sv, chain: d.version.chain || [] };
+    var runs = tdRuns(), ints = RES.intervals.map(function(x){ return Object.assign({}, x, { run: x.run || runNameOf(x, runs) }); });
+    var r = SsaModel.compute(sv.map(function(s){ return { md: s.md, inc: s.inc, az: s.az }; }), ints, { minInc: +$('ssaMinInc').value });
+    // positions: minimum curvature through measured stations, before and after adding the fill-ins (same tie)
+    var tie = { tvd: 0, n: 0, e: 0 }, base = SagModel.minimumCurvature(sv.map(function(s){ return { md: s.md, inc: s.inc, az: s.az }; }), tie);
+    var mg = SsaModel.merge(sv, r.fillIns), mc = SagModel.minimumCurvature(mg.map(function(m){ return { md: m.md, inc: m.inc, az: m.az }; }), tie);
+    r.delta = []; mg.forEach(function(m, j){ if(!m.interp) r.delta.push({ md: m.md, dTvd: mc[j].tvd - base[m.idx].tvd, dN: mc[j].n - base[m.idx].n, dE: mc[j].e - base[m.idx].e }); });
+    SSA = r; ssaRender();
+    $('btnSsaSave').disabled = !r.fillIns.length || USER_ROLE === 'viewer'; $('btnSsaRep').disabled = false;
+  }catch(err){ $('ssaInfo').innerHTML = '<span class="bad">' + esc(err.message) + '</span>'; }
+}
+function ssaRender(){
+  if(!SSA) return; var u = UNIT === 'metric' ? ' m' : ' ft', r = SSA, last = r.delta[r.delta.length - 1] || {};
+  $('ssaOut').style.display = '';
+  $('ssaInfo').innerHTML = '<b>' + r.fillIns.length + ' fill-in stations</b> from ' + r.slides + ' slides · ' + r.skipped.length + ' slide piece(s) skipped · at the last survey: ΔTVD <b>' + fmt(L(last.dTvd), 3) + u + '</b>, ΔN ' + fmt(L(last.dN), 3) + ', ΔE ' + fmt(L(last.dE), 3) + u +
+    ' · max |ΔTVD| ' + fmt(L(Math.max.apply(null, r.delta.map(function(x){ return Math.abs(x.dTvd); }))), 3) + u;
+  $('ssaRuns').innerHTML = r.runs.map(function(x){ return '<tr><td>' + esc(x.name) + '</td><td>' + (x.mdFrom == null ? '—' : fmt(L(x.mdFrom), 1) + ' – ' + fmt(L(x.mdTo), 1)) + '</td><td>' + x.surveys + '</td><td>' + fmt(x.curv, 2) + '</td><td>' + fmt(L(x.slid), 1) + '</td><td>' + (x.dls == null ? '<span class="muted">no slides — not used</span>' : '<b>' + fmt(x.dls * 30, 2) + '</b>') + '</td></tr>'; }).join('');
+  $('ssaFill').innerHTML = r.fillIns.map(function(f){ return '<tr><td>' + fmt(L(f.md), 2) + '</td><td>' + fmt(f.inc, 2) + '</td><td>' + fmt(f.az, 2) + '</td><td>' + f.at + '</td><td>' + fmt(L(f.slide.from), 1) + '–' + fmt(L(f.slide.to), 1) + '</td><td>' + fmt(f.slide.tf, 0) + '</td><td>' + esc(f.slide.run) + '</td></tr>'; }).join('');
+  $('ssaQc').innerHTML = r.qc.map(function(q){ var bad = Math.abs(q.dInc) > 2 || Math.abs(q.dAz) > 5; return '<tr' + (bad ? ' class="warn"' : '') + '><td>' + fmt(L(q.from), 1) + '–' + fmt(L(q.to), 1) + '</td><td>' + fmt(q.predInc, 2) + ' / ' + fmt(q.predAz, 2) + '</td><td>' + fmt(q.measInc, 2) + ' / ' + fmt(q.measAz, 2) + '</td><td>' + fmt(q.dInc, 2) + '</td><td>' + fmt(q.dAz, 2) + '</td></tr>'; }).join('');
+  var why = {}; r.skipped.forEach(function(x){ why[x.why] = (why[x.why] || 0) + 1; });
+  $('ssaSkip').innerHTML = r.skipped.length ? 'Skipped: ' + Object.keys(why).map(function(k){ return why[k] + ' × ' + esc(k); }).join(' · ') : '';
+  if(window.Plotly) Plotly.newPlot('ssaPlot', [
+      { x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dTvd); }), name: 'ΔTVD', mode: 'lines', line: { color: '#9467bd', width: 2 } },
+      { x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dN); }), name: 'ΔN', mode: 'lines', line: { color: '#f5a623', width: 2 } },
+      { x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dE); }), name: 'ΔE', mode: 'lines', line: { color: '#2ecc71', width: 2 } }],
+    { title: { text: 'Position change at the measured stations (SSA − before)', font: { size: 15 } }, paper_bgcolor: css('--panel'), plot_bgcolor: css('--panel'), font: { color: css('--text'), size: 13 }, margin: { l: 60, r: 14, t: 40, b: 50 },
+      xaxis: { title: 'MD' + u, gridcolor: css('--border') }, yaxis: { title: 'Change' + u, gridcolor: css('--border') }, legend: { orientation: 'h', y: -0.2 } }, { displaylogo: false, responsive: true });
+}
+async function ssaSave(){
+  if(!SSA || !SSA_SRC) return; var w = job.wells[+$('wellSel').value];
+  if(!confirm('Create a NEW version of ' + w.wellKey + ' with ' + SSA.fillIns.length + ' SSA fill-in stations?\nStarting version: ' + SSA_SRC.version.wellName + ' (not changed). SSA must be the last correction of the chain.')) return;
+  try{
+    var r = await fetch('/notes/ssa/saveVersion', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ noteId: job.noteId, wellKey: w.wellKey, versionId: SSA_SRC.version.id,
+      fillIns: SSA.fillIns, label: SSA.fillIns.length + ' fill-ins from ' + SSA.slides + ' EDR slides' + (SAVED ? ' · slide sheet "' + SAVED.name + '"' : '') + ' · DLS per run: ' + SSA.runs.filter(function(x){ return x.dls != null; }).map(function(x){ return x.name + ' ' + (x.dls * 30).toFixed(2); }).join(', '),
+      inputs: { slideSheet: SAVED ? SAVED.name : ($('ssName').value || ''), minInc: +$('ssaMinInc').value, runs: SSA.runs.map(function(x){ return { name: x.name, dls30: x.dls == null ? null : +(x.dls * 30).toFixed(3), slid: +x.slid.toFixed(2), curv: +x.curv.toFixed(3) }; }), skipped: SSA.skipped.length } }) });
+    var d = await r.json(); if(!d.ok) throw new Error(d.error);
+    alert('Saved as "' + d.wellName + '".'); ssaRefreshVersions();
+  }catch(err){ alert('Save failed: ' + err.message); }
+}
+function ssaChainQc(){
+  var v = SSA_VERS[+$('ssaVer').value]; if(!v || v.original){ alert('Pick a corrected version first.'); return; }
+  var o = SSA_VERS.filter(function(x){ return x.original; })[0];
+  MtxChainReport.open({ versionId: v.id, originalId: o ? o.id : null, well: o ? o.wellName : '', job: job.mtxJobId ? 'MTX ' + job.mtxJobId + (job.title ? ' — ' + job.title : '') : '', unit: UNIT });
+}
+async function ssaReport(){
+  if(!SSA) return;
+  var w = window.open('', '_blank'); if(!w){ alert('Allow pop-ups to open the report.'); return; }
+  var u = UNIT === 'metric' ? 'm' : 'ft', r = SSA, last = r.delta[r.delta.length - 1] || {}, img = '';
+  try{ img = await Plotly.toImage({ data: [{ x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dTvd); }), name: 'ΔTVD', mode: 'lines', line: { color: '#6a3d9a', width: 2 } },
+      { x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dN); }), name: 'ΔN', mode: 'lines', line: { color: '#d98200', width: 2 } }, { x: r.delta.map(function(x){ return L(x.md); }), y: r.delta.map(function(x){ return L(x.dE); }), name: 'ΔE', mode: 'lines', line: { color: '#2e8b57', width: 2 } }],
+    layout: { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { color: '#111', size: 13 }, margin: { l: 70, r: 20, t: 20, b: 50 }, xaxis: { title: 'MD (' + u + ')', gridcolor: '#ddd' }, yaxis: { title: 'Change (' + u + ')', gridcolor: '#ddd' }, legend: { orientation: 'h', y: -0.25 } } }, { format: 'png', width: 1100, height: 400, scale: 2 }); }catch(e){}
+  var B = '#00539B', tb = function(h, rows){ return '<table><tr>' + h.map(function(x){ return '<th>' + x + '</th>'; }).join('') + '</tr>' + rows.join('') + '</table>'; };
+  var css2 = 'body{font-family:Segoe UI,Arial,sans-serif;color:#111;margin:24px 30px;font-size:12px}h1{color:' + B + ';font-size:22px;margin:0}h2{color:' + B + ';font-size:16px;border-bottom:2px solid ' + B + ';padding-bottom:3px;margin-top:22px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:3px 6px;text-align:right}th{background:#eef3f9}td:first-child,th:first-child{text-align:left}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid ' + B + ';padding-bottom:8px}@media print{.np{display:none}}';
+  var chain = (SSA_SRC.chain || []).map(function(c){ return c.tag || c.type; });
+  var h = '<!doctype html><html><head><meta charset="utf-8"><title>SSA report</title><style>' + css2 + '</style></head><body><div class="np"><button onclick="print()">🖨 Print / Save as PDF</button></div>' +
+    '<div class="hdr"><div><h1>Survey Correction — Slide Sheet Analysis</h1><div>' + esc(job.wells[+$('wellSel').value].wellKey) + (job.mtxJobId ? ' · MTX ' + esc(job.mtxJobId) : '') + '</div></div><img src="https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png" style="height:54px"></div>' +
+    '<h2>1 · Summary</h2>' + tb(['Item', 'Value'], [['Starting survey version', esc(SSA_SRC.version.wellName)], ['Corrections before SSA', chain.length ? esc(['Original'].concat(chain).join(' → ')) : 'none (original survey)'], ['Slide sheet', esc(SAVED ? SAVED.name : ($('ssName').value || 'built from ' + LASFILE)) + ' — from the rig EDR'],
+      ['Fill-in stations', r.fillIns.length + ' (from ' + r.slides + ' slides; ' + r.skipped.length + ' slide piece(s) skipped)'], ['At the last survey', 'ΔTVD ' + fmt(L(last.dTvd), 3) + ' ' + u + ' · ΔN ' + fmt(L(last.dN), 3) + ' · ΔE ' + fmt(L(last.dE), 3) + ' ' + u], ['Date', new Date().toISOString().slice(0, 10)]].map(function(x){ return '<tr><td>' + x[0] + '</td><td style="text-align:left">' + x[1] + '</td></tr>'; })) +
+    '<h2>2 · Method</h2><p>ISCWSA eBook V9.10 (2017), pp. 57–58: per BHA run the dogleg capability is the total curvature between the run\'s surveys (minimum curvature; Bourgoyne et al. Eq. 8.33) divided by the footage slid (all curvature is assumed to happen while sliding). Fill-in stations at the start and end of each slide: ΔInc = DLS × length × cos(toolface), ΔAz = DLS × length × sin(toolface) / sin(Inc). Minimum curvature through the original + fill-in stations. Assumptions (eBook): DLS unchanged during the run; curvature only while sliding; toolface constant during the slide — "a rough guide to the likely TVD adjustment". Slides and measured toolface from the rig EDR (Pason LAS); magnetic-toolface slides and legs other than Main are not used.</p>' +
+    '<h2>3 · BHA runs</h2>' + tb(['Run', 'Survey MD range (' + u + ')', 'Surveys', 'Total curvature (°)', 'Slid (' + u + ')', 'DLS (°/30 m)'], r.runs.map(function(x){ return '<tr><td>' + esc(x.name) + '</td><td>' + (x.mdFrom == null ? '—' : fmt(L(x.mdFrom), 1) + '–' + fmt(L(x.mdTo), 1)) + '</td><td>' + x.surveys + '</td><td>' + fmt(x.curv, 2) + '</td><td>' + fmt(L(x.slid), 1) + '</td><td>' + (x.dls == null ? 'not used' : fmt(x.dls * 30, 2)) + '</td></tr>'; })) +
+    '<h2>4 · Position change at the measured stations</h2>' + (img ? '<img src="' + img + '" style="width:100%">' : '') +
+    '<h2>5 · Fill-in stations</h2>' + tb(['MD (' + u + ')', 'Inc (°)', 'Az (°)', 'At', 'Slide (' + u + ')', 'Toolface (°)', 'Run'], r.fillIns.map(function(f){ return '<tr><td>' + fmt(L(f.md), 2) + '</td><td>' + fmt(f.inc, 2) + '</td><td>' + fmt(f.az, 2) + '</td><td>' + f.at + '</td><td>' + fmt(L(f.slide.from), 1) + '–' + fmt(L(f.slide.to), 1) + '</td><td>' + fmt(f.slide.tf, 0) + '</td><td>' + esc(f.slide.run) + '</td></tr>'; })) +
+    '<h2>6 · QC — predicted vs measured attitude at the next survey</h2>' + tb(['Interval (' + u + ')', 'Predicted Inc / Az', 'Measured Inc / Az', 'ΔInc (°)', 'ΔAz (°)'], r.qc.map(function(q){ return '<tr><td>' + fmt(L(q.from), 1) + '–' + fmt(L(q.to), 1) + '</td><td>' + fmt(q.predInc, 2) + ' / ' + fmt(q.predAz, 2) + '</td><td>' + fmt(q.measInc, 2) + ' / ' + fmt(q.measAz, 2) + '</td><td>' + fmt(q.dInc, 2) + '</td><td>' + fmt(q.dAz, 2) + '</td></tr>'; })) +
+    '<h2>7 · Sign-off</h2>' + tb(['', 'Name', 'Signature', 'Date'], ['<tr><td>Prepared by</td><td></td><td></td><td>' + new Date().toISOString().slice(0, 10) + '</td></tr>', '<tr><td>Checked by</td><td></td><td></td><td></td></tr>']) + '</body></html>';
+  w.document.open(); w.document.write(h); w.document.close();
+}
+// ---------------- Excel export
+function exportExcel(){
+  if(!RES) return;
+  var runs = tdRuns(), u = UNIT === 'metric' ? 'm' : 'ft';
+  var data = RES.intervals.map(function(x){ var o = {}, r = runs.length ? runAt(runs, x.from) : null;
+    o['Leg'] = x.leg || 'Main'; o['Run'] = x.run || (r ? (r.name || r.id) : ''); o['Mode'] = x.mode === 'slide' ? 'Slide' : 'Rotate'; o['From (' + u + ')'] = +L(x.from).toFixed(2); o['To (' + u + ')'] = +L(x.to).toFixed(2); o['Length (' + u + ')'] = +L(x.len).toFixed(2);
+    o['Toolface (deg)'] = x.mode === 'slide' ? +x.tf.toFixed(1) : ''; o['TF ref'] = x.tfRef; o['TF spread (deg)'] = x.mode === 'slide' ? +x.tfSd.toFixed(1) : '';
+    o['ROP (' + u + '/h)'] = isFinite(x.rop) ? +L(x.rop).toFixed(1) : ''; o['WOB'] = isFinite(x.wob) ? +x.wob.toFixed(1) : ''; o['Diff P'] = isFinite(x.difp) ? +x.difp.toFixed(0) : ''; o['RPM'] = isFinite(x.rpm) ? +x.rpm.toFixed(0) : '';
+    o['Inc start'] = x.incStart; o['Inc end'] = x.incEnd; o['Az start'] = x.azStart; o['Az end'] = x.azEnd; o['Start'] = new Date(x.tStart * 1000).toISOString(); o['End'] = new Date(x.tEnd * 1000).toISOString(); return o; });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Slide sheet');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([Object.assign({ Well: LAS ? (LAS.well.WELL || '') : (SAVED && SAVED.las ? SAVED.las.well : ''), 'Segment roles': (ROLE || []).map(function(r, i){ return (i + 1) + ':' + r; }).join(', ') }, RES.opts, { exclude: undefined, legs: undefined })]), 'Settings');
+  XLSX.writeFile(wb, 'SlideSheet_' + String((LAS && LAS.well.WELL) || $('ssName').value || 'EDR').replace(/[^a-z0-9\-_ ]/gi, '_') + '.xlsx');
+}
+</script>
+<!-- 2026-11-13 (John): "?" help — content cites books / papers only (no test results). -->
+<div class="hp-modal" id="ssHelp" onclick="if(event.target===this)closeSsHelp()"><div class="hp-box"><div id="ssHelpBody"></div><p style="text-align:right;margin:12px 0 0"><button type="button" onclick="closeSsHelp()">Close</button></p></div></div>
+<script>
+var SS_REF = {
+  ebook: 'ISCWSA, <i>Introduction to Wellbore Positioning</i> (eBook V9.10, 2017) — ch.8 pp. 57–58 (slide sheet analysis); ch.5 (MWD gravity / magnetic toolface switch); ch.7 (minimum curvature).',
+  bourg: 'Bourgoyne, Millheim, Chenevert &amp; Young, <i>Applied Drilling Engineering</i>, SPE Textbook Series Vol. 2 (1986), Ch. 8 — dogleg angle, Eq. 8.33.',
+  mardia: 'Mardia &amp; Jupp, <i>Directional Statistics</i>, Wiley (2000) — circular mean and circular standard deviation (not in the project folder).',
+  las: 'Canadian Well Logging Society, <i>LAS Version 2.0</i> file standard — ~V / ~W / ~C / ~A sections, NULL value.'
+};
+var SS_HELP = {
+  s1: ['1 · EDR data and job', 'Load the rig EDR as a LAS 2.0 file (1-second data). The header gives the well name, the depth unit and the NULL value; the curves used are hole depth, bit depth, rotary RPM, toolface and the drilling parameters. Choosing a job links the slide sheet to its wells, trajectories and T&amp;D runs, so slides can be split by BHA run and saved to the job.', ['las']],
+  s2: ['2 · Detection settings', 'New hole is drilled when the hole depth increases with the bit on bottom. Over the RPM window a footage is a <b>slide</b> when the average RPM is about zero and the RPM never exceeds the rocking limit; otherwise it is <b>rotate</b>. The slide toolface is the circular mean of the measured toolface and its spread the circular standard deviation (an arithmetic mean is wrong across 0°/360°). Toolface is high-side (gravity) above the MWD switch inclination and magnetic below it. Hole-depth segments let you mark main bore, other legs or footage to ignore.', ['ebook','mardia']],
+  s3: ['3 · Slide sheet', 'The slide sheet lists every slide and rotate interval: depth from/to, toolface and its reference, toolface spread, ROP, WOB and differential pressure, and the surveyed inclination / azimuth around it. It is the record the slide sheet analysis needs: where the BHA slid, how far and on which toolface.', ['ebook']],
+  s4: ['4 · Compare with the DD slide sheet', 'Optional check of the EDR-built sheet against the directional driller\'s hand-written sheet: intervals are matched by depth overlap and differences in footage and toolface are listed.', ['ebook']],
+  s5: ['5 · Survey correction — SSA', 'Per BHA run, the total curvature between the run\'s surveys (sum of minimum-curvature dogleg angles) divided by the slid length gives the dogleg capability of the assembly. Fill-in stations are added at the start and end of each slide: ΔInc = DLS·L·cos(TF), ΔAz = DLS·L·sin(TF)/sin(Inc). Minimum curvature is then run through the original and fill-in stations. Assumptions stated by the source: DLS constant over the run, all curvature generated while sliding, constant toolface during the slide — a rough guide to the likely TVD adjustment. Slides on magnetic toolface are not filled in (the formulas use high-side toolface). SSA is the last correction in the chain.', ['ebook','bourg']],
+  plot: ['Slide sheet plot', 'Depth-based view of the intervals: slides coloured by toolface, rotate footage between them, with the surveyed inclination / azimuth for reference.', ['ebook']],
+  ssaPlot: ['SSA plot', 'Change of position (TVD and lateral) at the measured stations between the original survey and the survey with fill-in stations.', ['ebook','bourg']]
+};
+function openSsHelp(k){ var h = SS_HELP[k]; if(!h) return;
+  document.getElementById('ssHelpBody').innerHTML = '<h3>' + h[0] + '</h3><p>' + h[1] + '</p><div class="ref"><b>References</b><br>' + h[2].map(function(r){ return SS_REF[r]; }).join('<br>') + '</div>';
+  document.getElementById('ssHelp').style.display = 'flex'; }
+function closeSsHelp(){ document.getElementById('ssHelp').style.display = 'none'; }
+(function(){
+  function btn(k){ var b = document.createElement('button'); b.type = 'button'; b.className = 'pp-help'; b.textContent = '?'; b.title = 'Help'; b.onclick = function(e){ e.stopPropagation(); openSsHelp(k); }; return b; }
+  document.querySelectorAll('.panel > h2').forEach(function(h){ var m = /^\s*(\d)\s*·/.exec(h.textContent); if(m && SS_HELP['s' + m[1]]) h.appendChild(btn('s' + m[1])); });
+  ['plot','ssaPlot'].forEach(function(id){ var el = document.getElementById(id); if(!el) return; var w = document.createElement('div'); w.style.cssText = 'text-align:right;margin-top:6px'; w.appendChild(btn(id)); el.parentNode.insertBefore(w, el); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeSsHelp(); });
+})();
+</script>
+<!-- 2026-11-13: shared dark / light theme (one setting for every MTX module) -->
+<script src="/js/mtxTheme.js"></script>
+<!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
+<script>window.MTX_DEFAULTS_CFG = { module: 'slideSheet', keys: ["oBot", "oWin", "oMean", "oMax", "oGap", "oMin", "showRot", "ddTol", "ssaMinInc"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
+<script src="/js/mtxDefaults.js"></script>
+</body>
+</html>

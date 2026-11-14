@@ -17,7 +17,7 @@
 (function () {
     'use strict';
     var FT = 0.3048, LOGO = 'https://res.cloudinary.com/metacortexjohn/image/upload/v1711167914/Canadian_Natural_logo_ygbbox.png', BLUE = '#00539B';
-    var NAMES = { stretch: 'PipeStretch', sag: 'SAG', shortcollar: 'Short Collar', msa: 'MSA' };
+    var NAMES = { stretch: 'PipeStretch', sag: 'SAG', shortcollar: 'Short Collar', msa: 'MSA', ssa: 'Slide Sheet Analysis' };
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function f(v, d) { return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }
     function azd(a, b) { var d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
@@ -29,7 +29,9 @@
         try {
             var V = await get(o.versionId), O = o.originalId ? await get(o.originalId) : null;
             var imp = o.unit === 'imperial', L = function (m) { return imp ? m / FT : m; }, u = imp ? 'ft' : 'm';
-            var S = V.survey, chain = V.chain || [], n = S.length;
+            // 2026-11-13: an SSA version also holds fill-in stations (interp) — the report compares MEASURED stations only
+            var nFill = V.survey.filter(function (s) { return s.interp; }).length;
+            var S = V.survey.filter(function (s) { return !s.interp; }), chain = V.chain || [], n = S.length;
             var steps = chain.map(function (c, k) {
                 var has = Array.isArray(c.dMd) && c.dMd.length === n;
                 return { k: k, c: c, has: has, dMd: has ? c.dMd : null, dInc: has ? c.dInc : null, dAz: has ? c.dAz : null };
@@ -84,7 +86,7 @@
                 '<div class="hdr"><div><h1>Survey Correction Chain — QC Report</h1><div>' + esc(V.wellName) + (o.job ? ' · ' + esc(o.job) : '') + '</div></div><img src="' + LOGO + '" style="height:54px"></div>' +
                 '<h2>1 · Summary</h2>' + kv([['Well (original)', esc(V.baseWellName || o.well || '—')], ['Final version', esc(V.wellName)], ['Toolcode of the final version', esc(V.toolcode || '—')],
                     ['Corrections (in order)', ['Original'].concat(steps.map(function (t) { return esc(NAMES[t.c.type] || t.c.tag) + (t.c.model ? ' (' + esc(t.c.model) + ')' : ''); })).join(' → ')],
-                    ['Stations', n], ['Largest |ΔMD| / |ΔInc| / |ΔAz|', f(L(mx('dMd')), 3) + ' ' + u + ' / ' + f(mx('dInc'), 3) + '° / ' + f(mx('dAz'), 3) + '°'],
+                    ['Stations', n + (nFill ? ' measured + ' + nFill + ' SSA fill-in stations (not listed below; see the SSA report)' : '')], ['Largest |ΔMD| / |ΔInc| / |ΔAz|', f(L(mx('dMd')), 3) + ' ' + u + ' / ' + f(mx('dInc'), 3) + '° / ' + f(mx('dAz'), 3) + '°'],
                     ['At the last station', 'ΔMD ' + f(L(last.dMd), 3) + ' ' + u + (posOk ? ' · ΔTVD ' + f(L(last.dTvd), 3) + ' · ΔN ' + f(L(last.dN), 3) + ' · ΔE ' + f(L(last.dE), 3) + ' ' + u + ' · horizontal shift ' + f(L(Math.hypot(last.dN, last.dE)), 3) + ' ' + u : '')],
                     ['QC — Σ step deltas vs final − original', legacy ? '<span class="bad">not available: a step was saved before 2026-11-12 (no per-station history)</span>' : (resMax < 1e-4 ? '<span class="ok">✔ consistent (max residual ' + resMax.toExponential(1) + ')</span>' : '<span class="bad">✖ max residual ' + resMax.toFixed(5) + '</span>')],
                     ['Report date', today]]) +

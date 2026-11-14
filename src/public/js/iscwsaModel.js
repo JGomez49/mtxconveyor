@@ -13,6 +13,10 @@
 // earlier in the AC Plots Separation Factor — see the module header there
 // for the migration.
 //
+// 2026-11-14 (John): STATIONARY gyro tools work with this engine unchanged (definition doc §7.2: stationary mode
+// "is quite similar to the MWD model"). Validated against SPE 90408 Appendix E Example Models #1 (XY gyro) and #6
+// (XYZ gyro) on ISCWSA well #1: every checkpoint within the paper's +/-1 % / +/-2-unit acceptance (worst 0.62 %).
+// Pass wellParams.latitude (deg) for gyro terms. Continuous-mode gyro is still NOT implemented (see below).
 // MWD ONLY. Gyro toolcodes exist in the data file (for future use) but this
 // module does not implement the gyro stationary/continuous-mode propagation
 // (§7 of the definition doc) — selecting a GYRO-* toolcode will throw.
@@ -68,7 +72,15 @@
 // the BH-dependent declination terms unconverted and blowing up once the
 // well built inclination).
 //
-// KNOWN GAP: surface tie-on (§4.7.1.1) is NOT implemented per Rev5's exact
+// 2026-11-14 (John): SURFACE TIE-ON IMPLEMENTED (§4.7.1.1 option ii, Eq 32-34): for the first station below
+// the slot (survey starting at MD 0) the inclination/azimuth columns of the preceding-interval drdp matrix and
+// the singular-vector interval are doubled. Found while comparing MTX with welleng 0.30.0 (Apache-2.0), which
+// implements it. VALIDATED before release against the official MWD Rev5 Spreadsheet Examples ISCWSA #1/#2/#3
+// (Validation sheets): ABXY-TI1S/TI2S and XYM3E/XYM4E went from 1-7 % off to matching (to the sheet's 4
+// decimals); TOTALS: stations > 1 % off went 48/38/39 -> 0/0/8 (the 8 left on #3 are the separate XCLA issue).
+// On the CNRL pad 16-34-026-18W4 [P1-2359] Compass report rows, SF (Combined Pedal Curve) worst row went from
+// +17.6 % to about 6 %. Switch off with wellParams.surfaceTieOn === false. The text below is the old note:
+// (OLD) KNOWN GAP: surface tie-on (§4.7.1.1) is NOT implemented per Rev5's exact
 // method (doubling the first interval's dInc/dAz weighting). This module
 // instead drops the first station's dangling following-interval
 // contribution (the simpler pre-Rev5 convention) — slightly less
@@ -173,11 +185,14 @@
   // which==='next'. stA/stB are the two survey stations bounding the
   // interval (stA is always the earlier one); `at` indicates which of the
   // two stations' weighting functions we're differentiating w.r.t.
-  function drdpPreceding(stPrev, stCur) {
+  function drdpPreceding(stPrev, stCur, surfaceTieOn) {
     // d(delta r_k)/dp_k — effect of station k (stCur) errors on interval (k-1,k)
+    // surfaceTieOn (2026-11-14): Rev5 surface tie-on, §4.7.1.1 option ii / Eq 32 — for the FIRST survey
+    // station below the slot only, the inclination and azimuth columns are multiplied by 2 (allowance for
+    // slot-attitude error of the same size as a downhole survey). The depth column is unchanged.
     var Dk = stCur.md, Dk1 = stPrev.md;
     var Ik = stCur.inc, Ik1 = stPrev.inc, Ak = stCur.azT, Ak1 = stPrev.azT;
-    var half = (Dk - Dk1) / 2;
+    var half = (Dk - Dk1) / 2 * (surfaceTieOn ? 2 : 1);
     return {
       N: [ (Math.sin(Ik1) * Math.cos(Ak1) + Math.sin(Ik) * Math.cos(Ak)) / 2,
            half * Math.cos(Ik) * Math.cos(Ak),
@@ -286,6 +301,9 @@
     });
 
     var results = sts.map(function (s) { return { md: s.md, byTerm: {}, byTermVec: {} }; });
+    // Surface tie-on (§4.7.1.1, Rev5.13): on when the survey starts at the slot (first station MD 0); can be
+    // switched off with wellParams.surfaceTieOn === false (e.g. a survey tied on downhole).
+    var surfTie = wellParams.surfaceTieOn !== false && sts.length > 1 && Math.abs(sts[0].md) < 1e-6;
 
     toolcodeTerms.forEach(function (term) {
       if (term.type === 'AziRef' && wellParams.bField == null) return; // no field data supplied; skip geomagnetic terms gracefully
@@ -310,6 +328,8 @@
         var st = sts[k];
         var stPrev = k > 0 ? sts[k - 1] : null;
         var stNext = k < sts.length - 1 ? sts[k + 1] : null;
+        // §4.7.1.1 surface tie-on applies to the first interval below the slot (survey starting at MD 0)
+        var tieOn = (k === 1 && surfTie);
         var ctx = buildCtx(st, stPrev, wellParams);
         ctx.mdPrev = stPrev ? stPrev.md : st.md;
 
@@ -336,6 +356,13 @@
             } else if (term.code === 'XCLA') {
               var dAz = Math.abs(st.azT - stPrev.azT);
               if (dAz > Math.PI) dAz = 2 * Math.PI - dAz;
+              // 2026-11-14 (John): Rev5.13 §5.2.1 rule 3 — "If either survey station k or station k-1 is vertical then
+              // the term evaluates to zero, since azimuth is not defined for a vertical well." Was missing: at the first
+              // station after a vertical section the (meaningless) azimuth jump from 0 deg was used, e.g. ISCWSA #3
+              // MD 2880 (Inc 0 -> 15, Az 0 -> 283): e = 1.23 m instead of 0.084 m. With this rule the Eq 41 form
+              // (sin|dAz|*sinI, as MTX already had) matches every station's XCLA error vector in all three official
+              // MWD Rev5 Spreadsheet Examples; Validation sheet XCLA: was 6 % (#1) and 219 % (#3) off, now matches.
+              if (Math.abs(Math.sin(st.inc)) < Math.sin(VERT_EPS) || Math.abs(Math.sin(stPrev.inc)) < Math.sin(VERT_EPS)) dAz = 0;
               var wA = Math.max(Math.sin(dAz) * Math.sin(st.inc), ctx.xclTortuosity * dMD);
               xVec = [-dMD * wA * Math.sin(st.azT), dMD * wA * Math.cos(st.azT), 0];
             }
@@ -347,10 +374,10 @@
 
           if (singular) {
             var vN = compileFormula(term.singN)(ctx), vE = compileFormula(term.singE)(ctx), vV = compileFormula(term.singV)(ctx);
-            if (stPrev) ePrec = scaleVec([vN, vE, vV], sigma * (st.md - stPrev.md) / 2);
+            if (stPrev) ePrec = scaleVec([vN, vE, vV], sigma * (st.md - stPrev.md) / 2 * (tieOn ? 2 : 1));   // Eq 33/34 at the first station
             if (stNext) eFoll = scaleVec([vN, vE, vV], sigma * (stNext.md - st.md) / 2);
           } else {
-            if (stPrev) ePrec = scaleVec(matVec(drdpPreceding(stPrev, st), wt), sigma);
+            if (stPrev) ePrec = scaleVec(matVec(drdpPreceding(stPrev, st, tieOn), wt), sigma);
             if (stNext) eFoll = scaleVec(matVec(drdpFollowing(st, stNext), wt), sigma);
           }
         }
