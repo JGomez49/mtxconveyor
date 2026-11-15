@@ -110,6 +110,17 @@
   <div class="panel">
     <h2>3 · Slide sheet</h2>
     <div id="summary" class="muted"></div>
+    <%# 2026-11-15 (John): same stat cards as the job page Slide Sheet accordion (views/job.ejs) %>
+    <style>
+      .ss-cards{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+      .ss-card{background:var(--panel2);border:1px solid var(--accent);border-radius:5px;padding:8px 14px;text-align:center;min-width:130px}
+      .ss-card .l{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+      .ss-card .v{font-size:18px;font-weight:700;color:var(--accent)}
+      .ss-card .s{font-size:11px;color:var(--muted);margin-top:2px}
+      .ss-subh{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:6px}
+      @media (max-width:700px){ .ss-card{flex:1 1 calc(50% - 8px);min-width:0} }
+    </style>
+    <div id="ssCards"></div>
     <div class="scroll" style="max-height:220px;margin:8px 0"><table>
       <thead><tr><th>Run</th><th>Bit MD (<span class="uL">m</span>)</th><th>Drilled</th><th>Slid</th><th>Rotated</th><th>Slide %</th><th>Slides</th><th title="Rotary tendency from survey intervals of this run with no sliding (MTX choice — no published formula)">Rot build / walk (°/30 m)</th><th title="Sum of bracket curvature / sum of slid length, distinct survey brackets">MY avg (°/30 m)</th><th title="Same, after removing the rotary build/walk (MTX choice)">MY corr avg (°/30 m)</th></tr></thead>
       <tbody id="runBody"></tbody></table></div>
@@ -355,7 +366,25 @@ function render(){
       '<td>' + (sl ? '<b>' + fmt(x.tf, 0) + '</b>' : '') + '</td><td>' + (sl ? x.tfRef : '') + '</td><td>' + (sl ? fmt(x.tfSd, 0) : '') + '</td><td>' + fmt(L(x.rop), 1) + '</td><td>' + myCells(sl, MY.m.get(x)) + '</td><td>' + fmt(x.wob, 1) + '</td><td>' + fmt(x.difp, 0) + '</td><td>' + fmt(x.rpm, 0) + '</td>' +
       '<td>' + fmt(x.incStart, 2) + ' → ' + fmt(x.incEnd, 2) + '</td><td>' + fmt(x.azStart, 1) + ' → ' + fmt(x.azEnd, 1) + '</td><td>' + tstr(x.tStart) + '</td></tr>';
   }).join('');
-  plot(); myPlot(MY);
+  plot(); myPlot(MY); ssCards(name, MY);
+}
+// 2026-11-15 (John): stat cards — same figures as the job page (sums over the slide + rotate intervals; times = on-bottom
+// drilling time from the EDR, connections / trips excluded); avg ROP = footage / drilling time; MY per run from myFor().
+function ssCards(nameFn, MY){
+  var u = UNIT === 'metric' ? 'm' : 'ft', tot = 0, slL = 0, tt = 0, ts = 0, rr = {}, ro = [];
+  var dur = function(x){ return isFinite(x.tEnd) && isFinite(x.tStart) ? Math.max(0, x.tEnd - x.tStart) : 0; };
+  RES.intervals.forEach(function(x){ var L0 = +x.len || 0, T = dur(x), k = nameFn(x) || 'All'; tot += L0; tt += T; if(x.mode === 'slide'){ slL += L0; ts += T; }
+    if(!rr[k]){ rr[k] = { l:0, t:0, ls:0, ts:0 }; ro.push(k); } var g = rr[k]; g.l += L0; g.t += T; if(x.mode === 'slide'){ g.ls += L0; g.ts += T; } });
+  var hm = function(s){ if(!(s > 0)) return '—'; var h = Math.floor(s / 3600), m = Math.round((s - h * 3600) / 60); if(m === 60){ h++; m = 0; } return h + ' h ' + (m < 10 ? '0' : '') + m + ' m'; };
+  var pc = function(a, b){ return b > 0 ? (100 * a / b).toFixed(1) + ' %' : '—'; };
+  var rop = function(l, t){ return t > 0 ? fmt(L(l / (t / 3600)), 1) : '—'; };
+  var card = function(l, v, sub){ return '<div class="ss-card"><div class="l">' + esc(l) + '</div><div class="v">' + v + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>'; };
+  var h = '<div class="ss-cards">' + [['Total length', fmt(L(tot), 1) + ' ' + u], ['Slide length', fmt(L(slL), 1) + ' ' + u], ['Rotate length', fmt(L(tot - slL), 1) + ' ' + u], ['Slide %', pc(slL, tot)], ['Rotate %', pc(tot - slL, tot)],
+    ['Total time', hm(tt)], ['Slide time', hm(ts)], ['Rotate time', hm(tt - ts)], ['Slide time %', pc(ts, tt)], ['Rotate time %', pc(tt - ts, tt)], ['Avg ROP', rop(tot, tt) + ' ' + u + '/h']].map(function(c){ return card(c[0], c[1]); }).join('') + '</div>';
+  var my = Object.keys(MY.runs || {}).map(function(k){ return MY.runs[k]; }).filter(function(q){ return q.myAvg != null; });
+  if(my.length) h += '<div class="ss-subh">Motor Yield per run (°/30 m)</div><div class="ss-cards">' + my.map(function(q){ return card(q.run || 'All', fmt(q.myAvg, 2), (q.myCorrAvg != null ? 'corr ' + fmt(q.myCorrAvg, 2) : 'no rot. corr') + (q.rotBuild != null ? ' · rot ' + fmt(q.rotBuild, 2) + '/' + fmt(q.rotWalk, 2) : '')); }).join('') + '</div>';
+  h += '<div class="ss-subh">Average ROP per run (' + u + '/h)</div><div class="ss-cards">' + ro.map(function(k){ var g = rr[k]; return card(k, rop(g.l, g.t), 'slide ' + rop(g.ls, g.ts) + ' · rotate ' + rop(g.l - g.ls, g.t - g.ts)); }).join('') + '</div>';
+  $('ssCards').innerHTML = h;
 }
 function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
 function plot(){

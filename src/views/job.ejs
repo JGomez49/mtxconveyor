@@ -520,6 +520,9 @@ body.light-mode #statusTextbox {
                         font-family: var(--wbt-mono); color: var(--wbt-accent); transition: transform .2s;
                     }
                     .wbt-accordion-header.collapsed .wbt-acc-icon{ transform: rotate(-90deg); }
+                    /* 2026-11-15 (John): Trajectories / Score Cards headers same size as Frac Planes / Polylines */
+                    #wbtAccordionHeader, #wbtScoreCardsHeader{ padding:14px 16px; font-size:16px; letter-spacing:1.5px; }
+                    #wbtAccordionHeader .wbt-dot, #wbtScoreCardsHeader .wbt-dot{ width:10px !important; height:10px !important; }
                     .wbt-accordion-body{ padding:10px; }
                     .wbt-accordion-body.collapsed{ display:none; }
 
@@ -1002,6 +1005,15 @@ body.light-mode #statusTextbox {
                         body.light-mode .ipl-root{ background:#ffffff; }
                         body.light-mode .ipl-root input, body.light-mode .ipl-root select{ background:#f1f3f5 !important; color:#000 !important; border-color:#ced4da !important; }
                         body.light-mode .ipl-head .ipl-title{ color:#00873c; }
+                        /* 2026-11-15 (John): iPad title blue (techy) so it is not confused with iPlan (green) */
+                        #ipdRoot .ipl-head .ipl-title{ color:#00b4ff; text-shadow:0 0 6px rgba(0,180,255,.35); }
+                        body.light-mode #ipdRoot .ipl-head .ipl-title{ color:#0060c0; text-shadow:none; }
+                        /* 2026-11-15 (John): iLab purple; iPlan / iPad / iLab headers same size as Frac Planes / Polylines */
+                        .ipl-head .ipl-title.ilab-title{ color:#c084fc; text-shadow:0 0 6px rgba(192,132,252,.35); }
+                        body.light-mode .ipl-head .ipl-title.ilab-title{ color:#7e22ce; text-shadow:none; }
+                        .ipl-root > .ipl-head{ padding:14px 16px; }
+                        .ipl-root > .ipl-head .ipl-title{ font-size:16px; }
+                        .ipl-root > .ipl-head > span:last-child{ font-size:12px !important; }
                     </style>
                     <div class="ipl-root" id="iplRoot">
                         <div class="ipl-head" id="iplHead">
@@ -1055,7 +1067,7 @@ body.light-mode #statusTextbox {
                          the iPlan scripts; delete both to remove iLab. -->
                     <div class="ipl-root" id="ilabRoot">
                         <div class="ipl-head" id="ilabHead">
-                            <span class="ipl-title" style="color:#ffb74d;">&#9679; iLab &mdash; Experiments</span>
+                            <span class="ipl-title ilab-title">&#9679; iLab &mdash; Experiments</span><%# 2026-11-15: purple (was inline orange #ffb74d, too close to Frac Planes) %>
                             <span style="font-size:11px;color:var(--wbt-text-dim);">admin only &middot; click to open</span>
                         </div>
                         <div class="ipl-body" style="display:none;flex-direction:column;" id="ilabBody"></div>
@@ -1955,32 +1967,89 @@ body.light-mode #statusTextbox {
                             </button>
                         </h2>
                         <div id="collapseSlideSheet" class="accordion-collapse collapse">
-                            <div class="accordion-body p-2">
+                            <%# 2026-11-15 (John): wbt-root = same theme variables / table style as Trajectories (fixes the sticky header
+                                 drawn transparent, so rows overlapped it). Bigger well sub-accordions, stats as cards; phone-friendly. %>
+                            <style>
+                                .ss-root{ padding:10px !important; margin:0 !important; }
+                                .ss-root .ss-well{ border:1px solid var(--wbt-border); border-radius:6px; margin:0 0 10px; background:var(--wbt-panel); }
+                                .ss-root .ss-well > summary{ cursor:pointer; padding:12px 14px; font-size:17px; font-weight:700; color:var(--wbt-text-bright); list-style-position:inside; }
+                                .ss-root .ss-well[open] > summary{ border-bottom:1px solid var(--wbt-border); }
+                                .ss-root .ss-body{ padding:10px 12px; }
+                                .ss-root .ss-meta{ font-size:12.5px; color:var(--wbt-text-dim); margin-bottom:6px; }
+                                .ss-root .ss-sub{ font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--wbt-text-dim); margin-top:4px; }
+                                .ss-root .ss-cards .wbt-pad-stat{ min-width:130px; padding:8px 14px; }
+                                .ss-root .ss-cards .wbt-pad-stat-label{ font-size:11px; }
+                                .ss-root .ss-cards .wbt-pad-stat-value{ font-size:18px; }
+                                .ss-root .ss-card-sub{ font-size:11px; color:var(--wbt-text-dim); margin-top:2px; }
+                                .ss-root .ss-table-wrap{ max-height:420px; }
+                                .ss-root .ss-slides{ margin-top:8px; background:var(--wbt-panel2); }
+                                .ss-root .ss-slides > summary{ font-size:15px; padding:10px 12px; }
+                                .ss-root .ss-table-wrap .wbt-table{ font-size:12.5px; }
+                                .ss-root .ss-table-wrap .wbt-table th{ z-index:1; }
+                                @media (max-width:700px){
+                                    .ss-root .ss-cards .wbt-pad-stat{ flex:1 1 calc(50% - 6px); min-width:0; }
+                                    .ss-root .ss-well > summary{ font-size:18px; }
+                                    .ss-root .ss-table-wrap .wbt-table{ font-size:13.5px; }
+                                }
+                            </style>
+                            <div class="accordion-body p-2 wbt-root ss-root">
                                 <% var _f = function(v, d){ return (v == null || !isFinite(v)) ? '—' : (+v).toFixed(d); }; %>
                                 <% var _wells = []; _ss.forEach(function(x){ if (_wells.indexOf(x.wellKey) < 0) _wells.push(x.wellKey); }); %>
                                 <% _wells.forEach(function(wk){ %>
-                                    <div style="font-weight:700;font-size:14px;margin:8px 0 4px;color:var(--an-text-bright,#e8f4ff);"><%= wk %></div>
-                                    <% _ss.filter(function(x){ return x.wellKey === wk; }).forEach(function(x){ var sl = (x.intervals || []).filter(function(i){ return i.mode === 'slide'; }), sm = x.summary || {}; var legs = []; (x.intervals || []).forEach(function(i){ if (legs.indexOf(i.leg || 'Main') < 0) legs.push(i.leg || 'Main'); }); %>
-                                    <details class="mb-2" style="border:1px solid var(--an-border,#1e2d3d);border-radius:6px;padding:6px 10px;">
-                                        <summary style="cursor:pointer;font-size:13px;">
-                                            <b><%= x.name %></b> · <%= sl.length %> slides · drilled <%= _f(sm.drilled, 1) %> m · slid <%= _f(sm.slid, 1) %> m (<%= _f(sm.slidePct, 1) %> %)<%= legs.length > 1 ? ' · legs: ' + legs.join(', ') : '' %>
-                                            <span style="color:var(--an-text-dim,#5a7080);"> · <%= x.las && x.las.file ? x.las.file : 'EDR' %> · <%= x.user && x.user.name ? x.user.name : '' %> · <%= x.updatedAt ? new Date(x.updatedAt).toISOString().slice(0,10) : '' %></span>
-                                            <% if (canUseModelers) { %> · <a href="/notes/slideSheet?mtxJobId=<%= encodeURIComponent(note.mtxJobId || '') %>&id=<%= x._id %>" target="_blank">🧭 Open in Slide Sheet</a><% } %>
-                                        </summary>
-                                        <%# 2026-11-14 (John): Motor Yield average per BHA run (distinct survey brackets) + rotary tendency %>
-                                        <% if ((x.myRuns || []).length) { %><div style="font-size:12px;margin-top:6px;">MY per run (°/30 m): <% x.myRuns.forEach(function(q, n){ %><%= n ? ' · ' : '' %><b><%= q.run || 'All' %></b> <%= _f(q.myAvg, 2) %><%= q.myCorrAvg != null ? ' (corr ' + _f(q.myCorrAvg, 2) + ')' : '' %><%= q.rotBuild != null ? ' · rot build/walk ' + _f(q.rotBuild, 2) + '/' + _f(q.rotWalk, 2) : '' %><% }); %></div><% } %>
-                                        <div class="wbt-table-wrap" style="max-height:360px;overflow:auto;margin-top:6px;">
-                                            <table class="wbt-table">
-                                                <thead><tr><th>#</th><% if (legs.length > 1) { %><th>Leg</th><% } %><th>Run</th><th>From (m)</th><th>To (m)</th><th>Length (m)</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th><th>ROP (m/h)</th><th title="Motor Yield = interval DLS × course length ÷ slid length (all curvature assumed from sliding; Pason Slide Performance / ISCWSA eBook pp. 57-58). Surveys bracketing the slide, original well survey.">MY (°/30 m)</th><th title="Motor Yield after removing the run's rotary build/walk measured on survey intervals without sliding — MTX choice, no published formula (public/js/motorYield.js)">MY corr (°/30 m)</th><th>Inc</th><th>Az</th></tr></thead>
-                                                <tbody>
-                                                <% sl.forEach(function(i, k){ %>
-                                                    <tr><td><%= k + 1 %></td><% if (legs.length > 1) { %><td><%= i.leg || 'Main' %></td><% } %><td><%= i.run || '—' %></td><td><%= _f(i.from, 2) %></td><td><%= _f(i.to, 2) %></td><td><%= _f(i.len, 2) %></td>
-                                                        <td><b><%= _f(i.tf, 0) %></b></td><td><%= i.tfRef %></td><td><%= _f(i.tfSd, 0) %></td><td><%= _f(i.rop, 1) %></td><%# 2026-11-14: blank (≤) when too little slid (min 3 m / 20 % of the survey interval), grey * when survey noise > 25 % of MY %>
-                                                        <% var _myS = i.myNoisy ? 'color:var(--an-text-dim,#5a7080)' : ''; var _myB = i.myStatus === 'short' || i.myStatus === 'lowpct'; %>
-                                                        <td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.my, 2) + (i.myNoisy ? '*' : '') %></td><td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.myCorr, 2) + (i.myNoisy ? '*' : '') %></td><td><%= _f(i.incStart, 2) %></td><td><%= _f(i.azStart, 2) %></td></tr>
+                                    <div style="font-weight:700;font-size:14px;margin:4px 0 8px;color:var(--wbt-text-bright);"><%= wk %></div>
+                                    <% _ss.filter(function(x){ return x.wellKey === wk; }).forEach(function(x){ var sl = (x.intervals || []).filter(function(i){ return i.mode === 'slide'; }), sm = x.summary || {}; var legs = []; (x.intervals || []).forEach(function(i){ if (legs.indexOf(i.leg || 'Main') < 0) legs.push(i.leg || 'Main'); });
+                                        // 2026-11-15 (John): stats as cards. Lengths/times = sum over the saved slide + rotate intervals
+                                        // (EDR on-bottom drilling; tStart/tEnd in s). Times exclude off-bottom time (connections, trips).
+                                        var _tot = 0, _sl = 0, _tt = 0, _ts = 0; (x.intervals || []).forEach(function(i){ var L = +i.len || 0, T = (isFinite(i.tEnd) && isFinite(i.tStart)) ? Math.max(0, i.tEnd - i.tStart) : 0; _tot += L; _tt += T; if (i.mode === 'slide'){ _sl += L; _ts += T; } });
+                                        var _hm = function(s){ if (!(s > 0)) return '—'; var h = Math.floor(s / 3600), m = Math.round((s - h * 3600) / 60); if (m === 60){ h++; m = 0; } return h + ' h ' + (m < 10 ? '0' : '') + m + ' m'; };
+                                        var _pc = function(a, b){ return b > 0 ? (100 * a / b).toFixed(1) + ' %' : '—'; };
+                                        // 2026-11-15 (John): average ROP per BHA run = footage / on-bottom time (slide, rotate, total), from the same intervals
+                                        var _rr = {}, _ro = []; (x.intervals || []).forEach(function(i){ var k = i.run || '—', L = +i.len || 0, T = (isFinite(i.tEnd) && isFinite(i.tStart)) ? Math.max(0, i.tEnd - i.tStart) : 0; if (!_rr[k]){ _rr[k] = { l:0, t:0, ls:0, ts:0 }; _ro.push(k); } var g = _rr[k]; g.l += L; g.t += T; if (i.mode === 'slide'){ g.ls += L; g.ts += T; } });
+                                        var _rop = function(l, t){ return t > 0 ? (l / (t / 3600)).toFixed(1) : '—'; }; %>
+                                    <details class="ss-well">
+                                        <summary><%= x.name %></summary>
+                                        <div class="ss-body">
+                                            <div class="ss-meta"><%= x.wellKey %> · <%= x.las && x.las.file ? x.las.file : 'EDR' %> · <%= x.user && x.user.name ? x.user.name : '' %> · <%= x.updatedAt ? new Date(x.updatedAt).toISOString().slice(0,10) : '' %> · <%= sl.length %> slides<%= legs.length > 1 ? ' · legs: ' + legs.join(', ') : '' %>
+                                                <% if (canUseModelers) { %> · <a href="/notes/slideSheet?mtxJobId=<%= encodeURIComponent(note.mtxJobId || '') %>&id=<%= x._id %>" target="_blank">🧭 Open in Slide Sheet</a><% } %></div>
+                                            <div class="wbt-pad-summary ss-cards">
+                                                <% [['Total length', _f(_tot, 1) + ' m'], ['Slide length', _f(_sl, 1) + ' m'], ['Rotate length', _f(_tot - _sl, 1) + ' m'], ['Slide %', _pc(_sl, _tot)], ['Rotate %', _pc(_tot - _sl, _tot)],
+                                                    ['Total time', _hm(_tt)], ['Slide time', _hm(_ts)], ['Rotate time', _hm(_tt - _ts)], ['Slide time %', _pc(_ts, _tt)], ['Rotate time %', _pc(_tt - _ts, _tt)], ['Avg ROP', _rop(_tot, _tt) + ' m/h']].forEach(function(c){ %>
+                                                    <div class="wbt-pad-stat"><div class="wbt-pad-stat-label"><%= c[0] %></div><div class="wbt-pad-stat-value"><%= c[1] %></div></div>
                                                 <% }); %>
-                                                </tbody>
-                                            </table>
+                                            </div>
+                                            <%# 2026-11-14/15: Motor Yield per BHA run as cards (distinct survey brackets; corr = rotation-corrected, MTX choice) %>
+                                            <% if ((x.myRuns || []).length) { %>
+                                            <div class="ss-sub">Motor Yield per run (°/30 m)</div>
+                                            <div class="wbt-pad-summary ss-cards">
+                                                <% x.myRuns.forEach(function(q){ %>
+                                                    <div class="wbt-pad-stat" title="<%= q.rotBuild != null ? 'Rotary build / walk ' + _f(q.rotBuild, 2) + ' / ' + _f(q.rotWalk, 2) + ' °/30 m' : 'No rotate-only survey interval: no rotation correction' %>"><div class="wbt-pad-stat-label"><%= q.run || 'All' %></div><div class="wbt-pad-stat-value"><%= _f(q.myAvg, 2) %></div><div class="ss-card-sub"><%= q.myCorrAvg != null ? 'corr ' + _f(q.myCorrAvg, 2) : 'no rot. corr' %><%= q.rotBuild != null ? ' · rot ' + _f(q.rotBuild, 2) + '/' + _f(q.rotWalk, 2) : '' %></div></div>
+                                                <% }); %>
+                                            </div>
+                                            <% } %>
+                                            <%# 2026-11-15: average ROP per run (on-bottom: footage / drilling time) %>
+                                            <div class="ss-sub">Average ROP per run (m/h)</div>
+                                            <div class="wbt-pad-summary ss-cards">
+                                                <% _ro.forEach(function(k){ var g = _rr[k]; %>
+                                                    <div class="wbt-pad-stat"><div class="wbt-pad-stat-label"><%= k %></div><div class="wbt-pad-stat-value"><%= _rop(g.l, g.t) %></div><div class="ss-card-sub">slide <%= _rop(g.ls, g.ts) %> · rotate <%= _rop(g.l - g.ls, g.t - g.ts) %></div></div>
+                                                <% }); %>
+                                            </div>
+                                            <%# 2026-11-15: slide table in its own sub-accordion "Slides", collapsed by default %>
+                                            <details class="ss-well ss-slides">
+                                            <summary>Slides (<%= sl.length %>)</summary>
+                                            <div class="wbt-table-wrap ss-table-wrap" style="margin:8px">
+                                                <table class="wbt-table">
+                                                    <thead><tr><th>#</th><% if (legs.length > 1) { %><th>Leg</th><% } %><th>Run</th><th>From (m)</th><th>To (m)</th><th>Length (m)</th><th>Toolface (°)</th><th>Ref</th><th>TF spread (°)</th><th>ROP (m/h)</th><th title="Motor Yield = interval DLS × course length ÷ slid length (all curvature assumed from sliding; Pason Slide Performance / ISCWSA eBook pp. 57-58). Surveys bracketing the slide, original well survey.">MY (°/30 m)</th><th title="Motor Yield after removing the run's rotary build/walk measured on survey intervals without sliding — MTX choice, no published formula (public/js/motorYield.js)">MY corr (°/30 m)</th><th>Inc</th><th>Az</th></tr></thead>
+                                                    <tbody>
+                                                    <% sl.forEach(function(i, k){ var _myS = i.myNoisy ? 'color:var(--wbt-text-dim)' : ''; var _myB = i.myStatus === 'short' || i.myStatus === 'lowpct'; %>
+                                                        <tr><td><%= k + 1 %></td><% if (legs.length > 1) { %><td><%= i.leg || 'Main' %></td><% } %><td><%= i.run || '—' %></td><td><%= _f(i.from, 2) %></td><td><%= _f(i.to, 2) %></td><td><%= _f(i.len, 2) %></td>
+                                                            <td><b><%= _f(i.tf, 0) %></b></td><td><%= i.tfRef %></td><td><%= _f(i.tfSd, 0) %></td><td><%= _f(i.rop, 1) %></td>
+                                                            <td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.my, 2) + (i.myNoisy ? '*' : '') %></td><td title="<%= i.myFlag || '' %>" style="<%= _myS %>"><%= _myB ? '≤' : _f(i.myCorr, 2) + (i.myNoisy ? '*' : '') %></td>
+                                                            <td><%= _f(i.incStart, 2) %></td><td><%= _f(i.azStart, 2) %></td></tr>
+                                                    <% }); %>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            </details>
                                         </div>
                                     </details>
                                     <% }); %>
