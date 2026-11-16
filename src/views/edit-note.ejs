@@ -658,6 +658,17 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                     <label class="btn btn-outline-secondary" for="wbtCatOffset">Offset Wells</label>
                                 </div>
                             </div>
+                            <%# 2026-11-15 (John, well structure A): what the uploaded subject trajectories are — Plan or Actual (drilled).
+                                 Stored per trajectory (designation); offset wells ignore it. Plan version read from "[P5-2188]" in the pad name. %>
+                            <div class="wbt-field" style="flex:0 0 auto;">
+                                <label>Subject trajectories are</label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <input type="radio" class="btn-check" name="wbtDesignation" id="wbtDesPlan" value="plan" checked>
+                                    <label class="btn btn-outline-info" for="wbtDesPlan">Plan</label>
+                                    <input type="radio" class="btn-check" name="wbtDesignation" id="wbtDesActual" value="actual">
+                                    <label class="btn btn-outline-success" for="wbtDesActual">Actual (drilled)</label>
+                                </div>
+                            </div>
                             <div class="wbt-field">
                                 <label>Pad Name (optional)</label>
                                 <input type="text" id="wbtPadName" placeholder="e.g. 13-28-075-06W4 Pad T" value="<%= note.wells || '' %>">
@@ -881,30 +892,7 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
 
                                 <div _style="font-size: xx-small;">
 
-                                    <% if (note.responsible == "Johanna") { %>
-                                        <span class="dotJohanna"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Camilo") { %>
-                                        <span class="dotCamilo"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Isabel") { %>
-                                        <span class="dotIsabel"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Daniel") { %>
-                                        <span class="dotDaniel"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Pablo") { %>
-                                        <span class="dotPablo"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Sammy") { %>
-                                        <span class="dotSammy"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "Polita") { %>
-                                        <span class="dotPolita"></span>
-                                    <% } %>
-                                    <% if (note.responsible == "John") { %>
-                                        <span class="dotJohn"></span>
-                                    <% } %>
+                                    <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><% if (note.responsible && String(note.responsible) !== 'Orphan') { %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span><% } %>
 
                                 </div>
 
@@ -975,11 +963,13 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
                                     id="responsible" 
                                     name="responsible" 
                                     onchange=cambio_responsible()>
-                                    <option><%= note.responsible %></option>
-                                    <%- include ('partials/optionsPeople.ejs') %>  
-                                    <% if (user.role == 'admin') { %>   
-                                        <option>Sammy</option>
-                                    <% } %>
+                                    <%# 2026-11-15 (John): Orphan first, then every user / leader / admin A-Z (from the database); the job's
+                                         current Responsible is pre-selected (kept and marked when it is no longer an active user). %>
+                                    <% var _pl = (typeof people !== 'undefined' && people) || [], _cur = note.responsible || 'Orphan'; %>
+                                    <option value="Orphan"<%= _cur === 'Orphan' ? ' selected' : '' %>>Orphan</option>
+                                    <% if (_cur !== 'Orphan' && _pl.indexOf(_cur) < 0) { %><option value="<%= _cur %>" selected><%= _cur %> (not an active user)</option><% } %>
+                                    <% _pl.forEach(function(n){ %><option value="<%= n %>"<%= n === _cur ? ' selected' : '' %>><%= n %></option>
+                                    <% }); %>
                                 </select>
                             </div>
 
@@ -2450,14 +2440,15 @@ body.light-mode .accordion-button:not(.collapsed) { color: #111820 !important; }
             try{
                 const selectedCategory = (document.querySelector('input[name="wbtWellCategory"]:checked') || {}).value || 'subject';
                 const defaultToolcode = document.getElementById('wbtDefaultToolcode').value;
+                const designation = (document.querySelector('input[name="wbtDesignation"]:checked') || {}).value || 'plan';   // 2026-11-15 (A)
                 const res = await fetch('/notes/wellboreTrajectory/upload/' + NOTE_ID, {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: docs, wellCategory: selectedCategory, toolcode: defaultToolcode })
+                    body: JSON.stringify({ data: docs, wellCategory: selectedCategory, toolcode: defaultToolcode, designation: designation })
                 });
                 const result = await res.json();
                 if(res.ok){
-                    status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) as ${selectedCategory === 'offset' ? 'Offset' : 'Subject'} Wells.`;
+                    status.textContent = `Saved ${result.count !== undefined ? result.count : docs.length} wellbore(s) as ${selectedCategory === 'offset' ? 'Offset' : 'Subject'} Wells${selectedCategory === 'offset' ? '' : ' (' + (designation === 'actual' ? 'Actual / drilled' : 'Plan') + ')'}.`;
                     refreshSavedList();
                     wbtFPLoadSaved(); // refresh FP selector with new trajectoryIds
                 } else {

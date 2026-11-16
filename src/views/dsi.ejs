@@ -761,5 +761,15 @@ async function saveDefaults(reset){
 <script>function openMuHelp(){ document.getElementById('muHelp').style.display = 'flex'; }</script>
 <!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
 <script src="/js/mtxTheme.js"></script>
+<%# 2026-11-15 (John, well structure phase 3): Well › Wellbore › Run picker (public/js/wellPicker.js) — drives the existing selectors %>
+<script src="/js/wellPicker.js"></script>
+<script>
+MTXWellPicker.attach({ mount: 'jobStatus', wrap: 'loadJob', getJob: function(){ return job; }, wellSel: 'wellSel', onWell: 'onWellChange',
+  afterSelect: function(s){   // run -> scenario + plan run + its BHA; always the wellbore's engineering survey
+    if(s.run){ if(s.run.tdScenario && MTXWellPicker.setSel('scenSel', s.run.tdScenario)) fillRunSel();
+      if(MTXWellPicker.setSel('runSel', s.run.tdRunId)) loadBhaFromTD(); }
+    loadSurveyFromJob();
+  } });
+</script>
 </body>
 </html>

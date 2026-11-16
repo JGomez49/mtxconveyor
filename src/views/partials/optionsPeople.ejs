@@ -1,8 +1,7 @@
-
+<%# 2026-11-15 (John): people list built from the database (every user with role user / leader / admin, A-Z,
+    controllers/notes.controller.js mtxPeople) so adding / removing a user updates every "done by" / Responsible list.
+    "Orphan" first. Falls back to the old fixed list on a page rendered without `people`. %>
+<% var _pp = (typeof people !== 'undefined' && Array.isArray(people) && people.length) ? people : ['Polita', 'John', 'Johanna', 'Camilo', 'Isabel']; %>
 <option>Orphan</option>
-<option>Polita</option>
-<option>John</option>
-<!-- <option>Sammy</option> -->
-<option>Johanna</option>
-<option>Camilo</option>
-<option>Isabel</option>
+<% _pp.forEach(function(n){ %><option><%= n %></option>
+<% }); %>

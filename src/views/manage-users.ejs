@@ -102,6 +102,8 @@
           </select>
         </div>
         <div><label>List</label><input type="text" id="cList"></div>
+        <%# 2026-11-15 (John): dot colour of the new person in the job lists %>
+        <div><label>Dot colour (job lists — user / leader / admin only)</label><input type="color" id="cColor" value="#1e6bff" style="width:56px;height:34px;padding:2px"></div>
         <div>
           <label>Password</label>
           <div style="display:flex;gap:6px;">
@@ -203,7 +205,7 @@
         tr.dataset.userId = u._id;
         var isSelf = (u._id === currentUserId);
         tr.innerHTML =
-            '<td class="v-name">' + esc(u.name) + '</td>' +
+            '<td class="v-name">' + (['user','leader','admin'].indexOf(u.role) < 0 ? '' : u.color ? '<span title="Dot colour ' + u.color + '" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:' + u.color + '"></span>' : '<span title="No colour set" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;border:1px dashed #888"></span>') + esc(u.name) + '</td>' +
             '<td class="v-email">' + esc(u.email) + '</td>' +
             '<td class="v-role"><span class="role-badge ' + u.role + '">' + u.role + '</span></td>' +
             '<td class="v-rank">' + (u.rank || '—') + '</td>' +
@@ -240,6 +242,7 @@
                 '<div><label>Role</label><select class="e-role">'+roleOptions(u.role)+'</select></div>' +
                 '<div><label>Rank</label><select class="e-rank">'+rankOptions(u.rank)+'</select></div>' +
                 '<div><label>List</label><input type="text" class="e-list" value="'+esc(u.list||'')+'"></div>' +
+                '<div class="e-colorbox"' + (['user','leader','admin'].indexOf(u.role) < 0 ? ' style="display:none"' : '') + '><label>Dot colour (job lists — user / leader / admin only)</label><span style="display:flex;gap:6px;align-items:center"><input type="color" class="e-color" value="'+(u.color||'#808080')+'" style="width:56px;height:34px;padding:2px"><label style="display:flex;gap:4px;align-items:center;font-size:12px"><input type="checkbox" class="e-nocolor"'+(u.color?'':' checked')+' style="width:auto"> none</label></span></div>' +
             '</div>' +
             '<button class="btn btn-p btn-sm e-save">Save</button> ' +
             '<button class="btn btn-sm e-cancel">Cancel</button>' +
@@ -248,6 +251,7 @@
         tr.after(editTr);
 
         td.querySelector('.e-cancel').addEventListener('click', function(){ editTr.remove(); });
+        td.querySelector('.e-role').addEventListener('change', function(){ td.querySelector('.e-colorbox').style.display = ['user','leader','admin'].indexOf(this.value) < 0 ? 'none' : ''; });   // 2026-11-15
         td.querySelector('.e-save').addEventListener('click', async function(){
             var body = {
                 name: td.querySelector('.e-name').value.trim(),
@@ -255,6 +259,7 @@
                 role: td.querySelector('.e-role').value,
                 rank: td.querySelector('.e-rank').value,
                 list: td.querySelector('.e-list').value.trim(),
+                color: (['user','leader','admin'].indexOf(td.querySelector('.e-role').value) < 0 || td.querySelector('.e-nocolor').checked) ? '' : td.querySelector('.e-color').value,   // 2026-11-15: colour only for user / leader / admin
             };
             var statusEl = td.querySelector('.e-status');
             statusEl.textContent = 'Saving…'; statusEl.className = 'status-msg e-status';
@@ -335,6 +340,7 @@
             role: document.getElementById('cRole').value,
             rank: document.getElementById('cRank').value,
             list: document.getElementById('cList').value.trim(),
+            color: ['user','leader','admin'].indexOf(document.getElementById('cRole').value) < 0 ? '' : document.getElementById('cColor').value,   // 2026-11-15: user / leader / admin only
             password: document.getElementById('cPassword').value,
             confirm_password: document.getElementById('cConfirmPassword').value,
         };

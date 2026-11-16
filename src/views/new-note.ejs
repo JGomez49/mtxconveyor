@@ -137,11 +137,8 @@
                                 id="responsible"
                                 name="responsible"
                             >
-                            <option><%= user.name %></option>
+                            <%# 2026-11-15 (John): Orphan first and default, then every user / leader / admin A-Z (from the database) %>
                             <%- include ('partials/optionsPeople.ejs') %>
-                            <% if (user.role == 'admin') { %>
-                                <option>Sammy</option>
-                            <% } %>
                         </select>
                     </div>
 

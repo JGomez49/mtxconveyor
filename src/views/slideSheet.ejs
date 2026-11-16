@@ -613,5 +613,11 @@ function closeSsHelp(){ document.getElementById('ssHelp').style.display = 'none'
 <!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
 <script>window.MTX_DEFAULTS_CFG = { module: 'slideSheet', keys: ["oBot", "oWin", "oMean", "oMax", "oGap", "oMin", "showRot", "ddTol", "ssaMinInc"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
 <script src="/js/mtxDefaults.js"></script>
+<%# 2026-11-15 (John, well structure phase 3): Well › Wellbore › Run picker (public/js/wellPicker.js) — drives the existing selectors %>
+<script src="/js/wellPicker.js"></script>
+<script>
+MTXWellPicker.attach({ mount: 'jobStatus', wrap: 'loadJob', getJob: function(){ return job; }, wellSel: 'wellSel', onWell: 'onWellChange',
+  afterSelect: function(s){ if(s.run && s.run.tdScenario) MTXWellPicker.setSel('scenSel', s.run.tdScenario, !!LAS); } });
+</script>
 </body>
 </html>

@@ -288,14 +288,7 @@ table.qp-table tbody th:last-child { border-right: none; }
                 %>
                     <tr onclick="window.location.href='/notes/job/<%= note._id %>';">
                         <th scope="row" style="white-space:nowrap;">
-                            <% if (note.responsible === 'Camilo')  { %><span class="dotCamilo"></span><% } %>
-                            <% if (note.responsible === 'Johanna') { %><span class="dotJohanna"></span><% } %>
-                            <% if (note.responsible === 'Daniel')  { %><span class="dotDaniel"></span><% } %>
-                            <% if (note.responsible === 'Pablo')   { %><span class="dotPablo"></span><% } %>
-                            <% if (note.responsible === 'Sammy')   { %><span class="dotSammy"></span><% } %>
-                            <% if (note.responsible === 'Polita')  { %><span class="dotPolita"></span><% } %>
-                            <% if (note.responsible === 'John')    { %><span class="dotJohn"></span><% } %>
-                            <% if (note.responsible === 'Orphan')  { %><span class="dotOrphan"></span><% } %>
+                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                             <small><%= note.mtxJobId %></small>
                         </th>
                         <td><%= note.title %></td>

@@ -2078,5 +2078,10 @@ async function scConfirmSave(){
 </script>
 <!-- 2026-11-11 (John): shared dark / light theme (one setting for every MTX module) -->
 <script src="/js/mtxTheme.js"></script>
+<%# 2026-11-15 (John, well structure phase 3): Well › Wellbore › Run picker (public/js/wellPicker.js) — drives the existing selectors %>
+<script src="/js/wellPicker.js"></script>
+<script>
+MTXWellPicker.attach({ mount: 'scJobStatus', wrap: 'scLoadJob', rebind: 'scLoadJobBtn', getJob: function(){ return SC_STATE.job; }, wellSel: 'scWellSel', onWell: 'scMatchPreview', runs: false });
+</script>
 </body>
 </html>

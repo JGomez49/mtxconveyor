@@ -1906,5 +1906,15 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 <!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
 <script>window.MTX_DEFAULTS_CFG = { module: 'sag', keys: ["bhaLimit", "modelSel", "sensor", "mud", "grav", "maxIter", "kCurv", "kBendTF", "kAxial", "kWobSrc", "kWob", "kHole", "kCorr", "profInc", "rpIncs"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
 <script src="/js/mtxDefaults.js"></script>
+<%# 2026-11-15 (John, well structure phase 3): Well › Wellbore › Run picker (public/js/wellPicker.js) — drives the existing selectors %>
+<script src="/js/wellPicker.js"></script>
+<script>
+MTXWellPicker.attach({ mount: 'jobStatus', wrap: 'loadJob', getJob: function(){ return job; }, wellSel: 'wellSel', onWell: 'onWellChange',
+  afterSelect: function(s){   // run -> its T&D plan run (BHA, sensor, bend) into the SAG BHA table
+    if(!s.run) return; var sc = s.run.tdScenario || (job.td && job.td.activeScenario);
+    var i = TD_SRC.findIndex(function(x){ return x.run && x.scen === sc && String(x.run.id) === String(s.run.tdRunId); });
+    if(i >= 0){ $('scenSel').value = String(i); loadBhaFromTD(); } else alert('Run “' + s.run.name + '” has no BHA in the T&D plan (scenario “' + sc + '”).');
+  } });
+</script>
 </body>
 </html>

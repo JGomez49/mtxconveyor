@@ -131,6 +131,9 @@
                 margin-left: 2px;
             }
 
+            /* 2026-11-15 (John): Lina = blue (not used by anyone else) until a colour is set in Manage Users */
+            .dotLina { height:8px; width:8px; background-color:#1e6bff; border-radius:50%; display:inline-block; margin-right:3px; margin-left:2px; }
+
             canvas {
                 width: 100% !important;
                 margin-bottom: 40px;
@@ -152,6 +155,15 @@
             /* 2026-11-11: no top padding needed any more (it pushed content below the fixed navbar). */
             
         </style>
+        <%# 2026-11-15 (John): dot colour per person from Manage Users (User.color) — overrides the fixed colours above; any new
+             user gets a dot as soon as the admin picks a colour (the dot class is "dot" + the name without spaces / symbols). %>
+        <% var _pc = (typeof peopleColors !== 'undefined' && peopleColors) || {}; if (Object.keys(_pc).length) { %>
+        <style>
+            <% Object.keys(_pc).forEach(function(n){ var k = String(n).replace(/[^A-Za-z0-9]/g, ''); if (k && /^#[0-9a-fA-F]{6}$/.test(_pc[n])) { %>
+            .dot<%= k %> { height:8px; width:8px; background-color:<%= _pc[n] %> !important; background:<%= _pc[n] %> !important; border-radius:50%; display:inline-block; margin-right:3px; margin-left:2px; }
+            <% } }); %>
+        </style>
+        <% } %>
 
     </head>
 

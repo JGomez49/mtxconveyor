@@ -300,7 +300,7 @@
       <span id="svyInfo" class="muted"></span>
     </div>
     <div class="note">Corrected MD = measured MD + total stretch of the pipe above that depth (mechanical + thermal). Inc and Az are unchanged; TVD/N/E are
-      recomputed by minimum curvature. "Save as new version" creates a new well (<i>&lt;well&gt; [earlier corrections+]STRETCH &lt;date&gt;</i>, source PipeStretch) with the
+      recomputed by minimum curvature. "Save as new version" creates a new well (<i>&lt;well&gt; [earlier corrections+]PS &lt;date&gt;</i>, source PipeStretch) with the
       correction history; the version it started from is never modified. The next module (e.g. SAG) can start from it.</div>
     <div class="scroll"><table>
       <thead><tr><th>MD meas</th><th>Run</th><th>Inc (°)</th><th>Az (°)</th><th>Mechanical</th><th>Thermal</th><th>Total ΔMD</th><th>MD corr</th><th>TVD meas*</th><th>TVD corr*</th><th>ΔTVD</th><th>ΔN</th><th>ΔE</th></tr></thead>
@@ -317,7 +317,7 @@
       <div class="field"><span>Run / section</span><input id="rpRun" style="width:140px"></div>
       <div class="field"><span>Prepared by</span><input id="rpBy" style="width:160px" value="<%= (user && user.name) || '' %>"></div>
       <div class="field"><span>Checked by</span><input id="rpChk" style="width:160px"></div>
-      <div class="field"><span>Toolcode (corrected well)</span><input id="rpTool" style="width:160px" placeholder="e.g. MWD+HRGM+STRETCH"></div>
+      <div class="field"><span>Toolcode (corrected well)</span><input id="rpTool" style="width:160px" placeholder="e.g. MWD+PS"></div>
     </div>
     <div class="row">
       <div class="field" style="flex:1"><span>Comments (shown in the summary)</span><input id="rpNotes" style="width:100%"></div>
@@ -671,7 +671,7 @@ function exportSurvey(){
 }
 async function saveVersion(){
   if(!surveySource || !result) return;
-  var tags = (surveySource.chain || []).map(function(c){ return c.tag; }).concat(['STRETCH']).join('+');
+  var tags = (surveySource.chain || []).map(function(c){ return c.tag; }).concat(['PS']).join('+');   // 2026-11-15: tag PS (was STRETCH), same as the server
   if(!confirm('Create a NEW well "' + surveySource.wellKey + ' ' + tags + ' <today>" in this job with the stretch-corrected MDs?\nStarting version: ' + surveySource.versionName + ' (not changed).')) return;
   try{
     var r = await fetch('/notes/pipeStretch/saveVersion', { method:'POST', headers:{'Content-Type':'application/json'},
@@ -862,7 +862,7 @@ var PS_HELP = {
   survey: {
     title: '4 · Stretch-corrected survey',
     what: '<p>The survey with the total stretch added to each MD, the run used, and the recomputed TVD / N / E.</p>',
-    how: '<p class="hp-eq">Corrected MD = measured MD + (mechanical + thermal) &nbsp;&nbsp; Inc, Az unchanged</p><p>Positions by minimum curvature [BOU]. <b>Save as new version</b> creates a new well version "&lt;well&gt; [earlier corrections+]STRETCH &lt;date&gt;" with the correction history (per-station ΔMD); the starting version is never modified [CHAIN]. <b>📄 Report</b> prints the inputs, runs, method, plot, corrected survey and the corrections applied before this one.</p>',
+    how: '<p class="hp-eq">Corrected MD = measured MD + (mechanical + thermal) &nbsp;&nbsp; Inc, Az unchanged</p><p>Positions by minimum curvature [BOU]. <b>Save as new version</b> creates a new well version "&lt;well&gt; [earlier corrections+]PS &lt;date&gt;" with the correction history (per-station ΔMD); the starting version is never modified [CHAIN]. <b>📄 Report</b> prints the inputs, runs, method, plot, corrected survey and the corrections applied before this one.</p>',
     why: '<p>The saved version is the starting point for the next correction (e.g. SAG), which still assigns BHA runs by the original tally MD.</p>',
     src: ['BOU', 'CHAIN', 'SM']
   },
@@ -896,5 +896,11 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePs
 <!-- 2026-11-14 (John): admin "Save defaults" (public/js/mtxDefaults.js). Keys = this page's setting inputs only (no job data). -->
 <script>window.MTX_DEFAULTS_CFG = { module: 'pipeStretch', keys: ["bhaLimit", "dpOD", "dpID", "modelSel", "mud", "grad", "tSurf", "tCal", "alpha", "youngE", "sensorOff"], unit: function(){ return document.getElementById('unitSel') ? document.getElementById('unitSel').value : 'metric'; } };</script>
 <script src="/js/mtxDefaults.js"></script>
+<%# 2026-11-15 (John, well structure phase 3): Well › Wellbore › Run picker (public/js/wellPicker.js) — drives the existing selectors %>
+<script src="/js/wellPicker.js"></script>
+<script>
+MTXWellPicker.attach({ mount: 'jobStatus', wrap: 'loadJob', getJob: function(){ return job; }, wellSel: 'wellSel', onWell: 'onWellChange',
+  afterSelect: function(s){ if(s.run && s.run.tdScenario) MTXWellPicker.setSel('scenSel', s.run.tdScenario, true); } });
+</script>
 </body>
 </html>

@@ -668,33 +668,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <th scope="row">
                                                         <% if (user.role == 'admin') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %> 
 
                                                         <small><%= note.mtxJobId %></small>
@@ -805,33 +779,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %> 
 
                                                         <small><%= note.mtxJobId %></small>
@@ -937,33 +885,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
@@ -1070,33 +992,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
@@ -1201,33 +1097,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %>
 
                                                         <small><%= note.mtxJobId %></small>
@@ -1365,33 +1235,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
 
                                                         <th scope="row">
                                                             <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                                <% if (note.responsible == "Camilo") { %>
-                                                                    <span class="dotCamilo"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Isabel") { %>
-                                                                    <span class="dotIsabel"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Johanna") { %>
-                                                                    <span class="dotJohanna"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Daniel") { %>
-                                                                    <span class="dotDaniel"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Pablo") { %>
-                                                                    <span class="dotPablo"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Sammy") { %>
-                                                                    <span class="dotSammy"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Polita") { %>
-                                                                    <span class="dotPolita"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "John") { %>
-                                                                    <span class="dotJohn"></span>
-                                                                <% } %>
-                                                                <% if (note.responsible == "Orphan") { %>
-                                                                    <span class="dotOrphan"></span>
-                                                                <% } %>
+                                                                <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                             <% } %> 
                                                             <small><%= note.mtxJobId %></small>
                                                         </th> 
@@ -1509,33 +1353,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                                                         
                                                     <th scope="row">
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %> 
 
                                                         <small><%= note.mtxJobId %></small>
@@ -1755,33 +1573,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                                     <th scope="row">
 
                                                         <% if (user.role == 'admin' || user.role == '_leader') { %>
-                                                            <% if (note.responsible == "Camilo") { %>
-                                                                <span class="dotCamilo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Isabel") { %>
-                                                                <span class="dotIsabel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Johanna") { %>
-                                                                <span class="dotJohanna"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Daniel") { %>
-                                                                <span class="dotDaniel"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Pablo") { %>
-                                                                <span class="dotPablo"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Sammy") { %>
-                                                                <span class="dotSammy"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Polita") { %>
-                                                                <span class="dotPolita"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "John") { %>
-                                                                <span class="dotJohn"></span>
-                                                            <% } %>
-                                                            <% if (note.responsible == "Orphan") { %>
-                                                                <span class="dotOrphan"></span>
-                                                            <% } %>
+                                                            <%# 2026-11-15 (John): one dot for ANY responsible (colour per user from Manage Users; see partials/header.ejs) — was one if per hard-coded name %><span class="dot<%= String(note.responsible || '').replace(/[^A-Za-z0-9]/g, '') %>"></span>
                                                         <% } %> 
                                                         
                                                         <small><%= note.mtxJobId %></small>
@@ -5722,6 +5514,46 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         setup({ sidebar: 'dptsSidebar', hostSel: '.dpts-plot-wrap', intoToolbar: false, title: 'DP Stats filters', btnClass: 'dpts-reset-btn', refit: refitDpts });
     }
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+
+<%# ===== 2026-11-15 (John): phone layout of the jobs page — "everything easy to read on PC and phones".
+     <= 768 px: the job tables (Not Started … Archived) become one CARD per job (label : value), because a 13-column
+     table was cut off at the screen edge (body overflow-x hidden) and the text was tiny. Column labels are copied from
+     each table's header by JS (data-label). New Schedule / DP Stats / Gantt keep their own layout (they scroll inside
+     their box). Desktop is unchanged. ===== %>
+<style>
+    html { overflow-x:hidden; }
+    @media (max-width:768px){
+        .container_ { padding:10px !important; }
+        .container_ > .row { margin-left:0; margin-right:0; }
+        #accordionExample .accordion-button h4 { font-size:18px; margin:0; }
+        #accordionExample .accordion-body { padding:8px !important; overflow-x:auto; }
+        #accordionExample .btn-sm { font-size:14px; padding:6px 12px; }
+        table.mtx-cards, table.mtx-cards tbody { display:block; width:100%; }
+        table.mtx-cards thead { display:none; }
+        table.mtx-cards tr { display:block; margin:0 0 10px; padding:8px 12px; border:1px solid var(--an-border,#1e2d3d); border-radius:8px; background:rgba(255,255,255,.035); cursor:pointer; }
+        table.mtx-cards tr > td, table.mtx-cards tr > th { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:4px 0 !important;
+            border:none !important; font-size:14.5px; text-align:right; white-space:normal; word-break:break-word; background:transparent !important; }
+        table.mtx-cards tr > td::before, table.mtx-cards tr > th::before { content:attr(data-label); flex:0 0 40%; text-align:left; font-weight:600; color:var(--an-text-dim,#8a93a3); font-size:13px; }
+        table.mtx-cards tr > [data-label=""]::before { content:none; }
+        table.mtx-cards tr > [data-empty="1"] { display:none; }
+    }
+</style>
+<script>
+(function(){
+    function label(){
+        document.querySelectorAll('#accordionExample table').forEach(function(t){
+            if(t.closest('#collapseNewSchedule, #collapseDPStats, .gantt-outer') || t.classList.contains('mtx-cards')) return;
+            var hr = t.tHead && t.tHead.rows[0]; if(!hr) return;
+            var labs = Array.prototype.map.call(hr.cells, function(c){ return c.textContent.trim(); });
+            Array.prototype.forEach.call(t.tBodies, function(tb){ Array.prototype.forEach.call(tb.rows, function(r){
+                Array.prototype.forEach.call(r.cells, function(c, i){ c.setAttribute('data-label', labs[i] || ''); if(!c.textContent.trim() && !c.querySelector('input,span,img,a,button')) c.setAttribute('data-empty', '1'); });
+            }); });
+            t.classList.add('mtx-cards');
+        });
+    }
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', label); else label();
 })();
 </script>
 
