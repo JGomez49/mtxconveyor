@@ -32,7 +32,7 @@ function genRandomPassword(len){
 
 usersCtrl.renderManageUsers = async (req, res) => {
     try {
-        const users = await User.find({}).select('name email role list rank createdAt').sort({ name: 1 }).lean();
+        const users = await User.find({}).select('name email role list rank color createdAt').sort({ name: 1 }).lean();
         // Last-active per user, cheap version of what the activity dashboard
         // computes in full (no need for the whole session/heatmap pass just
         // for a list page) — most recent ping per user.
@@ -46,7 +46,7 @@ usersCtrl.renderManageUsers = async (req, res) => {
         const rows = users.map(u => ({
             _id: String(u._id),
             name: u.name, email: u.email, role: u.role || 'viewer',
-            list: u.list || '', rank: u.rank || '',
+            list: u.list || '', rank: u.rank || '', color: u.color || '',   // 2026-11-15 dot colour
             createdAt: u.createdAt ? u.createdAt.toISOString() : null,
             lastActive: lastActiveByUser[String(u._id)] ? lastActiveByUser[String(u._id)].toISOString() : null,
         }));
@@ -88,14 +88,16 @@ usersCtrl.createUser = async (req, res) => {
         if(existing){
             return res.status(409).json({ error: 'That email is already in use.' });
         }
-        const newUser = new User({ name, email, role: role || 'viewer', list, rank });
+        const color = /^#[0-9a-f]{6}$/i.test(req.body.color || '') ? req.body.color : '';   // 2026-11-15 dot colour
+        const newUser = new User({ name, email, role: role || 'viewer', list, rank, color });
         newUser.password = await newUser.encryptPassword(password);
         await newUser.save();
+        global.mtxPeopleColorsAt = 0;   // refresh the dot colours
         res.json({
             ok: true,
             user: {
                 _id: String(newUser._id), name: newUser.name, email: newUser.email,
-                role: newUser.role, list: newUser.list || '', rank: newUser.rank || '',
+                role: newUser.role, list: newUser.list || '', rank: newUser.rank || '', color: newUser.color || '',
                 createdAt: newUser.createdAt ? newUser.createdAt.toISOString() : null,
                 lastActive: null,
             },
@@ -126,15 +128,16 @@ usersCtrl.updateUser = async (req, res) => {
         }
         const updated = await User.findByIdAndUpdate(
             targetId,
-            { name, email, role: role || 'viewer', list, rank },
+            Object.assign({ name, email, role: role || 'viewer', list, rank }, req.body.color === undefined ? {} : { color: /^#[0-9a-f]{6}$/i.test(req.body.color || '') ? req.body.color : '' }),   // 2026-11-15 dot colour
             { new: true }
         ).lean();
         if(!updated) return res.status(404).json({ error: 'User not found.' });
+        global.mtxPeopleColorsAt = 0;   // 2026-11-15: refresh the dot colours
         res.json({
             ok: true,
             user: {
                 _id: String(updated._id), name: updated.name, email: updated.email,
-                role: updated.role, list: updated.list || '', rank: updated.rank || '',
+                role: updated.role, list: updated.list || '', rank: updated.rank || '', color: updated.color || '',
             },
         });
     } catch (err) {

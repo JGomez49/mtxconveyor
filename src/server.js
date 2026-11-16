@@ -95,6 +95,22 @@ app.use((req,res,next)=>{
     next();
 });
 
+// 2026-11-15 (John): per-person dot colours for every page (res.locals.peopleColors = { name: '#rrggbb' }), from
+// Manage Users (User.color). Cached 60 s; Manage Users clears the cache on save (global.mtxPeopleColorsAt = 0).
+const UserForColors = require('./models/User');
+app.use(async (req, res, next) => {
+    try{
+        if(!global.mtxPeopleColors || Date.now() - (global.mtxPeopleColorsAt || 0) > 60000){
+            // only people who can be Responsible (roles user / leader / admin — same list as the Responsible dropdown)
+            const us = await UserForColors.find({ color: { $nin: ['', null] }, role: { $in: ['user', 'leader', 'admin'] } }).select('name color').lean();
+            global.mtxPeopleColors = {}; us.forEach(u => { if(u.name && /^#[0-9a-f]{6}$/i.test(u.color)) global.mtxPeopleColors[String(u.name).trim()] = u.color; });
+            global.mtxPeopleColorsAt = Date.now();
+        }
+        res.locals.peopleColors = global.mtxPeopleColors;
+    }catch(err){ res.locals.peopleColors = {}; }
+    next();
+});
+
 // ---------------------Routes:
 app.use(require('./routes/index.routes'));
 app.use(require('./routes/users.routes'));

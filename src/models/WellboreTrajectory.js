@@ -91,6 +91,14 @@ const WellboreTrajectorySchema = new Schema(
     // iscwsaModel.js + public/data/iscwsaToolcodes.json). Empty string
     // means "use the default" (MWD+SRGM) rather than an explicit choice.
     toolcode:     { type: String, default: "" },
+    // ADDED 2026-11-15 (John, well structure A/B): what this uploaded trajectory IS — 'plan' | 'actual' (drilled /
+    // definitive) | '' (not set: data uploaded before 2026-11-15, sorted later in the job page Wells accordion).
+    // planVersion = plan version (e.g. "P5", read from the pad text "[P5-2188]" or the version label at upload).
+    // wsWellboreId = the Wellbore (models/WellStructure.js) it is assigned to; null = not assigned yet.
+    // Correction versions do not use these: they follow their base well (baseWellName).
+    designation:  { type: String, enum: ['plan', 'actual', ''], default: '' },
+    planVersion:  { type: String, default: '' },
+    wsWellboreId: { type: Schema.Types.ObjectId, ref: 'Wellbore', default: null },
     surveyCount:  { type: Number, default: 0 },
     survey:       [SurveyPointSchema],
     fracPlanes:   [FracPlaneSchema],

@@ -65,6 +65,13 @@ let nodemailer = require('nodemailer');
 
 
 
+// 2026-11-15 (John): names for the Responsible / "done by" lists = every user with role user, leader or admin,
+// alphabetical (case-insensitive). Viewers are not listed. Read on every page load, so the list follows /users/manage.
+async function mtxPeople(){
+    try{ const us = await User.find({ role: { $in: ['user', 'leader', 'admin'] } }).select('name').lean();
+        return Array.from(new Set(us.map(u => String(u.name || '').trim()).filter(n => n && n.toLowerCase() !== 'orphan'))).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }catch(err){ console.error('[people] list failed', err); return []; }
+}
 notesCrtl.renderNoteForm = async(req,res)=>{
     // res.send('Add a note...');
     let user = await User.findById(req.session.passport.user);
@@ -77,7 +84,7 @@ notesCrtl.renderNoteForm = async(req,res)=>{
         jn = 100;
     };
     jn = String(jn)
-    res.render('new-note.ejs', {jn, jnID, user});
+    res.render('new-note.ejs', {jn, jnID, user, people: await mtxPeople()});
 }
 
 
@@ -341,7 +348,7 @@ notesCrtl.renderEditForm = async(req,res)=>{
     // 2026-11-11 (John): Pad Distribution List moved from VP Areas to the job EDIT page (below Work Flow).
     let padDist = null;
     try{ const k = PadDistList.keyOf(String(note.project || '').trim()); if(k) padDist = await PadDistList.findOne({ padKey: k }).lean(); }catch(err){ console.error('[PadDistList] edit page', err); }
-    res.render('edit-note.ejs', {note, user, wellboreTrajectories, designCodeList, hcRows, hcLabels: { inFolder: HandoverChecklist.IN_FOLDER, status: HandoverChecklist.STATUS }, padDist});
+    res.render('edit-note.ejs', {people: await mtxPeople(), note, user, wellboreTrajectories, designCodeList, hcRows, hcLabels: { inFolder: HandoverChecklist.IN_FOLDER, status: HandoverChecklist.STATUS }, padDist});
 }
 
 
@@ -1683,6 +1690,12 @@ notesCrtl.saveTDModel = async (req, res) => {
     // the last computed charts on every keystroke would be wrong). The
     // calculated-at/by stamps stay tied to the run, not the param edit.
     const prev = scenarioResultsByWell[wellKey] || {};
+    // 2026-11-15 (John, well structure phase 3): stale T&D page guard — a T&D page opened BEFORE a BHA was edited in the
+    // job page Wells accordion would save the old BHA back. A plan run whose BHA / sensor / bend equal the Run's
+    // previous values (Run.bhaPrev) is stale: the Run's current values are kept. A BHA changed in T&D itself (different
+    // from both) is accepted as a new edit. Never blocks the save.
+    let wsKept = [];
+    try{ wsKept = await notesCrtl.wsGuardStale(noteId, scenarioName, doc.activeScenario || scenarioName, wellKey, params && params.plan); }catch(e){ console.error('[wellStructure] stale guard', e); }
     scenarioResultsByWell[wellKey] = {
       casings: casings || [],
       bha: bha || [],
@@ -1707,9 +1720,12 @@ notesCrtl.saveTDModel = async (req, res) => {
     doc.markModified('scenarios');
     doc.markModified('resultsByWell');
     await doc.save();
+    // 2026-11-15 (John): well structure phase 2 — the Run owns the BHA; copy this well's plan runs back to the Runs
+    // linked to this scenario (never blocks the T&D save).
+    try{ await notesCrtl.wsAfterTDSave(noteId, scenarioName, doc.activeScenario, wellKey, params && params.plan); }catch(e){ console.error('[wellStructure] T&D sync failed', e); }
 
     res.json({
-      success: true, savedResults: hasResults, wellKey, scenario: scenarioName,
+      success: true, savedResults: hasResults, wellKey, scenario: scenarioName, wsKeptRuns: wsKept,
       activeScenario: doc.activeScenario, calculatedAt: scenarioResultsByWell[wellKey].calculatedAt,
     });
   } catch(err) {
@@ -2354,7 +2370,7 @@ module.exports = notesCrtl;
 notesCrtl.uploadWellboreTrajectory = async (req, res) => {
   try{
     const noteId = req.params.id;
-    const { data, wellCategory, toolcode } = req.body;
+    const { data, wellCategory, toolcode, designation } = req.body;
 
     if(!noteId){
       return res.status(400).json({ error: "Missing note id" });
@@ -2379,6 +2395,11 @@ notesCrtl.uploadWellboreTrajectory = async (req, res) => {
     // re-uploading updated survey data for an existing well.
     const batchToolcode = (typeof toolcode === 'string') ? toolcode : '';
 
+    // 2026-11-15 (John, well structure A): Plan / Actual chosen at upload (subject wells only; offset wells stay '').
+    // planVersion: "[P5-2188]" in the pad text -> "P5"; else a version label like "P5" / "Plan 5" -> "P5".
+    const batchDesig = designation === 'actual' ? 'actual' : designation === 'plan' ? 'plan' : '';
+    const planVer = (pad, label) => { const m = /\[\s*(P\d+)\s*[-\]]/i.exec(pad || '') || /^\s*P(?:lan)?\s*(\d+)\s*$/i.exec(label || '');
+        return m ? (m[1].toUpperCase().startsWith('P') ? m[1].toUpperCase() : 'P' + m[1]) : ''; };
     const docs = data.map(well => ({
       noteId: noteId,
       wellName: well.wellName || "",
@@ -2386,6 +2407,8 @@ notesCrtl.uploadWellboreTrajectory = async (req, res) => {
       pad: well.pad || "",
       colorHex: well.colorHex || "",
       wellCategory: (well.wellCategory === 'subject' || well.wellCategory === 'offset') ? well.wellCategory : batchCategory,
+      designation: ((well.wellCategory || batchCategory) === 'offset') ? '' : batchDesig,
+      planVersion: ((well.wellCategory || batchCategory) !== 'offset' && batchDesig === 'plan') ? planVer(well.pad, well.source) : '',
       surveyCount: well.surveyCount || (well.survey ? well.survey.length : 0),
       survey: well.survey || [],
       user: req.user ? req.user._id : null,
@@ -3207,7 +3230,7 @@ async function saveCorrectedVersion(req, src, o){
     // 2026-11-13: SSA adds fill-in stations, so the station-by-station corrections cannot follow it — SSA must be last.
     if(chain.some(c => c.type === 'ssa')) { const e = new Error('This version already has a Slide Sheet Analysis (SSA) correction, which adds fill-in stations — SSA must be the last correction. Start from the version before SSA.'); e.status = 400; throw e; }
     // versions saved before 2026-11-12 have no chain: their source tells which correction they carry
-    const LEGACY = { SAGcorrection: ['sag', 'SAG'], PipeStretch: ['stretch', 'STRETCH'], ShortCollar: ['shortcollar', 'SC'], MSA: ['msa', 'MSA'] };
+    const LEGACY = { SAGcorrection: ['sag', 'SAG'], PipeStretch: ['stretch', 'PS'], ShortCollar: ['shortcollar', 'SCC'], /* 2026-11-15: tags PS / SCC (John; were STRETCH / SC) */ MSA: ['msa', 'MSA'] };
     if(!chain.length && LEGACY[src.source]) chain = [{ type: LEGACY[src.source][0], tag: LEGACY[src.source][1], label: 'saved before 2026-11-12 (no per-station history)', sourceName: src.wellName }];
     const block = CORR_CONFLICT[o.type] || [o.type];
     const dup = chain.find(c => block.indexOf(c.type) >= 0);
@@ -3345,10 +3368,10 @@ notesCrtl.savePipeStretchVersion = async(req,res)=>{
             if(Math.abs((+corrections[i].md) - src.survey[i].md) > 1e-6) return res.status(400).json({ok:false, error:'MD mismatch at station '+(i+1)+'. Reload the well and re-run.'});
             if(!isFinite(+corrections[i].dMd)) return res.status(400).json({ok:false, error:'Invalid correction at station '+(i+1)+'.'});
         }
-        const doc = await saveCorrectedVersion(req, src, { type: 'stretch', tag: 'STRETCH', source: 'PipeStretch', model, wellKey,
+        const doc = await saveCorrectedVersion(req, src, { type: 'stretch', tag: 'PS', source: 'PipeStretch', model, wellKey,   // 2026-11-15: tag PS (was STRETCH)
             label: String(req.body.label || req.body.loadCase || '').slice(0, 300), inputs: req.body.inputs || {},
             stations: src.survey.map((s, i) => ({ md: s.md + (+corrections[i].dMd), inc: s.incl, az: s.azim })),
-            comment: i => 'STRETCH (' + model + ') ' + ((+corrections[i].dMd) >= 0 ? '+' : '') + (+corrections[i].dMd).toFixed(3) + ' m MD' });
+            comment: i => 'PS (' + model + ') ' + ((+corrections[i].dMd) >= 0 ? '+' : '') + (+corrections[i].dMd).toFixed(3) + ' m MD' });
         res.json({ok:true, wellName: doc.wellName, id: doc._id});
     }catch(err){ console.error('[PipeStretch] save version failed', err); res.status(err.status || 500).json({ok:false, error:err.message}); }
 };
@@ -3376,7 +3399,7 @@ notesCrtl.saveShortCollarVersion = async(req,res)=>{
         // 2026-10-25: same endpoint also saves the MSA model (6-axis page accordion, public/js/msaModel.js).
         const isMsa = req.body.model === 'msa';
         const apply = isMsa ? 'MSA' : (req.body.apply === 'average' ? 'avg Z-bias' : 'station Z-bias');
-        const tag = isMsa ? 'MSA' : 'SC';
+        const tag = isMsa ? 'MSA' : 'SCC';   // 2026-11-15 (John): Short Collar Correction tag "SCC" (was "SC", which is also Surface Casing)
         if(!noteId || !wellKey || !Array.isArray(corrections) || !corrections.length)
             return res.status(400).json({ok:false, error:'noteId, wellKey and corrections are required.'});
         if(!(mdTol >= 0 && mdTol <= 30)) return res.status(400).json({ok:false, error:'MD match tolerance must be 0-30 m.'});
@@ -3427,3 +3450,429 @@ notesCrtl.saveShortCollarVersion = async(req,res)=>{
 
 // 2026-10-25 (John): Multi-corrections (Therm/Mech/SAG/MSA) endpoints removed the
 // same day they were added — the corrections stay separate modules for now.
+
+// ================= WELL STRUCTURE (ADDED 2026-11-15, John) — Job -> Well -> Wellbore -> Run =================
+// Phase 1: read-only index over existing data (models/WellStructure.js). GET builds a PROPOSAL from the job's
+// current data and returns the saved structure (if any) with everything linked to each wellbore / run, looked up
+// live. POST /build saves the proposal (replaces this job's structure only; never touches the linked data).
+// Proposal rules (stated choices, editable in phase 2):
+//   - wells = subject wells (same rule as findJobByMtxId), correction versions excluded;
+//   - wellbores: names ending in _L<NN> with the same prefix are legs of ONE well (wellbore "L<NN>"), else "Main";
+//   - runs = active runs of the T&D plan (TDModelCore.planActiveRuns) of the active scenario, else the first
+//     scenario that has runs for that well; none -> the wellbore has no runs (items still shown at wellbore level).
+const { Well: WSWell, Wellbore: WSWellbore, Run: WSRun } = require('../models/WellStructure');
+// 2026-11-15: correction tags shown as John's names (versions saved before keep STRETCH / SC in their stored name)
+const WS_TAG = { STRETCH: 'PS', SC: 'SCC' };
+function wsChainLabel(t, chain){ const base = /^GY/i.test(t.toolcode || '') ? 'GYRO' : 'MWD'; return [base].concat((chain || []).map(c => WS_TAG[c.tag] || c.tag || c.type)).join('+'); }
+function wsIsSubject(t){ const wn = (t.wellName || '').trim(); if(t.wellCategory === 'subject') return true; if(t.wellCategory === 'offset') return false; return /^\[\d+\]/.test(wn) && /_L\d+$/i.test(wn); }
+function wsTdPlan(td, wellKey){
+    if(!td) return null; const sc = td.scenarios || {}, names = Object.keys(sc);
+    const pick = n => { const e = sc[n] && sc[n].resultsByWell && sc[n].resultsByWell[wellKey]; return e && e.params && e.params.plan && (e.params.plan.runs || []).length ? { scenario: n, plan: e.params.plan } : null; };
+    if(td.activeScenario && pick(td.activeScenario)) return pick(td.activeScenario);
+    for(const n of names){ const p = pick(n); if(p) return p; }
+    const e = td.resultsByWell && td.resultsByWell[wellKey];   // legacy single-scenario layout
+    return e && e.params && e.params.plan && (e.params.plan.runs || []).length ? { scenario: '', plan: e.params.plan } : null;
+}
+async function wsGather(noteId){
+    const note = await Note.findById(noteId).select('_id title mtxJobId').lean(); if(!note) throw Object.assign(new Error('Job not found.'), { status: 404 });
+    const [trajs, td, hyd, cas, sheets] = await Promise.all([
+        WellboreTrajectory.find({ noteId }).select('wellName wellCategory source baseWellName correctionChain surveyCount uploadedDate toolcode pad designation planVersion wsWellboreId survey.md survey.tvd survey.northing survey.easting survey.localN survey.localE').lean(),
+        TDModel.findOne({ noteId }).lean(), HydraulicsModel.findOne({ noteId }).select('resultsByWell updatedAt').lean(),
+        CasingDesign.findOne({ noteId }).select('resultsByWell updatedAt').lean(),
+        SlideSheet.find({ noteId }).select('wellKey name summary updatedAt intervals.mode intervals.from intervals.to intervals.len intervals.run').lean() ]);
+    let sag = [], ps = [];
+    if(note.mtxJobId){ try{ [sag, ps] = await Promise.all([
+        SagCorrectionCase.find({ 'inputData.source.mtxJobId': note.mtxJobId }).select('name inputData.source updatedAt').lean(),
+        PipeStretchCase.find({ 'inputData.source.mtxJobId': note.mtxJobId }).select('name inputData.source updatedAt').lean() ]); }catch(e){} }
+    return { note, trajs, td, hyd, cas, sheets, sag, ps };
+}
+function wsRunsOf(g, k){
+    const p = wsTdPlan(g.td, k);
+    return p ? TDModelCore.planActiveRuns(p.plan).map((r, i) => ({ name: r.name || ('Run ' + (i + 1)), mdFrom: r.from, mdTo: r.to, tdScenario: p.scenario, tdRunId: String(r.id != null ? r.id : i),
+            bha: r.bha || [], sensor: r.sensor != null && r.sensor !== '' ? +r.sensor : null, bendDeg: r.bendDeg != null && r.bendDeg !== '' ? +r.bendDeg : null, bendDist: r.bendDist != null && r.bendDist !== '' ? +r.bendDist : null })) : [];
+}
+// 2026-11-15 (C, John): Build / Rebuild uses the trajectory TYPE and PLAN VERSION, the widened "[NN]" rule and the
+// assignments already made by hand. Order of rules for each uploaded (non-offset, non-correction) trajectory:
+//   1. already assigned to a wellbore (Wells accordion) -> same well name + wellbore name (kept by Rebuild);
+//   2. "[NN]" / "[NNx]" name prefix -> well (e.g. [01I], [01P] = SAGD injector / producer, separate wells), same rule
+//      as the Legs Summary; wellbore = "_L<NN>" suffix (L01 = main bore);
+//   3. no prefix (e.g. a drilled survey named differently from its plan): a 6+ digit number shared with a well
+//      found by 1-2 (UWI / licence) -> that well, wellbore from "_L<NN>" or L01; else its own well (name without _L<NN>).
+// Inside a wellbore the engineering survey (wellKey) is: the ACTUAL (latest uploaded) > the PLAN with the highest
+// version (P5 > P4) > the first one. Runs: T&D plan runs of that survey, else of another survey of the wellbore.
+function wsProposal(g, prev){
+    prev = prev || {};
+    const subj = g.trajs.filter(t => t.wellCategory !== 'offset' && CORR_SOURCES.indexOf(t.source) < 0 && (t.survey || []).length);
+    const wells = [], byName = {};
+    const legOf = k => { const lm = /_L(\d+)$/i.exec(k); return lm ? 'L' + lm[1].padStart(2, '0') : 'L01'; };
+    const add = (t, wellName, wbName, why) => {
+        let w = byName[wellName]; if(!w){ w = byName[wellName] = { name: wellName, wellbores: [], tokens: {} }; wells.push(w); }
+        (t.wellName.match(/\d{6,}/g) || []).forEach(x => { w.tokens[x] = 1; });
+        let b = w.wellbores.find(x => x.name === wbName); if(!b){ b = { name: wbName, trajs: [], members: [] }; w.wellbores.push(b); }
+        b.trajs.push(t._id); b.members.push({ t, why });
+    };
+    const rest = [];
+    subj.forEach(t => {
+        const p = prev[String(t._id)];
+        if(p) return add(t, p.well, p.wb, 'kept assignment');
+        const bm = /^(\[\d+[A-Za-z]*\])/.exec(t.wellName.trim());
+        if(bm) return add(t, bm[1], legOf(t.wellName), '[NN] prefix');
+        rest.push(t);
+    });
+    rest.forEach(t => {
+        const tok = t.wellName.match(/\d{6,}/g) || [], w = wells.find(x => tok.some(k => x.tokens[k]));
+        if(w) return add(t, w.name, legOf(t.wellName), 'shared number ' + tok.find(k => w.tokens[k]));
+        const lm = /_L(\d+)$/i.exec(t.wellName); add(t, lm ? t.wellName.slice(0, lm.index) : t.wellName, legOf(t.wellName), 'own name');
+    });
+    const pv = t => { const m = /(\d+)/.exec(t.planVersion || ''); return m ? +m[1] : -1; };
+    wells.forEach(w => {
+        w.wellbores.forEach(b => {
+            const ms = b.members.map(m => m.t), act = ms.filter(t => t.designation === 'actual').sort((a, c) => new Date(c.uploadedDate || 0) - new Date(a.uploadedDate || 0));
+            const plans = ms.filter(t => t.designation === 'plan').sort((a, c) => pv(c) - pv(a));
+            const eng = act[0] || plans[0] || ms[0];
+            b.wellKey = eng.wellName; b.desig = eng.designation || '';
+            b.runs = wsRunsOf(g, eng.wellName);
+            if(!b.runs.length){ const o = ms.find(t => t !== eng && wsRunsOf(g, t.wellName).length); if(o) b.runs = wsRunsOf(g, o.wellName); }
+            b.names = ms.map(t => t.wellName);
+            b.why = b.members.map(m => m.t.wellName + ': ' + m.why + (m.t.designation ? ' · ' + m.t.designation + (m.t.planVersion ? ' ' + m.t.planVersion : '') : ' · type not set')).join(' | ');
+            delete b.members;
+        });
+        w.wellbores.sort((a, b) => a.name.localeCompare(b.name));
+        // shown name: the "[NN] …" survey name of the main bore without _L<NN> (not a differently named drilled survey)
+        const full = [].concat.apply([], w.wellbores.map(x => x.names)).find(n => n.trim().indexOf(w.name) === 0);
+        if(/^\[\d+[A-Za-z]*\]$/.test(w.name) && full) w.label = full.trim().replace(/_L\d+$/i, '');
+        w.wellbores.forEach(x => { delete x.names; }); delete w.tokens;
+    });
+    return wells;
+}
+// previous assignments (trajectory id -> well / wellbore names) so Rebuild keeps what was sorted by hand
+async function wsPrevAssign(noteId, trajs){
+    const [wells, wbs] = await Promise.all([ WSWell.find({ noteId }).lean(), WSWellbore.find({ noteId }).lean() ]), o = {};
+    if(!wbs.length) return o;
+    const wById = {}, bById = {}, bByKey = {}; wells.forEach(w => { wById[String(w._id)] = w; }); wbs.forEach(b => { bById[String(b._id)] = b; bByKey[b.wellKey] = b; });
+    trajs.forEach(t => { const b = (t.wsWellboreId && bById[String(t.wsWellboreId)]) || bByKey[t.wellName]; const w = b && wById[String(b.wellId)];
+        if(b && w) o[String(t._id)] = { well: w.name, wb: b.name }; });
+    return o;
+}
+function wsItems(g, wellKey){   // everything linked to one wellbore, looked up live
+    const base = g.trajs.find(t => t.wellName === wellKey && CORR_SOURCES.indexOf(t.source) < 0);
+    const esc = wellKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), re = new RegExp('^' + esc + ' ');
+    const versions = g.trajs.filter(t => t !== base && CORR_SOURCES.indexOf(t.source) >= 0 && (t.baseWellName === wellKey || re.test(t.wellName)))
+        .map(t => ({ id: t._id, name: t.wellName, source: t.source, chain: (t.correctionChain || []).map(c => c.tag || c.type), count: t.surveyCount || (t.survey || []).length, date: t.uploadedDate }));
+    const mds = base ? (base.survey || []).map(s => s.md).filter(isFinite) : [];
+    const p = wsTdPlan(g.td, wellKey), runs = p ? TDModelCore.planActiveRuns(p.plan) : [];
+    const hasRes = d => !!(d && d.resultsByWell && d.resultsByWell[wellKey]);
+    const tdScen = g.td ? Object.keys(g.td.scenarios || {}).filter(n => { const e = g.td.scenarios[n].resultsByWell && g.td.scenarios[n].resultsByWell[wellKey]; return !!e; }) : [];
+    return {
+        survey: base ? { id: base._id, name: base.wellName, count: base.surveyCount || mds.length, mdMin: mds.length ? Math.min.apply(null, mds) : null, mdMax: mds.length ? Math.max.apply(null, mds) : null, mds: mds, toolcode: base.toolcode || '', date: base.uploadedDate } : null,
+        versions,
+        td: { scenarios: tdScen, active: g.td ? g.td.activeScenario || '' : '', planScenario: p ? p.scenario : null,
+              runs: runs.map((r, i) => ({ id: String(r.id != null ? r.id : i), name: r.name || ('Run ' + (i + 1)), from: r.from, to: r.to, sensor: r.sensor, bendDeg: r.bendDeg, bendDist: r.bendDist,
+                  bha: (r.bha || []).map(c => ({ name: c.name, od_m: c.od_m, id_m: c.id_m, len: c.len, material: c.material || '' })) })) },
+        hydraulics: hasRes(g.hyd) ? { updatedAt: g.hyd.updatedAt } : null,
+        casing: hasRes(g.cas) ? { updatedAt: g.cas.updatedAt } : null,
+        slideSheets: g.sheets.filter(s => s.wellKey === wellKey).map(s => ({ id: s._id, name: s.name, updatedAt: s.updatedAt, summary: s.summary || {},
+            slides: (s.intervals || []).filter(i => i.mode === 'slide').map(i => ({ from: i.from, to: i.to, len: i.len, run: i.run || '' })) })),
+        sag: g.sag.filter(c => c.inputData && c.inputData.source && c.inputData.source.wellKey === wellKey).map(c => ({ id: c._id, name: c.name, updatedAt: c.updatedAt })),
+        stretch: g.ps.filter(c => c.inputData && c.inputData.source && c.inputData.source.wellKey === wellKey).map(c => ({ id: c._id, name: c.name, updatedAt: c.updatedAt })),
+    };
+}
+// GET /notes/wellStructure/:noteId
+notesCrtl.getWellStructure = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, g = await wsGather(noteId);
+        const [wells, wbs, runs] = await Promise.all([ WSWell.find({ noteId }).sort({ order: 1 }).lean(), WSWellbore.find({ noteId }).sort({ order: 1 }).lean(), WSRun.find({ noteId }).sort({ order: 1 }).lean() ]);
+        const saved = wells.length ? wells.map(w => ({ id: w._id, name: w.name, uwi: w.uwi,
+            wellbores: wbs.filter(b => String(b.wellId) === String(w._id)).map(b => ({ id: b._id, name: b.name, wellKey: b.wellKey,
+                runs: runs.filter(r => String(r.wellboreId) === String(b._id)).map(r => ({ id: r._id, name: r.name, mdFrom: r.mdFrom, mdTo: r.mdTo, tdScenario: r.tdScenario, tdRunId: r.tdRunId, source: r.source,
+                    bha: r.bha || [], sensor: r.sensor, bendDeg: r.bendDeg, bendDist: r.bendDist, bhaUpdatedAt: r.bhaUpdatedAt, tdMissing: !!r.tdMissing })) })) })) : null;
+        const proposal = wsProposal(g, await wsPrevAssign(noteId, g.trajs)), keys = {};   // 2026-11-15 (C)
+        (saved || []).concat(proposal).forEach(w => w.wellbores.forEach(b => { keys[b.wellKey] = 1; }));
+        const items = {}; Object.keys(keys).forEach(k => { items[k] = wsItems(g, k); });
+        const wellKeys = g.trajs.filter(t => t.wellCategory !== 'offset' && CORR_SOURCES.indexOf(t.source) < 0).map(t => t.wellName).sort();
+        // 2026-11-15 (B): every uploaded (non-offset) trajectory with its type, plan version, assignment and correction versions
+        const wbByKey = {}; wbs.forEach(b => { wbByKey[b.wellKey] = String(b._id); });
+        const trajList = g.trajs.filter(t => t.wellCategory !== 'offset' && CORR_SOURCES.indexOf(t.source) < 0).map(t => {
+            const mds = (t.survey || []).map(x => x.md).filter(isFinite), esc = t.wellName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), re = new RegExp('^' + esc + ' ');
+            return { id: t._id, name: t.wellName, designation: t.designation || '', planVersion: t.planVersion || '', pad: t.pad || '', toolcode: t.toolcode || '', date: t.uploadedDate,
+                wellboreId: t.wsWellboreId ? String(t.wsWellboreId) : (wbByKey[t.wellName] || null), count: t.surveyCount || mds.length,
+                mdMin: mds.length ? Math.min.apply(null, mds) : null, mdMax: mds.length ? Math.max.apply(null, mds) : null,
+                // 2026-11-15 (phase 3, plan vs actual): [md, N, E, TVD] — grid northing / easting when the file had them, else local N / E
+                grid: (t.survey || []).some(x => +x.northing || +x.easting),
+                pts: (gr => (t.survey || []).map(x => [+(+x.md).toFixed(2), +(+(gr ? x.northing : x.localN) || 0).toFixed(3), +(+(gr ? x.easting : x.localE) || 0).toFixed(3), +(+x.tvd || 0).toFixed(3)]))((t.survey || []).some(y => +y.northing || +y.easting)),
+                versions: g.trajs.filter(v => CORR_SOURCES.indexOf(v.source) >= 0 && (v.baseWellName === t.wellName || (!v.baseWellName && re.test(v.wellName))))
+                    .map(v => ({ id: v._id, name: v.wellName, label: wsChainLabel(t, (v.correctionChain && v.correctionChain.length) ? v.correctionChain : [{ tag: { SAGcorrection: 'SAG', PipeStretch: 'PS', ShortCollar: 'SCC', MSA: 'MSA', SSA: 'SSA' }[v.source] || v.source }]), date: v.uploadedDate, count: v.surveyCount })) };
+        });
+        res.json({ ok: true, job: { id: g.note._id, title: g.note.title, mtxJobId: g.note.mtxJobId || '' }, saved, proposal, items, wellKeys, trajs: trajList,
+            canEdit: !!(req.user && req.user.role !== 'viewer') });
+    }catch(err){ console.error('[wellStructure] get failed', err); res.status(err.status || 500).json({ ok: false, error: err.message }); }
+};
+// POST /notes/wellStructure/:noteId/build  -> save the current proposal (replaces this job's structure only)
+notesCrtl.buildWellStructure = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, g = await wsGather(noteId), prop = wsProposal(g, await wsPrevAssign(noteId, g.trajs));   // 2026-11-15 (C): keeps hand assignments
+        if(!prop.length) return res.status(400).json({ ok: false, error: 'No subject wells with surveys in this job.' });
+        await Promise.all([ WSRun.deleteMany({ noteId }), WSWellbore.deleteMany({ noteId }), WSWell.deleteMany({ noteId }),
+            WellboreTrajectory.updateMany({ noteId }, { $set: { wsWellboreId: null } }) ]);   // 2026-11-15 B: assignments rebuilt below
+        let nw = 0, nb = 0, nr = 0;
+        for(let i = 0; i < prop.length; i++){
+            const w = await WSWell.create({ noteId, name: prop[i].label || prop[i].name, order: i, user: req.user ? req.user._id : null }); nw++;
+            for(let j = 0; j < prop[i].wellbores.length; j++){ const pb = prop[i].wellbores[j];
+                const b = await WSWellbore.create({ noteId, wellId: w._id, name: pb.name, wellKey: pb.wellKey, order: j }); nb++;
+                if((pb.trajs || []).length) await WellboreTrajectory.updateMany({ _id: { $in: pb.trajs } }, { $set: { wsWellboreId: b._id } });
+                if(pb.runs.length){ await WSRun.insertMany(pb.runs.map((r, k) => ({ noteId, wellboreId: b._id, wellKey: pb.wellKey, name: r.name, order: k, mdFrom: r.mdFrom, mdTo: r.mdTo, tdScenario: r.tdScenario, tdRunId: r.tdRunId, source: 'td',
+                    bha: r.bha, sensor: r.sensor, bendDeg: r.bendDeg, bendDist: r.bendDist, bhaUpdatedAt: new Date() }))); nr += pb.runs.length; }
+            }
+        }
+        res.json({ ok: true, wells: nw, wellbores: nb, runs: nr });
+    }catch(err){ console.error('[wellStructure] build failed', err); res.status(err.status || 500).json({ ok: false, error: err.message }); }
+};
+
+// ================= WELL STRUCTURE — PHASE 2 (ADDED 2026-11-15, John): edit + Run owns the BHA =================
+// Ownership rule: the Run is the master of its BHA (bha, sensor, bend). The linked T&D plan run (Run.tdScenario
+// || active scenario, Run.tdRunId) holds a mirrored copy because the T&D engine calculates from params.plan:
+//   - Wells edits -> wsPushRunToTD() writes name / MD range / BHA / sensor / bend into that plan run (T&D results
+//     of that well are NOT recalculated: recalculate in T&D);
+//   - every T&D save -> wsSyncFromTD() copies the plan runs of the saved scenario back into the Runs linked to that
+//     scenario (new plan runs in the ACTIVE scenario create Runs); a Run whose plan run disappeared is kept with
+//     tdMissing = true (its BHA is not lost).
+// A Run created by hand when its well has no T&D plan yet stays Wells-only; saving it again once a plan exists
+// appends it to the plan, copying WOB / torque at bit from the last plan run (stated choice) or leaving them empty.
+function wsPlanOf(doc, scenario, wellKey){
+    const sc = doc.scenarios && doc.scenarios[scenario], e = sc && sc.resultsByWell && sc.resultsByWell[wellKey];
+    return e && e.params && e.params.plan ? e.params.plan : null;
+}
+async function wsPushRunToTD(noteId, run){
+    const doc = await TDModel.findOne({ noteId }); if(!doc) return { pushed: false, reason: 'no T&D model in this job' };
+    if(!doc.scenarios || !Object.keys(doc.scenarios).length) return { pushed: false, reason: 'no T&D scenario' };
+    const scenario = run.tdScenario && doc.scenarios[run.tdScenario] ? run.tdScenario : (doc.activeScenario || Object.keys(doc.scenarios)[0]);
+    const plan = wsPlanOf(doc, scenario, run.wellKey); if(!plan) return { pushed: false, reason: 'this well has no T&D plan in scenario "' + scenario + '" yet' };
+    plan.runs = plan.runs || [];
+    let pr = run.tdRunId ? plan.runs.find(x => String(x.id) === String(run.tdRunId)) : null;
+    if(!pr){
+        const nums = plan.runs.map(x => +x.id).filter(isFinite), last = plan.runs[plan.runs.length - 1] || {};
+        pr = { id: nums.length ? Math.max.apply(null, nums) + 1 : Date.now(), use: true, dp: [], wobRot: last.wobRot, wobSlid: last.wobSlid, torqBit: last.torqBit };
+        plan.runs.push(pr);
+    }
+    Object.assign(pr, { name: run.name, from: run.mdFrom, to: run.mdTo, bha: run.bha || [], sensor: run.sensor, bendDeg: run.bendDeg, bendDist: run.bendDist });
+    if(scenario === doc.activeScenario) doc.resultsByWell = doc.scenarios[scenario].resultsByWell;   // top level mirrors the active scenario
+    doc.markModified('scenarios'); doc.markModified('resultsByWell'); await doc.save();
+    return { pushed: true, scenario, tdRunId: String(pr.id) };
+}
+async function wsSyncFromTD(noteId, scenario, activeScenario, wellKey, plan){
+    const wb = await WSWellbore.findOne({ noteId, wellKey }); if(!wb || !plan) return;
+    const runs = await WSRun.find({ wellboreId: wb._id }), pruns = plan.runs || [], seen = {};
+    const linked = r => r.tdRunId && ((r.tdScenario || activeScenario) === scenario);
+    for(let i = 0; i < pruns.length; i++){ const p = pruns[i], id = String(p.id != null ? p.id : i); seen[id] = 1;
+        const r = runs.find(x => linked(x) && String(x.tdRunId) === id);
+        const upd = { name: p.name || ('Run ' + (i + 1)), mdFrom: p.from, mdTo: p.to, bha: p.bha || [], sensor: p.sensor != null && p.sensor !== '' ? +p.sensor : null,
+            bendDeg: p.bendDeg != null && p.bendDeg !== '' ? +p.bendDeg : null, bendDist: p.bendDist != null && p.bendDist !== '' ? +p.bendDist : null, tdMissing: false };
+        if(r){ const changed = JSON.stringify(r.bha) !== JSON.stringify(upd.bha); Object.assign(r, upd); if(changed) r.bhaUpdatedAt = new Date(); r.markModified('bha'); await r.save(); }
+        else if(scenario === activeScenario && p.use !== false && p.to > p.from){ await WSRun.create(Object.assign({ noteId, wellboreId: wb._id, wellKey, order: runs.length + i, tdScenario: scenario, tdRunId: id, source: 'td', bhaUpdatedAt: new Date() }, upd)); }
+    }
+    for(const r of runs) if(linked(r) && !seen[String(r.tdRunId)] && !r.tdMissing){ r.tdMissing = true; await r.save(); }
+}
+notesCrtl.wsAfterTDSave = wsSyncFromTD;   // used by saveTDModel
+function wsCleanBha(rows){
+    return (Array.isArray(rows) ? rows : []).map(c => {
+        const od = +c.od_m, id = +c.id_m, len = +c.len; let wt = +c.wt;
+        // weight not given -> plain steel tube mass per metre: 7850 kg/m3 x pi/4 x (OD^2 - ID^2) (geometry only, ignores
+        // tool joints / upsets; stated default — enter the real weight for real tools)
+        if(!(wt > 0) && od > 0 && id >= 0 && od > id) wt = 7850 * Math.PI / 4 * (od * od - id * id);
+        return { name: String(c.name || '').slice(0, 80), od_m: isFinite(od) ? od : null, id_m: isFinite(id) ? id : null, len: isFinite(len) ? len : 0, wt: isFinite(wt) ? +wt.toFixed(3) : null, material: String(c.material || '').slice(0, 40) };
+    }).filter(c => c.name || c.len > 0);
+}
+notesCrtl.wsSaveWell = async (req, res) => {
+    try{ const noteId = req.params.noteId, b = req.body || {}; if(!String(b.name || '').trim()) return res.status(400).json({ ok: false, error: 'Name is required.' });
+        let w = b.id ? await WSWell.findOne({ _id: b.id, noteId }) : null;
+        if(w){ w.name = b.name.trim(); w.uwi = String(b.uwi || '').trim(); await w.save(); }
+        else w = await WSWell.create({ noteId, name: b.name.trim(), uwi: String(b.uwi || '').trim(), order: await WSWell.countDocuments({ noteId }), user: req.user ? req.user._id : null });
+        res.json({ ok: true, id: w._id });
+    }catch(err){ console.error('[wellStructure] save well', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+notesCrtl.wsDeleteWell = async (req, res) => {   // index only: its wellbores + runs (no survey / T&D data)
+    try{ const noteId = req.params.noteId, id = req.params.id, wbs = await WSWellbore.find({ noteId, wellId: id }).select('_id').lean();
+        await WellboreTrajectory.updateMany({ noteId, wsWellboreId: { $in: wbs.map(b => b._id) } }, { $set: { wsWellboreId: null } });   // back to "unassigned"
+        await WSRun.deleteMany({ noteId, wellboreId: { $in: wbs.map(b => b._id) } }); await WSWellbore.deleteMany({ noteId, wellId: id }); await WSWell.deleteOne({ _id: id, noteId });
+        res.json({ ok: true });
+    }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};
+notesCrtl.wsSaveWellbore = async (req, res) => {
+    try{ const noteId = req.params.noteId, b = req.body || {};
+        if(!String(b.name || '').trim() || !String(b.wellKey || '').trim() || !b.wellId) return res.status(400).json({ ok: false, error: 'Well, name and survey well are required.' });
+        const dup = await WSWellbore.findOne({ noteId, wellKey: b.wellKey }); if(dup && String(dup._id) !== String(b.id || '')) return res.status(400).json({ ok: false, error: 'That survey well is already used by wellbore "' + dup.name + '".' });
+        let wb = b.id ? await WSWellbore.findOne({ _id: b.id, noteId }) : null;
+        if(wb){ const keyChanged = wb.wellKey !== b.wellKey; wb.name = b.name.trim(); wb.wellKey = b.wellKey; wb.wellId = b.wellId; await wb.save(); if(keyChanged) await WSRun.updateMany({ wellboreId: wb._id }, { $set: { wellKey: b.wellKey } }); }
+        else wb = await WSWellbore.create({ noteId, wellId: b.wellId, name: b.name.trim(), wellKey: b.wellKey, order: await WSWellbore.countDocuments({ noteId, wellId: b.wellId }) });
+        res.json({ ok: true, id: wb._id });
+    }catch(err){ console.error('[wellStructure] save wellbore', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+notesCrtl.wsDeleteWellbore = async (req, res) => {
+    try{ await WellboreTrajectory.updateMany({ noteId: req.params.noteId, wsWellboreId: req.params.id }, { $set: { wsWellboreId: null } });
+        await WSRun.deleteMany({ noteId: req.params.noteId, wellboreId: req.params.id }); await WSWellbore.deleteOne({ _id: req.params.id, noteId: req.params.noteId }); res.json({ ok: true }); }
+    catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};
+notesCrtl.wsSaveRun = async (req, res) => {
+    try{ const noteId = req.params.noteId, b = req.body || {}, from = +b.mdFrom, to = +b.mdTo;
+        if(!String(b.name || '').trim()) return res.status(400).json({ ok: false, error: 'Run name is required.' });
+        if(!(isFinite(from) && isFinite(to) && to > from)) return res.status(400).json({ ok: false, error: 'MD to must be greater than MD from.' });
+        let r = b.id ? await WSRun.findOne({ _id: b.id, noteId }) : null;
+        const wb = await WSWellbore.findOne({ _id: r ? r.wellboreId : b.wellboreId, noteId }); if(!wb) return res.status(404).json({ ok: false, error: 'Wellbore not found.' });
+        const num = v => v === '' || v == null || !isFinite(+v) ? null : +v;
+        const upd = { name: b.name.trim(), mdFrom: from, mdTo: to, bha: wsCleanBha(b.bha), sensor: num(b.sensor), bendDeg: num(b.bendDeg), bendDist: num(b.bendDist), bhaUpdatedAt: new Date() };
+        if(r){ r.bhaPrev = { bha: r.bha || [], sensor: r.sensor, bendDeg: r.bendDeg, bendDist: r.bendDist }; r.markModified('bhaPrev'); Object.assign(r, upd); r.markModified('bha'); } else r = new WSRun(Object.assign({ noteId, wellboreId: wb._id, wellKey: wb.wellKey, source: 'manual', order: await WSRun.countDocuments({ wellboreId: wb._id }) }, upd));
+        let td = { pushed: false, reason: 'not requested' };
+        if(b.pushToTD !== false){ try{ td = await wsPushRunToTD(noteId, r); if(td.pushed){ r.tdScenario = td.scenario; r.tdRunId = td.tdRunId; r.tdMissing = false; } }catch(e){ td = { pushed: false, reason: e.message }; } }
+        await r.save();
+        res.json({ ok: true, id: r._id, td });
+    }catch(err){ console.error('[wellStructure] save run', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+notesCrtl.wsDeleteRun = async (req, res) => {   // ?td=1 also removes the linked plan run from the T&D plan
+    try{ const noteId = req.params.noteId, r = await WSRun.findOne({ _id: req.params.id, noteId }); if(!r) return res.json({ ok: true });
+        let tdRemoved = false;
+        if(req.query.td === '1' && r.tdRunId){ const doc = await TDModel.findOne({ noteId });
+            if(doc && doc.scenarios){ const sc = r.tdScenario && doc.scenarios[r.tdScenario] ? r.tdScenario : doc.activeScenario, plan = wsPlanOf(doc, sc, r.wellKey);
+                if(plan && plan.runs){ const n = plan.runs.length; plan.runs = plan.runs.filter(x => String(x.id) !== String(r.tdRunId)); tdRemoved = plan.runs.length < n;
+                    if(tdRemoved){ if(sc === doc.activeScenario) doc.resultsByWell = doc.scenarios[sc].resultsByWell; doc.markModified('scenarios'); doc.markModified('resultsByWell'); await doc.save(); } } } }
+        await WSRun.deleteOne({ _id: r._id });
+        res.json({ ok: true, tdRemoved });
+    }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};
+
+// ================= WELL STRUCTURE — B (ADDED 2026-11-15, John): assign uploaded trajectories to wellbores =================
+// POST /notes/wellStructure/:noteId/assign { trajId, designation: 'plan'|'actual'|'', planVersion?,
+//   wellboreId | null (unassign) | newWell: { name, uwi } and/or newWellbore: { wellId?, name } (created with this
+//   trajectory as its engineering survey, i.e. Wellbore.wellKey = trajectory name) , useForEngineering? }
+// Only the link / type fields of the trajectory change — never its survey.
+notesCrtl.wsAssignTraj = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, b = req.body || {};
+        const t = await WellboreTrajectory.findOne({ _id: b.trajId, noteId }).select('wellName pad source wellCategory designation planVersion wsWellboreId');
+        if(!t) return res.status(404).json({ ok: false, error: 'Trajectory not found.' });
+        if(CORR_SOURCES.indexOf(t.source) >= 0) return res.status(400).json({ ok: false, error: 'Correction versions follow their base survey.' });
+        if(b.designation != null) t.designation = ['plan', 'actual'].indexOf(b.designation) >= 0 ? b.designation : '';
+        if(b.planVersion != null) t.planVersion = String(b.planVersion).trim().toUpperCase().slice(0, 12);
+        else if(t.designation === 'plan' && !t.planVersion){ const m = /\[\s*(P\d+)\s*[-\]]/i.exec(t.pad || ''); if(m) t.planVersion = m[1].toUpperCase(); }
+        let wb = null;
+        if(b.newWell || b.newWellbore){
+            if(await WSWellbore.findOne({ noteId, wellKey: t.wellName })) return res.status(400).json({ ok: false, error: 'This survey is already the engineering survey of a wellbore.' });
+            let wellId = b.newWellbore && b.newWellbore.wellId;
+            if(b.newWell){ const nm = String(b.newWell.name || '').trim(); if(!nm) return res.status(400).json({ ok: false, error: 'Well name is required.' });
+                const w = await WSWell.create({ noteId, name: nm, uwi: String(b.newWell.uwi || '').trim(), order: await WSWell.countDocuments({ noteId }), user: req.user ? req.user._id : null }); wellId = w._id; }
+            if(!wellId) return res.status(400).json({ ok: false, error: 'Pick a well.' });
+            const lm = /_L(\d+)$/i.exec(t.wellName), nm2 = String((b.newWellbore && b.newWellbore.name) || (lm ? 'L' + lm[1].padStart(2, '0') : 'L01')).trim();
+            wb = await WSWellbore.create({ noteId, wellId, name: nm2, wellKey: t.wellName, order: await WSWellbore.countDocuments({ noteId, wellId }) });
+        } else if(b.wellboreId){
+            wb = await WSWellbore.findOne({ _id: b.wellboreId, noteId }); if(!wb) return res.status(404).json({ ok: false, error: 'Wellbore not found.' });
+        }
+        if(!wb && b.wellboreId === null){   // unassign
+            const own = await WSWellbore.findOne({ noteId, wellKey: t.wellName });
+            if(own) return res.status(400).json({ ok: false, error: 'This survey is the engineering survey of wellbore "' + own.name + '". Pick another survey for engineering first.' });
+            t.wsWellboreId = null;
+        } else if(wb) t.wsWellboreId = wb._id;
+        await t.save();
+        // "use for engineering": the wellbore's link to T&D / Hydraulics / Casing / Slide Sheet / corrections (wellKey)
+        if(wb && b.useForEngineering && wb.wellKey !== t.wellName){
+            const other = await WSWellbore.findOne({ noteId, wellKey: t.wellName });
+            if(other && String(other._id) !== String(wb._id)) return res.status(400).json({ ok: false, error: 'That survey is the engineering survey of wellbore "' + other.name + '".' });
+            wb.wellKey = t.wellName; await wb.save(); await WSRun.updateMany({ wellboreId: wb._id }, { $set: { wellKey: t.wellName } });
+        }
+        res.json({ ok: true, wellboreId: wb ? wb._id : null });
+    }catch(err){ console.error('[wellStructure] assign', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+
+// 2026-11-15 (phase 3): see saveTDModel — keep the Run's BHA when the incoming plan run still carries Run.bhaPrev
+notesCrtl.wsGuardStale = async function(noteId, scenario, activeScenario, wellKey, plan){
+    if(!plan || !(plan.runs || []).length) return [];
+    const wb = await WSWellbore.findOne({ noteId, wellKey }); if(!wb) return [];
+    const runs = await WSRun.find({ wellboreId: wb._id, bhaPrev: { $ne: null } }).lean(), kept = [];
+    const sig = o => JSON.stringify({ b: (o.bha || []).map(c => [c.name, +c.od_m || 0, +c.id_m || 0, +c.len || 0]), s: o.sensor == null || o.sensor === '' ? null : +o.sensor, d: o.bendDeg == null || o.bendDeg === '' ? null : +o.bendDeg, l: o.bendDist == null || o.bendDist === '' ? null : +o.bendDist });
+    plan.runs.forEach(p => {
+        const r = runs.find(x => x.tdRunId && String(x.tdRunId) === String(p.id) && (x.tdScenario || activeScenario) === scenario); if(!r) return;
+        if(sig(p) === sig(r.bhaPrev) && sig(p) !== sig(r)){ p.bha = r.bha; p.sensor = r.sensor; p.bendDeg = r.bendDeg; p.bendDist = r.bendDist; kept.push(p.name || String(p.id)); }
+    });
+    return kept;
+};
+
+// ================= WELL STRUCTURE — per-run Torque & Drag, LIVE (ADDED 2026-11-15, John) =================
+// GET /notes/wellStructure/:noteId/runTD/:runId -> T&D of ONE run, computed on request with the shared engine
+// (public/js/tdModel.js, same module as the T&D page and recalculateTDModel), never saved:
+//   - inputs = the T&D entry saved for the run's well in the run's scenario (casings, params, plan); the plan run's
+//     BHA / sensor / bend are taken from the Run (it owns them; they are mirrored in the plan anyway);
+//   - snapshot (Effective Tension, Side Force, Torque) with the bit at the END of the run (plan.snapMode 'auto',
+//     snapRunId = the run) — engine rule tdPlanSnapshot;
+//   - Hook Load vs Bit Depth only for the bit depths this run drills (rows of tdComputeHookloadPlan with runId = run).
+// Units as the job page T&D accordion: kDaN (kN x 0.1), N.m; side force engine kgf/m x normLen -> kgf per
+// normalization length (params.normLen, default 9.45 m), the convention the T&D charts are labelled with.
+function wsTdEntry(doc, scenario, wellKey){
+    if(!doc) return null;
+    const sc = doc.scenarios && doc.scenarios[scenario], e = sc && sc.resultsByWell && sc.resultsByWell[wellKey];
+    return e || (doc.resultsByWell && doc.resultsByWell[wellKey]) || null;
+}
+async function wsSurvey(noteId, wellKey, td){
+    const traj = await WellboreTrajectory.findOne({ noteId, wellName: wellKey }).select('survey.md survey.incl survey.azim').lean();
+    let surv = traj && traj.survey ? traj.survey.map(s => ({ md: s.md, inc: s.incl, az: s.azim })).filter(r => isFinite(r.md) && r.md >= 0).sort((a, b) => a.md - b.md) : [];
+    if(surv.length >= 2 && td && surv[surv.length - 1].md < td){ const l = surv[surv.length - 1]; surv = surv.concat([{ md: td, inc: l.inc, az: l.az }]); }   // same as recalculateTDModel
+    return surv;
+}
+notesCrtl.wsRunTD = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, run = await WSRun.findOne({ _id: req.params.runId, noteId }).lean();
+        if(!run) return res.status(404).json({ ok: false, error: 'Run not found.' });
+        const doc = await TDModel.findOne({ noteId }).lean(); if(!doc) return res.json({ ok: false, error: 'No T&D model in this job yet.' });
+        const scenario = run.tdScenario || doc.activeScenario || 'Default', e = wsTdEntry(doc, scenario, run.wellKey);
+        if(!e || !e.params || !e.params.plan) return res.json({ ok: false, error: 'No T&D plan for this well in scenario "' + scenario + '". Open the T&D modeler, add the runs and save.' });
+        const plan = JSON.parse(JSON.stringify(e.params.plan)), pr = (plan.runs || []).find(x => String(x.id) === String(run.tdRunId));
+        if(!pr) return res.json({ ok: false, error: 'This run is not in the T&D plan (scenario "' + scenario + '"). Save it from the Wells accordion to add it.' });
+        if((run.bha || []).length){ pr.bha = run.bha; pr.sensor = run.sensor; pr.bendDeg = run.bendDeg; pr.bendDist = run.bendDist; }
+        pr.use = true;
+        if(!((pr.bha || []).length || (pr.dp || []).length)) return res.json({ ok: false, error: 'This run has no BHA yet.' });
+        plan.snapMode = 'auto'; plan.snapRunId = pr.id;
+        const params = Object.assign({}, e.params, { plan }), casings = e.casings || [];
+        const surv = await wsSurvey(noteId, run.wellKey, params.td);
+        if(surv.length < 2) return res.json({ ok: false, error: 'The well has fewer than 2 survey stations.' });
+        const r_ = TDModelCore.computeModel(surv, casings, e.bha || [], params);
+        const hl = TDModelCore.computeHookload(surv, casings, e.bha || [], params).filter(x => String(x.runId) === String(pr.id));
+        const nl = +params.normLen || 9.45, k = 0.1;
+        const results = {
+            mds: r_.map(x => x.md),
+            etTI: r_.map(x => x.etTripIn * k), etTO: r_.map(x => x.etTripOut * k), etROB: r_.map(x => x.etRotOB * k), etSLD: r_.map(x => x.etSlide * k), etROff: r_.map(x => x.etRotOff * k),
+            tqROB: r_.map(x => x.torqRotOB), tqROff: r_.map(x => x.torqRotOff), tqSLD: r_.map(x => x.torqSlide), tqTI: r_.map(x => x.torqTripIn), tqTO: r_.map(x => x.torqTripOut),
+            sfROB: r_.map(x => x.sfRotOB * nl), sfSLD: r_.map(x => x.sfSlide * nl), sfROff: r_.map(x => x.sfRotOff * nl), sfTO: r_.map(x => x.sfTripOut * nl), sfTI: r_.map(x => x.sfTripIn * nl),
+            incArr: r_.map(x => x.inc), dlsArr: r_.map(x => x.dls),
+            hlMDs: hl.map(x => x.md), hlTI: hl.map(x => x.hl_tripIn * k), hlTO: hl.map(x => x.hl_tripOut * k), hlROB: hl.map(x => x.hl_rotOB * k), hlSLD: hl.map(x => x.hl_slide * k), hlROff: hl.map(x => x.hl_rotOff * k),
+            torqLimDisp: params.torqLim, depU: 'm', forU: 'kDaN', tqU: 'N.m', normLen: nl,
+        };
+        const sec = TDModelCore.planSectionAt(plan, (pr.from + pr.to) / 2) || {};
+        res.json({ ok: true, scenario, wellKey: run.wellKey, run: { name: pr.name, from: pr.from, to: pr.to, wobRot: pr.wobRot, wobSlid: pr.wobSlid, torqBit: pr.torqBit, bhaParts: (pr.bha || []).length },
+            snapshot: r_.snapshot || null, section: { name: sec.name, hole_m: sec.hole_m, mudDens: sec.mudDens, ffOH: sec.ffOH }, ff: { ff1: params.ff1, ff2: params.ff2, ffOH: params.ffOH },
+            casings, params: { td: params.td, ohDiam_m: params.ohDiam_m, ohTop: params.ohTop, normLen: nl }, results, calculatedAt: new Date() });
+    }catch(err){ console.error('[wellStructure] run T&D', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+// GET /notes/wellStructure/:noteId/wbTD?wellKey= -> casings + hole params + inclination (for the wellbore geometry schematic)
+notesCrtl.wsWellboreTD = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, wellKey = String(req.query.wellKey || ''), scenarioQ = String(req.query.scenario || '');
+        const doc = await TDModel.findOne({ noteId }).lean(); if(!doc) return res.json({ ok: false, error: 'No T&D model in this job yet.' });
+        const scenario = scenarioQ || doc.activeScenario || 'Default', e = wsTdEntry(doc, scenario, wellKey);
+        if(!e || !e.params) return res.json({ ok: false, error: 'No T&D inputs (casings / hole) for this well in scenario "' + scenario + '".' });
+        const surv = await wsSurvey(noteId, wellKey, null);
+        const plan = e.params.plan || {};   // 2026-11-15: hole sections + BHA runs bar of the wellbore (same data as the T&D page "Hole sections & BHA runs")
+        res.json({ ok: true, scenario, casings: e.casings || [], params: { td: e.params.td, ohDiam_m: e.params.ohDiam_m, ohTop: e.params.ohTop }, inc: { mds: surv.map(s => s.md), incArr: surv.map(s => s.inc) },
+            sections: (plan.sections || []).map(x => ({ name: x.name, from: +x.from, to: +x.to, hole_m: x.hole_m, mudDens: x.mudDens, ffOH: x.ffOH })),
+            runs: (plan.runs || []).map(x => ({ id: x.id, name: x.name, from: +x.from, to: +x.to, use: x.use !== false, bhaParts: (x.bha || []).length })) });
+    }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};
+
+// 2026-11-15 (John): survey stations of one trajectory (original or a corrected version) between two MDs, for the
+// run "Surveys" table in the Wells accordion. GET /notes/wellStructure/:noteId/stations?id=&from=&to= (read-only).
+notesCrtl.wsStations = async (req, res) => {
+    try{
+        const noteId = req.params.noteId, from = req.query.from === '' || req.query.from == null ? -Infinity : +req.query.from, to = req.query.to === '' || req.query.to == null ? Infinity : +req.query.to;
+        const t = await WellboreTrajectory.findOne({ _id: req.query.id, noteId }).select('wellName source correctionChain toolcode survey').lean();
+        if(!t) return res.status(404).json({ ok: false, error: 'Trajectory not found.' });
+        const rows = (t.survey || []).filter(s => s.md >= from - 1e-6 && s.md <= to + 1e-6).sort((a, b) => a.md - b.md)
+            .map(s => ({ md: s.md, incl: s.incl, azim: s.azim, tvd: s.tvd, subSea: s.subSea, vertSec: s.vertSec, localN: s.localN, localE: s.localE, dogleg: s.dogleg, northing: s.northing, easting: s.easting, comments: s.comments || '', interp: !!s.interp }));
+        res.json({ ok: true, name: t.wellName, label: wsChainLabel(t, t.correctionChain), rows });
+    }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};

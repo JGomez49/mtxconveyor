@@ -128,6 +128,7 @@ const {
     deleteDesignCode,
     uploadDesignCodeImage,
     deleteDesignCodeImage,
+    getWellStructure, buildWellStructure, wsSaveWell, wsDeleteWell, wsSaveWellbore, wsDeleteWellbore, wsSaveRun, wsDeleteRun, wsAssignTraj, wsRunTD, wsWellboreTD, wsStations,   // 2026-11-15 well structure (Job -> Well -> Wellbore -> Run)
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -445,5 +446,22 @@ router.get('/notes/surveyVersions', isAuthenticated, canUseModelersJson, listSur
 router.get('/notes/surveyVersion/:id', isAuthenticated, canUseModelersJson, getSurveyVersion);
 // Short Collar (2026-10-25): save the 6-axis page's short-collar-corrected azimuths as a new WellboreTrajectory version.
 router.post('/notes/shortCollar/saveVersion', isAuthenticated, canUseModelersJson, blockViewerFromSaving, saveShortCollarVersion);
+
+// 2026-11-15 (John): well structure — phase 1 read-only index (models/WellStructure.js). Build: every role except viewer.
+router.get('/notes/wellStructure/:noteId', isAuthenticated, getWellStructure);
+router.post('/notes/wellStructure/:noteId/build', isAuthenticated, blockViewerFromSaving, buildWellStructure);
+// 2026-11-15 phase 2: edit wells / wellbores / runs (Run owns the BHA; pushed into the linked T&D plan run)
+router.post('/notes/wellStructure/:noteId/well', isAuthenticated, blockViewerFromSaving, wsSaveWell);
+router.delete('/notes/wellStructure/:noteId/well/:id', isAuthenticated, blockViewerFromSaving, wsDeleteWell);
+router.post('/notes/wellStructure/:noteId/wellbore', isAuthenticated, blockViewerFromSaving, wsSaveWellbore);
+router.delete('/notes/wellStructure/:noteId/wellbore/:id', isAuthenticated, blockViewerFromSaving, wsDeleteWellbore);
+router.post('/notes/wellStructure/:noteId/run', isAuthenticated, blockViewerFromSaving, wsSaveRun);
+router.delete('/notes/wellStructure/:noteId/run/:id', isAuthenticated, blockViewerFromSaving, wsDeleteRun);
+// 2026-11-15 (B): assign an uploaded trajectory (Plan / Actual) to a wellbore, or create a well / wellbore from it
+router.post('/notes/wellStructure/:noteId/assign', isAuthenticated, blockViewerFromSaving, wsAssignTraj);
+// 2026-11-15: per-run T&D computed live (never saved) + wellbore geometry inputs — read-only, every role
+router.get('/notes/wellStructure/:noteId/runTD/:runId', isAuthenticated, wsRunTD);
+router.get('/notes/wellStructure/:noteId/wbTD', isAuthenticated, wsWellboreTD);
+router.get('/notes/wellStructure/:noteId/stations', isAuthenticated, wsStations);   // 2026-11-15 run survey table
 
 module.exports = router;

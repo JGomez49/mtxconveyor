@@ -21,6 +21,9 @@ const UserSchema = new Schema({
         type: String,
         required: true
     },
+    // 2026-11-15 (John): colour of this person's dot in the job lists (Responsible / "done by"); set by the admin in
+    // Manage Users. '' = the legacy colour from partials/header.ejs (or grey).
+    color: { type: String, default: '' },
     role: {
         type: String,
         required: false, 
