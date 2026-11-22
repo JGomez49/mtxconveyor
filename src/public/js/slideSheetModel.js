@@ -31,6 +31,10 @@
     'use strict';
     var NULLS = [-999.25, -999, -9999];
     var WANT = ['TIME', 'DEPT', 'BDEP', 'ROP', 'WOB', 'RPM', 'DIFP', 'TPO', 'INCL', 'AZ', 'GTF', 'MTF', 'TF'];
+    // 2026-11-21 (John): optional curves for the Pason Plots page LAS input (hook load, MSE, torque, standpipe pressure).
+    // Read when present (Float32 to save memory), never reported as "missing".
+    var EXTRA = ['HL', 'MSE', 'CTOR', 'TORQ', 'TQA', 'SPP'];
+    var ALL = WANT.concat(EXTRA);
 
     // ---------------- LAS 2.0 parser (streaming: feed text chunks, then finish()) ----------------
     function LasParser() {
@@ -39,7 +43,7 @@
     }
     LasParser.prototype._grow = function () {
         var cap = this.cap ? this.cap * 2 : 1 << 16, self = this;
-        WANT.forEach(function (k) { var a = new Float64Array(cap); if (self.data[k]) a.set(self.data[k]); self.data[k] = a; });
+        ALL.forEach(function (k) { var a = EXTRA.indexOf(k) >= 0 ? new Float32Array(cap) : new Float64Array(cap); if (self.data[k]) a.set(self.data[k]); self.data[k] = a; });
         this.cap = cap;
     };
     LasParser.prototype._line = function (line) {
@@ -48,10 +52,10 @@
         if (this.idx) {                                   // data section
             var p = line.trim().split(/\s+/); if (p.length < this.cols.length) return;
             if (this.n >= this.cap) this._grow();
-            for (var k = 0; k < WANT.length; k++) {
+            for (var k = 0; k < ALL.length; k++) {
                 var j = this.idx[k], v;
                 if (j < 0) v = NaN; else { v = +p[j]; if (!isFinite(v) || v === this.nullVal || NULLS.indexOf(v) >= 0) v = NaN; }
-                this.data[WANT[k]][this.n] = v;
+                this.data[ALL[k]][this.n] = v;
             }
             this.n++; return;
         }
@@ -62,7 +66,7 @@
                 // column order = ~C section order (the ~A line may also list them)
                 this.cols = this.curves.length ? this.curves : line.trim().split(/\s+/).slice(1);
                 var self = this;
-                this.idx = WANT.map(function (k) { return self.cols.indexOf(k); });
+                this.idx = ALL.map(function (k) { return self.cols.indexOf(k); });
                 if (this.idx[0] < 0 || this.idx[1] < 0) throw new Error('LAS file has no TIME or DEPT curve.');
             }
             return;
@@ -85,7 +89,7 @@
         if (this.buf) { this._line(this.buf.replace(/\r$/, '')); this.buf = ''; }
         if (!this.idx) throw new Error('No ~A (data) section found — is this a LAS 2.0 file?');
         var self = this, out = { n: this.n, well: this.well, curves: this.cols.slice(), missing: WANT.filter(function (k, i) { return self.idx[i] < 0; }) };
-        WANT.forEach(function (k) { out[k] = self.data[k] ? self.data[k].subarray(0, self.n) : new Float64Array(0); });
+        ALL.forEach(function (k) { out[k] = self.data[k] ? self.data[k].subarray(0, self.n) : new Float64Array(0); });
         return out;
     };
     function parseLasText(text) { var p = new LasParser(); p.push(text); return p.finish(); }
@@ -140,9 +144,16 @@
             if (segOf[k] !== segOf[k - 1]) continue;
             var d0 = DEP[k - 1], d1 = DEP[k];
             if (!isFinite(d0) || !isFinite(d1)) continue;
-            var st = d1 - d0; if (!(st > 0 && st < o.maxStep)) continue;
+            var st = d1 - d0;
+            // 2026-11-20 FIX (John): ROP too high. On-bottom seconds where the hole depth did not change (the depth channel
+            // moves in steps, e.g. every few seconds) were dropped, so their time was missing and ROP = metres / time was
+            // inflated (FOXCK test LAS: 88.6 h counted of 122.0 h on bottom; rotate ROP 82.9 m/h vs 56.7 m/h overall and the
+            // Pason ROP channel's 61.9 m/h on bottom). Those seconds (bit on bottom, depth not decreasing) now add TIME to the
+            // interval of their mode (no footage). Before: only depth-advancing samples counted.
+            if (!(st >= 0 && st < o.maxStep)) continue;
             if (!(isFinite(BIT[k]) && d1 - BIT[k] < o.onBottomTol)) continue;
             var slide = isFinite(mean[k]) && mean[k] < o.slideMeanRpm && mx[k] <= o.slideMaxRpm;
+            if (st === 0) { if (segs[segOf[k]].include) steps.push({ k: k, zero: true, slide: slide, leg: segs[segOf[k]].leg, dt: Math.min(T[k] - T[k - 1], 60) }); continue; }
             var gk = segs[segOf[k]]; gk.drilled += st; if (d0 < gk.dFrom) gk.dFrom = d0; if (d1 > gk.dTo) gk.dTo = d1;
             if (!segs[segOf[k]].include) continue;
             steps.push({ k: k, from: d0, to: d1, slide: slide, leg: gk.leg, dt: Math.min(T[k] - T[k - 1], 60) });
@@ -153,10 +164,12 @@
         var brk = (o.breaks || []).filter(isFinite).sort(function (a, b) { return a - b; });
         function crosses(a, b) { for (var q = 0; q < brk.length; q++) if (brk[q] > a + 1e-6 && brk[q] <= b + 1e-6) return true; return false; }
         function build(list) {
-            var out = [], cur = null;
+            var out = [], cur = null, pend = { 'true': 0, 'false': 0 };   // 2026-11-20: on-bottom time without depth progress, per mode
             list.forEach(function (s) {
+                if (s.zero) { if (cur && cur.slide === s.slide && cur.leg === s.leg) cur.time += s.dt; else pend[String(s.slide)] += s.dt; return; }
+                if (cur && cur.slide === s.slide && pend[String(s.slide)]) { cur.time += pend[String(s.slide)]; pend[String(s.slide)] = 0; }
                 if (cur && cur.slide === s.slide && cur.leg === s.leg && Math.abs(s.from - cur.to) < o.mergeGap && !crosses(cur.from, s.from)) { cur.to = Math.max(cur.to, s.to); cur.ks.push(s.k); cur.time += s.dt; }
-                else { if (cur) out.push(cur); cur = { slide: s.slide, leg: s.leg, from: s.from, to: s.to, ks: [s.k], time: s.dt }; }
+                else { if (cur) out.push(cur); cur = { slide: s.slide, leg: s.leg, from: s.from, to: s.to, ks: [s.k], time: s.dt + pend[String(s.slide)] }; pend[String(s.slide)] = 0; }
             });
             if (cur) out.push(cur);
             return out;
@@ -223,5 +236,80 @@
         return { rows: rows, edrOnly: only, ddMissing: rows.filter(function (r) { return !r.edr.length; }).length };
     }
 
-    return { LasParser: LasParser, parseLasText: parseLasText, detect: detect, readDDSheet: readDDSheet, compare: compare, circStats: circStats, decodeTF: decodeTF, DEFAULTS: DEFAULTS, WANT: WANT };
+    // ---------------- 2026-11-21 (John): LAS (1 s) -> per-well series for the Pason Plots page ----------------
+    // Same series a Pason 10-min CSV gives (x = hole depth for HL / TQ / WOB / ROP / MSE / Flow, x = days for hole depth vs time),
+    // so everything downstream (Average / percentiles across wells, Export to Excel, job page Drilling Mechanics) is unchanged.
+    // Choices (MTX, stated; bin size is an input, default 1 m):
+    //  - rows used: bit ON BOTTOM (hole depth - bit depth < onBottomTol) and hole depth not decreasing, in depth order;
+    //  - each bin [d, d+bin): MEDIAN of HL, torque (CTOR, else TORQ / TQA), WOB, MSE, flow (TPO) over those rows;
+    //  - ROP of a bin = metres drilled in the bin / on-bottom time in the bin (same rule as the slide / rotate detection,
+    //    zero-progress on-bottom seconds count as time), so ROP and drilling time stay consistent;
+    //  - hole depth vs time: one point every tdStep minutes (default 10, like the CSV export), days from the first sample.
+    function lasToSeries(L, o) {
+        o = Object.assign({ bin: 1, onBottomTol: 0.5, maxStep: 2, tdStep: 10 }, o || {});
+        var n = L.n, T = L.TIME, DEP = L.DEPT, BIT = L.BDEP, bin = Math.max(0.1, +o.bin || 1);
+        var TQ = (L.CTOR && L.CTOR.some && Array.prototype.some.call(L.CTOR, isFinite)) ? L.CTOR : (Array.prototype.some.call(L.TORQ || [], isFinite) ? L.TORQ : L.TQA);
+        var bins = {};
+        function B(d) { var k = Math.floor(d / bin); return bins[k] || (bins[k] = { hl: [], tq: [], wob: [], mse: [], flow: [], len: 0, t: 0 }); }
+        for (var k = 1; k < n; k++) {
+            var d0 = DEP[k - 1], d1 = DEP[k]; if (!isFinite(d0) || !isFinite(d1) || !isFinite(BIT[k])) continue;
+            var st = d1 - d0; if (!(st >= 0 && st < o.maxStep) || !(d1 - BIT[k] < o.onBottomTol)) continue;
+            var b = B(d1), dt = Math.min(T[k] - T[k - 1], 60);
+            if (dt > 0) { b.t += dt; b.len += st; }
+            if (L.HL && isFinite(L.HL[k])) b.hl.push(L.HL[k]); if (TQ && isFinite(TQ[k])) b.tq.push(TQ[k]);
+            if (isFinite(L.WOB[k])) b.wob.push(L.WOB[k]); if (L.MSE && isFinite(L.MSE[k])) b.mse.push(L.MSE[k]); if (isFinite(L.TPO[k])) b.flow.push(L.TPO[k]);
+        }
+        function med(a) { if (!a.length) return null; a.sort(function (x, y) { return x - y; }); var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+        var out = { hl: [], tq: [], wob: [], rop: [], mse: [], flow: [], td: [] };
+        Object.keys(bins).map(Number).sort(function (a, b) { return a - b; }).forEach(function (kk) {
+            var b = bins[kk], x = (kk + 0.5) * bin, v;
+            if ((v = med(b.hl)) != null) out.hl.push({ x: x, y: v }); if ((v = med(b.tq)) != null) out.tq.push({ x: x, y: v });
+            if ((v = med(b.wob)) != null) out.wob.push({ x: x, y: v }); if ((v = med(b.mse)) != null) out.mse.push({ x: x, y: v });
+            if ((v = med(b.flow)) != null) out.flow.push({ x: x, y: v });
+            if (b.len > 0 && b.t > 0) out.rop.push({ x: x, y: b.len / (b.t / 3600) });
+        });
+        Object.keys(out).forEach(function (k) { out[k].forEach(function (p) { p.y = Math.round(p.y * 1000) / 1000; }); });   // Float32 noise
+        var t0 = null, next = -Infinity, step = (o.tdStep || 10) * 60;
+        for (var q = 0; q < n; q++) { if (!isFinite(T[q]) || !isFinite(DEP[q])) continue; if (t0 == null) t0 = T[q]; if (T[q] >= next) { out.td.push({ x: (T[q] - t0) / 86400, y: DEP[q] }); next = T[q] + step; } }
+        return out;
+    }
+    // ---------------- 2026-11-21 (John): LAS time statistics for the planned-well time model ----------------
+    // From the hole depth vs time record (all rows, 1 s) and the slide / rotate intervals of detect():
+    //  - STOPS: periods where the hole depth gains < 0.5 m for >= stopHours (default 2 h, MTX choice) — casing / cementing /
+    //    BHA change / waiting; a stop that ends with the hole depth DROPPING > 10 m is flagged endsWithDrop (trip back to a
+    //    sidetrack point = new leg, or data from another well — check the file);
+    //  - per depth bin (binLen, default 100 m): elapsed time while making hole (stops excluded), on-bottom slide / rotate metres
+    //    and hours (interval length / its ROP), and OTHER in-hole time = elapsed - on-bottom (connections, surveys, reaming…).
+    //  - gaps in the record longer than 1 h are data gaps (not stops) and are skipped.
+    function lasTimeStats(L, det, o) {
+        o = Object.assign({ binLen: 100, stopHours: 2 }, o || {});
+        var n = L.n, T = L.TIME, DEP = L.DEPT, bl = o.binLen, stopS = o.stopHours * 3600, bins = {}, stops = [], t0 = null;
+        function B(d) { var k = Math.floor(d / bl); return bins[k] || (bins[k] = { from: k * bl, to: (k + 1) * bl, el: 0, sm: 0, sh: 0, rm: 0, rh: 0 }); }
+        var aT = null, aD = null, pT = null, gaps = 0;
+        for (var k = 0; k < n; k++) {
+            var d = DEP[k], t = T[k]; if (!isFinite(d) || !isFinite(t)) continue;
+            if (t0 == null) t0 = t;
+            // data gap (no record for > 1 h): not a rig stop — restart the plateau after the gap
+            if (pT != null && t - pT > 3600) { gaps += t - pT; aT = t; aD = d; pT = t; continue; } pT = t;
+            if (aT == null) { aT = t; aD = d; continue; }
+            var drop = d < aD - 10, gain = d > aD + 0.5;
+            if (!drop && !gain) continue;
+            var dur = t - aT;
+            if (dur >= stopS) stops.push({ depth: aD, startDay: (aT - t0) / 86400, hours: dur / 3600, endsWithDrop: drop, nextDepth: drop ? d : null });
+            else if (gain) B((aD + d) / 2).el += dur;
+            aT = t; aD = d;
+        }
+        (det && det.intervals || []).forEach(function (iv) {
+            if (!(iv.rop > 0) || !(iv.to > iv.from)) return;
+            for (var a = Math.floor(iv.from / bl); a * bl < iv.to; a++) {
+                var lo = Math.max(iv.from, a * bl), hi = Math.min(iv.to, (a + 1) * bl); if (hi <= lo) continue;
+                var b = B(lo + 1e-9), m = hi - lo, h = m / iv.rop;
+                if (iv.mode === 'slide') { b.sm += m; b.sh += h; } else { b.rm += m; b.rh += h; }
+            }
+        });
+        var out = Object.keys(bins).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { var b = bins[k], onb = b.sh + b.rh;
+            return { from: b.from, to: b.to, m: b.sm + b.rm, onbH: onb, slideM: b.sm, slideH: b.sh, rotM: b.rm, rotH: b.rh, otherH: Math.max(0, b.el / 3600 - onb), elapsedH: b.el / 3600 }; });
+        return { bins: out, stops: stops, dataGapH: gaps / 3600 };
+    }
+    return { lasTimeStats: lasTimeStats, lasToSeries: lasToSeries, LasParser: LasParser, parseLasText: parseLasText, detect: detect, readDDSheet: readDDSheet, compare: compare, circStats: circStats, decodeTF: decodeTF, DEFAULTS: DEFAULTS, WANT: WANT };
 }));

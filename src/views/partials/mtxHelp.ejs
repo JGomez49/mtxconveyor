@@ -1,0 +1,81 @@
+<%#
+  partials/mtxHelp.ejs — ADDED 2026-11-22 (John): shared "?" help window for Drilling Mechanics (job.ejs),
+  Pason Plots (uploadPason.ejs) and Anti-collision Plots (job.ejs). Use: <button class="mtx-help-btn" onclick="mtxHelp('dm')">?</button>
+  Content is a plain-language summary of what the code does; every formula below is the one implemented, with its source as cited
+  in the code comments. Items marked "MTX choice" are implementation decisions, not published methods.
+%>
+<style>
+  .mtx-help-btn{ width:28px; height:28px; border-radius:50%; border:1px solid #4fc3f7; background:transparent; color:#4fc3f7;
+    font-weight:700; font-size:15px; line-height:1; padding:0; cursor:pointer; flex-shrink:0; }
+  .mtx-help-btn:hover{ background:#4fc3f7; color:#0b1218; }
+  .mtx-hp-modal{ position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:12px; }
+  .mtx-hp-modal.open{ display:flex; }
+  .mtx-hp-win{ background:#111820; color:#c8d8e8; border:1px solid #4fc3f7; border-radius:8px; width:min(760px,100%); max-height:88vh; display:flex; flex-direction:column; }
+  .mtx-hp-head{ display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #1e2d3d; }
+  .mtx-hp-head h3{ font-size:16px; margin:0; flex:1; color:#e8f4ff; }
+  .mtx-hp-head button{ background:none; border:none; color:#c8d8e8; font-size:22px; line-height:1; cursor:pointer; }
+  .mtx-hp-body{ padding:12px 16px 16px; overflow:auto; font-size:13.5px; line-height:1.5; }
+  .mtx-hp-body h4{ font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:#4fc3f7; margin:14px 0 6px; }
+  .mtx-hp-body .mtx-hp-quote{ border-left:3px solid #b264ff; background:rgba(178,100,255,.08); padding:8px 12px; margin:6px 0 10px; }
+  .mtx-hp-body .mtx-hp-eq{ font-family:Consolas,monospace; background:rgba(255,255,255,.05); padding:6px 10px; border-radius:4px; }
+  .mtx-hp-body ul{ padding-left:18px; margin:4px 0; }
+  @media (max-width:576px){ .mtx-hp-body{ font-size:13px; padding:10px 12px 14px; } }
+</style>
+<div class="mtx-hp-modal" id="mtxHpModal" onclick="if(event.target===this) mtxHelpClose()">
+  <div class="mtx-hp-win" role="dialog" aria-modal="true" aria-labelledby="mtxHpTitle">
+    <div class="mtx-hp-head"><h3 id="mtxHpTitle"></h3><button type="button" onclick="mtxHelpClose()" aria-label="Close">×</button></div>
+    <div class="mtx-hp-body" id="mtxHpBody"></div>
+  </div>
+</div>
+<script>
+(function(){
+  // Statement agreed with John, 2026-11-22 (shown in Drilling Mechanics and Pason Plots)
+  var SUMMARY = '<div class="mtx-hp-quote">MTX builds the planned time vs depth by stepping along the well plan (30 m steps). At each step it applies the offset wells\' Min/Avg/Max slide and rotate ROP and motor yield for that depth, works out the slide length the plan\'s curvature requires, and adds the offsets\' median casing, leg-change and other non-drilling times. It\'s an offset-based estimate; accuracy will be confirmed by back-testing against drilled wells.</div>';
+  var H = {
+    dm: { title: 'Drilling Mechanics — how the planned time is built', body:
+      '<h4>In one paragraph</h4>' + SUMMARY +
+      '<h4>Inputs</h4><ul>' +
+      '<li>The Excel exported from <b>Pason Plots</b> ("Export All Plots to Excel"): Min / Avg / Max curves of the offset wells vs MD, plus the tabs ROP Slide, ROP Rotate, MY Corrected, MY Rot Build / Walk and Flat times.</li>' +
+      '<li>The selected well\'s plan (surveys) with its SC / ICP / STK comments.</li></ul>' +
+      '<h4>Per step (Sim step, default 30 m)</h4><ul>' +
+      '<li>Plan curvature between the step ends (change in Inc and Azi).</li>' +
+      '<li>Slid length L<sub>s</sub> so that the slide plus the rotary tendency give that curvature:<div class="mtx-hp-eq">√[(ΔInc − BR·L<sub>r</sub>/30)² + ((ΔAz − WR·L<sub>r</sub>/30)·sin I)²] = MY·L<sub>s</sub>/30, &nbsp;L<sub>r</sub> = L − L<sub>s</sub></div>' +
+      'Same small-angle relation as the Slide Sheet rotation correction (ISCWSA eBook V9.10 pp. 57-58), used in reverse — <i>MTX choice</i>. A step is flagged when the plan needs more than the offsets\' MY can give.</li>' +
+      '<li>On-bottom hours = L<sub>s</sub> ÷ slide ROP + L<sub>r</sub> ÷ rotate ROP.</li>' +
+      '<li>Other in-hole and trip hours = offsets\' median hours per metre of that section × L.</li></ul>' +
+      '<h4>Stops</h4><ul><li>Surface and intermediate casing: the offsets\' median flat at those points.</li><li>Each new leg: the offsets\' median time from leg TD to drilling again.</li></ul>' +
+      '<h4>Min / Avg / Max</h4><p>The selector picks one consistent case for MY and both ROPs (Min = slowest: low MY, so more sliding, and low ROPs). Rotary build / walk always use Avg.</p>' +
+      '<h4>Snowball chart</h4><p>The same time line drawn as total drilled metres (all legs added) vs days; coloured strips show the planned legs, leg 1 shaded Surface / Build / Lateral.</p>' +
+      '<h4>Limits</h4><ul><li>Offset values are matched by MD, not by formation top.</li><li>Flats, the slide/rotate split of 10-min rows and the survey filters are MTX choices, documented in the code.</li><li>Not yet back-tested against drilled wells.</li></ul>' },
+    pason: { title: 'Pason Plots — what is built from the offsets', body:
+      '<h4>What these curves feed</h4>' + SUMMARY +
+      '<h4>Plots</h4><ul>' +
+      '<li><b>HL, Torque, WOB, ROP, MSE, Flow vs MD</b>: one line per offset; Avg = mean, Max / Min = the percentiles in Max % / Min % at each MD step.</li>' +
+      '<li><b>ROP slide / rotate</b>: each 10-min row is classed by its average Rotary RPM (Slide ≤ / Rotate ≥ boxes, ROP ≥ Min drilling ROP); mixed rows are left out — <i>MTX choice</i>.</li>' +
+      '<li><b>Motor Yield</b>: per slide range, MY = dogleg between the surveys around it ÷ slid metres × 30 (°/30 m), the Slide Sheet definition (Pason "Slide Performance": DLS ÷ % sliding). Dogleg by minimum curvature. Survey offset and bad-survey filters are <i>MTX choices</i>.</li>' +
+      '<li><b>Hole Depth vs Time</b>: the saw-teeth record of each offset.</li>' +
+      '<li><b>Total Depth vs Time (snowball)</b>: all legs added; data gaps longer than "Close data gaps" are cut out; Min / Avg / Max are the time to reach each total depth, each well continuing its own recent pace past its end (dashed) — <i>MTX choice</i>.</li></ul>' +
+      '<h4>Flat times tab</h4><p>Per offset: casing flats (the two longest main-bore flats), trips, leg changes and other in-hole time per section. A flat = depth unchanged (±0.5 m) for at least "Min flat" hours — <i>MTX choice</i>.</p>' +
+      '<h4>Next step</h4><p>Export all plots to Excel and upload the file in the job\'s Drilling Mechanics panel.</p>' },
+    acp: { title: 'Anti-collision Plots — how C2C and SF are calculated', body:
+      '<h4>Centre-to-centre (C2C)</h4><p>For each station of the reference well, the true 3D closest approach to the offset wellbore (not equal-MD), with the offset position interpolated along its survey.</p>' +
+      '<h4>Position uncertainty</h4><p>Each well\'s 3×3 covariance from the ISCWSA error model (Rev 5 toolcodes, chosen in Toolcode) — or the "Simplified (approximate)" model when no toolcode is chosen. Each covariance is projected on the C2C direction: <span class="mtx-hp-eq">UR = K·√(uᵀ C u)</span>, K = Confidence K (default 2 σ, as stated on CNRL\'s Compass reports: "Output errors are at 2.00 sigma").</p>' +
+      '<h4>Separation Factor</h4><div class="mtx-hp-eq">SF = C2C ÷ error radius</div><ul>' +
+      '<li><b>Combined Pedal Curve</b> (default, CNRL\'s Compass setting): error radius = √(UR<sub>ref</sub>² + UR<sub>off</sub>²) — covariances added before the distance (COMPASS Training Manual 2003.5, ch. 6, pp. 225-227).</li>' +
+      '<li><b>Elliptical Conic</b>: UR<sub>ref</sub> + UR<sub>off</sub> (ISCWSA "Collision Avoidance — Current Common Practice", 2010).</li>' +
+      '<li><b>Circular Conic</b>: sum of the two ellipsoids\' major semi-axes.</li></ul>' +
+      '<p>No cross-well error correlation is applied (Compass applies it only with the opt-in "Reduce Global Lateral Errors").</p>' +
+      '<h4>Check against Compass</h4><p>With Combined Pedal Curve, MTX reproduced Compass\'s SF on 319 report rows (MD &gt; 100 m) to a median difference of 0.0 / −0.1 %.</p>' +
+      '<h4>Reading the plots</h4><p>Lower SF = the wells are closer relative to their combined position uncertainty. SF 1.25 and 1.0 are commonly used alert levels; follow your company\'s AC policy and the official AC report.</p>' }
+    ,acrisk: { title: 'Anticollision Risk Summary — what this page does', body:
+      '<h4>What it reads</h4><p>Compass anticollision reports (.xls, .xlsx or .csv; a folder or several files). Every value shown — MD, TVD, semi-major axes, C2C, between wellbores (W2W), between ellipses (E2E), minimum separation, SF, collision probability, warning — is read <b>as printed in the report</b>. Nothing is recalculated here.</p>' +
+      '<h4>Which station is shown per offset well</h4><p>For each subject / offset pair, among the stations where <b>C2C &lt; C2C threshold</b> (default 15 m) <b>or SF &lt; SF threshold</b> (default 1.25), the row shown is the worst one: highest collision probability (smallest "1 in N"); ties go to the lower SF, then the lower C2C, then the deeper MD. Offsets with no station below either threshold are not listed.</p>' +
+      '<h4>Colours</h4><ul><li>C2C: red &lt; 10 m, amber &lt; 15 m, green otherwise.</li><li>SF: red &lt; 1.0, amber &lt; 1.25, green otherwise.</li></ul>' +
+      '<h4>Filters</h4><p>"Show only: C2C &lt; 15 AND SF &lt; 1.00" keeps the rows where both are true. The table can be downloaded as Excel (Summary tab).</p>' +
+      '<h4>Keep in mind</h4><p>The thresholds and colours are screening levels for this page; follow your company\'s AC policy, and the error model, error surface and confidence level of the Compass report itself (see the report header). For how MTX calculates SF on its own, see the "?" in the job\'s Anti-collision Plots.</p>' }
+  };
+  window.mtxHelp = function(key){ var h = H[key]; if(!h) return; document.getElementById('mtxHpTitle').textContent = h.title; document.getElementById('mtxHpBody').innerHTML = h.body; document.getElementById('mtxHpModal').classList.add('open'); };
+  window.mtxHelpClose = function(){ document.getElementById('mtxHpModal').classList.remove('open'); };
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') window.mtxHelpClose(); });
+})();
+</script>

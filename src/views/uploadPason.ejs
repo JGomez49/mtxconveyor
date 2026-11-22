@@ -69,153 +69,132 @@
             </div>
             <div id="status2" class="form-text mt-2"></div>
           </div>
+          <%# 2026-11-21 (John): LAS (1 s EDR, same files as the Slide Sheet) as a third input — each file = one well, converted
+               to the same per-well series as a Pason CSV (public/js/slideSheetModel.js lasToSeries), so averages, percentiles,
+               plots and "Export All Plots to Excel" work unchanged. CSV and LAS wells can be mixed. %>
+          <div class="col-lg-12">
+            <div class="file-title mb-2">Pason LAS files (EDR, 1 s) — one file per well</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <input id="lasFiles" class="form-control" type="file" accept=".las,.LAS,.txt" multiple style="max-width:420px" />
+              <div class="input-group input-group-sm" style="max-width:230px;">
+                <span class="input-group-text" title="Depth bin for HL / torque / WOB / MSE / flow (median of the on-bottom rows) and ROP (metres / on-bottom time)">Bin size (m)</span>
+                <input type="number" class="form-control" id="lasBin" min="0.1" step="0.1" value="1" />
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="lasClear">Remove LAS wells</button>
+            </div>
+            <div class="form-text">Per depth bin: median of hook load, torque, WOB, MSE and flow over the rows with the bit on bottom; ROP = metres drilled ÷ on-bottom time in the bin. Hole depth vs time: one point every 10 min. Changing the bin size re-reads the files.</div>
+            <div id="status3" class="form-text mt-2"></div>
+          </div>
         </div>
 
         <hr class="my-4 subtle"/>
 
-        <div class="row g-3 align-items-center mb-2">
-          <div class="col-xxl-4 d-flex align-items-center flex-gap">
-            <label for="plotSelect" class="form-label mb-0">Plot:</label>
-            <select id="plotSelect" class="form-select form-select-sm" style="max-width: 520px;"></select>
+        <%# 2026-11-22 (John): CONTROLS RE-ARRANGED into labelled cards (Plot / Display / Filtering / Curves / Time analysis / Axes /
+             Export) on a responsive grid: 3-4 columns on a PC, 1 column on a phone. Every control keeps its id, so no script changed.
+             Was: one long wrapped line of mixed controls. %>
+        <style>
+          .pc-plotbar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px; }
+          .pc-plotbar label{ margin:0; font-weight:600; }
+          .pc-plotbar select{ flex:1 1 260px; max-width:520px; }
+          .pc-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:10px; align-items:start; }
+          .pc-card{ border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:8px 10px 10px; background:rgba(255,255,255,.03); min-width:0; }
+          .pc-card h6{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; opacity:.75; margin:0 0 8px; }
+          .pc-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; min-height:30px; }
+          .pc-row > label, .pc-row > .pc-l{ flex:0 0 46%; margin:0; font-size:13px; }
+          .pc-row > input[type=number], .pc-row > select{ flex:1 1 auto; width:auto!important; min-width:0!important; height:30px; padding:2px 8px; font-size:13px; }
+          .pc-row > input[type=range]{ flex:1 1 auto; min-width:0; }
+          .pc-row .form-check{ margin:0; }
+          .pc-checks{ display:flex; flex-wrap:wrap; gap:4px 16px; margin-bottom:6px; font-size:13px; }
+          .pc-btns{ display:flex; flex-wrap:wrap; gap:6px; }
+          .pc-btns .btn{ flex:1 1 auto; }
+          .pc-axes{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px; }
+          .pc-axes .input-group{ width:auto!important; min-width:0; flex-wrap:nowrap; }
+          .pc-axes .input-group .form-control{ min-width:0; width:1%; }
+          #ropModeBox{ flex-direction:column; }
+          #ropModeBox .rm-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+          #ropModeBox .rm-row label{ flex:0 0 46%; margin:0; font-size:13px; }
+          #ropModeBox .rm-row input, #ropModeBox .rm-row select{ flex:1 1 auto; width:auto!important; min-width:0!important; height:30px; padding:2px 8px; font-size:13px; }
+          @media (max-width:576px){ .pc-grid{ grid-template-columns:1fr; } .pc-plotbar select{ max-width:none; } }
+        </style>
+
+        <div class="pc-plotbar">
+          <label for="plotSelect">Plot</label>
+          <select id="plotSelect" class="form-select form-select-sm"></select>
+          <button type="button" class="mtx-help-btn ms-auto" title="What these plots are and what they feed" aria-label="Help" onclick="mtxHelp('pason')">?</button><%# 2026-11-22 help %>
+        </div>
+
+        <div class="pc-grid mb-3">
+          <%# ROP / Motor Yield options (shown only with those plots; see ropBoxVis) %>
+          <div class="pc-card" id="ropModeBox" style="display:none!important">
+            <h6>ROP / Motor Yield options</h6>
+            <div class="rm-row"><label for="ropMode">ROP mode</label><select id="ropMode" class="form-select form-select-sm"><option value="all">All rows (as before)</option><option value="slide">Slide only</option><option value="rot">Rotate only</option></select></div>
+            <div class="rm-row" title="A row counts as drilling only when its ROP is at or above this (all three modes)"><label for="ropMinDrill">Min drilling ROP (m/h)</label><input type="number" class="form-control form-control-sm" id="ropMinDrill" value="2" min="0" step="0.5"></div>
+            <div class="rm-row" title="Drilling row with average Rotary RPM at or below this = slide"><label for="ropSlideRpm">Slide ≤ RPM</label><input type="number" class="form-control form-control-sm" id="ropSlideRpm" value="5" min="0" step="1"></div>
+            <div class="rm-row" title="Drilling row with average Rotary RPM at or above this = rotate"><label for="ropRotRpm">Rotate ≥ RPM</label><input type="number" class="form-control form-control-sm" id="ropRotRpm" value="20" min="0" step="1"></div>
+            <div class="rm-row" title="How the Min / Avg / Max ROP curves continue where fewer than 'min series per point' wells have data, down to the deepest MD of all files"><label for="ropExt">Beyond curve end</label><select id="ropExt" class="form-select form-select-sm"><option value="pool">Pooled rows (default)</option><option value="ms1">Min series = 1</option></select></div>
+            <div class="rm-row rm-my" title="Slide MY = interval dogleg / slid metres x 30. Rotary tendency = DLS of intervals with slid < 10 %. Corrected = slide MY after removing the well's rotary build / walk (MTX choice, as on the Slide Sheet)"><label for="myType">MY type</label><select id="myType" class="form-select form-select-sm"><option value="slide">Slide MY</option><option value="rot">Rotary tendency (DLS)</option><option value="corr">Slide MY, rotation-corrected</option></select></div>
+            <div class="rm-row rm-my" title="Survey MD = hole depth when the new Inc / Azi first shows while drilling, minus this"><label for="myOffset">Bit-to-survey offset (m)</label><input type="number" class="form-control form-control-sm" id="myOffset" value="15" min="0" step="0.5"></div>
+            <div class="rm-row rm-my" title="Survey values giving a higher DLS than this to the previous good survey are treated as bad data"><label for="myMaxDls">Max plausible DLS (°/30 m)</label><input type="number" class="form-control form-control-sm" id="myMaxDls" value="25" min="1" step="1"></div>
+            <div class="rm-row rm-my" title="Grid of the Min / Avg / Max curves across wells"><label for="myBin">MY bin length (m)</label><input type="number" class="form-control form-control-sm" id="myBin" value="30" min="5" step="1"></div>
+            <span id="ropModeInfo" class="form-text"></span>
           </div>
-          <div class="col-xxl-8 d-flex flex-wrap controls-block justify-content-xxl-end align-items-center">
-            <div class="input-group input-group-sm" style="width: 200px;">
-              <label class="input-group-text" for="paletteMode">Palette</label>
-              <select class="form-select" id="paletteMode">
-                <option value="colors">Colors</option>
-                <option value="gray">Gray</option>
-              </select>
+
+          <div class="pc-card">
+            <h6>Display</h6>
+            <div class="pc-row"><label for="paletteMode">Palette</label><select class="form-select form-select-sm" id="paletteMode"><option value="colors">Colors</option><option value="gray">Gray</option></select></div>
+            <div class="pc-row"><label for="lineStyle">Line style</label><select class="form-select form-select-sm" id="lineStyle"><option value="solid">Solid line</option><option value="dotted">Dotted line</option><option value="points" selected>Points only</option><option value="hide">Hide regular curves</option></select></div>
+            <div class="pc-row"><label for="dotStyle">Dot size &amp; opacity</label><input type="range" id="dotStyle" class="form-range" min="0" max="100" step="1" value="10" /></div>
+            <div class="pc-checks">
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="showPoints" /><label class="form-check-label" for="showPoints">Show points</label></div>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="showLegend" /><label class="form-check-label" for="showLegend">Show legend</label></div>
             </div>
-            <div class="input-group input-group-sm" style="width: 260px;">
-              <label class="input-group-text" for="lineStyle">Line style</label>
-              <select class="form-select" id="lineStyle">
-                <option value="solid">Solid line</option>
-                <option value="dotted">Dotted line</option>
-                <option value="points" selected>Points only</option>
-                <option value="hide">Hide regular curves</option>
-              </select>
-            </div>
-            <!-- Points toggle (default hidden) -->
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="showPoints" />
-              <label class="form-check-label" for="showPoints">Show points</label>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <label for="dotStyle" class="form-label mb-0">Dots size & opacity</label>
-              <input type="range" id="dotStyle" class="form-range" min="0" max="100" step="1" value="10" />
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="rejectSpikes" />
-              <label class="form-check-label" for="rejectSpikes">Reject spikes</label>
-            </div>
-            <div class="input-group input-group-sm num-input">
-              <span class="input-group-text">Δ ></span>
-              <input type="number" class="form-control" id="spikeThreshold" value="5" step="0.1" min="0" />
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="useIqrReject" checked />
-              <label class="form-check-label" for="useIqrReject">Robust spike filter (IQR)</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="applySmoothing" checked />
-              <label class="form-check-label" for="applySmoothing">Smooth</label>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <label for="smoothWindow" class="form-label mb-0">Window</label>
-              <input type="range" id="smoothWindow" class="form-range" min="1" max="25" step="2" value="5" />
-              <span id="smoothValue" class="small-note">5</span>
-            </div>
-            <%# 2026-11-14 (John): Hole Depth vs Time drawn with sharp corners or rounded; saved per user (userPrefs.js) %>
-            <div class="d-flex align-items-center gap-2" title="Hole Depth vs Time only: Sharp = straight lines between points (true depth/time record); Rounded = smoothed curve. Saved for your user.">
-              <label for="tdCurveStyle" class="form-label mb-0">Time vs Depth curve</label>
-              <select id="tdCurveStyle" class="form-select form-select-sm" style="width:auto"><option value="sharp">Sharp</option><option value="round">Rounded</option></select>
-              <label for="tdSharpTol" class="form-label mb-0" title="Sharp: a point is dropped when it lies within this % of the plot size from the straight line through its neighbours. Smaller = more points; larger = fewer, longer straight segments. Saved for your user.">Tol %</label>
-              <input type="number" id="tdSharpTol" class="form-control form-control-sm" style="width:70px" value="1" min="0.05" max="20" step="0.1">
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="showLegend" />
-              <label class="form-check-label" for="showLegend">Show legend</label>
-            </div>
-            <!-- Series toggle dropdown -->
             <div class="dropdown">
-              <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Series (current plot)
-              </button>
+              <button class="btn btn-outline-light btn-sm dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">Series (current plot)</button>
               <div class="dropdown-menu dropdown-menu-checklist p-2" id="seriesToggleMenu"></div>
             </div>
           </div>
-        </div>
 
-        <div id="specialControls" class="row g-3 align-items-center mb-2">
-          <div class="col-xxl-12 d-flex flex-wrap controls-block justify-content-xxl-end align-items-center">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="showAverage" checked />
-              <label class="form-check-label" for="showAverage">Average</label>
-            </div>
-            <div class="input-group input-group-sm num-input-wide">
-              <span class="input-group-text">Step</span>
-              <input type="number" class="form-control" id="avgStep" value="5" step="1" min="0.0001" />
-              <span class="input-group-text">m / days</span>
-            </div>
-            <div class="input-group input-group-sm num-input">
-              <span class="input-group-text">Min series</span>
-              <input type="number" class="form-control" id="avgMinSeries" value="2" step="1" min="1" />
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="showMax" checked />
-              <label class="form-check-label" for="showMax">Max (percentile)</label>
-            </div>
-            <div class="input-group input-group-sm num-input">
-              <span class="input-group-text">Max %</span>
-              <input type="number" class="form-control" id="maxPct" value="90" step="1" min="50" max="100" />
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="showMin" checked />
-              <label class="form-check-label" for="showMin">Min (percentile)</label>
-            </div>
-            <div class="input-group input-group-sm num-input">
-              <span class="input-group-text">Min %</span>
-              <input type="number" class="form-control" id="minPct" value="10" step="1" min="0" max="50" />
-            </div>
-            <div class="btn-group btn-group-sm" role="group" aria-label="CSV Exports">
-              <button id="exportAvgCsv" class="btn btn-outline-success">Export Average CSV</button>
-              <button id="exportMaxCsv" class="btn btn-outline-success">Export Max CSV</button>
-              <button id="exportMinCsv" class="btn btn-outline-success">Export Min CSV</button>
-            </div>
-            <div class="mt-2">
-              <button id="exportAllPlotsXlsx" class="btn btn-outline-warning btn-sm">📊 Export All Plots to Excel (1 tab per plot)</button>
-            </div>
+          <div class="pc-card">
+            <h6>Filtering &amp; smoothing</h6>
+            <div class="pc-row"><div class="form-check pc-l"><input class="form-check-input" type="checkbox" id="rejectSpikes" /><label class="form-check-label" for="rejectSpikes">Reject spikes Δ &gt;</label></div><input type="number" class="form-control form-control-sm" id="spikeThreshold" value="5" step="0.1" min="0" /></div>
+            <div class="pc-checks"><div class="form-check"><input class="form-check-input" type="checkbox" id="useIqrReject" checked /><label class="form-check-label" for="useIqrReject">Robust spike filter (IQR)</label></div></div>
+            <div class="pc-row"><div class="form-check pc-l"><input class="form-check-input" type="checkbox" id="applySmoothing" checked /><label class="form-check-label" for="applySmoothing">Smooth, window</label></div><input type="range" id="smoothWindow" class="form-range" min="1" max="25" step="2" value="5" /><span id="smoothValue" class="small-note">5</span></div>
+            <%# 2026-11-14 (John): Hole Depth vs Time drawn with sharp corners or rounded; saved per user (userPrefs.js) %>
+            <div class="pc-row" title="Hole Depth vs Time only: Sharp = straight lines between points (true depth/time record); Rounded = smoothed curve. Saved for your user."><label for="tdCurveStyle">Time vs Depth curve</label><select id="tdCurveStyle" class="form-select form-select-sm"><option value="sharp">Sharp</option><option value="round">Rounded</option></select></div>
+            <div class="pc-row" title="Sharp: a point is dropped when it lies within this % of the plot size from the straight line through its neighbours. Smaller = more points; larger = fewer, longer straight segments. Saved for your user."><label for="tdSharpTol">Sharp tolerance (%)</label><input type="number" id="tdSharpTol" class="form-control form-control-sm" value="1" min="0.05" max="20" step="0.1"></div>
           </div>
-        </div>
 
-        <div class="row g-2 align-items-center mb-2">
-          <div class="col-xxl-12 d-flex flex-wrap align-items-center gap-2">
-            <span class="small-note me-2">Axes (<span id="axesPlotName">Hook Load vs Measured Depth</span>):</span>
-            <div class="input-group input-group-sm num-input-axis">
-              <span class="input-group-text">X min</span>
-              <input type="number" class="form-control" id="xMin" />
+          <div class="pc-card" id="specialControls">
+            <h6>Min / Avg / Max curves</h6>
+            <div class="pc-row"><div class="form-check pc-l"><input class="form-check-input" type="checkbox" id="showAverage" checked /><label class="form-check-label" for="showAverage">Average</label></div><span class="small-note">step</span><input type="number" class="form-control form-control-sm" id="avgStep" value="5" step="1" min="0.0001" /><span class="small-note">m / days</span></div>
+            <div class="pc-row"><div class="form-check pc-l"><input class="form-check-input" type="checkbox" id="showMax" checked /><label class="form-check-label" for="showMax">Max, percentile %</label></div><input type="number" class="form-control form-control-sm" id="maxPct" value="90" step="1" min="50" max="100" /></div>
+            <div class="pc-row"><div class="form-check pc-l"><input class="form-check-input" type="checkbox" id="showMin" checked /><label class="form-check-label" for="showMin">Min, percentile %</label></div><input type="number" class="form-control form-control-sm" id="minPct" value="10" step="1" min="0" max="50" /></div>
+            <div class="pc-row"><label for="avgMinSeries">Min wells per point</label><input type="number" class="form-control form-control-sm" id="avgMinSeries" value="2" step="1" min="1" /></div>
+          </div>
+
+          <div class="pc-card">
+            <h6>Time analysis</h6>
+            <div class="pc-row" title="Snowball plot: time jumps between rows longer than this (no data: rig away, recorder off) are cut out"><label for="snowGapH">Close data gaps &gt; (h)</label><input type="number" class="form-control form-control-sm" id="snowGapH" value="12" min="1" step="1"></div>
+            <div class="pc-row" title="Flat time = hole depth unchanged (±0.5 m) for at least this long; used for the 'Flat times' tab of the export"><label for="minFlatH">Min flat (h)</label><input type="number" class="form-control form-control-sm" id="minFlatH" value="2" min="0.5" step="0.5"></div>
+          </div>
+
+          <div class="pc-card">
+            <h6>Axes (<span id="axesPlotName">Hook Load vs Measured Depth</span>)</h6>
+            <div class="pc-axes">
+              <div class="input-group input-group-sm"><span class="input-group-text">X min</span><input type="number" class="form-control" id="xMin" /></div>
+              <div class="input-group input-group-sm"><span class="input-group-text">X max</span><input type="number" class="form-control" id="xMax" /></div>
+              <div class="input-group input-group-sm"><span class="input-group-text">Y min</span><input type="number" class="form-control" id="yMin" /></div>
+              <div class="input-group input-group-sm"><span class="input-group-text">Y max</span><input type="number" class="form-control" id="yMax" /></div>
             </div>
-            <div class="input-group input-group-sm num-input-axis">
-              <span class="input-group-text">X max</span>
-              <input type="number" class="form-control" id="xMax" />
-            </div>
-            <div class="input-group input-group-sm num-input-axis">
-              <span class="input-group-text">Y min</span>
-              <input type="number" class="form-control" id="yMin" />
-            </div>
-            <div class="input-group input-group-sm num-input-axis">
-              <span class="input-group-text">Y max</span>
-              <input type="number" class="form-control" id="yMax" />
-            </div>
-            <button id="applyAxes" class="btn btn-outline-light btn-sm">Apply</button>
-            <button id="autoAxes" class="btn btn-outline-light btn-sm">Auto</button>
-            <div class="form-check ms-3">
-              <input class="form-check-input" type="checkbox" id="enableZoom" />
-              <label class="form-check-label" for="enableZoom">Enable zoom/pan</label>
-            </div>
-            <button id="resetZoom" class="btn btn-outline-warning btn-sm">Reset Zoom</button>
-            <button id="exportPng" class="btn btn-outline-info btn-sm ms-auto">Download PNG</button>
-            <button id="exportVisibleCsv" class="btn btn-outline-info btn-sm">Export visible CSV</button>
+            <div class="pc-btns mb-2"><button id="applyAxes" class="btn btn-outline-light btn-sm">Apply</button><button id="autoAxes" class="btn btn-outline-light btn-sm">Auto</button><button id="resetZoom" class="btn btn-outline-warning btn-sm">Reset zoom</button></div>
+            <div class="pc-checks"><div class="form-check"><input class="form-check-input" type="checkbox" id="enableZoom" /><label class="form-check-label" for="enableZoom">Enable zoom / pan</label></div></div>
+          </div>
+
+          <div class="pc-card">
+            <h6>Export</h6>
+            <div class="pc-btns mb-2"><button id="exportAllPlotsXlsx" class="btn btn-outline-warning btn-sm">📊 All plots to Excel (1 tab per plot)</button></div>
+            <div class="pc-btns mb-2"><button id="exportAvgCsv" class="btn btn-outline-success btn-sm">Average CSV</button><button id="exportMaxCsv" class="btn btn-outline-success btn-sm">Max CSV</button><button id="exportMinCsv" class="btn btn-outline-success btn-sm">Min CSV</button></div>
+            <div class="pc-btns"><button id="exportPng" class="btn btn-outline-info btn-sm">Download PNG</button><button id="exportVisibleCsv" class="btn btn-outline-info btn-sm">Visible data CSV</button></div>
           </div>
         </div>
       </div>
@@ -223,8 +202,17 @@
 
     <div class="card">
       <div class="card-body">
+        <%# 2026-11-22 (John): phone layout — chart in a tall box (Chart.js maintainAspectRatio off), see pcPhoneOpts %>
+        <style>
+          .chart-box{ position:relative; }
+          @media (max-width:576px){
+            .card-body:has(> .chart-wrap){ padding:.35rem; }
+            .chart-wrap{ padding:.35rem; }
+            .chart-box{ height:75vh; min-height:360px; }
+          }
+        </style>
         <div class="chart-wrap">
-          <canvas id="chartMain"></canvas>
+          <div class="chart-box"><canvas id="chartMain"></canvas></div>
         </div>
       </div>
     </div>
@@ -266,6 +254,8 @@
       { id: 'rop', name: 'ROP vs Measured Depth',         xTitle: 'Measured Depth (m)', yTitle: 'ROP (m/h)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
       { id: 'mse', name: 'MSE vs Measured Depth',         xTitle: 'Measured Depth (m)', yTitle: 'MSE (ksi)',         supportsSpecial: true,  reversedY: false, defaultSolid: false },
       { id: 'flow',name: 'Flow vs Measured Depth',        xTitle: 'Measured Depth (m)', yTitle: 'Flow (m³/min)',     supportsSpecial: true,  reversedY: false, defaultSolid: false },
+      { id: 'my',  name: 'Motor Yield vs Measured Depth', xTitle: 'Measured Depth (m)', yTitle: 'MY / DLS (°/30 m)', supportsSpecial: true,  reversedY: false, defaultSolid: false },   // 2026-11-21
+      { id: 'tds', name: 'Total Depth vs Time (snowball)', xTitle: 'Time (days from start)', yTitle: 'Total drilled depth, all legs (m)', supportsSpecial: true, reversedY: true, defaultSolid: true },   // 2026-11-22
       { id: 'td',  name: 'Hole Depth vs Time (days)',     xTitle: 'Time (days from start)', yTitle: 'Hole Depth (m)', supportsSpecial: true,  reversedY: true,  defaultSolid: true }
     ];
 
@@ -305,7 +295,7 @@
 
     // ---------------- State ----------------
     let state={ file1:null, pasonSeries:[], axesHL:{xMin:null,xMax:null,yMin:null,yMax:null}, torqueSeries:[], axesTQ:{xMin:null,xMax:null,yMin:null,yMax:null}, wobSeries:[], axesWOB:{xMin:null,xMax:null,yMin:null,yMax:null}, ropSeries:[], axesROP:{xMin:null,xMax:null,yMin:null,yMax:null}, mseSeries:[], axesMSE:{xMin:null,xMax:null,yMin:null,yMax:null}, flowSeries:[], axesFLOW:{xMin:null,xMax:null,yMin:null,yMax:null}, timeDepthSeries:[], axesTD:{xMin:null,xMax:null,yMin:null,yMax:null} };
-    const seriesEnableState = { hl:{}, tq:{}, wob:{}, rop:{}, mse:{}, flow:{}, td:{} };
+    const seriesEnableState = { hl:{}, tq:{}, wob:{}, rop:{}, mse:{}, flow:{}, td:{}, my:{}, tds:{} };
     let lastCurvesSpecial={avg:[],max:[],min:[]};
     let chartMain=null;
 
@@ -316,7 +306,7 @@
     function isSeriesEnabled(plotId,key){ const st=seriesEnableState[plotId]||{}; return (key in st) ? !!st[key] : true; }
     function setSeriesEnabled(plotId,key,val){ if(!seriesEnableState[plotId]) seriesEnableState[plotId]={}; seriesEnableState[plotId][key]=!!val; }
 
-    function getSeriesListForPlot(plotId){ const list=[]; if(plotId==='hl'){ if(state.file1?.rawB?.length){ list.push({key:'file1:B', label: `${state.file1.name} — B`}); } if(state.file1?.rawC?.length){ list.push({key:'file1:C', label: `${state.file1.name} — C`}); } state.pasonSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`hl:${s.name}`, label:s.name}); }); } else if(plotId==='tq'){ state.torqueSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`tq:${s.name}`, label:s.name}); }); } else if(plotId==='wob'){ state.wobSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`wob:${s.name}`, label:s.name}); }); } else if(plotId==='rop'){ state.ropSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`rop:${s.name}`, label:s.name}); }); } else if(plotId==='mse'){ state.mseSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`mse:${s.name}`, label:s.name}); }); } else if(plotId==='flow'){ state.flowSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`flow:${s.name}`, label:s.name}); }); } else if(plotId==='td'){ state.timeDepthSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`td:${s.name}`, label:s.name}); }); } return list; }
+    function getSeriesListForPlot(plotId){ const list=[]; if(plotId==='hl'){ if(state.file1?.rawB?.length){ list.push({key:'file1:B', label: `${state.file1.name} — B`}); } if(state.file1?.rawC?.length){ list.push({key:'file1:C', label: `${state.file1.name} — C`}); } state.pasonSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`hl:${s.name}`, label:s.name}); }); } else if(plotId==='tq'){ state.torqueSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`tq:${s.name}`, label:s.name}); }); } else if(plotId==='wob'){ state.wobSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`wob:${s.name}`, label:s.name}); }); } else if(plotId==='rop'){ state.ropSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`rop:${s.name}`, label:s.name}); }); } else if(plotId==='mse'){ state.mseSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`mse:${s.name}`, label:s.name}); }); } else if(plotId==='flow'){ state.flowSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`flow:${s.name}`, label:s.name}); }); } else if(plotId==='my'){ state.ropSeries.forEach(s=>{ if(s.myRows?.length) list.push({key:`my:${s.name}`, label:s.name}); }); } else if(plotId==='tds'){ state.timeDepthSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`tds:${s.name}`, label:s.name}); }); } else if(plotId==='td'){ state.timeDepthSeries.forEach(s=>{ if(s.raw?.length) list.push({key:`td:${s.name}`, label:s.name}); }); } return list; }
 
     function buildSeriesToggleMenu(){ const p=currentPlotDef(); const menu=document.getElementById('seriesToggleMenu'); menu.innerHTML=''; const items=getSeriesListForPlot(p.id); if(!items.length){ const em=document.createElement('div'); em.className='text-muted small'; em.textContent='No series loaded'; menu.appendChild(em); return; }
       items.forEach(({key,label})=>{ const id='chk_'+btoa(p.id+'|'+key).replace(/=/g,''); const wrap=document.createElement('div'); wrap.className='form-check'; const inp=document.createElement('input'); inp.className='form-check-input'; inp.type='checkbox'; inp.id=id; inp.checked=isSeriesEnabled(p.id, key); const lab=document.createElement('label'); lab.className='form-check-label'; lab.htmlFor=id; lab.textContent=label; wrap.appendChild(inp); wrap.appendChild(lab); menu.appendChild(wrap); inp.addEventListener('change', ()=>{ setSeriesEnabled(p.id, key, inp.checked); renderMain(); }); });
@@ -329,9 +319,71 @@
     function getAllProcessedSeriesHL(){ const out=[]; if(state.file1?.rawB?.length && isSeriesEnabled('hl','file1:B')) out.push(prepareForPlot(state.file1.rawB)); if(state.file1?.rawC?.length && isSeriesEnabled('hl','file1:C')) out.push(prepareForPlot(state.file1.rawC)); state.pasonSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('hl', `hl:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
     function getAllProcessedSeriesTQ(){ const out=[]; state.torqueSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('tq', `tq:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
     function getAllProcessedSeriesWOB(){ const out=[]; state.wobSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('wob', `wob:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
-    function getAllProcessedSeriesROP(){ const out=[]; state.ropSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('rop', `rop:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    // 2026-11-21 (John): points of one ROP series for the selected mode. 'all' = the file's ROP column as before (zeros included).
+    // 'slide' / 'rot' = drilling rows only (ROP > 0) classified by the row's average Rotary RPM against the two thresholds.
+    // Wells without RPM rows (LAS / older uploads) have no slide / rotate points and are skipped in those modes.
+    function ropMode(){ const m=document.getElementById('ropMode'); return m ? m.value : 'all'; }
+    // 2026-11-21 (John): minimum ROP for a row to count as drilling (default 2 m/h, user-editable), applied in all three modes.
+    // Was: 'all' kept every ROP ≥ 0, so off-bottom / circulating rows (ROP = 0) pulled Min and Avg down.
+    function ropMinDrill(){ const v=parseFloat((document.getElementById('ropMinDrill')||{}).value); return Number.isFinite(v)&&v>=0 ? v : 2; }
+    function ropPts(s, mode){ mode=mode||ropMode(); const mn=ropMinDrill(); if(mode==='all') return (s.raw||[]).filter(p=>p.y>=mn); if(!s.modeRows) return [];
+      const lo=parseFloat(document.getElementById('ropSlideRpm').value), hi=parseFloat(document.getElementById('ropRotRpm').value);
+      return s.modeRows.filter(r=> r[1]>=mn && (mode==='slide' ? r[2]<=(Number.isFinite(lo)?lo:5) : r[2]>=(Number.isFinite(hi)?hi:20))).map(r=>({x:r[0],y:r[1]})); }
+    function getAllProcessedSeriesROP(mode){ const out=[]; state.ropSeries.forEach(s=>{ const pts=ropPts(s,mode); if(pts.length && isSeriesEnabled('rop', `rop:${s.name}`)) out.push(prepareForPlot(pts)); }); return out; }
     function getAllProcessedSeriesMSE(){ const out=[]; state.mseSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('mse', `mse:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
     function getAllProcessedSeriesFLOW(){ const out=[]; state.flowSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('flow', `flow:${s.name}`)) out.push(prepareForPlot(s.raw)); }); return out; }
+    /* 2026-11-22 (John): SNOWBALL — total drilled metres of all legs vs days, per offset well (same conversion as the job page,
+     * views/job.ejs snowSeries): a new leg starts when the hole depth drops > 10 m below the leg's deepest point; until drilling
+     * resumes (depth more than 0.5 m below the leg's shallowest point) nothing is added, so tripping / reaming adds nothing;
+     * afterwards only depth below the leg's deepest point counts. Min / Avg / Max across wells at each time are
+     * meaningful here (every curve only goes down), unlike on the saw-teeth plot. MTX choice (display). */
+    function snowPts(pts){ const out=[]; let cum=0, ref=null, seek=false, peak=null;
+      (pts||[]).forEach(p=>{ const t=+p.x, d=+p.y; if(!Number.isFinite(t)||!Number.isFinite(d)) return;
+        if(ref===null){ ref=d; peak=d; }
+        else if(d<peak-10){ seek=true; ref=d; peak=d; }
+        else if(seek){ if(d<ref) ref=d; else if(d>ref+0.5){ seek=false; cum+=d-ref; ref=d; peak=d; } peak=Math.max(peak,ref); }
+        else if(d>ref){ cum+=d-ref; ref=d; peak=d; }
+        out.push({x:t,y:cum}); }); return out; }
+    // 2026-11-22 (John): for the Min / Avg / Max curves each well is HELD at its final total until the last day of the longest
+    // record. Was: a finished well dropped out of the average / percentiles, so the curves jumped back up each time a well ended
+    // (saw-teeth again). Holding keeps them monotonic: a pointwise mean or percentile of non-decreasing curves never decreases.
+    // 2026-11-22 (John): DATA GAPS REMOVED on the snowball. Some offsets have days / weeks with no rows (e.g. surface hole drilled,
+    // rig moved away, then the rest of the well), which pushed their curve far right. Any jump in time between two consecutive rows
+    // longer than 'Close gaps >' hours (box, default 12 h) is cut out: later times move back by the gap minus one 10-min row.
+    // Only gaps WITHOUT data are cut — flats with the recorder running (casing, waiting) stay. MTX choice (display).
+    function snowGapH(){ const v=parseFloat((document.getElementById('snowGapH')||{}).value); return Number.isFinite(v)&&v>0 ? v : 12; }
+    function snowClose(pts){ const g=snowGapH()/24, out=[]; let shift=0;
+      for(let i=0;i<pts.length;i++){ if(i>0){ const dt=pts[i].x-pts[i-1].x; if(dt>g) shift+=dt-10/1440; } out.push({x:pts[i].x-shift, y:pts[i].y}); } return out; }
+    function snowSrc(s){ return snowClose(s.raw.slice().sort((a,b)=>a.x-b.x)); }
+    function snowTmax(){ let m=-Infinity; state.timeDepthSeries.forEach(s=>{ if(!s.raw?.length) return; const c=snowSrc(s); if(c.length && c[c.length-1].x>m) m=c[c.length-1].x; }); return m; }
+    function snowHold(pts, tmax){ if(!pts.length || !Number.isFinite(tmax)) return pts; const l=pts[pts.length-1]; return l.x<tmax ? pts.concat([{x:tmax, y:l.y}]) : pts; }
+    /* 2026-11-22 (John, revised): SNOWBALL Min / Avg / Max are built as TIME AT EACH TOTAL DEPTH, not depth at each time.
+     * Was: depth averaged across wells at each day; wells that had finished were held at their (smaller) final total, so the
+     * curves flattened out once the shorter wells ended. Now, on a grid of total depth D from 0 to the deepest final total of all
+     * wells (400 steps):
+     *  - t_w(D) = first time well w reaches D (its snowball curve, data gaps closed);
+     *  - beyond its final total, a well continues its own TREND: t = t_end + (D - D_end) / rate, rate = metres per day over the
+     *    last 30 % of its total (MTX choice);
+     *  - Avg = mean of t_w(D); Min (slowest) = the 'Max %' percentile of t_w(D); Max (fastest) = the 'Min %' percentile.
+     * Every curve is then monotonic and ends at the deepest total. Points where more than half the wells are extrapolated are
+     * drawn dashed. */
+    function snowCurves(){
+      const W=[]; state.timeDepthSeries.forEach(s=>{ if(!(s.raw?.length && isSeriesEnabled('tds', `tds:${s.name}`))) return; const p=snowPts(snowSrc(s)); if(p.length<2) return;
+        const e=p[p.length-1]; if(!(e.y>0)) return; const D7=0.7*e.y; let i7=p.findIndex(q=>q.y>=D7); const q7=p[Math.max(0,i7)];
+        const rate = (e.x>q7.x && e.y>q7.y) ? (e.y-q7.y)/(e.x-q7.x) : (e.x>0 ? e.y/e.x : NaN); W.push({ p, e, rate }); });
+      if(!W.length) return { avg:[], max:[], min:[] };
+      const Dmax=Math.max(...W.map(w=>w.e.y)), n=400, maxQ=Math.min(100,Math.max(50,parseFloat(document.getElementById('maxPct').value)||90))/100, minQ=Math.min(50,Math.max(0,parseFloat(document.getElementById('minPct').value)||10))/100;
+      const tAt=(w,D)=>{ const p=w.p; if(D<=p[0].y) return p[0].x; if(D>w.e.y) return w.rate>0 ? w.e.x+(D-w.e.y)/w.rate : NaN;
+        let lo=0, hi=p.length-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(p[m].y>=D) hi=m; else lo=m; } const a=p[lo], b=p[hi]; return b.y>a.y ? a.x+(b.x-a.x)*(D-a.y)/(b.y-a.y) : b.x; };
+      const out={ avg:[], max:[], min:[] };
+      for(let k=0;k<=n;k++){ const D=Dmax*k/n, ts=W.map(w=>tAt(w,D)).filter(Number.isFinite).sort((a,b)=>a-b); if(!ts.length) continue;
+        const ext=W.filter(w=>D>w.e.y).length>W.length/2;
+        out.avg.push({ x: ts.reduce((a,b)=>a+b,0)/ts.length, y: D, ext });
+        out.min.push({ x: percentileOfSorted(ts,maxQ), y: D, ext });   // slowest
+        out.max.push({ x: percentileOfSorted(ts,minQ), y: D, ext }); } // fastest
+      return out;
+    }
+    function getAllProcessedSeriesTDS(){ const out=[], T=snowTmax(); state.timeDepthSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('tds', `tds:${s.name}`)) out.push(snowHold(snowPts(snowSrc(s)), T)); }); return out; }
     function getAllProcessedSeriesTD(){ const out=[]; state.timeDepthSeries.forEach(s=>{ if(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`)) out.push(prepareForPlot(s.raw, true)); }); return out; }
 
     function computeAdaptiveStepTD(seriesList){ const {minX,maxX}=xRange(seriesList); if(!(Number.isFinite(minX)&&Number.isFinite(maxX)&&maxX>minX)) return 0.05; const range=maxX-minX; const target=800; let step=range/target; step=Math.max(0.001, Math.min(step, Math.max(0.5, range/50)) ); return step; }
@@ -355,8 +407,16 @@
         buildSpecialCurves(datasets, getAllProcessedSeriesWOB(), 'WOB');
       }
       else if(plot.id==='rop'){
-        const nR=state.ropSeries.length; state.ropSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('rop', `rop:${s.name}`))) return; const col=s.color||colorByIndex(idx,nR); datasets.push(makeDatasetFor('rop', `${s.name} — ROP (from file, ≥0)`, prepareForPlot(s.raw), col)); });
-        buildSpecialCurves(datasets, getAllProcessedSeriesROP(), 'ROP');
+        const md_=ropMode(), tag=md_==='slide'?'Slide ROP':md_==='rot'?'Rotate ROP':'ROP'; let nS=0, nP=0;
+        const nR=state.ropSeries.length; state.ropSeries.forEach((s,idx)=>{ const pts=ropPts(s,md_); if(!(pts.length && isSeriesEnabled('rop', `rop:${s.name}`))) return; nS++; nP+=pts.length; const col=s.color||colorByIndex(idx,nR); datasets.push(makeDatasetFor('rop', `${s.name} — ${tag}${md_==='all'?' (from file, ≥0)':''}`, prepareForPlot(pts), col)); });
+        buildSpecialCurves(datasets, getAllProcessedSeriesROP(), tag, Object.assign({ extendX: ropMaxTD() }, ropExtMethod()==='ms1' ? { minSeriesOverride: 1 } : {}));
+        const inf=document.getElementById('ropModeInfo'); if(inf) inf.textContent = md_==='all' ? '' : nS+' well(s), '+nP+' rows of 10 min' + (nS<nR ? ' · '+(nR-nS)+' well(s) without Rotary RPM rows skipped' : '');
+      }
+      else if(plot.id==='my'){   // 2026-11-21 Motor Yield (points per bin, not smoothed / spike-filtered)
+        const t_=myType(), tag=t_==='rot'?'Rotary DLS':t_==='corr'?'MY corrected':'Slide MY'; let nS=0, nP=0; const nR=state.ropSeries.length;
+        state.ropSeries.forEach((s,idx)=>{ const pts=myPts(s,t_); if(!(pts.length && isSeriesEnabled('my', `my:${s.name}`))) return; nS++; nP+=pts.length; datasets.push(makeDatasetFor('my', `${s.name} — ${tag}`, pts, s.color||colorByIndex(idx,nR))); });
+        buildSpecialCurves(datasets, getAllProcessedSeriesMY(t_), tag, { stepOverride: myBinLen(), noSmooth: true, extendX: ropMaxTD() });
+        const inf=document.getElementById('ropModeInfo'); if(inf) inf.textContent = nS+' well(s), '+nP+' MY values (slide ranges)' + (nS<nR ? ' · '+(nR-nS)+' well(s) with no usable bins (no Inc/Azi, too little sliding or rotating)' : '');
       }
       else if(plot.id==='mse'){
         const nM=state.mseSeries.length; state.mseSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('mse', `mse:${s.name}`))) return; const col=s.color||colorByIndex(idx,nM); datasets.push(makeDatasetFor('mse', `${s.name} — MSE (ksi) vs MD`, prepareForPlot(s.raw), col)); });
@@ -365,6 +425,16 @@
       else if(plot.id==='flow'){
         const nF=state.flowSeries.length; state.flowSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('flow', `flow:${s.name}`))) return; const col=s.color||colorByIndex(idx,nF); datasets.push(makeDatasetFor('flow', `${s.name} — Flow (m³/min) vs MD`, prepareForPlot(s.raw), col)); });
         buildSpecialCurves(datasets, getAllProcessedSeriesFLOW(), 'Flow');
+      }
+      else if(plot.id==='tds'){   // 2026-11-22 snowball
+        const n_=state.timeDepthSeries.length; state.timeDepthSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('tds', `tds:${s.name}`))) return; datasets.push(makeDatasetFor('tds', `${s.name} — total drilled m`, snowPts(snowSrc(s)), s.color||colorByIndex(idx,n_))); });
+        const C=snowCurves(), seg={ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined };
+        lastCurvesSpecial={ avg:C.avg, max:C.max, min:C.min };
+        [['min','showMin','Min total depth (slowest)','#ff0000'],['max','showMax','Max total depth (fastest)','#00ff00'],['avg','showAverage','Average total depth','#00e5ff']].forEach(([k,cb,lab,colr])=>{
+          if(!document.getElementById(cb).checked || !C[k].length) return;
+          datasets.push({ label:lab+' (glow)', data:C[k], borderColor:colorToRgba(colr,0.2), backgroundColor:colorToRgba(colr,0.2), showLine:true, borderWidth:10, pointRadius:0, fill:false, tension:0, segment:seg, order:990 });
+          datasets.push({ label:lab, data:C[k], borderColor:colr, backgroundColor:colr, showLine:true, borderWidth:3, pointRadius:0, fill:false, tension:0, segment:seg, order:991 }); });
+        datasets.forEach(d=>{ d.tension=0; });
       }
       else if(plot.id==='td'){
         const nTD=state.timeDepthSeries.length; state.timeDepthSeries.forEach((s,idx)=>{ if(!(s.raw?.length && isSeriesEnabled('td', `td:${s.name}`))) return; const col=s.color||colorByIndex(idx,nTD); datasets.push(makeDatasetFor('td', `${s.name} — Depth vs Time`, prepareForPlot(s.raw, true), col)); });
@@ -375,7 +445,7 @@
         datasets.forEach(d => { d.tension = tdRound ? 0.25 : 0; if(!tdRound && typeof mtxSharpenTD === 'function' && Array.isArray(d.data) && d.data.length > 2 && d.data[0] && typeof d.data[0].x === 'number') d.data = mtxSharpenTD(d.data, tdTolFrac()); });
       }
 
-      const axesSelected = plot.id==='hl'?state.axesHL: plot.id==='tq'?state.axesTQ: plot.id==='wob'?state.axesWOB: plot.id==='rop'?state.axesROP: plot.id==='mse'?state.axesMSE: plot.id==='flow'?state.axesFLOW: state.axesTD;
+      const axesSelected = plot.id==='hl'?state.axesHL: plot.id==='tq'?state.axesTQ: plot.id==='wob'?state.axesWOB: plot.id==='rop'?state.axesROP: plot.id==='mse'?state.axesMSE: plot.id==='flow'?state.axesFLOW: plot.id==='my'?(state.axesMY||(state.axesMY={xMin:null,xMax:null,yMin:null,yMax:null})): plot.id==='tds'?(state.axesTDS||(state.axesTDS={xMin:null,xMax:null,yMin:null,yMax:null})): state.axesTD;
 
       let autoYMin, autoYMax;
       if (plot.id !== 'td' && (axesSelected.yMin==null && axesSelected.yMax==null)) {
@@ -391,31 +461,184 @@
 
       const tooltipLabel=(ctx)=>{ const y=ctx.parsed.y, x=ctx.parsed.x; const name=ctx.dataset.label||'Series'; const xf=Number.isFinite(x)?x.toFixed(2):'—'; const yf=Number.isFinite(y)?y.toFixed(2):'—'; if(plot.id==='hl') return `${name}: ${yf} kDaN @ ${xf} m`; if(plot.id==='tq') return `${name}: ${yf} kN·m @ ${xf} m`; if(plot.id==='wob') return `${name}: ${yf} kDaN @ ${xf} m`; if(plot.id==='rop') return `${name}: ${yf} m/h @ ${xf} m`; if(plot.id==='mse') return `${name}: ${yf} ksi @ ${xf} m`; if(plot.id==='flow') return `${name}: ${yf} m³/min @ ${xf} m`; return `${name}: ${yf} m @ ${xf} days`; };
 
-      chartMain=new Chart(ctx,{ type:'line', data:{datasets}, options:{ responsive:true, plugins:{ legend:{ display:showLegend, labels:{ color:'#e9ecef', filter:(item)=>!String(item.text||'').toLowerCase().includes('glow') } }, tooltip:{ mode:'nearest', intersect:false, filter:(item)=>!((item.dataset.label||'').toLowerCase().includes('glow')), callbacks:{label: tooltipLabel} }, zoom: enableZoom?{ pan:{enabled:true,mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }: undefined }, scales:{ x:{ type:'linear', title:{display:true,text:plot.xTitle,color:'#e9ecef'}, ticks:{color:'#adb5bd'}, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.xMin)?axesSelected.xMin: undefined, max: Number.isFinite(axesSelected.xMax)?axesSelected.xMax: undefined }, y:{ type:'linear', reverse: !!plot.reversedY, title:{display:true,text:plot.yTitle,color:'#e9ecef'}, ticks:{ color:'#adb5bd', callback:(v)=>Number.isFinite(v)?Number(v).toFixed(2):v }, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.yMin)?axesSelected.yMin : (autoYMin), max: Number.isFinite(axesSelected.yMax)?axesSelected.yMax : (autoYMax) } } } });
+      chartMain=new Chart(ctx,{ type:'line', data:{datasets}, options: pcPhoneOpts({ responsive:true, plugins:{ legend:{ display:showLegend, labels:{ color:'#e9ecef', filter:(item)=>!String(item.text||'').toLowerCase().includes('glow') } }, tooltip:{ mode:'nearest', intersect:false, filter:(item)=>!((item.dataset.label||'').toLowerCase().includes('glow')), callbacks:{label: tooltipLabel} }, zoom: enableZoom?{ pan:{enabled:true,mode:'xy'}, zoom:{ wheel:{enabled:true, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'xy' } }: undefined }, scales:{ x:{ type:'linear', title:{display:true,text:plot.xTitle,color:'#e9ecef'}, ticks:{color:'#adb5bd'}, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.xMin)?axesSelected.xMin: undefined, max: Number.isFinite(axesSelected.xMax)?axesSelected.xMax: undefined }, y:{ type:'linear', reverse: !!plot.reversedY, title:{display:true,text:plot.yTitle,color:'#e9ecef'}, ticks:{ color:'#adb5bd', callback:(v)=>Number.isFinite(v)?Number(v).toFixed(2):v }, grid:{color:'rgba(173,181,189,0.2)'}, min: Number.isFinite(axesSelected.yMin)?axesSelected.yMin : (autoYMin), max: Number.isFinite(axesSelected.yMax)?axesSelected.yMax : (autoYMax) } } }, plot) });
 
       buildSeriesToggleMenu();
     }
 
-    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix, opts){ const showAvg=document.getElementById('showAverage').checked; const showMax=document.getElementById('showMax').checked; const showMin=document.getElementById('showMin').checked; const userStep=parseFloat(document.getElementById('avgStep').value)||5; const step=(opts && Number.isFinite(opts.stepOverride))?opts.stepOverride:Math.max(0.0001, userStep); const userMinSeries=parseInt(document.getElementById('avgMinSeries').value,10)||2; const nSeries=(seriesForGrid||[]).filter(a=>Array.isArray(a)&&a.length>0).length; const minSeries=(opts && Number.isFinite(opts.minSeriesOverride))?opts.minSeriesOverride:Math.max(1,Math.min(userMinSeries, nSeries||1)); /* 2026-11-14: clamp to the number of loaded wells (see computeCurvesForPlot) */ const noSm=!!(opts && opts.noSmooth); const smoothOn=!noSm && document.getElementById('applySmoothing').checked; const win=noSm ? 1 : (parseInt(document.getElementById('smoothWindow').value,10)||1); const maxPctVal=Math.min(100,Math.max(50, parseFloat(document.getElementById('maxPct').value)||90))/100; const minPctVal=Math.min(50,Math.max(0,  parseFloat(document.getElementById('minPct').value)||10))/100; lastCurvesSpecial={avg:[],max:[],min:[]}; if(showMin){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win); lastCurvesSpecial.min=pts; if(pts.length){ datasets.push({ label:`Min ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(255,0,0,0.20)', backgroundColor:'rgba(255,0,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:993 }); datasets.push({ label:`Min ${labelPrefix}`, data:pts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:994 }); } } if(showMax){ const pts=buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win); lastCurvesSpecial.max=pts; if(pts.length){ datasets.push({ label:`Max ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,255,0,0.20)', backgroundColor:'rgba(0,255,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:995 }); datasets.push({ label:`Max ${labelPrefix}`, data:pts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:996 }); } } if(showAvg){ const pts=buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win); lastCurvesSpecial.avg=pts; if(pts.length){ datasets.push({ label:`Average ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,229,255,0.20)', backgroundColor:'rgba(0,229,255,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, order:997 }); datasets.push({ label:`Average ${labelPrefix}`, data:pts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, order:998 }); } } }
+    // 2026-11-21 (John): ROP curves (all / slide / rotate) are held flat from their last computed point to the deepest MD of all
+    // loaded wells, on the same step grid, so the job page has a ROP down to TD. Where the curve ends, fewer than "min series per
+    // point" wells have rows of that mode (slide rows are sparse in the lateral). Held value = last value: an assumption, not data.
+    /* ── 2026-11-21 (John): MOTOR YIELD vs MD from the Pason CSV (10-min rows) ─────────────────────────────────────────────
+     * Same definition as public/js/motorYield.js (Slide Sheet): MY = interval dogleg / slid length x 30 (°/30 m) = DLS x CL / slid.
+     * Dogleg between two stations: minimum curvature, theta = acos(sinI1 sinI2 cos(A2-A1) + cosI1 cosI2) (ISCWSA eBook App. D3).
+     * IMPLEMENTATION CHOICES (stated, not from a source):
+     *  - Stations: the Pason Inclination / Azimuth columns (13 / 14), one per hole depth (last value recorded at that depth),
+     *    main bore only (rows up to the first hole-depth drop > 10 m). Inc / Azi at a bin edge = linear interpolation (Azi wrapped).
+     *  - Bins of 'MY bin length' (default 30 m) from 0 m. Slid / rotated metres in a bin: hole-depth increases of the drilling rows
+     *    (ROP >= Min drilling ROP) split by the row's slide share (see myBins).
+     *  - Slide MY: blank when slid < 3 m or < 20 % of the bin (Slide Sheet quality rule).
+     *  - Rotary tendency: DLS of bins with slid < 10 % of the bin and rotated >= 50 % of the bin.
+     *  - Rotation-corrected (motorYield.js analyse(), per well instead of per run): BR = sum dInc / sum CL and WR = sum dAz / sum CL
+     *    over the rotary-tendency bins (WR only where both Incs >= 3°), needs >= 30 m of them; per bin Lr = CL - slid,
+     *    dInc_s = dInc - BR Lr, dAz_s = dAz - WR Lr, curvature = sqrt(dInc_s² + (dAz_s sin Imean)²), MY = curvature / slid x 30.
+     */
+    const MY_D = Math.PI/180;
+    function myDogleg(i1,a1,i2,a2){ const c=Math.sin(i1*MY_D)*Math.sin(i2*MY_D)*Math.cos((a2-a1)*MY_D)+Math.cos(i1*MY_D)*Math.cos(i2*MY_D); return Math.acos(Math.max(-1,Math.min(1,c)))/MY_D; }
+    function myWrap(d){ return ((d+180)%360+360)%360-180; }
+    function myBinLen(){ const v=parseFloat((document.getElementById('myBin')||{}).value); return Number.isFinite(v)&&v>=5 ? v : 30; }
+    function myType(){ const e=document.getElementById('myType'); return e ? e.value : 'slide'; }
+    /* 2026-11-21 (John, revised): MY PER SLIDE RANGE, surveys picked around each slide (user's method). Was: fixed 30 m bins with
+     * Inc / Azi interpolated from every value change — the Pason Inc / Azi channel also changes off bottom (tripping, junk 37°-129°
+     * at 534 m on KENT 1-33) and holds placeholders, which produced 50-100°/30 m fake doglegs.
+     *  1. Drilling rows only (ROP >= Min drilling ROP, hole depth advancing). Slide time share per row f = 1 - RPM / Rrot
+     *     (RPM <= Slide threshold -> 1); slid metres of a row = dm x f Rs / (f Rs + (1 - f) Rr) (Rrot / Rs / Rr = medians of the
+     *     well's pure rotate RPM, pure slide ROP, pure rotate ROP).
+     *  2. Slide ranges = consecutive drilling rows with f >= 0.5 (MTX choice).
+     *  3. Survey stations = Inc / Azi values that appear on DRILLING rows (a new value after a connection survey); station MD =
+     *     hole depth of the first row showing it - bit-to-sensor offset (box, default 15 m; MTX choice, set to the BHA's).
+     *     Stations with Inc > 120° are dropped, then single-value spikes (see the spike filter in myAnalyse).
+     *  4. Each slide range: last station at or above its top .. first station at or below its bottom (motorYield.js bracket).
+     *     theta = sum of the minimum-curvature doglegs between the bracket's stations; slid = slid metres inside the bracket;
+     *     MY = theta / slid x 30, plotted at the middle of the slide range. Blank when slid < 3 m or < 20 % of the bracket.
+     *  5. Rotary tendency = DLS of station intervals with slid < 10 % of the interval. Rotation-corrected as before (BR / WR from
+     *     those intervals, >= 30 m needed).
+     */
+    function myMaxDls(){ const v=parseFloat((document.getElementById('myMaxDls')||{}).value); return Number.isFinite(v)&&v>0 ? v : 25; }
+    function myOffset(){ const v=parseFloat((document.getElementById('myOffset')||{}).value); return Number.isFinite(v)&&v>=0 ? v : 15; }
+    function myAnalyse(s){
+      if(!s.myRows||s.myRows.length<3) return null;
+      const mn=ropMinDrill(), lo=parseFloat(document.getElementById('ropSlideRpm').value), hi=parseFloat(document.getElementById('ropRotRpm').value), off=myOffset();
+      const sT=Number.isFinite(lo)?lo:5, rT=Number.isFinite(hi)?hi:20;
+      let rows=s.myRows, mx=-Infinity; for(let i=0;i<rows.length;i++){ if(rows[i][0]<mx-10){ rows=rows.slice(0,i); break; } mx=Math.max(mx,rows[i][0]); }
+      const med=a=>{ const v=a.slice().sort((x,y)=>x-y); return v.length ? v[v.length>>1] : NaN; };
+      const dr=rows.filter(r=>r[4]>=mn && Number.isFinite(r[3])), Rrot=med(dr.filter(r=>r[3]>=rT).map(r=>r[3])), Rs=med(dr.filter(r=>r[3]<=sT).map(r=>r[4])), Rr=med(dr.filter(r=>r[3]>=rT).map(r=>r[4]));
+      if(!(Rrot>0)) return null;
+      const seg=[], st=[]; let lastKey=null;
+      for(let i=1;i<rows.length;i++){ const r=rows[i], dm=r[0]-rows[i-1][0]; if(!(dm>0) || !(r[4]>=mn) || !Number.isFinite(r[3])) continue;
+        const f = r[3]<=sT ? 1 : Math.max(0, Math.min(1, 1 - r[3]/Rrot)), m = (Rs>0 && Rr>0) ? (f*Rs)/(f*Rs + (1-f)*Rr || 1) : f;
+        seg.push({ a:rows[i-1][0], b:r[0], f, slid:dm*m });
+        const key=r[1].toFixed(2)+'/'+r[2].toFixed(2); if(key!==lastKey){ if(lastKey!==null || !st.length) st.push({ md:r[0]-off, inc:r[1], az:r[2] }); lastKey=key; } }
+      let S=st.filter(x=>x.md>0 && x.inc<=120).sort((x,y)=>x.md-y.md);
+      // Spike filter (MTX choice): drop a station whose doglegs to both neighbours are large but whose neighbours agree with each
+      // other — a single bad value (sum of the two doglegs > 3 x the neighbour-to-neighbour dogleg + 2°). Repeated until none left.
+      for(let pass=0; pass<20; pass++){ let bad=-1, worst=0;
+        for(let k=1;k<S.length-1;k++){ const p=S[k-1], c=S[k], n=S[k+1], t2=myDogleg(p.inc,p.az,c.inc,c.az)+myDogleg(c.inc,c.az,n.inc,n.az), t1=myDogleg(p.inc,p.az,n.inc,n.az), ex=t2-(3*t1+2);
+          if(ex>worst){ worst=ex; bad=k; } }
+        if(bad<0) break; S.splice(bad,1); }
+      // Max plausible DLS (box, default 25°/30 m; MTX choice): walking down, a station whose DLS to the last kept station is above
+      // it is dropped (runs of bad values, e.g. 95-117 m and 1094-1099 m on KENT 1-33). After 3 drops in a row the next station is
+      // kept, so a real change of direction is not lost. The first kept station is the first one whose DLS to the next is plausible.
+      { const mx=myMaxDls(), dls=(p,c)=>{ const d=c.md-p.md; return d>0 ? myDogleg(p.inc,p.az,c.inc,c.az)/d*30 : Infinity; };
+        let k0=0; while(k0<S.length-1 && dls(S[k0],S[k0+1])>mx) k0++;
+        const keep=S.length?[S[k0]]:[]; let rej=0;
+        for(let k=k0+1;k<S.length;k++){ if(dls(keep[keep.length-1],S[k])<=mx || rej>=3){ keep.push(S[k]); rej=0; } else rej++; }
+        S=keep; }
+      const slidIn=(A,B)=>seg.reduce((t,g)=>{ const ov=Math.min(g.b,B)-Math.max(g.a,A); return ov>0 ? t+g.slid*ov/(g.b-g.a) : t; },0);
+      const ranges=[]; seg.forEach(g=>{ if(g.f<0.5) return; const L=ranges[ranges.length-1]; if(L && g.a<=L.b+0.5) L.b=g.b; else ranges.push({a:g.a,b:g.b}); });
+      const iv=[]; for(let k=1;k<S.length;k++){ const u=S[k-1], v=S[k], cl=v.md-u.md; if(cl>0) iv.push({ u, v, cl, th:myDogleg(u.inc,u.az,v.inc,v.az), slid:slidIn(u.md,v.md) }); }
+      return { S, ranges, iv, slidIn };
+    }
+    function myPts(s, type){ type=type||myType(); const A=myAnalyse(s); if(!A||A.S.length<2) return [];
+      const rotOnly=A.iv.filter(x=>x.slid<0.1*x.cl);
+      // 2026-11-21: signed rotary build ('rb', dInc / CL x 30) and walk ('rw', dAz / CL x 30, both Incs >= 3°) for the planned-well
+      // slide solver on the job page
+      if(type==='rb') return rotOnly.map(x=>({x:(x.u.md+x.v.md)/2, y:(x.v.inc-x.u.inc)/x.cl*30})).filter(p=>Math.abs(p.y)<=myMaxDls());
+      if(type==='rw') return rotOnly.filter(x=>x.u.inc>=3&&x.v.inc>=3).map(x=>({x:(x.u.md+x.v.md)/2, y:myWrap(x.v.az-x.u.az)/x.cl*30})).filter(p=>Math.abs(p.y)<=myMaxDls());
+      if(type==='rot') return rotOnly.map(x=>({x:(x.u.md+x.v.md)/2, y:x.th/x.cl*30})).filter(p=>p.y<=myMaxDls());
+      let BR=0, WR=0; if(type==='corr'){ const L=rotOnly.reduce((a,x)=>a+x.cl,0); if(L<30) return [];
+        BR=rotOnly.reduce((a,x)=>a+(x.v.inc-x.u.inc),0)/L; const wb=rotOnly.filter(x=>x.u.inc>=3&&x.v.inc>=3), Lw=wb.reduce((a,x)=>a+x.cl,0); WR=Lw>0?wb.reduce((a,x)=>a+myWrap(x.v.az-x.u.az),0)/Lw:0; }
+      const out=[]; A.ranges.forEach(rg=>{ let ia=-1, ib=-1; for(let k=0;k<A.S.length;k++){ if(A.S[k].md<=rg.a+1e-6) ia=k; if(ib<0 && A.S[k].md>=rg.b-1e-6) ib=k; }
+        if(ia<0||ib<0||ib<=ia) return; const u=A.S[ia], v=A.S[ib], cl=v.md-u.md, slid=A.slidIn(u.md,v.md); if(!(slid>=3 && slid>=0.2*cl)) return;
+        let th=0; for(let k=ia;k<ib;k++) th+=myDogleg(A.S[k].inc,A.S[k].az,A.S[k+1].inc,A.S[k+1].az);
+        if(type==='corr'){ const Lr=Math.max(0,cl-slid), di=(v.inc-u.inc)-BR*Lr, da=myWrap(v.az-u.az)-WR*Lr, im=(u.inc+v.inc)/2*MY_D; th=Math.sqrt(di*di+Math.pow(da*Math.sin(im),2)); }
+        const p={x:(rg.a+rg.b)/2, y:th/slid*30}; if(!(p.y<=myMaxDls())) return;   // MY = dogleg rate while sliding: above the max plausible DLS = bad surveys
+        if(!out.length || out[out.length-1].x!==p.x) out.push(p); });
+      return out; }
+    /* ── 2026-11-21 (John): FLAT AND OTHER TIME PER OFFSET WELL (Pason CSV, 10-min rows) → 'Flat times' tab for the job page ──
+     * Implementation choices (MTX, not from a source):
+     *  - Legs: the record is split where the hole depth drops > 10 m below its running maximum (a new sidetrack).
+     *  - Flat = consecutive rows whose hole depth stays within 0.5 m of the run's first row, lasting >= 'Min flat' hours (box,
+     *    default 2 h). Row gaps > 1 h (missing data) end a run and are not counted as time.
+     *  - Leg transition (LegEnd) = from the time a leg's TD is first reached to the first row of the next leg that is 0.5 m
+     *    deeper than that leg's shallowest depth so far (trip out, kick-off set-up, back to drilling).
+     *  - Main bore (leg 1): the two LONGEST flats (the final TD flat excluded) are the casing points, shallower = SC, deeper = IC.
+     *    The others are Trips. Sections of the offset: Surface 0→SC, Build SC→IC, Lateral IC→TD and all later legs.
+     *  - Per row interval dt (capped at 1 h): inside a flat → flat; drilling row (ROP >= Min drilling ROP, depth advanced dm) →
+     *    on-bottom = min(dt, dm / ROP), the rest of dt = other in-hole time (connections, surveys, reaming...).
+     */
+    function mtxMinFlatH(){ const v=parseFloat((document.getElementById('minFlatH')||{}).value); return Number.isFinite(v)&&v>0 ? v : 2; }
+    function mtxFlatStats(s){
+      const R_=(s.tRows||[]).filter(r=>Number.isFinite(r[0])&&Number.isFinite(r[1])).sort((a,b)=>a[0]-b[0]); if(R_.length<10) return null;
+      const mn=ropMinDrill(), minH=mtxMinFlatH(), out=[];
+      const legs=[]; let st=0, mx=R_[0][1]; for(let i=1;i<=R_.length;i++){ if(i===R_.length || R_[i][1]<mx-10){ legs.push(R_.slice(st,i)); if(i<R_.length){ st=i; mx=R_[i][1]; } } else mx=Math.max(mx,R_[i][1]); }
+      const flatsOf=g=>{ const f=[]; let a=0; for(let i=1;i<=g.length;i++){ const gap = i<g.length && (g[i][0]-g[i-1][0])*24>1; if(i===g.length || Math.abs(g[i][1]-g[a][1])>0.5 || gap){ const h=(g[i-1][0]-g[a][0])*24; if(h>=minH) f.push({ i0:a, i1:i-1, depth:g[a][1], hours:h }); a=i; } } return f; };
+      const inFlat=new Set(); let sc=null, ic=null;
+      legs.forEach((g,k)=>{ const tdD=Math.max.apply(null,g.map(r=>r[1])), iTD=g.findIndex(r=>r[1]>=tdD-0.5);
+        let fl=flatsOf(g).filter(f=>f.i1<iTD || f.i0<iTD);   // flats before TD is reached (TD flat belongs to the leg transition)
+        fl.forEach(f=>{ for(let i=f.i0;i<=f.i1;i++) inFlat.add(g[i]); });
+        if(k===0){ const top=fl.slice().sort((x,y)=>y.hours-x.hours).slice(0,2).sort((x,y)=>x.depth-y.depth);
+          if(top.length===2){ sc=top[0]; ic=top[1]; } else if(top.length===1){ sc=top[0]; }
+          fl.forEach(f=>{ if(f===sc) out.push(['SC','Surface',f.depth,f.hours,'']); else if(f===ic) out.push(['IC','Build',f.depth,f.hours,'']); }); }
+        const secOf=d=> k>0 ? 'Lateral' : (sc && d<=sc.depth ? 'Surface' : (ic && d<=ic.depth ? 'Build' : (ic||!sc ? 'Lateral' : 'Build')));
+        fl.forEach(f=>{ if(k===0 && (f===sc||f===ic)) return; out.push(['Trip',secOf(f.depth),f.depth,f.hours,'']); });
+        if(k===legs.length-1) for(let i=iTD;i<g.length;i++) inFlat.add(g[i]);   // after the well's final TD: not counted
+        const n=legs[k+1]; if(n){ let lo=Infinity, res=null; for(const r of n){ lo=Math.min(lo,r[1]); if(r[1]>lo+0.5){ res=r[0]; break; } }
+          for(let i=iTD;i<g.length;i++) inFlat.add(g[i]); if(res!=null){ for(const r of n){ if(r[0]>=res) break; inFlat.add(r); } out.push(['LegEnd','Lateral',tdD,(res-g[iTD][0])*24,'']); } }
+        const acc={}; for(let i=1;i<g.length;i++){ const r=g[i], q=g[i-1], dt=(r[0]-q[0])*24; if(!(dt>0)||dt>1||inFlat.has(r)) continue; const dm=r[1]-q[1], sec=secOf(r[1]), a=acc[sec]||(acc[sec]={onb:0,oth:0,m:0});
+          let onb=0; if(dm>0 && r[2]>=mn){ onb=Math.min(dt,dm/r[2]); a.m+=dm; } a.onb+=onb; a.oth+=dt-onb; }
+        Object.keys(acc).forEach(sec=>{ out.push(['OnBottom',sec,'',acc[sec].onb,acc[sec].m]); out.push(['Other',sec,'',acc[sec].oth,acc[sec].m]); });
+      });
+      return out;
+    }
+    function getAllProcessedSeriesMY(type){ const out=[]; state.ropSeries.forEach(s=>{ const pts=myPts(s,type); if(pts.length && isSeriesEnabled('my', `my:${s.name}`)) out.push(pts); }); return out; }
+    function ropMaxTD(){ let m=-Infinity; (state.ropSeries||[]).forEach(s=>(s.raw||[]).forEach(p=>{ if(p.x>m) m=p.x; })); return m; }
+    // 2026-11-21 (John, revised same day): value held past the curve end. Was: the last curve value. Now ('Beyond curve end'):
+    //  'pool' (default) = every row of every well deeper than the curve end, pooled: Avg = mean, Min / Max = the same
+    //                     percentiles as the curves (Min % / Max % boxes); falls back to the last value if no rows are deeper.
+    //  'ms1'            = the curves are built with min series per point = 1 (follow the sparse data), then held as 'pool'.
+    function ropExtMethod(){ const e=document.getElementById('ropExt'); return e ? e.value : 'pool'; }
+    function pctOf(v, q){ const a=v.slice().sort((x,y)=>x-y); if(!a.length) return NaN; const i=(a.length-1)*q, lo=Math.floor(i), hi=Math.ceil(i); return a[lo]+(a[hi]-a[lo])*(i-lo); }
+    function extendTo(pts, xmax, step, series, kind, q){ if(!pts||!pts.length||!Number.isFinite(xmax)) return pts; const last=pts[pts.length-1]; if(last.x>=xmax) return pts;
+      let y=last.y; if(series){ const v=[]; series.forEach(a=>(a||[]).forEach(p=>{ if(p.x>last.x && Number.isFinite(p.y)) v.push(p.y); }));
+        if(v.length){ const yy = kind==='avg' ? v.reduce((a,b)=>a+b,0)/v.length : pctOf(v, q); if(Number.isFinite(yy)) y=yy; } }
+      const out=pts.slice(); for(let x=last.x+step; x<xmax; x+=step) out.push({x, y, ext:true}); out.push({x:xmax, y, ext:true}); return out; }
+    /* 2026-11-22 (John): PHONE CHART (<= 576 px wide). Was: the chart kept the desktop 2:1 shape, so on a phone it was a short strip
+     * with large fonts, long axis titles and 2-decimal ticks ('17545.85'). Now: fills a 75vh box, 10 px fonts, short axis titles,
+     * at most 6 / 8 ticks, ticks without decimals above 100, legend below, less padding. Desktop unchanged. */
+    function pcPhone(){ return !!(window.matchMedia && window.matchMedia('(max-width: 576px)').matches); }
+    function pcPhoneOpts(opt, plot){ if(!pcPhone()) return opt;
+      opt.maintainAspectRatio=false; opt.layout={ padding:2 };
+      const lg=opt.plugins&&opt.plugins.legend; if(lg){ lg.position='bottom'; lg.labels=Object.assign({}, lg.labels, { boxWidth:10, boxHeight:6, padding:4, font:{ size:9 } }); }
+      const short=t=>String(t||'').replace(/Measured Depth/i,'MD').replace(/Time \(days from start\)/i,'Days').replace(/Total drilled depth, all legs/i,'Total depth').replace(/Hole Depth/i,'Depth');
+      ['x','y'].forEach(k=>{ const a=opt.scales&&opt.scales[k]; if(!a) return;
+        a.ticks=Object.assign({}, a.ticks, { font:{ size:10 }, maxTicksLimit: k==='x'?6:8, callback:(v)=>Number.isFinite(v) ? (Math.abs(v)>=100 ? Math.round(v).toString() : (+v).toFixed(Math.abs(v)>=10?1:2)) : v });
+        if(a.title){ a.title.font={ size:10 }; a.title.text=short(a.title.text); } });
+      return opt; }
+    let _pcWasPhone=pcPhone(); window.addEventListener('resize', ()=>{ const ph=pcPhone(); if(ph!==_pcWasPhone){ _pcWasPhone=ph; try{ renderMain(); }catch(e){} } });
+    function buildSpecialCurves(datasets, seriesForGrid, labelPrefix, opts){ const showAvg=document.getElementById('showAverage').checked; const showMax=document.getElementById('showMax').checked; const showMin=document.getElementById('showMin').checked; const userStep=parseFloat(document.getElementById('avgStep').value)||5; const step=(opts && Number.isFinite(opts.stepOverride))?opts.stepOverride:Math.max(0.0001, userStep); const userMinSeries=parseInt(document.getElementById('avgMinSeries').value,10)||2; const nSeries=(seriesForGrid||[]).filter(a=>Array.isArray(a)&&a.length>0).length; const minSeries=(opts && Number.isFinite(opts.minSeriesOverride))?opts.minSeriesOverride:Math.max(1,Math.min(userMinSeries, nSeries||1)); /* 2026-11-14: clamp to the number of loaded wells (see computeCurvesForPlot) */ const noSm=!!(opts && opts.noSmooth); const smoothOn=!noSm && document.getElementById('applySmoothing').checked; const win=noSm ? 1 : (parseInt(document.getElementById('smoothWindow').value,10)||1); const maxPctVal=Math.min(100,Math.max(50, parseFloat(document.getElementById('maxPct').value)||90))/100; const minPctVal=Math.min(50,Math.max(0,  parseFloat(document.getElementById('minPct').value)||10))/100; lastCurvesSpecial={avg:[],max:[],min:[]}; if(showMin){ let pts=buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win); if(opts&&opts.extendX) pts=extendTo(pts, opts.extendX, step, seriesForGrid, 'min', minPctVal); lastCurvesSpecial.min=pts; if(pts.length){ datasets.push({ label:`Min ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(255,0,0,0.20)', backgroundColor:'rgba(255,0,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:993 }); datasets.push({ label:`Min ${labelPrefix}`, data:pts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:994 }); } } if(showMax){ let pts=buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win); if(opts&&opts.extendX) pts=extendTo(pts, opts.extendX, step, seriesForGrid, 'max', maxPctVal); lastCurvesSpecial.max=pts; if(pts.length){ datasets.push({ label:`Max ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,255,0,0.20)', backgroundColor:'rgba(0,255,0,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:995 }); datasets.push({ label:`Max ${labelPrefix}`, data:pts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:996 }); } } if(showAvg){ let pts=buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win); if(opts&&opts.extendX) pts=extendTo(pts, opts.extendX, step, seriesForGrid, 'avg'); lastCurvesSpecial.avg=pts; if(pts.length){ datasets.push({ label:`Average ${labelPrefix} (glow)`, data:pts, borderColor:'rgba(0,229,255,0.20)', backgroundColor:'rgba(0,229,255,0.20)', showLine:true, borderDash:[], borderWidth:10, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:997 }); datasets.push({ label:`Average ${labelPrefix}`, data:pts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderDash:[], borderWidth:3, pointRadius:0, fill:false, tension:0.25, segment:{ borderDash: c => (c.p1 && c.p1.raw && c.p1.raw.ext) ? [6,4] : undefined }, order:998 }); } } }
 
     async function processFile1(file, hasHeader){ const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames.length) throw new Error('No sheets'); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null}); if(!rows.length) throw new Error('Empty sheet'); const start=hasHeader?1:0; const A=[],B=[],C=[]; for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; A.push(row[0]); B.push(row[1]); C.push(row[2]); } const {pts:rawB,replaced:replacedB}=cleanAndBuildXY(A,B); const {pts:rawC,replaced:replacedC}=cleanAndBuildXY(A,C); state.file1={name:file.name, rawB, rawC, rows:rows.length-start, replacedB, replacedC}; }
 
     async function parsePasonCsvFile(file,hasHeader,manualMseCol1Based){ const text=await file.text(); const parsed=Papa.parse(text,{ delimiter:"", newline:"", quoteChar:'"', escapeChar:'"', header:false, skipEmptyLines:true }); const rows=parsed.data||[]; if(!rows.length) return null; let headerRow=null; let start=0; if(hasHeader && rows.length){ headerRow=rows[0]; start=1; } let mseIdx=null; const manualIdx=parseInt(manualMseCol1Based,10); if(Number.isFinite(manualIdx)&&manualIdx>=1){ mseIdx=manualIdx-1; } else if(headerRow){ for(let i=0;i<headerRow.length;i++){ const h=String(headerRow[i]??'').toLowerCase(); if(!h) continue; if((h.includes('mechanical specific energy')||h.includes('mse')) && (h.includes('ksi') || !h.includes('kpa'))){ mseIdx=i; break; } } }
-      const Xmd=[], Ywob=[], Yhl=[], Ytq=[], Yflow=[], Yrop=[], Ymse=[]; const tsArr=[], mdArr=[];
-      for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; Xmd.push(row[2]); Yrop.push(row[4]); Ywob.push(row[5]); Yhl.push(row[8]); Ytq.push(row[10]); Yflow.push(row[11]); if(mseIdx!==null && row.length>mseIdx){ Ymse.push(row[mseIdx]); } else { Ymse.push(null); } const d=row[0], t=row[1]; const ts=parseDateTimeUTC(d,t); const md=toNumber(row[2]); tsArr.push(Number.isFinite(ts)?ts:NaN); mdArr.push(Number.isFinite(md)?md:NaN); }
+      const Xmd=[], Ywob=[], Yhl=[], Ytq=[], Yflow=[], Yrop=[], Ymse=[]; const tsArr=[], mdArr=[]; const ropRows=[], myRows=[];   // 2026-11-21: myRows = [holeDepth, inc, az, rpm, rop] in file order (Motor Yield);: [md, rop, rpm] of drilling rows (slide / rotate split)
+      for(let r=start;r<rows.length;r++){ const row=rows[r]||[]; Xmd.push(row[2]); Yrop.push(row[4]); Ywob.push(row[5]); Yhl.push(row[8]); Ytq.push(row[10]); Yflow.push(row[11]); { const md_=toNumber(row[2]), rp_=toNumber(row[4]), rpm_=toNumber(row[6]); if(Number.isFinite(md_) && Number.isFinite(rp_) && rp_>0 && Number.isFinite(rpm_)) ropRows.push([md_, rp_, rpm_]); const inc_=toNumber(row[12]), az_=toNumber(row[13]); if(Number.isFinite(md_) && Number.isFinite(inc_) && Number.isFinite(az_) && inc_>=0 && inc_<=180) myRows.push([md_, inc_, az_, Number.isFinite(rpm_)?rpm_:NaN, Number.isFinite(rp_)?rp_:0]); } if(mseIdx!==null && row.length>mseIdx){ Ymse.push(row[mseIdx]); } else { Ymse.push(null); } const d=row[0], t=row[1]; const ts=parseDateTimeUTC(d,t); const md=toNumber(row[2]); tsArr.push(Number.isFinite(ts)?ts:NaN); mdArr.push(Number.isFinite(md)?md:NaN); }
       const XmdNum=Xmd.map(v=>v); const YropFiltered=Yrop.map(v=>toNumber(v)).map(v=>(Number.isFinite(v)&&v>=0)?v:null); const {pts:rawROP}=cleanAndBuildXY(XmdNum,YropFiltered); const {pts:rawWOB}=cleanAndBuildXY(Xmd,Ywob); const {pts:rawHL,replaced:replHL}=cleanAndBuildXY(Xmd,Yhl); const {pts:rawTQ,replaced:replTQ}=cleanAndBuildXY(Xmd,Ytq); const {pts:rawFLOW}=cleanAndBuildXY(Xmd,Yflow); let rawMSE=[]; if(mseIdx!==null){ const {pts}=cleanAndBuildXY(Xmd,Ymse); rawMSE=pts; }
+      // 2026-11-21: time rows for flat / other time per offset well (see mtxFlatStats): [days, holeDepth, rop, rpm]
+      const tRows=[]; { const t0=tsArr.find(v=>Number.isFinite(v)); for(let r=start;r<rows.length;r++){ const i=r-start, row=rows[r]||[]; if(!Number.isFinite(tsArr[i])||!Number.isFinite(mdArr[i])) continue; tRows.push([(tsArr[i]-t0)/86400000, mdArr[i], toNumber(row[4]), toNumber(row[6])]); } }
       let tdPts=[]; const firstIdx=tsArr.findIndex(v=>Number.isFinite(v)); if(firstIdx!==-1){ const t0=tsArr[firstIdx]; const days=tsArr.map(v=>Number.isFinite(v)?((v-t0)/86400000):NaN); const {pts}=cleanAndBuildXY(days, mdArr); tdPts=pts; }
       const baseName=(file.webkitRelativePath||file.name).replace(/\.[^.]+$/, '');
-      return { name:baseName, wob:{raw:rawWOB,rows:rawWOB.length}, hl:{raw:rawHL,rows:rows.length-start,replaced:replHL}, tq:{raw:rawTQ,rows:rows.length-start,replaced:replTQ}, rop:{raw:rawROP,rows:rawROP.length}, mse:{raw:rawMSE,rows:rawMSE.length,mseCol:mseIdx}, flow:{raw:rawFLOW,rows:rawFLOW.length}, td:{raw:tdPts,rows:rows.length-start} };
+      return { name:baseName, wob:{raw:rawWOB,rows:rawWOB.length}, hl:{raw:rawHL,rows:rows.length-start,replaced:replHL}, tq:{raw:rawTQ,rows:rows.length-start,replaced:replTQ}, rop:{raw:rawROP,rows:rawROP.length,modeRows:ropRows,myRows,tRows}, mse:{raw:rawMSE,rows:rawMSE.length,mseCol:mseIdx}, flow:{raw:rawFLOW,rows:rawFLOW.length}, td:{raw:tdPts,rows:rows.length-start} };
     }
 
-    async function processPasonFolder(fileList,hasHeader){ const csvFiles=Array.from(fileList).filter(f=>f.name.toLowerCase().endsWith('.csv')); csvFiles.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name)); const manualMseCol1Based=document.getElementById('mseColInput').value; const seriesHL=[],seriesTQ=[],seriesWOB=[],seriesROP=[],seriesMSE=[],seriesFLOW=[],seriesTD=[]; for(const f of csvFiles){ try{ const s=await parsePasonCsvFile(f,hasHeader,manualMseCol1Based); if(!s) continue; if(s.wob.raw.length) seriesWOB.push({name:s.name,raw:s.wob.raw,rows:s.wob.rows}); if(s.hl.raw.length) seriesHL.push({name:s.name,raw:s.hl.raw,rows:s.hl.rows,replaced:s.hl.replaced}); if(s.tq.raw.length) seriesTQ.push({name:s.name,raw:s.tq.raw,rows:s.tq.rows,replaced:s.tq.replaced}); if(s.rop.raw.length) seriesROP.push({name:s.name,raw:s.rop.raw,rows:s.rop.rows}); if(s.mse.raw.length) seriesMSE.push({name:s.name,raw:s.mse.raw,rows:s.mse.rows,mseCol:s.mse.mseCol}); if(s.flow.raw.length) seriesFLOW.push({name:s.name,raw:s.flow.raw,rows:s.flow.rows}); if(s.td.raw.length) seriesTD.push({name:s.name,raw:s.td.raw,rows:s.td.rows}); } catch(err){ console.warn('Failed to parse CSV:', f.name, err); } }
+    async function processPasonFolder(fileList,hasHeader){ const csvFiles=Array.from(fileList).filter(f=>f.name.toLowerCase().endsWith('.csv')); csvFiles.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name)); const manualMseCol1Based=document.getElementById('mseColInput').value; const seriesHL=[],seriesTQ=[],seriesWOB=[],seriesROP=[],seriesMSE=[],seriesFLOW=[],seriesTD=[]; for(const f of csvFiles){ try{ const s=await parsePasonCsvFile(f,hasHeader,manualMseCol1Based); if(!s) continue; if(s.wob.raw.length) seriesWOB.push({name:s.name,raw:s.wob.raw,rows:s.wob.rows}); if(s.hl.raw.length) seriesHL.push({name:s.name,raw:s.hl.raw,rows:s.hl.rows,replaced:s.hl.replaced}); if(s.tq.raw.length) seriesTQ.push({name:s.name,raw:s.tq.raw,rows:s.tq.rows,replaced:s.tq.replaced}); if(s.rop.raw.length) seriesROP.push({name:s.name,raw:s.rop.raw,rows:s.rop.rows,modeRows:s.rop.modeRows,myRows:s.rop.myRows,tRows:s.rop.tRows}); if(s.mse.raw.length) seriesMSE.push({name:s.name,raw:s.mse.raw,rows:s.mse.rows,mseCol:s.mse.mseCol}); if(s.flow.raw.length) seriesFLOW.push({name:s.name,raw:s.flow.raw,rows:s.flow.rows}); if(s.td.raw.length) seriesTD.push({name:s.name,raw:s.td.raw,rows:s.td.rows}); } catch(err){ console.warn('Failed to parse CSV:', f.name, err); } }
       const totalWOB=seriesWOB.length; seriesWOB.forEach((s,i)=>s.color=colorByIndex(i,totalWOB)); const totalHL=seriesHL.length; seriesHL.forEach((s,i)=>s.color=colorByIndex(i,totalHL)); const totalTQ=seriesTQ.length; seriesTQ.forEach((s,i)=>s.color=colorByIndex(i,totalTQ)); const totalROP=seriesROP.length; seriesROP.forEach((s,i)=>s.color=colorByIndex(i,totalROP)); const totalMSE=seriesMSE.length; seriesMSE.forEach((s,i)=>s.color=colorByIndex(i,totalMSE)); const totalFLOW=seriesFLOW.length; seriesFLOW.forEach((s,i)=>s.color=colorByIndex(i,totalFLOW)); const totalTD=seriesTD.length; seriesTD.forEach((s,i)=>s.color=colorByIndex(i,totalTD));
+      state.csvSets={ wob:seriesWOB, hl:seriesHL, tq:seriesTQ, rop:seriesROP, mse:seriesMSE, flow:seriesFLOW, td:seriesTD }; if(typeof mtxMergeLas === 'function'){ mtxMergeLas(); buildSeriesToggleMenu(); return; }   // 2026-11-21: + LAS wells
       state.wobSeries=seriesWOB; state.pasonSeries=seriesHL; state.torqueSeries=seriesTQ; state.ropSeries=seriesROP; state.mseSeries=seriesMSE; state.flowSeries=seriesFLOW; state.timeDepthSeries=seriesTD;
       buildSeriesToggleMenu();
     }
 
-    function downloadCsv(points,filename){ if(!points||!points.length){ alert('No curve data available to export.'); return; } const p=currentPlotDef(); const xHeader=(p.id==='td')?'Days':'MeasuredDepth_m'; const yHeader= p.id==='hl'?'HookLoad_kDaN': p.id==='tq'?'Torque_kN_m': p.id==='wob'?'WOB_kDaN': p.id==='rop'?'ROP_m_per_h': p.id==='mse'?'MSE_ksi': p.id==='flow'?'Flow_m3_per_min': 'HoleDepth_m'; const header=`${xHeader},${yHeader}\n`; const rows=points.map(pt=>`${pt.x.toFixed(4)},${pt.y.toFixed(4)}`).join('\n'); const blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
+    function downloadCsv(points,filename){ if(!points||!points.length){ alert('No curve data available to export.'); return; } const p=currentPlotDef(); const xHeader=(p.id==='td'||p.id==='tds')?'Days':'MeasuredDepth_m'; const yHeader= p.id==='hl'?'HookLoad_kDaN': p.id==='tq'?'Torque_kN_m': p.id==='wob'?'WOB_kDaN': p.id==='rop'?'ROP_m_per_h': p.id==='mse'?'MSE_ksi': p.id==='flow'?'Flow_m3_per_min': 'HoleDepth_m'; const header=`${xHeader},${yHeader}\n`; const rows=points.map(pt=>`${pt.x.toFixed(4)},${pt.y.toFixed(4)}`).join('\n'); const blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
 
     const file1El=document.getElementById('file1'); const pasonFolderEl=document.getElementById('pasonFolder'); const file1HeadersEl=document.getElementById('file1Headers'); const pasonHeadersEl=document.getElementById('pasonHeaders'); const mseColInputEl=document.getElementById('mseColInput'); const plotSelectEl=document.getElementById('plotSelect'); const applySmoothingEl=document.getElementById('applySmoothing'); const smoothWindowEl=document.getElementById('smoothWindow'); const smoothValueEl=document.getElementById('smoothValue'); const rejectSpikesEl=document.getElementById('rejectSpikes'); const spikeThresholdEl=document.getElementById('spikeThreshold'); const useIqrRejectEl=document.getElementById('useIqrReject'); const lineStyleEl=document.getElementById('lineStyle'); const paletteModeEl=document.getElementById('paletteMode'); const dotStyleEl=document.getElementById('dotStyle'); const showPointsEl=document.getElementById('showPoints'); const showLegendEl=document.getElementById('showLegend'); const showAverageEl=document.getElementById('showAverage'); const avgStepEl=document.getElementById('avgStep'); const avgMinSeriesEl=document.getElementById('avgMinSeries'); const showMaxEl=document.getElementById('showMax'); const showMinEl=document.getElementById('showMin'); const maxPctEl=document.getElementById('maxPct'); const minPctEl=document.getElementById('minPct'); const xMinEl=document.getElementById('xMin'); const xMaxEl=document.getElementById('xMax'); const yMinEl=document.getElementById('yMin'); const yMaxEl=document.getElementById('yMax'); const applyAxesBtn=document.getElementById('applyAxes'); const autoAxesBtn=document.getElementById('autoAxes'); const enableZoomEl=document.getElementById('enableZoom'); const resetZoomBtn=document.getElementById('resetZoom'); const exportAvgCsvBtn=document.getElementById('exportAvgCsv'); const exportMaxCsvBtn=document.getElementById('exportMaxCsv'); const exportMinCsvBtn=document.getElementById('exportMinCsv'); const exportPngBtn=document.getElementById('exportPng'); const exportVisibleCsvBtn=document.getElementById('exportVisibleCsv');
 
@@ -425,14 +648,19 @@
     pasonHeadersEl.addEventListener('change', async ()=>{ const files=pasonFolderEl.files; if(!files||!files.length) return; document.getElementById('status2').textContent='Re-reading CSVs…'; try{ await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status2').textContent='Failed to read Pason CSV folder.'; } });
     mseColInputEl.addEventListener('change', async ()=>{ const files=pasonFolderEl.files; if(!files||!files.length) return; document.getElementById('status2').textContent='Re-reading CSVs (MSE col)…'; try{ await processPasonFolder(files, pasonHeadersEl.checked); renderMain(); } catch(err){ console.error(err); document.getElementById('status2').textContent='Failed to read Pason CSV folder.'; } });
 
+    function ropBoxVis(){ const id=currentPlotDef().id, b=document.getElementById('ropModeBox'); if(b) b.style.setProperty('display', (id==='rop'||id==='my') ? 'flex' : 'none', 'important');
+      ['ropMode','ropExt'].forEach(k=>{ const e=document.getElementById(k); if(e) e.closest('.rm-row').style.display = id==='my' ? 'none' : ''; });
+      document.querySelectorAll('#ropModeBox .rm-my').forEach(e=>{ e.style.display = id==='my' ? '' : 'none'; }); }
+    ['ropMode','ropMinDrill','ropSlideRpm','ropRotRpm','ropExt','myType','myBin','myOffset','myMaxDls','snowGapH'].forEach(id=>{ const e=document.getElementById(id); if(e) e.addEventListener(id==='ropMode'?'change':'input', ()=>renderMain()); });
+    setTimeout(ropBoxVis, 0); plotSelectEl.addEventListener('change', ropBoxVis);
     plotSelectEl.addEventListener('change', ()=>{ updateSpecialControlsVisibility(); updateAxesLabels(); xMinEl.value=''; xMaxEl.value=''; yMinEl.value=''; yMaxEl.value=''; renderMain(); });
 
     applySmoothingEl.addEventListener('change', renderMain); smoothWindowEl.addEventListener('input', ()=>{ smoothValueEl.textContent=smoothWindowEl.value; renderMain(); }); rejectSpikesEl.addEventListener('change', renderMain); useIqrRejectEl.addEventListener('change', renderMain); spikeThresholdEl.addEventListener('input', renderMain); lineStyleEl.addEventListener('change', renderMain); paletteModeEl.addEventListener('change', renderMain); dotStyleEl.addEventListener('input', renderMain); showPointsEl.addEventListener('change', renderMain); showLegendEl.addEventListener('change', renderMain);
 
     showAverageEl.addEventListener('change', renderMain); avgStepEl.addEventListener('input', renderMain); avgMinSeriesEl.addEventListener('input', renderMain); showMaxEl.addEventListener('change', renderMain); showMinEl.addEventListener('change', renderMain); maxPctEl.addEventListener('input', renderMain); minPctEl.addEventListener('input', renderMain);
 
-    function selectedAxes(){ const p=currentPlotDef(); return p.id==='hl'?state.axesHL: p.id==='tq'?state.axesTQ: p.id==='wob'?state.axesWOB: p.id==='rop'?state.axesROP: p.id==='mse'?state.axesMSE: p.id==='flow'?state.axesFLOW: state.axesTD; }
-    function setSelectedAxes(ax){ const p=currentPlotDef(); if(p.id==='hl') state.axesHL=ax; else if(p.id==='tq') state.axesTQ=ax; else if(p.id==='wob') state.axesWOB=ax; else if(p.id==='rop') state.axesROP=ax; else if(p.id==='mse') state.axesMSE=ax; else if(p.id==='flow') state.axesFLOW=ax; else state.axesTD=ax; }
+    function selectedAxes(){ const p=currentPlotDef(); return p.id==='hl'?state.axesHL: p.id==='tq'?state.axesTQ: p.id==='wob'?state.axesWOB: p.id==='rop'?state.axesROP: p.id==='mse'?state.axesMSE: p.id==='flow'?state.axesFLOW: p.id==='my'?(state.axesMY||(state.axesMY={xMin:null,xMax:null,yMin:null,yMax:null})): p.id==='tds'?(state.axesTDS||(state.axesTDS={xMin:null,xMax:null,yMin:null,yMax:null})): state.axesTD; }
+    function setSelectedAxes(ax){ const p=currentPlotDef(); if(p.id==='hl') state.axesHL=ax; else if(p.id==='tq') state.axesTQ=ax; else if(p.id==='wob') state.axesWOB=ax; else if(p.id==='rop') state.axesROP=ax; else if(p.id==='mse') state.axesMSE=ax; else if(p.id==='flow') state.axesFLOW=ax; else if(p.id==='my') state.axesMY=ax; else if(p.id==='tds') state.axesTDS=ax; else state.axesTD=ax; }
 
     document.getElementById('applyAxes').addEventListener('click', ()=>{ const xMin=parseFloat(xMinEl.value); const xMax=parseFloat(xMaxEl.value); const yMin=parseFloat(yMinEl.value); const yMax=parseFloat(yMaxEl.value); setSelectedAxes({ xMin:Number.isFinite(xMin)?xMin:null, xMax:Number.isFinite(xMax)?xMax:null, yMin:Number.isFinite(yMin)?yMin:null, yMax:Number.isFinite(yMax)?yMax:null }); renderMain(); });
     document.getElementById('autoAxes').addEventListener('click', ()=>{ setSelectedAxes({xMin:null,xMax:null,yMin:null,yMax:null}); xMinEl.value=''; xMaxEl.value=''; yMinEl.value=''; yMaxEl.value=''; renderMain(); });
@@ -452,19 +680,20 @@
     // which Show Avg/Max/Min checkboxes are toggled (export always includes
     // all three curves for every plot).
     function computeCurvesForPlot(plotId){
-      const seriesGetters = { hl:getAllProcessedSeriesHL, tq:getAllProcessedSeriesTQ, wob:getAllProcessedSeriesWOB, rop:getAllProcessedSeriesROP, mse:getAllProcessedSeriesMSE, flow:getAllProcessedSeriesFLOW, td:getAllProcessedSeriesTD };
+      if(plotId === 'tds') return snowCurves();   // 2026-11-22: time at each total depth (see snowCurves)
+      const seriesGetters = { hl:getAllProcessedSeriesHL, tq:getAllProcessedSeriesTQ, wob:getAllProcessedSeriesWOB, rop:()=>getAllProcessedSeriesROP('all'), tds:getAllProcessedSeriesTDS, my:()=>getAllProcessedSeriesMY(), mys:()=>getAllProcessedSeriesMY('slide'), myr:()=>getAllProcessedSeriesMY('rot'), myc:()=>getAllProcessedSeriesMY('corr'), myb:()=>getAllProcessedSeriesMY('rb'), myw:()=>getAllProcessedSeriesMY('rw'), rops:()=>getAllProcessedSeriesROP('slide'), ropr:()=>getAllProcessedSeriesROP('rot'), mse:getAllProcessedSeriesMSE, flow:getAllProcessedSeriesFLOW, td:getAllProcessedSeriesTD };
       const getter = seriesGetters[plotId];
       if(!getter) return { avg:[], max:[], min:[] };
       const seriesForGrid = getter();
 
       // 2026-11-14 (John): Time vs Depth is never smoothed (smoothing rounded the flat/drilling corners); other plots as set
-      const smoothOn = plotId !== 'td' && document.getElementById('applySmoothing').checked;
-      const win = plotId === 'td' ? 1 : (parseInt(document.getElementById('smoothWindow').value,10) || 1);
+      const smoothOn = plotId !== 'td' && plotId !== 'tds' && !/^my/.test(plotId) && document.getElementById('applySmoothing').checked;
+      const win = (plotId === 'td' || plotId === 'tds' || /^my/.test(plotId)) ? 1 : (parseInt(document.getElementById('smoothWindow').value,10) || 1);
       const maxPctVal = Math.min(100, Math.max(50, parseFloat(document.getElementById('maxPct').value)||90)) / 100;
       const minPctVal = Math.min(50,  Math.max(0,  parseFloat(document.getElementById('minPct').value)||10)) / 100;
 
       let step, minSeries;
-      if(plotId === 'td'){
+      if(plotId === 'td' || plotId === 'tds'){
         step = computeAdaptiveStepTD(seriesForGrid);
         minSeries = 1;
       } else {
@@ -479,14 +708,19 @@
         minSeries = Math.max(1, Math.min(userMinSeries, nSeries || 1));
       }
 
+      const isMy = /^my/.test(plotId);
+      if(isMy){ step = myBinLen(); }   // 2026-11-21: MY on its own bin, never smoothed
+      const isRop = /^rop/.test(plotId) || isMy, X = isRop ? ropMaxTD() : NaN;   // 2026-11-21: ROP continued to max TD (see extendTo)
+      if(isRop && ropExtMethod() === 'ms1') minSeries = 1;
+      const ex = (pts, kind, q) => Number.isFinite(X) ? extendTo(pts, X, step, seriesForGrid, kind, q) : pts;
       return {
-        avg: buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win),
-        max: buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win),
-        min: buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win),
+        avg: ex(buildAverageSeries(seriesForGrid, step, minSeries, smoothOn, win), 'avg'),
+        max: ex(buildPercentileSeries(seriesForGrid, step, minSeries, maxPctVal, win), 'max', maxPctVal),
+        min: ex(buildPercentileSeries(seriesForGrid, step, minSeries, minPctVal, win), 'min', minPctVal),
       };
     }
 
-    const SHEET_NAMES = { hl:'Hook Load', tq:'Torque', wob:'WOB', rop:'ROP', mse:'MSE', flow:'Flow', td:'Hole Depth vs Time' };
+    const SHEET_NAMES = { tds:'Snowball', myb:'MY Rot Build', myw:'MY Rot Walk', mys:'MY Slide', myr:'MY Rotary DLS', myc:'MY Corrected', rops:'ROP Slide', ropr:'ROP Rotate', hl:'Hook Load', tq:'Torque', wob:'WOB', rop:'ROP', mse:'MSE', flow:'Flow', td:'Hole Depth vs Time' };
 
     document.getElementById('exportAllPlotsXlsx').addEventListener('click', ()=>{
       if(typeof XLSX === 'undefined'){ alert('Excel library not loaded.'); return; }
@@ -494,8 +728,12 @@
       const wb = XLSX.utils.book_new();
       let anySheet = false;
 
-      plotRegistry.forEach(p => {
+      // 2026-11-21: + 'ROP Slide' / 'ROP Rotate' tabs (same Avg / Max / Min layout), skipped when no well has Rotary RPM rows
+      plotRegistry.filter(p => p.id !== 'my').concat([{ id:'rops' }, { id:'ropr' }, { id:'mys' }, { id:'myr' }, { id:'myc' }, { id:'myb' }, { id:'myw' }]).forEach(p => {   // 2026-11-21: + 3 MY tabs
         const { avg, max, min } = computeCurvesForPlot(p.id);
+        if(p.id === 'tds'){   // 2026-11-22: snowball tab by total depth (time to reach it): TotalDepth_m, Avg_days, Max(fastest)_days, Min(slowest)_days
+          if(!avg.length) return; const aoa = [['TotalDepth_m', 'Avg_days', 'Max_fastest_days', 'Min_slowest_days']].concat(avg.map((q, i) => [+q.y.toFixed(2), +q.x.toFixed(4), max[i] ? +max[i].x.toFixed(4) : '', min[i] ? +min[i].x.toFixed(4) : '']));
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Snowball'); anySheet = true; return; }
         if(!avg.length && !max.length && !min.length) return; // no data for this plot — skip its sheet
 
         // Merge avg/max/min by X value (grids match since built with the
@@ -509,7 +747,7 @@
         });
         put(avg, 'avg'); put(max, 'max'); put(min, 'min');
 
-        const xHeader = (p.id === 'td') ? 'Time_days' : 'MeasuredDepth_m';
+        const xHeader = (p.id === 'td' || p.id === 'tds') ? 'Time_days' : 'MeasuredDepth_m';
         const rows = [...rowsMap.values()]
           .sort((a,b) => a.x - b.x)
           .map(r => [r.x, r.avg ?? '', r.max ?? '', r.min ?? '']);
@@ -523,6 +761,21 @@
         anySheet = true;
       });
 
+      // 2026-11-21 (John): LAS wells add two tabs used by the job page time model (Drilling Mechanics): time per 100 m and stops
+      // (public/js/slideSheetModel.js lasTimeStats). Wells from CSV / Excel have no such data — the tabs are simply absent.
+      const lasW = (typeof window.mtxLasWells === 'function' ? window.mtxLasWells() : []).filter(w => w.stats);
+      if(lasW.length){
+        const tb = [['Well', 'From_m', 'To_m', 'Drilled_m', 'OnBottom_h', 'Slide_m', 'Slide_h', 'Rotate_m', 'Rotate_h', 'Other_h', 'Elapsed_h']];
+        lasW.forEach(w => w.stats.bins.forEach(b => tb.push([w.name, b.from, b.to, +b.m.toFixed(2), +b.onbH.toFixed(4), +b.slideM.toFixed(2), +b.slideH.toFixed(4), +b.rotM.toFixed(2), +b.rotH.toFixed(4), +b.otherH.toFixed(4), +b.elapsedH.toFixed(4)])));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tb), 'LAS time per 100 m');
+        const ts = [['Well', 'Depth_m', 'StartDay', 'Hours', 'EndsWithDrop', 'NextDepth_m']];
+        lasW.forEach(w => w.stats.stops.forEach(x => ts.push([w.name, +x.depth.toFixed(2), +x.startDay.toFixed(4), +x.hours.toFixed(3), x.endsWithDrop ? 'Y' : 'N', x.nextDepth == null ? '' : +x.nextDepth.toFixed(2)])));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ts), 'LAS stops');
+        anySheet = true;
+      }
+      // 2026-11-21: 'Flat times' tab (mtxFlatStats per CSV well) for the planned time vs depth on the job page
+      { const ft=[['Well','Type','Section','Depth_m','Hours','Metres']]; (state.ropSeries||[]).forEach(s=>{ const r=mtxFlatStats(s); if(r) r.forEach(x=>ft.push([s.name, x[0], x[1], x[2]===''?'':+(+x[2]).toFixed(2), +(+x[3]).toFixed(3), x[4]===''?'':+(+x[4]).toFixed(2)])); });
+        if(ft.length>1){ XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ft), 'Flat times'); anySheet=true; } }
       if(!anySheet){ alert('No Average/Max/Min curve data available to export for any plot.'); return; }
 
       XLSX.writeFile(wb, 'pason_all_plots.xlsx');
@@ -566,6 +819,45 @@ function mtxSharpenTD(pts, tolFrac){
   return pts.filter(function(_, i){ return keep[i]; });
 }
 </script>
+<script src="/js/slideSheetModel.js"></script>
+<script>
+// 2026-11-21 (John): LAS wells (see the panel note). Kept apart from the CSV wells and merged into the same state arrays.
+(function(){
+  var LAS_WELLS = [];   // [{ name, series: {hl, tq, wob, rop, mse, flow, td} }]
+  var KEYS = { wob:'wobSeries', hl:'pasonSeries', tq:'torqueSeries', rop:'ropSeries', mse:'mseSeries', flow:'flowSeries', td:'timeDepthSeries' };
+  window.mtxMergeLas = function(){
+    var csv = state.csvSets || { wob:[], hl:[], tq:[], rop:[], mse:[], flow:[], td:[] };
+    Object.keys(KEYS).forEach(function(k){
+      var arr = (csv[k] || []).slice();
+      LAS_WELLS.forEach(function(w){ var r = w.series[k]; if(r && r.length) arr.push({ name: w.name + ' (LAS)', raw: r, rows: r.length }); });
+      arr.forEach(function(s2, i){ s2.color = colorByIndex(i, arr.length); });
+      state[KEYS[k]] = arr;
+    });
+  };
+  var files = [];
+  window.mtxLasWells = function(){ return LAS_WELLS; };   // 2026-11-21: used by Export All Plots (LAS time statistics tabs)
+  async function readAll(){
+    var st = document.getElementById('status3'), bin = parseFloat(document.getElementById('lasBin').value) || 1; LAS_WELLS = [];
+    for(var i = 0; i < files.length; i++){ var f = files[i];
+      try{ var p = new SlideSheetModel.LasParser(), dec = new TextDecoder(), CH = 8 << 20;
+        for(var off = 0; off < f.size; off += CH){ var buf = await f.slice(off, Math.min(off + CH, f.size)).arrayBuffer(); p.push(dec.decode(buf, { stream: off + CH < f.size }));
+          st.textContent = 'Reading ' + f.name + ' ' + Math.min(100, Math.round(100 * (off + CH) / f.size)) + ' %…'; await new Promise(function(r){ setTimeout(r, 0); }); }
+        var L = p.finish(), ser = SlideSheetModel.lasToSeries(L, { bin: bin });
+        st.textContent = f.name + ': time statistics…'; await new Promise(function(r){ setTimeout(r, 0); });
+        var det = null, tst = null; try{ det = SlideSheetModel.detect(L, {}); tst = SlideSheetModel.lasTimeStats(L, det, {}); }catch(e2){ tst = null; }   // 2026-11-21: time model stats
+        LAS_WELLS.push({ name: (L.well && L.well.WELL) || f.name.replace(/\.[^.]+$/, ''), series: ser, stats: tst });
+        st.textContent = f.name + ': ' + L.n.toLocaleString() + ' rows → ' + ser.rop.length + ' depth bins';
+      }catch(err){ st.textContent = f.name + ': ' + err.message; }
+    }
+    if(!state.csvSets) state.csvSets = { wob: state.wobSeries.slice(), hl: state.pasonSeries.slice(), tq: state.torqueSeries.slice(), rop: state.ropSeries.slice(), mse: state.mseSeries.slice(), flow: state.flowSeries.slice(), td: state.timeDepthSeries.slice() };
+    mtxMergeLas(); buildSeriesToggleMenu(); if(typeof updateStatus === 'function') updateStatus(); renderMain();
+    st.textContent = LAS_WELLS.length + ' LAS well(s) added (bin ' + bin + ' m): ' + LAS_WELLS.map(function(w){ return w.name; }).join(', ');
+  }
+  document.getElementById('lasFiles').addEventListener('change', function(e){ files = Array.from(e.target.files || []); if(files.length) readAll(); });
+  document.getElementById('lasBin').addEventListener('change', function(){ if(files.length) readAll(); });
+  document.getElementById('lasClear').addEventListener('click', function(){ files = []; LAS_WELLS = []; document.getElementById('lasFiles').value = ''; if(state.csvSets){ mtxMergeLas(); buildSeriesToggleMenu(); renderMain(); } document.getElementById('status3').textContent = 'LAS wells removed.'; });
+})();
+</script>
 <script src="/js/userPrefs.js"></script>
 <script>
   (function(){ var e = document.getElementById('tdCurveStyle'); if(!e || !window.MTXPrefs) return;
@@ -575,5 +867,6 @@ function mtxSharpenTD(pts, tolFrac){
     e.addEventListener('change', function(){ MTXPrefs.set('tdCurveStyle', e.value); if(typeof renderMain === 'function') renderMain(); });
     if(typeof renderMain === 'function') renderMain(); })();
 </script>
+<%- include('partials/mtxHelp.ejs') %><%# 2026-11-22: shared "?" help window %>
 </body>
 </html>

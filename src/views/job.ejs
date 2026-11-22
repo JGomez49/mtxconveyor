@@ -251,6 +251,166 @@ body.light-mode #statusTextbox {
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="/js/iplanCore.js"></script><!-- 2026-10-10: shared QuickPlan/iPlan planning math -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// 2026-11-20 (John): shared ROP for drilling TIME (score cards "Time – Build / Lateral" and the Drilling Mechanics
+// Calculated Time vs Depth). Was: plain mean of the ROP "Average" curve. Now:
+//  - curve = the Drilling Mechanics KPI selector (Min / Avg / Max of the Pason export; default Min; saved per user, key dmKpiCurve);
+//  - LENGTH-WEIGHTED (harmonic) mean over the MD range: time = integral of dMD / ROP (trapezoid on 1/ROP between points),
+//    ROP = covered length / time. This is the ROP that gives the right time; a plain mean overstates speed when ROP varies.
+window.MTX_ROP = {
+    curve: <%- JSON.stringify((user && user.uiPrefs && user.uiPrefs.dmKpiCurve) || 'avg') %>,   // 2026-11-22: default Average (was Min); a user's saved choice still wins
+    COL: { avg: 1, max: 2, min: 3 },
+    lw: function(rows, mdStart, mdEnd, curve){
+        if(!rows || !rows.length) return null;
+        var col = this.COL[curve || this.curve] || 1, lo = Math.min(mdStart, mdEnd), hi = Math.max(mdStart, mdEnd);
+        var pts = rows.map(function(r){ return [Number(r[0]), r[col] === '' || r[col] == null ? NaN : Number(r[col])]; })
+            .filter(function(p){ return isFinite(p[0]) && isFinite(p[1]) && p[1] > 0 && p[0] >= lo && p[0] <= hi; }).sort(function(a, b){ return a[0] - b[0]; });
+        if(!pts.length) return null;
+        if(pts.length === 1) return pts[0][1];
+        var L = 0, T = 0;
+        for(var i = 1; i < pts.length; i++){ var dm = pts[i][0] - pts[i - 1][0]; if(dm <= 0) continue; L += dm; T += dm * (1 / pts[i][1] + 1 / pts[i - 1][1]) / 2; }
+        return T > 0 ? L / T : pts[0][1];
+    }
+};
+// 2026-11-20 (John): SLIDE / ROTATE time model for PLANNED wells (Drilling Mechanics panel "Time model"). Per section
+// (Surface 0→SC, Build SC→IC, Lateral IC→TD) and per offset source (saved Slide Sheet or LAS file): slid length Ls and its
+// on-bottom time Ts, rotated length Lr and its time Tr (time of each EDR interval = length / its ROP). Pooled over sources:
+//   slide fraction f = ΣLs / Σ(Ls+Lr);  ROP_slide = ΣLs/ΣTs (Avg) or the slowest / fastest source (Min / Max, same selector);
+//   effective ROP of the section = 1 / ( f / ROP_slide + (1−f) / ROP_rotate )   (time = slid m / ROP_slide + rotated m / ROP_rotate).
+// On-bottom time only (no connections / surveys), like the single-ROP method; the milestone pauses are added on top.
+window.MTX_SRM = {
+    model: <%- JSON.stringify((typeof pasonPlots !== 'undefined' && pasonPlots && pasonPlots.slideRotModel) || null).replace(/</g, '\\u003c') %>,
+    agg: function(curve){
+        var m = this.model, out = {}; if(!m || !m.sources) return out; curve = curve || window.MTX_ROP.curve;
+        ['Surface', 'Build', 'Lateral'].forEach(function(sec){
+            var Ls = 0, Ts = 0, Lr = 0, Tr = 0, rs = [], rr = [], n = 0;
+            m.sources.forEach(function(src){ if(src.on === false) return; var q = src.perSection && src.perSection[sec]; if(!q || !(q.Ls + q.Lr > 0)) return; n++;
+                Ls += q.Ls; Ts += q.Ts; Lr += q.Lr; Tr += q.Tr; if(q.Ls > 0 && q.Ts > 0) rs.push(q.Ls / q.Ts); if(q.Lr > 0 && q.Tr > 0) rr.push(q.Lr / q.Tr); });
+            if(!n) return;
+            var pick = function(arr, L, T){ if(!arr.length) return null; return curve === 'min' ? Math.min.apply(null, arr) : curve === 'max' ? Math.max.apply(null, arr) : (T > 0 ? L / T : null); };
+            var f = (Ls + Lr) > 0 ? Ls / (Ls + Lr) : 0, ropS = pick(rs, Ls, Ts), ropR = pick(rr, Lr, Tr), eff = null;
+            if(ropR && (f === 0 || ropS)) eff = 1 / (f / (ropS || 1) * (f > 0 ? 1 : 0) + (1 - f) / ropR);
+            else if(ropS && f === 1) eff = ropS;
+            out[sec] = { f: f, ropS: ropS, ropR: ropR, eff: eff, n: n, Ls: Ls, Lr: Lr };
+        });
+        return out;
+    },
+    active: function(){ return !!(this.model && this.model.active && this.model.sources && this.model.sources.length); },
+    rop: function(sec){ if(!this.active() || !sec) return null; var a = this.agg(); return a[sec] && a[sec].eff ? a[sec].eff : null; }
+};
+// 2026-11-21 (John): TIME MODEL for the planned Time vs Depth (Drilling Mechanics) and the score-card times — no manual pauses.
+// Time of a planned section [a, b] = ON-BOTTOM time + OTHER in-hole time; plus STOPS at the casing points and per new leg.
+//  - on-bottom: (b - a) / ROP — slide / rotate offset model when active, else the length-weighted ROP of the Pason ROP plot;
+//  - other in-hole (connections, surveys, reaming…) and stops come from the offsets' EDR:
+//     * LAS wells (tabs "LAS time per 100 m" / "LAS stops" of the Pason export): other h per metre over the bins overlapping
+//       [a, b]; casing stop = longest stop of each well within max(30 m, 10 %) of the planned SC / IC depth; leg stop = stops
+//       that end with the hole depth dropping (trip back to a sidetrack point);
+//     * else (CSV / Excel data) from the Hole Depth vs Time curve of the export: elapsed time between the depths minus
+//       on-bottom time minus its flat stretches (> 2 h progressing < 1 m/h); casing stop = longest flat stretch near the depth;
+//       no leg stop (shown as 0 and flagged).
+//  - Min / Avg / Max (same selector): slowest well / pooled (sum of hours / sum of metres, or mean of stops) / fastest well.
+window.MTX_TM = {
+    _doc: undefined,
+    doc: function(){ if(this._doc === undefined){ var e = document.getElementById('pasonPlotsData'); try{ this._doc = e ? JSON.parse(e.textContent) : null; }catch(x){ this._doc = null; } } return this._doc; },
+    plots: function(){ var d = this.doc(); return (window.MTX_TM._livePlots) || (d && d.plots) || {}; },
+    pick: function(vals){ if(!vals.length) return null; var c = window.MTX_ROP.curve; return c === 'min' ? Math.max.apply(null, vals) : c === 'max' ? Math.min.apply(null, vals) : vals.reduce(function(x, y){ return x + y; }, 0) / vals.length; },
+    onBottomH: function(a, b, sec){
+        var rop = (window.MTX_SRM && window.MTX_SRM.rop(sec)) || (this.plots().rop ? window.MTX_ROP.lw(this.plots().rop.rows, a, b) : null);
+        return rop > 0 ? (b - a) / rop : null;
+    },
+    hasLas: function(){ var p = this.plots(); return !!(p.lasTime && p.lasTime.length); },
+    // 2026-11-21: time-depth source for flats / other time when there is no LAS: 'raw' = the Raw X,Y dots imported on the
+    // Hole Depth vs Time plot (the drilled well), 'pason' = the export's curve for the selected Min / Avg / Max.
+    src: 'raw',   // 2026-11-21: the 'Flat time from the data' tables + source selector were removed (user: not working); raw dots used when imported, else the Pason curve
+    allPts: function(){ var p = this.plots().td; if(!p) return [];
+        if(this.src === 'raw' && p.raw && p.raw.points && p.raw.points.length) return p.raw.points.map(function(q){ return [Number(q[0]), Number(q[1])]; }).filter(function(q){ return isFinite(q[0]) && isFinite(q[1]); }).sort(function(x, y){ return x[0] - y[0]; });
+        if(!p.rows || !p.rows.length) return []; var col = window.MTX_ROP.COL[window.MTX_ROP.curve] || 1;
+        return p.rows.map(function(r){ return [Number(r[0]), r[col] === '' || r[col] == null ? NaN : Number(r[col])]; }).filter(function(q){ return isFinite(q[0]) && isFinite(q[1]); }).sort(function(x, y){ return x[0] - y[0]; }); },
+    srcLabel: function(){ var p = this.plots().td; return this.src === 'raw' && p && p.raw && p.raw.points && p.raw.points.length ? 'Raw X,Y' : 'Pason time curve'; },
+    // legs = parts of the record split where the hole depth drops > 10 m; per leg: start, TD (deepest point) and the time from
+    // reaching that TD to drilling again (> 1 m below the next leg's first depth) = leg transition (trip back + sidetrack start)
+    analyze: function(){
+        var a = this.allPts(); if(a.length < 3) return null;
+        var segs = [], s0 = 0, mx = a[0][1];
+        for(var i = 1; i <= a.length; i++){ if(i === a.length || a[i][1] < mx - 10){ segs.push(a.slice(s0, i)); if(i < a.length){ s0 = i; mx = a[i][1]; } } else mx = Math.max(mx, a[i][1]); }
+        var legs = segs.map(function(g){ var k = 0; g.forEach(function(q, j){ if(q[1] > g[k][1]) k = j; }); return { pts: g, d0: g[0][1], t0: g[0][0], td: g[k][1], tTD: g[k][0] }; });
+        legs.forEach(function(l, j){ var n = legs[j + 1]; if(!n) return; var start = null;
+            for(var q = 0; q < n.pts.length; q++){ if(n.pts[q][1] > n.d0 + 1){ start = n.pts[q > 0 ? q - 1 : 0][0]; break; } }
+            l.nextStartT = start; l.transH = start != null ? (start - l.tTD) * 24 : null; l.nextStart = n.d0; });
+        return { legs: legs, flats: this.flats(legs[0].pts) };
+    },
+    tdPts: function(){ var p = this.plots().td; if(!p) return []; var col = window.MTX_ROP.COL[window.MTX_ROP.curve] || 1;
+        if(this.src === 'raw' && p.raw && p.raw.points && p.raw.points.length) return this.analyze().legs[0].pts;
+        if(!p.rows || !p.rows.length) return [];
+        var a = p.rows.map(function(r){ return [Number(r[0]), r[col] === '' || r[col] == null ? NaN : Number(r[col])]; }).filter(function(q){ return isFinite(q[0]) && isFinite(q[1]); }).sort(function(x, y){ return x[0] - y[0]; });
+        // 2026-11-21: keep only the main bore (up to the first hole-depth drop > 10 m). A multilateral curve is a sawtooth and the
+        // "time when a depth is first reached" (tAt) jumped between legs, giving each planned leg a different other-time.
+        var mx = -Infinity; for(var i = 0; i < a.length; i++){ if(a[i][1] < mx - 10) return a.slice(0, i); mx = Math.max(mx, a[i][1]); } return a; },
+    tAt: function(pts, d){ for(var i = 1; i < pts.length; i++){ var u = pts[i - 1], v = pts[i]; if(u[1] <= d && v[1] >= d && v[1] > u[1]) return u[0] + (v[0] - u[0]) * (d - u[1]) / (v[1] - u[1]); } return null; },
+    // flat stretch = consecutive steps progressing < 1 m/h, lasting > 2 h in total (MTX choice; an averaged curve is never exactly flat)
+    // 2026-11-22 (John): flat = consecutive points whose depth stays within 0.5 m of the run's first point, lasting > 2 h
+    // (same rule as the Pason Plots 'Flat times' tab). Was: steps slower than 1 m/h — a 0.3 m wiggle in 10 min (1.8 m/h) split
+    // the ~22 h intermediate-casing flat of the raw data into pieces, so only an 11 h piece was used and the planned curve went
+    // straight from the end of the surface-casing flat to the end of the intermediate-casing flat.
+    flats: function(pts){ var out = [], a = 0;
+        for(var i = 1; i <= pts.length; i++){ if(i === pts.length || Math.abs(pts[i][1] - pts[a][1]) > 0.5){ var h = (pts[i - 1][0] - pts[a][0]) * 24; if(h > 2) out.push({ depth: pts[a][1], hours: h }); a = i; } }
+        return out; },
+    /* 2026-11-22 (John): 'Flat times' tab of the Pason Plots export (per offset well, see views/uploadPason.ejs mtxFlatStats) used
+     * FIRST when present: medians across the offset wells of the SC / IC flat, the leg change, and the other in-hole + trip hours per
+     * metre drilled of each section. Was: flats read off the AVERAGED Pason time curve, which is never flat (averaging wells smears
+     * every stop), so the IC stop came out 0 h and its time was spread over the build as 'other in-hole' (straight line SC → IC). */
+    ft: function(){ var r = this.plots().flatTimes; if(!r || !r.length) return null;
+        var med = function(v){ v = v.filter(function(x){ return isFinite(x); }).sort(function(x, y){ return x - y; }); if(!v.length) return null; var m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+        var by = {}; r.forEach(function(x){ (by[x[0]] || (by[x[0]] = [])).push(x); }); var W = Object.keys(by);
+        var ev = function(ty){ return med(r.filter(function(x){ return x[1] === ty; }).map(function(x){ return +x[4]; })); };
+        var rate = function(sec){ return med(W.map(function(w){ var x = by[w].filter(function(q){ return !sec || q[2] === sec; }), m = x.filter(function(q){ return q[1] === 'OnBottom'; }).reduce(function(a, q){ return a + +q[5]; }, 0);
+            return m > 0 ? x.filter(function(q){ return q[1] === 'Other' || q[1] === 'Trip'; }).reduce(function(a, q){ return a + +q[4]; }, 0) / m : NaN; })); };
+        return { n: W.length, sc: ev('SC'), ic: ev('IC'), leg: ev('LegEnd'), rate: rate }; },
+    otherH: function(a, b, sec){
+        var F = this.ft(); if(F){ var rr = F.rate(sec || null); if(rr != null) return { h: rr * (b - a), src: 'Flat times tab, median of ' + F.n + ' offset(s)' + (sec ? ' (' + sec + ')' : '') }; }
+        if(this.hasLas()){
+            var by = {}; this.plots().lasTime.forEach(function(r){ var lo = Math.max(a, +r[1]), hi = Math.min(b, +r[2]); if(hi <= lo || !(+r[3] > 0)) return; var f = (hi - lo) / (+r[2] - +r[1]), w = by[r[0]] || (by[r[0]] = { m: 0, h: 0 }); w.m += f * +r[3]; w.h += f * +r[9]; });
+            var ws = Object.keys(by).map(function(k){ return by[k]; }).filter(function(w){ return w.m > 0; }); if(!ws.length) return { h: 0, src: 'no LAS data in this depth range' };
+            var c = window.MTX_ROP.curve, rates = ws.map(function(w){ return w.h / w.m; }), rate = c === 'min' ? Math.max.apply(null, rates) : c === 'max' ? Math.min.apply(null, rates) : ws.reduce(function(x, w){ return x + w.h; }, 0) / ws.reduce(function(x, w){ return x + w.m; }, 0);
+            return { h: rate * (b - a), src: 'LAS (' + ws.length + ' well' + (ws.length > 1 ? 's' : '') + ')' };
+        }
+        var pts = this.tdPts(); if(pts.length < 2) return { h: 0, src: 'no time data' };
+        var t0 = this.tAt(pts, Math.max(a, pts[0][1])), t1 = this.tAt(pts, b), onb = this.onBottomH(a, b, null);
+        if(t0 == null || t1 == null || onb == null) return { h: 0, src: 'time curve does not cover ' + a.toFixed(0) + '–' + b.toFixed(0) + ' m' };
+        var fl = this.flats(pts).filter(function(f){ return f.depth > a + 1 && f.depth < b - 1; }).reduce(function(x, f){ return x + f.hours; }, 0);
+        return { h: Math.max(0, (t1 - t0) * 24 - onb - fl), src: 'Pason Hole Depth vs Time curve' };
+    },
+    stopH: function(D, kind){
+        if(D == null) return { h: 0, src: '' };
+        var F = this.ft(); if(F && kind && F[kind === 'IC' ? 'ic' : 'sc'] != null) return { h: F[kind === 'IC' ? 'ic' : 'sc'], src: 'median ' + kind + ' flat of ' + F.n + ' offset(s)' };
+        var tol = Math.max(30, 0.1 * D);
+        if(this.hasLas() && this.plots().lasStops){
+            var by = {}; this.plots().lasStops.forEach(function(r){ if(r[4] === 'Y' || Math.abs(+r[1] - D) > tol) return; by[r[0]] = Math.max(by[r[0]] || 0, +r[3]); });
+            var v = Object.keys(by).map(function(k){ return by[k]; }); if(v.length) return { h: this.pick(v), src: 'LAS stops (' + v.length + ')' };
+        }
+        // 2026-11-21: fallback reads the flats of the selected time-depth source (Raw X,Y or Pason curve). Was: always the
+        // averaged Pason curve, which is never flat at the casing points, so surface / intermediate stops came out as 0 h.
+        var an = this.analyze(), f = (an ? an.flats : []).filter(function(x){ return Math.abs(x.depth - D) <= tol; });
+        return f.length ? { h: Math.max.apply(null, f.map(function(x){ return x.hours; })), src: this.srcLabel() } : { h: 0, src: 'no flat stretch near ' + D.toFixed(0) + ' m' };
+    },
+    legH: function(){
+        var F0 = this.ft(); if(F0 && F0.leg != null) return { h: F0.leg, src: 'median leg change of ' + F0.n + ' offset(s)' };
+        if(this.hasLas() && this.plots().lasStops){ var v = this.plots().lasStops.filter(function(r){ return r[4] === 'Y'; }).map(function(r){ return +r[3]; });
+            if(v.length) return { h: this.pick(v), src: 'LAS stops ending with a trip back (' + v.length + ')' }; }
+        var an = this.analyze(), tv = an ? an.legs.map(function(l){ return l.transH; }).filter(function(h){ return h != null && h >= 0; }) : [];   // 2026-11-21
+        if(tv.length) return { h: this.pick(tv), src: this.srcLabel() + ' leg transitions (' + tv.length + ')' };
+        return { h: 0, src: 'no leg stop data (needs LAS wells or a multilateral time-depth record)', missing: true };
+    },
+    // 2026-11-21 (John): flats INSIDE a section (not at its casing points), from the selected time-depth source. Was: dropped —
+    // otherH removes flats from the 'other' time, so e.g. the waits at ~100 m and ~400 m in the surface hole were lost.
+    // A flat within max(30 m, 10 %) of a casing point is that point's stop (stopH) and is not counted here.
+    innerFlats: function(a, b){ if(this.ft()) return []; var an = this.analyze(); if(!an) return [];   // trips are in the Flat times rate
+        var ta = a > 0 ? Math.max(30, 0.1 * a) : 0, tb = Math.max(30, 0.1 * b);
+        return an.flats.filter(function(x){ return x.depth > a + ta && x.depth < b - tb; }).sort(function(x, y){ return x.depth - y.depth; }); },
+    sectionDays: function(a, b, sec){ var onb = this.onBottomH(a, b, sec); if(onb == null) return null;
+        var fl = this.innerFlats(a, b).reduce(function(x, f){ return x + f.hours; }, 0); return (onb + this.otherH(a, b, sec).h + fl) / 24; }
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
@@ -1820,6 +1980,7 @@ body.light-mode #statusTextbox {
                         <div id="collapseAcPlots" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <button type="button" class="mtx-help-btn" title="How C2C and SF are calculated" aria-label="Help" onclick="mtxHelp('acp')">?</button><%# 2026-11-22 help %>
                                     <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Reference Well:</label>
                                     <select id="acpRefSelect" class="form-select form-select-sm" style="max-width:280px;"></select>
                                     <button id="acpResetZoomBtn" class="btn btn-sm btn-outline-info">⤢ Reset Zoom</button>
@@ -2043,6 +2204,7 @@ body.light-mode #statusTextbox {
                         </h2>
                         <div id="collapsePason" class="accordion-collapse collapse">
                             <div class="accordion-body p-2">
+                                <div class="d-flex justify-content-end mb-1"><button type="button" class="mtx-help-btn" title="How the planned time is calculated" aria-label="Help" onclick="mtxHelp('dm')">?</button></div><%# 2026-11-22 help %>
 
                                 <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -2059,7 +2221,60 @@ body.light-mode #statusTextbox {
                                 </div>
                                 <% } %>
 
+                                <%# 2026-11-20 (John): slide / rotate TIME MODEL for planned wells — sources = saved Slide Sheets of offsets or LAS files %>
+                                <details id="srmPanel" class="mb-2" style="border:1px solid var(--an-border,#1e2d3d);border-radius:6px;padding:6px 10px;">
+                                    <summary style="cursor:pointer;font-size:14px;font-weight:700;">⏱ Time model for planned wells — slide / rotate from offsets <span id="srmBadge" style="font-size:11px;font-weight:400;color:var(--an-text-dim,#5a7080)"></span></summary>
+                                    <div style="padding-top:8px;font-size:12px;">
+                                        <div class="dmk-bar">
+                                            <label>Time model <select id="srmActive" class="form-select form-select-sm" style="display:inline-block;width:auto"><option value="0">Single ROP (Pason ROP plot)</option><option value="1">Slide / rotate (offset model)</option></select></label>
+                                            <label>Offsets (MTX IDs) <input id="srmIds" class="form-control form-control-sm" placeholder="auto: same Area" style="display:inline-block;width:150px"></label>
+                                            <button type="button" id="srmLoadBtn" class="btn btn-sm btn-outline-info">Load saved Slide Sheets</button>
+                                            <label class="btn btn-sm btn-outline-warning" style="margin:0">⬆ Upload LAS (EDR, 1 s)<input type="file" id="srmLas" accept=".las,.LAS,.txt" multiple style="display:none"></label>
+                                            <% if (user.role !== 'viewer') { %><button type="button" id="srmSaveBtn" class="btn btn-sm btn-success">💾 Save model to job</button><% } %>
+                                            <span id="srmStatus" style="color:#00c8ff;"></span>
+                                        </div>
+                                        <div id="srmSources"></div>
+                                        <div id="srmModelTbl"></div>
+                                        <div style="font-size:10.5px;color:var(--an-text-dim,#5a7080);margin-top:4px;">
+                                            Per section (Surface 0→SC, Build SC→IC, Lateral IC→TD): slide % = slid m ÷ drilled m; ROP slide / rotate = metres ÷ on-bottom time of the EDR intervals of that mode;
+                                            time = slid m ÷ ROP slide + rotated m ÷ ROP rotate (effective ROP = 1 ÷ (f ÷ ROP slide + (1−f) ÷ ROP rotate)). Pooled over the ticked sources; the Min / Avg / Max selector picks the slowest source / pooled / fastest source.
+                                            Saved Slide Sheets use their own well's casing comments for the sections; LAS files use the sections of the well selected in Drilling Mechanics (same pad design assumed).
+                                            Slide / rotate detection of LAS files: same rules and defaults as the Slide Sheet page. On-bottom time only (no connections / surveys); the milestone pauses are added on top.
+                                        </div>
+                                    </div>
+                                </details>
                                 <div id="pasonPlotsViewer" style="display:none;">
+                                    <%# 2026-11-20 (John): KPIs per hole section (from the trajectory milestones of the selected well) above the plots;
+                                         curve Min / Avg / Max of the Pason export, default Min, saved per user (MTXPrefs key dmKpiCurve). %>
+                                    <style>
+                                        .dmk-bar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; font-size:12px; color:var(--an-text,#c8d8e8); }
+                                        .dmk-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px; margin-bottom:12px; }
+                                        .dmk-sec{ border:1px solid var(--an-border,#1e2d3d); border-radius:6px; padding:8px 10px; background:var(--an-panel,#111820); }
+                                        .dmk-sec h6{ margin:0 0 6px; font-size:14px; color:var(--an-text-bright,#e8f4ff); }
+                                        .dmk-sec h6 span{ font-size:11px; color:var(--an-text-dim,#5a7080); font-weight:400; }
+                                        .dmk-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+                                        .dmk-c{ border:1px solid var(--an-border,#1e2d3d); border-radius:4px; padding:5px 6px; text-align:center; }
+                                        .dmk-c .l{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--an-text-dim,#5a7080); }
+                                        .dmk-c .v{ font-size:17px; font-weight:700; font-family:var(--an-mono,monospace); }
+                                        .dmk-c .u{ font-size:10px; color:var(--an-text-dim,#5a7080); }
+                                        .dmk-c.rop{ cursor:pointer; } .dmk-c.rop:hover{ border-color:#00e5ff; }
+                                        .dmk-flag{ font-size:12px; margin-top:6px; } .dmk-flag.bad{ color:#ffb020; } .dmk-flag.ok{ color:#39ff14; }
+                                        .dmk-off{ font-size:12px; margin-top:4px; color:var(--an-text,#c8d8e8); }
+                                        @media (max-width:700px){ .dmk-cards{ grid-template-columns:repeat(2,1fr); } .dmk-c .v{ font-size:18px; } }
+                                    </style>
+                                    <div class="dmk-bar">
+                                        <b>KPIs per section</b>
+                                        <label>Well <select id="dmkWell" class="form-select form-select-sm" style="display:inline-block;width:auto;"></select></label>
+                                        <label>Curve <select id="dmkCurve" class="form-select form-select-sm" style="display:inline-block;width:auto;" title="Which Pason curve the KPIs use. Saved for your user.">
+                                            <option value="min">Min (red)</option><option value="avg">Average (cyan)</option><option value="max">Max (green)</option></select></label>
+                                        <%# 2026-11-20 (John): MSE flag factor, offsets, Excel download %>
+                                        <label title="Flag MSE above this multiple of the section median (MTX choice, default 2)">MSE flag × <input id="dmkMseFactor" type="number" min="1" step="0.1" value="2" class="form-control form-control-sm" style="display:inline-block;width:70px"></label>
+                                        <label title="Offset jobs for the ROP comparison: blank = up to 15 jobs of the same Area with Pason plots">Offsets (MTX IDs) <input id="dmkOffsetIds" class="form-control form-control-sm" placeholder="auto: same Area" style="display:inline-block;width:150px"></label>
+                                        <button type="button" id="dmkOffsetBtn" class="btn btn-sm btn-outline-info">Compare</button>
+                                        <button type="button" id="dmkXlsBtn" class="btn btn-sm btn-outline-success">⬇ Excel (all plots)</button>
+                                        <span id="dmkInfo" style="font-size:11px;color:var(--an-text-dim,#5a7080);"></span>
+                                    </div>
+                                    <div id="dmkGrid" class="dmk-grid"></div>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                         <label style="font-size:12px;color:var(--an-text,#c8d8e8);">Plot:</label>
                                         <select id="pasonPlotSelect" class="form-select form-select-sm" style="max-width:320px;"></select>
@@ -2069,36 +2284,19 @@ body.light-mode #statusTextbox {
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonTDCalcRow" style="display:none;">
                                         <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Well:</label>
                                         <select id="pasonTDWellSelect" class="form-select form-select-sm" style="max-width:160px;"></select>
-                                        <%# 2026-11-14 (John): optional actual Pason curve next to the calculated (planned) curve %>
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);display:flex;align-items:center;gap:4px;" title="Show the actual Hole Depth vs Time from the Pason export (its Average line) next to the calculated planned curve"><input type="checkbox" id="pasonTDShowActual" checked> Show actual (Pason Avg)</label>
-                                        <%# 2026-11-14 (John): actual curve sharp/rounded, saved per user (public/js/userPrefs.js, key tdCurveStyle — same as the Pason Plots page) %>
-                                        <select id="pasonTDCurveStyle" class="form-select form-select-sm" style="max-width:110px;" title="Actual curve: Sharp = straight lines between points; Rounded = smoothed. Saved for your user (also used on the Pason Plots page)."><option value="sharp">Sharp</option><option value="round">Rounded</option></select>
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Sharp: a point is dropped when it lies within this % of the plot size from the straight line through its neighbours. Smaller = more points; larger = fewer, longer straight segments. Saved for your user (shared with the Pason Plots page).">Tol %</label>
-                                        <input type="number" id="pasonTDSharpTol" class="form-control form-control-sm" style="max-width:70px;" value="1" min="0.05" max="20" step="0.1">
-                                        <%# 2026-11-14 (John): compare planned vs actual — align the planned curve to the actual drilling start and/or calibrate it for non-drilling time %>
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Off: planned curve as calculated (drilling time from Avg ROP + pauses, starting at day 0). Align start: shift the planned curve so it starts where the actual drilling resumes (end of the longest flat period of the actual curve, or the day/depth you enter). Calibrate: stretch the planned time by actual time / planned time over the depth range both curves cover (accounts for trips, connections, casing, waiting). Align + calibrate: both.">Planned vs actual:</label>
-                                        <select id="pasonTDCompare" class="form-select form-select-sm" style="max-width:150px;">
-                                            <option value="off">Off (as calculated)</option><option value="align">Align start</option><option value="cal">Calibrate</option><option value="both">Align + calibrate</option>
-                                        </select>
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);" title="Day and depth where the actual drilling resumes. Leave blank = automatic (end of the longest flat period in the actual curve).">Start day / depth (m):</label>
-                                        <input type="number" id="pasonTDStartDay" class="form-control form-control-sm" style="max-width:70px;" step="0.1" placeholder="auto">
-                                        <input type="number" id="pasonTDStartMd" class="form-control form-control-sm" style="max-width:80px;" step="1" placeholder="auto">
-                                        <span id="pasonTDCompareInfo" style="font-size:11px;color:#b264ff;font-family:monospace;"></span>
+                                        <%# 2026-11-21 (John): removed the 2026-11-14 options "Show actual (Pason Avg)", Sharp / Rounded, Tol % and "Planned vs actual" (align / calibrate) from this view — the purple calculated curve is shown as calculated. (The Pason Plots page keeps its own Sharp / Rounded option.) %>
                                         <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Pause per milestone (days):</label>
-                                        <input type="number" id="pasonTDPauseDefault" class="form-control form-control-sm" style="max-width:80px;" value="0.15" step="0.05" min="0">
-                                        <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Pause at Intermediate Casing (days):</label>
-                                        <input type="number" id="pasonTDPauseIC" class="form-control form-control-sm" style="max-width:80px;" value="1.0" step="0.1" min="0">
-                                        <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info">📐 Calculate Time vs Depth</button>
+                                        <%# 2026-11-21 (John): manual "Pause per milestone" / "Pause at Intermediate Casing" removed — stops and other in-hole time
+                                             are calculated from the offsets' EDR (window.MTX_TM). The purple curve is always live; this button stores it as a budget. %>
+                                        <span class="input-group input-group-sm" style="width:auto;display:inline-flex;margin-right:6px" title="Planned-well simulation step: slide length is solved per step from the plan curvature, rotary tendency and Motor Yield (needs the MY / slide-rotate ROP tabs of the Pason export)"><span class="input-group-text">Sim step (m)</span><input type="number" id="pasonSimStep" class="form-control" value="30" min="1" step="1" style="width:70px!important;min-width:70px"></span>
+                                        <button id="pasonTDCalcBtn" class="btn btn-sm btn-outline-info" title="Stores the current live curve as this well's budget (shown grey dashed for comparison)">💾 Save as budget</button>
                                         <span id="pasonTDCalcStatus" style="font-size:11px;color:#00c8ff;font-family:monospace;"></span>
                                         <% } %>
                                     </div>
-                                    <div id="pasonTDPreviewNote" style="display:none;font-size:10px;color:#b264ff;margin-bottom:6px;">
-                                        ⓘ This well hasn't been saved yet — showing a live preview (default pauses: 0.15 days, 1.0 day at Intermediate Casing). Not stored.
-                                    </div>
+                                    <div id="pasonTDPreviewNote" style="display:none;font-size:11px;color:#b264ff;margin-bottom:6px;"></div>
                                     <% if (user.role === 'admin' || user.role === 'leader' || user.role === 'user') { %>
                                     <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-bottom:8px;" id="pasonTDCalcHint">
-                                        Uses the selected wellbore's planned trajectory (legs, sidetrack MDs, casing points) plus the Average ROP from the ROP vs Measured Depth plot to build a planned Time vs Depth curve.
+                                        Live planned Time vs Depth of the selected well: per section on-bottom time (slide / rotate model or the Pason ROP, length-weighted) + other in-hole time + stops at the casing points and per new leg, all from the offsets' EDR, with the Min / Avg / Max selector.
                                     </div>
                                     <% } %>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -2112,15 +2310,30 @@ body.light-mode #statusTextbox {
                                     </div>
                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="pasonDotSizeRow" style="display:none;">
                                         <label style="font-size:11px;color:var(--an-text,#c8d8e8);">Dot size:</label>
-                                        <input type="range" id="pasonDotSizeSlider" min="1" max="10" step="1" value="3" style="max-width:180px;">
+                                        <input type="range" id="pasonDotSizeSlider" min="0" max="8" step="0.1" value="3" style="max-width:180px;"><%# 2026-11-22: 0 = hidden, then 0.1 px steps up to 8 px %>
                                         <span id="pasonDotSizeVal" style="font-size:11px;color:var(--an-text-dim,#5a7080);">3</span>
                                         <button id="pasonRawXYRemoveBtn" class="btn btn-sm btn-outline-danger">✕ Remove imported dots</button>
                                     </div>
                                     <div style="font-size:10px;color:var(--an-text-dim,#aaa);margin-bottom:8px;">
                                         Optional: import raw rig X,Y data (first sheet, 2 columns with a header row) for the currently selected plot — shown as dots alongside Min/Max/Average.
                                     </div>
+                                    <%# 2026-11-22 (John): phone layout — on narrow screens the charts get a fixed tall box (Chart.js maintainAspectRatio off),
+                                         less padding, smaller fonts, short axis titles and the legend below (see mtxPhoneChart()). %>
+                                    <style>
+                                        .mtx-chart-box{ position:relative; }
+                                        @media (max-width: 576px){
+                                            #pasonChartWrap, #pasonSnowWrap{ padding:.35rem !important; }
+                                            .mtx-chart-box{ height:72vh; min-height:340px; }
+                                            .mtx-chart-box canvas{ max-height:none !important; }
+                                        }
+                                    </style>
                                     <div id="pasonChartWrap" style="background:#1b1e21;border-radius:.5rem;padding:1rem;">
-                                        <canvas id="pasonChart" style="max-height:65vh;"></canvas>
+                                        <div class="mtx-chart-box"><canvas id="pasonChart" style="max-height:65vh;"></canvas></div>
+                                    </div>
+                                    <%# 2026-11-22 (John): "snowball" Time vs Depth — total drilled metres (all legs added) vs days, under the saw-teeth chart %>
+                                    <div id="pasonSnowWrap" style="display:none;background:#1b1e21;border-radius:.5rem;padding:1rem;margin-top:10px;">
+                                        <div id="pasonSnowTitle" style="font-size:12px;color:#e9ecef;margin:0 0 4px 4px;">Time vs Depth (snowball): total drilled metres, all legs</div>
+                                        <div class="mtx-chart-box"><canvas id="pasonSnowChart" style="max-height:65vh;"></canvas></div>
                                     </div>
                                     <div id="pasonPlotsMeta" style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:6px;"></div>
                                 </div>
@@ -3794,6 +4007,7 @@ body.light-mode #statusTextbox {
                     survey: well.survey || []
                 }));
             wbtRenderDashboard(wellsForDashboard);
+            window.wbtRerenderCards = function(){ wbtRenderDashboard(wellsForDashboard); };   // 2026-11-20: re-run when the ROP curve changes
             wbtSetupAccordion();
 
             const padLabel = (WELLBORES[0] && WELLBORES[0].pad) ? WELLBORES[0].pad : 'Pad';
@@ -4120,21 +4334,15 @@ body.light-mode #statusTextbox {
         // since this script runs independently of the Drilling Mechanics
         // script block. Returns null (no fabricated fallback) if the ROP
         // plot hasn't been uploaded or has no points in that range.
-        function wbtAverageROPInRange(mdStart, mdEnd){
+        function wbtAverageROPInRange(mdStart, mdEnd, sec){
+            if(sec && window.MTX_SRM && window.MTX_SRM.rop(sec)) return window.MTX_SRM.rop(sec);   // 2026-11-20: slide / rotate model when active
             const dataEl = document.getElementById('pasonPlotsData');
             if(!dataEl) return null;
             let doc;
             try { doc = JSON.parse(dataEl.textContent); } catch(e){ return null; }
             const ropData = doc && doc.plots && doc.plots['rop'];
             if(!ropData || !ropData.rows || !ropData.rows.length) return null;
-            const lo = Math.min(mdStart, mdEnd), hi = Math.max(mdStart, mdEnd);
-            let sum = 0, count = 0;
-            ropData.rows.forEach(r => {
-                const md = Number(r[0]), avg = r[1];
-                if(avg === '' || avg === null || avg === undefined) return;
-                if(md >= lo && md <= hi){ sum += Number(avg); count++; }
-            });
-            return count ? (sum / count) : null;
+            return window.MTX_ROP.lw(ropData.rows, mdStart, mdEnd);   // 2026-11-20: length-weighted, selected curve (was plain mean of Average)
         }
 
         // Read the pause values used by the Calculated Time vs Depth chart
@@ -4314,21 +4522,16 @@ body.light-mode #statusTextbox {
             // counted in Lateral. Returns null (shown as "—") if
             // SurfaceCasing/IntermediateCasing weren't detected, or if no
             // ROP data covers that MD range.
-            const pauses = wbtGetSavedPauseValues();
+            // 2026-11-21 (John): auto time model (window.MTX_TM — on-bottom + other in-hole time + casing stops from the offsets'
+            // EDR); was drilling time from one ROP + manual pauses (0.15 d / 1.0 d). Build = SC→IC + stop at SC; Lateral = IC→TD + stop at IC.
             let buildTimeDays = null, lateralTimeDays = null;
             if(sc && ic){
-                const buildRop = wbtAverageROPInRange(num(sc.md), num(ic.md));
-                if(buildRop && buildRop > 0){
-                    const drillTime = (num(ic.md) - num(sc.md)) / buildRop / 24;
-                    buildTimeDays = Math.round((drillTime + pauses.pauseDefault) * 100) / 100;
-                }
+                const d = window.MTX_TM.sectionDays(num(sc.md), num(ic.md), 'Build');
+                if(d != null) buildTimeDays = Math.round((d + window.MTX_TM.stopH(num(sc.md), 'SC').h / 24) * 100) / 100;
             }
             if(ic){
-                const lateralRop = wbtAverageROPInRange(num(ic.md), num(last.md));
-                if(lateralRop && lateralRop > 0){
-                    const drillTime = (num(last.md) - num(ic.md)) / lateralRop / 24;
-                    lateralTimeDays = Math.round((drillTime + pauses.pauseIC) * 100) / 100;
-                }
+                const d = window.MTX_TM.sectionDays(num(ic.md), num(last.md), 'Lateral');
+                if(d != null) lateralTimeDays = Math.round((d + window.MTX_TM.stopH(num(ic.md), 'IC').h / 24) * 100) / 100;
             }
 
             return {
@@ -10131,6 +10334,7 @@ Occupied: ${nOcc.toLocaleString()} cubes (${f(100 * nOcc / total, 2)} %) · free
 <script src="/js/wmmModel.js"></script>
 <script src="/js/iscwsaModel.js"></script>
 <script src="/js/ipmImport.js"></script>
+<script src="/js/slideSheetModel.js"></script><%# 2026-11-20: LAS parser + slide / rotate detection for the time model %>
 <script src="/js/userPrefs.js"></script><%# 2026-11-14: per-user display preferences %><%# 2026-11-14: Compass .ipm survey tools %>
 <script>
 (function(){
@@ -12755,38 +12959,33 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         { id:'rop',  name:'ROP vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'ROP (m/h)',        reversedY:false },
         { id:'mse',  name:'MSE vs Measured Depth',       xTitle:'Measured Depth (m)',      yTitle:'MSE (ksi)',        reversedY:false },
         { id:'flow', name:'Flow vs Measured Depth',      xTitle:'Measured Depth (m)',      yTitle:'Flow (m³/min)',    reversedY:false },
+        // 2026-11-21 (John): slide / rotate ROP and Motor Yield tabs of the Pason Plots export (views/uploadPason.ejs). Read-only,
+        // listed only when the uploaded file has them; the three MY entries act as the Slide / Rotary / Corrected toggle.
+        { id:'rops', name:'ROP Slide vs Measured Depth',  xTitle:'Measured Depth (m)',     yTitle:'Slide ROP (m/h)',  reversedY:false },
+        { id:'ropr', name:'ROP Rotate vs Measured Depth', xTitle:'Measured Depth (m)',     yTitle:'Rotate ROP (m/h)', reversedY:false },
+        { id:'mys',  name:'Motor Yield (slide) vs MD',    xTitle:'Measured Depth (m)',     yTitle:'MY (°/30 m)',      reversedY:false },
+        { id:'myr',  name:'Rotary tendency (DLS) vs MD',  xTitle:'Measured Depth (m)',     yTitle:'DLS (°/30 m)',     reversedY:false },
+        { id:'myc',  name:'Motor Yield (rotation-corrected) vs MD', xTitle:'Measured Depth (m)', yTitle:'MY (°/30 m)', reversedY:false },
+        { id:'myb',  name:'Rotary build rate vs MD',      xTitle:'Measured Depth (m)',     yTitle:'Build (°/30 m, + up)', reversedY:false },
+        { id:'myw',  name:'Rotary walk rate vs MD',       xTitle:'Measured Depth (m)',     yTitle:'Walk (°/30 m, + right)', reversedY:false },
     ];
-    const SHEET_NAME_TO_ID = { 'hook load':'hl', 'torque':'tq', 'wob':'wob', 'rop':'rop', 'mse':'mse', 'flow':'flow', 'hole depth vs time':'td' };
+    const SHEET_NAME_TO_ID = { 'hook load':'hl', 'torque':'tq', 'wob':'wob', 'rop':'rop', 'mse':'mse', 'flow':'flow', 'hole depth vs time':'td', 'rop slide':'rops', 'rop rotate':'ropr', 'my slide':'mys', 'my rotary dls':'myr', 'my corrected':'myc', 'my rot build':'myb', 'my rot walk':'myw' };
 
     let _plots = null;      // { hl: {xHeader, rows}, tq: {...}, ... }
     let _chart = null;
+    let _snowChart = null;   // 2026-11-22 snowball chart
+    // 2026-11-22: phone chart options (<= 576 px wide): fill the CSS box, 10 px fonts, fewer ticks, legend at the bottom
+    function mtxPhone(){ return window.matchMedia && window.matchMedia('(max-width: 576px)').matches; }
+    function mtxPhoneChart(opt, shortX, shortY){ if(!mtxPhone()) return opt;
+        opt.maintainAspectRatio = false; opt.layout = { padding: 2 };
+        const lg = opt.plugins && opt.plugins.legend; if(lg){ lg.position = 'bottom'; lg.labels = Object.assign({}, lg.labels, { boxWidth: 12, boxHeight: 8, padding: 6, font: { size: 10 } }); }
+        ['x', 'y'].forEach(k => { const a = opt.scales && opt.scales[k]; if(!a) return; a.ticks = Object.assign({}, a.ticks, { font: { size: 10 }, maxTicksLimit: k === 'x' ? 6 : 8 });
+            if(a.title){ a.title.font = { size: 10 }; a.title.text = (k === 'x' ? shortX : shortY) || a.title.text; } });
+        return opt; }
+    let _mtxWasPhone = mtxPhone();
+    window.addEventListener('resize', () => { const ph = mtxPhone(); if(ph === _mtxWasPhone) return; _mtxWasPhone = ph; const sel = el('pasonPlotSelect'); if(sel && sel.value && _plots) renderPasonChart(sel.value); });
 
     const el = id => document.getElementById(id);
-    // 2026-11-14 (John): "Sharp" Time vs Depth = the curve reduced to straight segments between its break points
-    // (flat = rig not making hole, slope = drilling), like a hand-drawn time/depth chart. Method: Ramer-Douglas-Peucker
-    // line simplification, with time and depth each scaled to 0-1 so the tolerance (1 % of the plot) is unit-free.
-    // Only the drawing changes; the stored data are untouched. (Just setting Chart.js tension 0 was not enough: the
-    // Pason Average is itself a smoothed, densely sampled curve, so it still looked rounded.)
-    function mtxSharpenTD(pts, tolFrac){
-      if(!pts || pts.length < 3) return pts;
-      var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
-      var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-      var sx = (x1 - x0) || 1, sy = (y1 - y0) || 1, tol = tolFrac == null ? 0.01 : tolFrac;
-      var keep = new Array(pts.length); keep[0] = keep[pts.length - 1] = true;
-      var stack = [[0, pts.length - 1]];
-      while(stack.length){
-        var seg = stack.pop(), a = seg[0], b = seg[1];
-        var ax = (pts[a].x - x0) / sx, ay = (pts[a].y - y0) / sy, bx = (pts[b].x - x0) / sx, by = (pts[b].y - y0) / sy;
-        var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx*dx + dy*dy) || 1e-12, best = -1, bi = -1;
-        for(var i = a + 1; i < b; i++){
-          var px = (pts[i].x - x0) / sx, py = (pts[i].y - y0) / sy;
-          var d = Math.abs(dy*px - dx*py + bx*ay - by*ax) / len;
-          if(d > best){ best = d; bi = i; }
-        }
-        if(best > tol){ keep[bi] = true; stack.push([a, bi], [bi, b]); }
-      }
-      return pts.filter(function(_, i){ return keep[i]; });
-    }
     
 
     function setStatus(msg){ const s = el('pasonPlotsStatus'); if(s) s.textContent = msg; }
@@ -12797,6 +12996,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         if(!dataEl) return;
         let doc;
         try { doc = JSON.parse(dataEl.textContent); } catch(e){ return; }
+        if(doc && doc.slideRotModel && doc.plots && !doc.plots.td) doc.plots.td = { xHeader: 'Time (days)', rows: [] };   // 2026-11-20: planned well with a slide/rotate model and no Pason data
         if(!doc || !doc.plots || !Object.keys(doc.plots).length) return;
         _plots = doc.plots;
         showViewer();
@@ -12829,6 +13029,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         el('pasonPlotsViewer').style.display = '';
         el('pasonPlotsEmpty').style.display = 'none';
         renderPasonChart(sel.value);
+        if(typeof renderDmk === 'function') renderDmk();   // 2026-11-20 KPIs per section
     }
 
     function renderPasonChart(plotId){
@@ -12859,11 +13060,6 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         // For "Hole Depth vs Time (days)" specifically, only the Calculated
         // Time vs Depth curve is shown — the raw Min/Max/Average lines from
         // the EDR export aren't meaningful for a planned-trajectory view.
-        // 2026-11-14 (John): on the Time vs Depth view the actual Pason Average can now be shown (checkbox
-        // #pasonTDShowActual, on by default) next to the calculated planned curve. Min/Max stay hidden there.
-        const tdSharp = !(el('pasonTDCurveStyle') && el('pasonTDCurveStyle').value === 'round');
-        if(plotId === 'td' && avgPts.length && (!el('pasonTDShowActual') || el('pasonTDShowActual').checked))
-            datasets.push({ label:'Actual (Pason Avg)', data: tdSharp ? mtxSharpenTD(avgPts, (function(){ const v = parseFloat(el('pasonTDSharpTol') && el('pasonTDSharpTol').value); return (isFinite(v) && v > 0 ? v : 1) / 100; })()) : avgPts, borderColor:'#00e5ff', backgroundColor:'#00e5ff', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension: (el('pasonTDCurveStyle') && el('pasonTDCurveStyle').value === 'round') ? 0.25 : 0 });   // 2026-11-14: Sharp (default) / Rounded, per-user preference
         if(plotId !== 'td'){
             if(minPts.length) datasets.push({ label:'Min', data:minPts, borderColor:'#ff0000', backgroundColor:'#ff0000', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
             if(maxPts.length) datasets.push({ label:'Max', data:maxPts, borderColor:'#00ff00', backgroundColor:'#00ff00', showLine:true, borderWidth:2, pointRadius:0, fill:false, tension:0.25 });
@@ -12874,10 +13070,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         const raw = data.raw;
         const dotSizeRow = el('pasonDotSizeRow');
         if(raw && raw.points && raw.points.length){
-            const pointSize = raw.pointSize || 3;
+            const pointSize = raw.pointSize != null && isFinite(raw.pointSize) && raw.pointSize >= 0 ? Number(raw.pointSize) : 3;
+            // 2026-11-22 (John): dot size had no visible effect — each dot also had the default 1 px outline (pointBorderWidth),
+            // so with hundreds of dense points even radius 1 looked like a thick line. Outline removed; radius only.
             datasets.push({
                 label: 'Raw X,Y', data: raw.points.map(p => ({x:p[0], y:p[1]})),
-                showLine:false, pointRadius: pointSize, pointHoverRadius: pointSize+2,
+                showLine:false, pointRadius: pointSize, pointHoverRadius: pointSize > 0 ? pointSize+2 : 0, pointBorderWidth: 0, pointHoverBorderWidth: 0,
+                pointStyle: 'circle', pointBackgroundColor: '#ffa500', pointBorderColor: '#ffa500', hidden: !(pointSize > 0), order: -1,   // 2026-11-22: explicit colours, on top, 0 = hidden
                 borderColor:'#ffa500', backgroundColor:'#ffa500',
             });
             if(dotSizeRow){
@@ -12900,68 +13099,23 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         const tdCalcRow = el('pasonTDCalcRow');
         if(tdCalcRow) tdCalcRow.style.display = (plotId === 'td') ? '' : 'none';
 
-        let calc = null, isPreview = false;
-        if(plotId === 'td' && selectedWellKey){
-            const savedByWell = data.calculatedByWell && data.calculatedByWell[selectedWellKey];
-            if(savedByWell){
-                calc = savedByWell;
-            } else if(typeof calculateTimeVsDepth === 'function'){
-                const previewResult = calculateTimeVsDepth(selectedWellKey, 0.15, 1.0);
-                if(!previewResult.error){
-                    calc = { points: previewResult.points };
-                    isPreview = true;
-                }
-            }
-        }
+        // 2026-11-21 (John): the purple curve is ALWAYS calculated live (follows the Min / Avg / Max selector and the time model);
+        // a stored curve is shown separately as the saved budget (grey dashed). Was: a saved curve replaced the live one.
+        let calc = null, isPreview = true, budget = null;
         const tdPreviewNote = el('pasonTDPreviewNote');
-        if(tdPreviewNote) tdPreviewNote.style.display = (plotId === 'td' && isPreview) ? '' : 'none';
+        if(plotId === 'td' && selectedWellKey){
+            budget = data.calculatedByWell && data.calculatedByWell[selectedWellKey];
+            const live = calculateTimeVsDepth(selectedWellKey);
+            if(!live.error) calc = { points: live.points };
+            if(tdPreviewNote){ tdPreviewNote.style.display = ''; tdPreviewNote.innerHTML = live.error ? '⚠ ' + live.error : live.info; }
+        } else if(tdPreviewNote) tdPreviewNote.style.display = 'none';
+        if(plotId === 'td' && budget && budget.points && budget.points.length) datasets.push({ label: 'Saved budget' + (budget.savedAt ? ' ' + new Date(budget.savedAt).toLocaleDateString() : '') + (budget.ropCurve ? ' (' + budget.ropCurve + ')' : ''),
+            data: budget.points.map(p => ({ x: p[0], y: p[1] })), showLine: true, pointRadius: 0, borderWidth: 1.5, borderDash: [2, 4], fill: false, tension: 0, borderColor: '#8a93a3', backgroundColor: '#8a93a3' });
 
-        // 2026-11-14 (John): planned vs actual comparison (display only; the saved calculated curve is not changed).
-        //  - start point (T0, D0): end of the longest flat period of the actual curve (depth gain < 2 m), or user entry;
-        //  - align: t' = T0 + (t - tPlan(D0)), shown from D0 down;
-        //  - calibrate: factor = actual time / planned time between D0 and the deepest depth both curves reach
-        //    (with "cal" alone D0 = shallowest common depth and the curve keeps its own start);
-        //  - interpolation of time at a depth = linear between curve points (both curves are monotonic in depth
-        //    where used; flat stretches take the LAST time at that depth).
-        let planPts = (plotId === 'td' && calc && calc.points) ? calc.points.map(p => [p[0], p[1]]) : null;
-        const cmpMode = el('pasonTDCompare') ? el('pasonTDCompare').value : 'off', cmpInfo = el('pasonTDCompareInfo');
-        if(cmpInfo) cmpInfo.textContent = '';
-        if(planPts && planPts.length > 1 && cmpMode !== 'off' && avgPts.length > 1){
-            const act = avgPts.map(p => [p.x, p.y]).sort((a,b) => a[0]-b[0]);
-            const tAt = (pts, d) => { // time when the curve first reaches depth d (going down)
-                for(let i = 1; i < pts.length; i++){ const a = pts[i-1], b = pts[i];
-                    if(a[1] <= d && b[1] >= d && b[1] > a[1]) return a[0] + (b[0]-a[0]) * (d - a[1]) / (b[1] - a[1]); }
-                return null; };
-            let T0 = parseFloat(el('pasonTDStartDay') && el('pasonTDStartDay').value), D0 = parseFloat(el('pasonTDStartMd') && el('pasonTDStartMd').value), auto = false;
-            if(!isFinite(T0) || !isFinite(D0)){ // longest flat period of the actual curve
-                let best = null, i0 = 0;
-                for(let i = 1; i <= act.length; i++){
-                    if(i === act.length || act[i][1] - act[i0][1] > 2){ const dur = act[i-1][0] - act[i0][0]; if(!best || dur > best.dur) best = { dur, T: act[i-1][0], D: act[i-1][1] }; i0 = i; }
-                }
-                if(best && best.dur > 1){ T0 = best.T; D0 = best.D; } else { T0 = act[0][0]; D0 = act[0][1]; }
-                auto = true;
-            }
-            const useAlign = (cmpMode === 'align' || cmpMode === 'both');
-            const useCal = (cmpMode === 'cal' || cmpMode === 'both');
-            const dStart = useAlign ? D0 : Math.max(act[0][1], planPts[0][1]);
-            const tp0 = tAt(planPts, dStart);
-            const dEnd = Math.min(act[act.length-1][1], planPts[planPts.length-1][1]);
-            let factor = 1;
-            if(useCal){
-                const ta0 = useAlign ? T0 : tAt(act, dStart), ta1 = tAt(act, dEnd), tp1 = tAt(planPts, dEnd);
-                if(ta0 != null && ta1 != null && tp0 != null && tp1 != null && tp1 - tp0 > 1e-6) factor = (ta1 - ta0) / (tp1 - tp0);
-            }
-            if(tp0 != null){
-                planPts = planPts.filter(p => !useAlign || p[1] >= dStart - 1e-6).map(p => [useAlign ? T0 + factor * (p[0] - tp0) : tp0 + factor * (p[0] - tp0), p[1]]);
-                if(!useAlign) planPts = calc.points.filter(p => p[1] < dStart).map(p => [p[0], p[1]]).concat(planPts);
-                if(useAlign && (!planPts.length || planPts[0][1] > dStart + 1e-6)) planPts.unshift([T0, dStart]);   // start exactly at the aligned point
-                if(cmpInfo) cmpInfo.textContent = (useAlign ? 'start ' + T0.toFixed(1) + ' d @ ' + D0.toFixed(0) + ' m' + (auto ? ' (auto)' : '') : '') +
-                    (useCal ? (useAlign ? ' · ' : '') + 'factor ' + factor.toFixed(2) + ' (actual/planned time, ' + dStart.toFixed(0) + '–' + dEnd.toFixed(0) + ' m)' : '');
-            } else if(cmpInfo) cmpInfo.textContent = 'planned curve does not reach ' + dStart.toFixed(0) + ' m';
-        }
+        const planPts = (plotId === 'td' && calc && calc.points) ? calc.points.map(p => [p[0], p[1]]) : null;   // 2026-11-21: planned-vs-actual align / calibrate removed
         if(plotId === 'td' && calc && calc.points && calc.points.length){
             datasets.push({
-                label: (isPreview ? 'Calculated Time vs Depth (preview, unsaved)' : 'Calculated Time vs Depth') + ({align:' — aligned', cal:' — calibrated', both:' — aligned + calibrated'}[cmpMode] || ''),
+                label: 'Planned Time vs Depth (live, ' + { min: 'Min', avg: 'Avg', max: 'Max' }[window.MTX_ROP.curve] + (window.MTX_SRM.active() ? ', slide/rotate model' : ', Pason ROP') + ')',
                 data: planPts.map(p => ({x:p[0], y:p[1]})),
                 showLine:true, pointRadius:0, borderWidth:2, borderDash:[6,3], fill:false, tension:0,
                 borderColor:'#b264ff', backgroundColor:'#b264ff',
@@ -12972,7 +13126,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
         _chart = new Chart(ctx, {
             type: 'line',
             data: { datasets },
-            options: {
+            options: mtxPhoneChart({
                 responsive: true,
                 plugins: {
                     legend: { display:true, labels:{ color:textColor } },
@@ -12992,8 +13146,71 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                     x: { type:'linear', title:{display:true, text:plotDef.xTitle, color:textColor}, ticks:{color:tickColor}, grid:{color:gridColor} },
                     y: { type:'linear', reverse: !!plotDef.reversedY, title:{display:true, text:plotDef.yTitle, color:textColor}, ticks:{color:tickColor}, grid:{color:gridColor} },
                 }
-            }
+            }, plotId === 'td' ? 'Days' : 'MD (m)', plotDef.yTitle.replace(/\s*\(.*$/, '') + ((plotDef.yTitle.match(/\(([^)]*)\)/) || [])[1] ? ' (' + plotDef.yTitle.match(/\(([^)]*)\)/)[1] + ')' : ''))
         });
+        renderSnowball(plotId, selectedWellKey, calc, budget, raw, { textColor, tickColor, gridColor });   // 2026-11-22
+    }
+
+    /* ── 2026-11-22 (John): SNOWBALL TIME VS DEPTH ─────────────────────────────────────────────────────────────────────────
+     * Y = total drilled metres = leg 1 from 0 + each later leg's new hole (its depth below its own deepest point so far), X = days.
+     * Conversion of a hole-depth-vs-time series (planned, saved budget, Raw X,Y dots): a new leg starts when the depth drops
+     * > 10 m below the current leg's deepest point; until drilling resumes (depth 0.5 m above the leg's shallowest point) the leg's
+     * reference follows the shallowest depth, so tripping in / reaming adds nothing. The Pason Min / Avg / Max curves are not
+     * converted (they average depth across wells at each time, mixing legs).
+     * Strips: from the PLAN of the selected well — leg 1 split Surface (0→SC) / Build (SC→IC) / Lateral (IC→TD), each later leg
+     * one strip of length TD − STK, stacked in total metres. MTX choices (display only).
+     */
+    function snowSeries(pts){
+        const out = []; let cum = 0, ref = null, seek = false, peak = null;
+        (pts || []).forEach(p => { const t = +p[0], d = +p[1]; if(!isFinite(t) || !isFinite(d)) return;
+            if(ref === null){ ref = d; peak = d; cum = 0; }
+            else if(d < peak - 10){ seek = true; ref = d; peak = d; }
+            else if(seek){ if(d < ref) ref = d; else if(d > ref + 0.5){ seek = false; cum += d - ref; ref = d; peak = d; } peak = Math.max(peak, ref); }
+            else if(d > ref){ cum += d - ref; ref = d; peak = d; }
+            out.push({ x: t, y: cum }); });
+        return out;
+    }
+    const SNOW_COLORS = ['#3d7bd9', '#e0a030', '#47b36b', '#c94f7c', '#8a63d2', '#2bb3b3', '#d96a3d', '#7c9c2a', '#b04fc9', '#4f8fc9', '#c9a04f', '#5fc94f'];
+    function snowStrips(wellKey){
+        const g = getTrajectoryWellGroups(), legs = g.wells && g.wells[wellKey]; if(!legs || !legs.length) return [];
+        const L = legs.map(tdBuildLegInfo), out = [], l1 = L[0], c0 = SNOW_COLORS[0];
+        const cuts = [['Surface', 0]]; if(l1.scMD != null) cuts.push(['Build', l1.scMD]); if(l1.icpMD != null) cuts.push(['Lateral', l1.icpMD]);
+        cuts.forEach((c, i) => { const to = i + 1 < cuts.length ? cuts[i + 1][1] : l1.tdMD; if(to > c[1]) out.push({ from: c[1], to, color: c0, alpha: [0.10, 0.20, 0.32][i] || 0.32, label: 'Leg 1 · ' + c[0] + ' ' + c[1].toFixed(0) + '→' + to.toFixed(0) + ' m' }); });
+        let cum = l1.tdMD;
+        for(let k = 1; k < L.length; k++){ const lg = L[k]; if(lg.stkMD == null) continue; const len = lg.tdMD - lg.stkMD; if(!(len > 0)) continue;
+            out.push({ from: cum, to: cum + len, color: SNOW_COLORS[k % SNOW_COLORS.length], alpha: 0.22, label: 'Leg ' + (k + 1) + ' · STK ' + lg.stkMD.toFixed(0) + ' → TD ' + lg.tdMD.toFixed(0) + ' m · ' + len.toFixed(0) + ' m' }); cum += len; }
+        return out;
+    }
+    function snowRgba(hex, a){ const n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; }
+    const snowStripPlugin = { id: 'snowStrips', beforeDatasetsDraw(chart){ const st = chart.options.plugins.snowStrips && chart.options.plugins.snowStrips.strips; if(!st || !st.length) return;
+        const { ctx, chartArea: ca, scales: { y } } = chart; ctx.save(); ctx.beginPath(); ctx.rect(ca.left, ca.top, ca.width, ca.height); ctx.clip();
+        st.forEach(b => { const y1 = y.getPixelForValue(b.from), y2 = y.getPixelForValue(b.to), top = Math.min(y1, y2), h = Math.abs(y2 - y1); if(h <= 0) return;
+            ctx.fillStyle = snowRgba(b.color, b.alpha); ctx.fillRect(ca.left, top, ca.width, h);
+            ctx.strokeStyle = snowRgba(b.color, 0.6); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ca.left, top); ctx.lineTo(ca.right, top); ctx.stroke();
+            const ph = mtxPhone(), lbl = ph ? b.label.split(' · ').slice(0, 2).join(' · ') : b.label;   // phone: shorter label
+            if(h >= (ph ? 9 : 11)){ ctx.fillStyle = snowRgba(b.color, 0.95); ctx.font = (ph ? '9px' : '11px') + ' sans-serif'; ctx.textBaseline = 'top'; ctx.fillText(lbl, ca.left + 4, top + 1); } });
+        ctx.restore(); } };
+    function renderSnowball(plotId, wellKey, calc, budget, raw, col){
+        const wrap = el('pasonSnowWrap'), cv = el('pasonSnowChart'); if(!wrap || !cv) return;
+        if(_snowChart){ _snowChart.destroy(); _snowChart = null; }
+        if(plotId !== 'td'){ wrap.style.display = 'none'; return; }
+        const ds = [];
+        if(raw && raw.points && raw.points.length){ const ps = raw.pointSize != null && isFinite(raw.pointSize) ? +raw.pointSize : 3;
+            ds.push({ label: 'Actual (Raw X,Y)', data: snowSeries(raw.points.slice().sort((a, b) => a[0] - b[0])), showLine: false, pointRadius: ps, pointBorderWidth: 0, pointBackgroundColor: '#ffa500', borderColor: '#ffa500', backgroundColor: '#ffa500', hidden: !(ps > 0) }); }
+        if(budget && budget.points && budget.points.length) ds.push({ label: 'Saved budget', data: snowSeries(budget.points), showLine: true, pointRadius: 0, borderWidth: 1.5, borderDash: [2, 4], borderColor: '#8a93a3', backgroundColor: '#8a93a3', tension: 0, fill: false });
+        if(calc && calc.points && calc.points.length) ds.push({ label: 'Planned (live, ' + { min: 'Min', avg: 'Avg', max: 'Max' }[window.MTX_ROP.curve] + ')', data: snowSeries(calc.points), showLine: true, pointRadius: 0, borderWidth: 2, borderDash: [6, 3], borderColor: '#b264ff', backgroundColor: '#b264ff', tension: 0, fill: false });
+        const strips = wellKey ? snowStrips(wellKey) : [];
+        if(!ds.length && !strips.length){ wrap.style.display = 'none'; return; }
+        wrap.style.display = '';
+        const yMax = Math.max(strips.length ? strips[strips.length - 1].to : 0, ...ds.map(d => d.data.length ? d.data[d.data.length - 1].y : 0));
+        _snowChart = new Chart(cv.getContext('2d'), { type: 'line', data: { datasets: ds }, plugins: [snowStripPlugin],
+            options: mtxPhoneChart({ responsive: true, animation: false,
+                plugins: { snowStrips: { strips },
+                    legend: { display: true, labels: { color: col.textColor } },
+                    tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(0) + ' m @ ' + c.parsed.x.toFixed(2) + ' d' } },
+                    zoom: { pan: { enabled: true, mode: 'xy' }, zoom: { wheel: { enabled: true, modifierKey: 'ctrl' }, pinch: { enabled: true }, mode: 'xy' } } },
+                scales: { x: { type: 'linear', title: { display: true, text: 'Time (days from start)', color: col.textColor }, ticks: { color: col.tickColor }, grid: { color: col.gridColor } },
+                          y: { type: 'linear', reverse: true, min: 0, suggestedMax: yMax > 0 ? yMax * 1.02 : undefined, title: { display: true, text: 'Total drilled depth, all legs (m)', color: col.textColor }, ticks: { color: col.tickColor }, grid: { color: col.gridColor } } } }, 'Days', 'Total m') });
     }
 
     // ── Upload + parse xlsx (admin/leader/user only) ─────────────────────
@@ -13014,6 +13231,13 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
                     const wb = XLSX.read(ev.target.result, { type:'array' });
                     const plots = {};
                     wb.SheetNames.forEach(sheetName => {
+                        // 2026-11-21 (John): LAS time statistics tabs (Pason Plots page, LAS wells) for the time model
+                        const lk = sheetName.trim().toLowerCase();
+                        if(lk === 'flat times'){ plots.flatTimes = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'' }).slice(1).filter(r => r.length && r[0] !== ''); return; }   // 2026-11-21
+                        if(lk === 'las time per 100 m' || lk === 'las stops'){
+                            const a2 = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'' }).slice(1).filter(r => r.length && r[0] !== '');
+                            plots[lk === 'las stops' ? 'lasStops' : 'lasTime'] = a2; return;
+                        }
                         const id = SHEET_NAME_TO_ID[sheetName.trim().toLowerCase()];
                         if(!id) return; // unrecognised sheet — skip
                         const ws = wb.Sheets[sheetName];
@@ -13162,7 +13386,7 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             if(valLabel) valLabel.textContent = val;
             if(_chart){
                 const ds = _chart.data.datasets.find(d => d.label === 'Raw X,Y');
-                if(ds){ ds.pointRadius = val; ds.pointHoverRadius = val + 2; _chart.update('none'); }
+                if(ds){ ds.pointRadius = val; ds.pointHoverRadius = val > 0 ? val + 2 : 0; ds.pointBorderWidth = 0; ds.hidden = !(val > 0); const i = _chart.data.datasets.indexOf(ds); if(i >= 0) _chart.setDatasetVisibility(i, val > 0); _chart.update(); }
             }
         });
         // Persist the chosen size once the user releases the slider.
@@ -13283,85 +13507,309 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
     // Average the ROP-vs-Measured-Depth "Average" curve's y-values across
     // [mdStart, mdEnd]. Returns null (no fabricated fallback) if the ROP
     // plot hasn't been uploaded or has no points in that range.
-    function averageROPInRange(mdStart, mdEnd){
+    function averageROPInRange(mdStart, mdEnd, sec){
+        if(sec && window.MTX_SRM.rop(sec)) return window.MTX_SRM.rop(sec);   // 2026-11-20: slide / rotate model when active
         var ropData = _plots && _plots['rop'];
         if(!ropData || !ropData.rows || !ropData.rows.length) return null;
-        var lo = Math.min(mdStart, mdEnd), hi = Math.max(mdStart, mdEnd);
-        var sum = 0, count = 0;
-        ropData.rows.forEach(function(r){
-            var md = Number(r[0]), avg = r[1];
-            if(avg === '' || avg === null || avg === undefined) return;
-            if(md >= lo && md <= hi){ sum += Number(avg); count++; }
-        });
-        return count ? (sum / count) : null;
+        return window.MTX_ROP.lw(ropData.rows, mdStart, mdEnd);   // 2026-11-20: length-weighted, selected curve (was plain mean of Average)
     }
 
-    function calculateTimeVsDepth(wellKey, pauseDefault, pauseIC){
-        var groups = getTrajectoryWellGroups();
-        var legs = groups.wells[wellKey];
+    // 2026-11-21 (John): planned Time vs Depth with the auto time model (window.MTX_TM). Was: one ROP per range + manual pauses.
+    /* ── 2026-11-21 (John): PLANNED TIME VS DEPTH BY SIMULATION (used when the Pason export has the MY / slide-rotate tabs) ──
+     * Per step of 'Sim step (m)' (default 30 m ≈ one stand) along each planned leg:
+     *  1. Plan change dInc, dAz between the step ends (Inc / Azi linearly interpolated between plan stations, Azi wrapped).
+     *  2. Slid length Ls from: sqrt((dInc - BR·Lr/30)² + ((dAz - WR·Lr/30)·sin Imid)²) = MY·Ls/30, Lr = L - Ls; solved by bisection.
+     *     BR / WR = rotary build / walk (tabs 'MY Rot Build' / 'MY Rot Walk', Avg column), MY = rotation-corrected MY ('MY Corrected').
+     *     Same small-angle relation as the Slide Sheet rotation correction (public/js/motorYield.js; eBook V9.10 pp. 57-58
+     *     dInc = DLS·L·cosTF, dAz = DLS·L·sinTF / sinI) used in reverse — MTX choice, not a published planning method.
+     *     If even Ls = L cannot give the plan curvature, Ls = L and the step is flagged (plan DLS above the offsets' MY).
+     *  3. On-bottom h = Ls / slide ROP + (L - Ls) / rotate ROP ('ROP Slide' / 'ROP Rotate' tabs).
+     *  4. Other in-hole h and trip h = median over the offset wells of (hours / metres drilled) per section × L ('Flat times' tab).
+     *  5. Casing points: + median SC / IC flat of the offsets at the plan's SC / IC; each new leg: + median LegEnd of the offsets.
+     * Curve (Min / Avg / Max) = the column of MY and both ROPs (Min = slowest: low MY → more sliding, low ROPs). BR / WR always Avg.
+     */
+    function simReady(){ return !!(_plots && _plots.myc && _plots.rops && _plots.ropr); }
+    function simCol(id, x, col){ const d = _plots[id]; if(!d || !d.rows || !d.rows.length) return null; const r = d.rows.filter(q => q[col] !== '' && q[col] != null && isFinite(+q[col])).map(q => [+q[0], +q[col]]).sort((a, b) => a[0] - b[0]);
+        if(!r.length) return null; if(x <= r[0][0]) return r[0][1]; if(x >= r[r.length - 1][0]) return r[r.length - 1][1];
+        for(let i = 1; i < r.length; i++){ if(r[i][0] >= x){ const a = r[i - 1], b = r[i], f = (x - a[0]) / (b[0] - a[0] || 1); return a[1] + (b[1] - a[1]) * f; } } return null; }
+    function simMedian(v){ const a = v.filter(x => isFinite(x)).sort((x, y) => x - y); if(!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+    function simFlats(){
+        const ft = (_plots && _plots.flatTimes) || [], by = {}; ft.forEach(r => { const w = r[0], ty = r[1], sec = r[2]; (by[w] || (by[w] = [])).push({ ty, sec, h: +r[4], m: +r[5] }); });
+        const wells = Object.keys(by), med = f => simMedian(wells.map(f).filter(v => v != null));
+        const rate = (ty, sec) => med(w => { const x = by[w].filter(q => q.sec === sec); const m = x.filter(q => q.ty === 'OnBottom').reduce((a, q) => a + q.m, 0); if(!(m > 0)) return null; return x.filter(q => q.ty === ty).reduce((a, q) => a + q.h, 0) / m; });
+        const ev = ty => simMedian(ft.filter(r => r[1] === ty).map(r => +r[4]));
+        return { n: wells.length, sc: ev('SC'), ic: ev('IC'), leg: ev('LegEnd'), oth: s2 => rate('Other', s2), trip: s2 => rate('Trip', s2) };
+    }
+    function simLeg(sv, a, b, sec, step, col, F, acc, pts, tRef){
+        const D = Math.PI / 180, wrap = d => ((d + 180) % 360 + 360) % 360 - 180;
+        // 2026-11-22 (John): trajectory stations store incl / azim (was read as inc / az → no stations → "Cannot read properties of
+        // undefined (reading 'md')" on upload). Both spellings accepted; fewer than 2 stations → a clear error instead of a crash.
+        const st = (sv || []).map(p => ({ md: +p.md, inc: +(p.incl != null ? p.incl : p.inc), az: +(p.azim != null ? p.azim : p.az) })).filter(p => isFinite(p.md) && isFinite(p.inc) && isFinite(p.az)).sort((x, y) => x.md - y.md);
+        if(st.length < 2) return { error: 'The planned trajectory has fewer than 2 stations with MD / Inc / Azi (' + a.toFixed(0) + '–' + b.toFixed(0) + ' m).' };
+        const at = md => { let k = 1; while(k < st.length && st[k].md < md) k++; const u = st[Math.max(0, k - 1)], v = st[Math.min(k, st.length - 1)], f = v.md > u.md ? Math.max(0, Math.min(1, (md - u.md) / (v.md - u.md))) : 0; return { inc: u.inc + (v.inc - u.inc) * f, az: u.az + wrap(v.az - u.az) * f }; };
+        for(let x = a; x < b - 1e-6; ){ const y = Math.min(b, x + step), L = y - x, sc = typeof sec === 'function' ? sec(x) : sec, mid = (x + y) / 2;
+            const p0 = at(x), p1 = at(y), dI = p1.inc - p0.inc, dA = wrap(p1.az - p0.az), sI = Math.sin((p0.inc + p1.inc) / 2 * D);
+            const MY = simCol('myc', mid, col), BR = simCol('myb', mid, 1) || 0, WR = simCol('myw', mid, 1) || 0, Rs = simCol('rops', mid, col), Rr = simCol('ropr', mid, col);
+            if(!(MY > 0) || !(Rs > 0) || !(Rr > 0)) return { error: 'No MY / slide / rotate ROP at ' + mid.toFixed(0) + ' m' };
+            const g = Ls => { const Lr = L - Ls, di = dI - BR * Lr / 30, da = (dA - WR * Lr / 30) * sI; return Math.sqrt(di * di + da * da) - MY * Ls / 30; };
+            let Ls; if(g(0) <= 0) Ls = 0; else if(g(L) > 0){ Ls = L; acc.flag.push(mid.toFixed(0)); } else { let lo = 0, hi = L; for(let it = 0; it < 40; it++){ const m = (lo + hi) / 2; if(g(m) > 0) lo = m; else hi = m; } Ls = hi; }
+            const onb = Ls / Rs + (L - Ls) / Rr, oth = (F.oth(sc) || 0) * L, trp = (F.trip(sc) || 0) * L;
+            acc.slid += Ls; acc.rot += L - Ls; acc.onb += onb; acc.oth += oth; acc.trip += trp; tRef.t += (onb + oth + trp) / 24; pts.push([tRef.t, y]); x = y; }
+        return null;
+    }
+    function simulateTimeVsDepth(wellKey){
+        const groups = getTrajectoryWellGroups(), legs = groups.wells[wellKey]; if(!legs || !legs.length) return { error: 'No trajectory found for well ' + wellKey + '.' };
+        const col = window.MTX_ROP.COL[window.MTX_ROP.curve] || 1, step = Math.max(1, parseFloat((el('pasonSimStep') || {}).value) || 30), F = simFlats();
+        const L = legs.map(tdBuildLegInfo), l1 = L[0], pts = [[0, 0]], tRef = { t: 0 }, acc = { slid: 0, rot: 0, onb: 0, oth: 0, trip: 0, cas: 0, leg: 0, flag: [] };
+        const secOf = md => (l1.scMD != null && md < l1.scMD) ? 'Surface' : (l1.icpMD != null && md < l1.icpMD ? 'Build' : 'Lateral');
+        const cuts = [0].concat([l1.scMD, l1.icpMD].filter(v => v != null)).concat([l1.tdMD]);
+        for(let i = 0; i + 1 < cuts.length; i++){ const e = simLeg(legs[0].traj.survey, cuts[i], cuts[i + 1], secOf, step, col, F, acc, pts, tRef); if(e) return e;
+            if(i + 2 < cuts.length){ const h = (cuts[i + 1] === l1.scMD ? F.sc : F.ic) || 0; acc.cas += h; tRef.t += h / 24; pts.push([tRef.t, cuts[i + 1]]); } }
+        for(let k = 1; k < L.length; k++){ const lg = L[k]; if(lg.stkMD == null) return { error: 'No STK tie-on point found for ' + lg.wellName + '.' };
+            const h = F.leg || 0; acc.leg += h; tRef.t += h / 24; pts.push([tRef.t, lg.stkMD]);
+            const e = simLeg(legs[k].traj.survey, lg.stkMD, lg.tdMD, 'Lateral', step, col, F, acc, pts, tRef); if(e) return e; }
+        const d = h => (h / 24).toFixed(2), f1 = v => v == null ? '—' : v.toFixed(1);
+        const info = 'Simulated (' + step + ' m steps, ' + window.MTX_ROP.curve + ' curve): total <b>' + tRef.t.toFixed(2) + ' days</b> = on-bottom ' + d(acc.onb) + ' d (slid ' + acc.slid.toFixed(0) + ' m, rotated ' + acc.rot.toFixed(0) + ' m, slide ' + (100 * acc.slid / Math.max(1, acc.slid + acc.rot)).toFixed(1) + ' %) + other in-hole ' + d(acc.oth) + ' d + trips ' + d(acc.trip) + ' d + casing points ' + d(acc.cas) + ' d + leg changes ' + d(acc.leg) + ' d'
+            + ' · offsets ' + F.n + ' well(s): SC ' + f1(F.sc) + ' h, IC ' + f1(F.ic) + ' h, per new leg ' + f1(F.leg) + ' h (medians)'
+            + (acc.flag.length ? ' · ⚠ plan DLS above the offsets\' MY at ' + acc.flag.length + ' step(s) (first at ' + acc.flag[0] + ' m)' : '') + (F.n ? '' : ' · ⚠ no "Flat times" tab — flats / other time = 0 (re-export from Pason Plots)');
+        return { points: pts, info, sum: acc };
+    }
+    function calculateTimeVsDepth(wellKey){
+        if(simReady()) return simulateTimeVsDepth(wellKey);   // 2026-11-21: simulation when the MY / slide-rotate tabs are uploaded
+        window.MTX_TM._livePlots = _plots;   // freshly uploaded data before it is saved
+        var groups = getTrajectoryWellGroups(), legs = groups.wells[wellKey];
         if(!legs || !legs.length) return { error: 'No trajectory found for well ' + wellKey + '.' };
-
-        var legInfos = legs.map(tdBuildLegInfo);
-        var points = [];
-        var t = 0; // cumulative time, days
-        points.push([0, 0]);
-
-        // ── Leg 1: surface → SurfaceCasing → IntermediateCasing → Leg1 TD ──
-        var leg1 = legInfos[0];
-        var prevMD = 0;
-        var milestones1 = [];
-        if(leg1.scMD !== null) milestones1.push({ md: leg1.scMD, pause: pauseDefault, label:'SurfaceCasing' });
-        if(leg1.icpMD !== null) milestones1.push({ md: leg1.icpMD, pause: pauseIC, label:'IntermediateCasing' });
-        milestones1.push({ md: leg1.tdMD, pause: pauseDefault, label:'Leg1 TD' });
-
-        for(var i=0; i<milestones1.length; i++){
-            var m = milestones1[i];
-            var rop = averageROPInRange(prevMD, m.md);
-            if(rop === null || rop <= 0){
-                return { error: 'No ROP Average data found between MD ' + prevMD.toFixed(0) + ' and ' + m.md.toFixed(0) + ' m — upload/verify the ROP vs Measured Depth plot first.' };
-            }
-            var distance = m.md - prevMD;
-            var hours = distance / rop;
-            var days = hours / 24;
-            t += days;
-            points.push([t, m.md]);       // arrival at milestone
-            t += m.pause;
-            points.push([t, m.md]);       // pause (flat)
-            prevMD = m.md;
+        var TM = window.MTX_TM, L = legs.map(tdBuildLegInfo), pts = [[0, 0]], t = 0, notes = [];
+        var leg1 = L[0], ms = [];
+        if(leg1.scMD !== null) ms.push({ md: leg1.scMD, sec: 'Surface', stop: true });
+        if(leg1.icpMD !== null) ms.push({ md: leg1.icpMD, sec: leg1.scMD !== null ? 'Build' : 'Surface', stop: true });
+        ms.push({ md: leg1.tdMD, sec: leg1.icpMD !== null ? 'Lateral' : 'Build', stop: false });
+        var prev = 0, sum = { onb: 0, oth: 0, stop: 0, leg: 0 };
+        // 2026-11-21 (John): LATERAL RATE per metre, fixed from the main bore's lateral (IC→TD of leg 1) and applied to every leg.
+        // Was: each leg used the ROP / other time of its own MD range (STK→TD); the offsets' ROP and time curves vary with depth
+        // (and mix legs), so legs of similar length got very different slopes. Slope of a leg = metres / (on-bottom + other) time.
+        var latA = leg1.icpMD !== null ? leg1.icpMD : (leg1.scMD !== null ? leg1.scMD : 0), latB = leg1.tdMD, latL = latB - latA;
+        var latOnb = latL > 0 ? TM.onBottomH(latA, latB, 'Lateral') : null, latOth = latL > 0 ? TM.otherH(latA, latB, 'Lateral').h : 0;
+        var latRate = latOnb != null && latL > 0 ? { onb: latOnb / latL, oth: latOth / latL } : null;
+        for(var i = 0; i < ms.length; i++){ var m = ms[i];
+            var onb = TM.onBottomH(prev, m.md, m.sec); if(onb == null) return { error: 'No ROP for ' + prev.toFixed(0) + '–' + m.md.toFixed(0) + ' m (upload the Pason data or switch on the slide / rotate model).' };
+            var oth = TM.otherH(prev, m.md, m.sec), segL = m.md - prev;
+            // 2026-11-21: drill to each inner flat, add it as a horizontal step at its depth, then continue (time pro rata by metres)
+            var at = prev; TM.innerFlats(prev, m.md).forEach(function(f){ t += (onb + oth.h) * (f.depth - at) / segL / 24; pts.push([t, f.depth]); t += f.hours / 24; pts.push([t, f.depth]); sum.stop += f.hours; at = f.depth; notes.push('flat ' + f.hours.toFixed(1) + ' h @ ' + f.depth.toFixed(0) + ' m'); });
+            t += (onb + oth.h) * (m.md - at) / segL / 24; sum.onb += onb; sum.oth += oth.h; pts.push([t, m.md]);
+            if(m.stop){ var st = TM.stopH(m.md, (i === 0 && leg1.scMD !== null) ? 'SC' : 'IC'); t += st.h / 24; sum.stop += st.h; pts.push([t, m.md]); notes.push((i === 0 && leg1.scMD !== null ? 'SC' : 'IC') + ' stop ' + st.h.toFixed(1) + ' h (' + st.src + ')'); }
+            prev = m.md;
         }
-
-        // ── Subsequent legs: trip back to STK MD, pause, drill to leg TD ──
-        for(var li=1; li<legInfos.length; li++){
-            var leg = legInfos[li];
-            if(leg.stkMD === null){
-                return { error: 'No STK tie-on point found for ' + leg.wellName + ' — cannot determine where this sidetrack ties in.' };
-            }
-            // Trip back (depth-only jump, no drilling — takes pauseDefault)
-            t += pauseDefault;
-            points.push([t, leg.stkMD]);
-            // Pause at STK before drilling the new leg
-            t += pauseDefault;
-            points.push([t, leg.stkMD]);
-
-            // Drill STK MD → this leg's TD
-            var rop2 = averageROPInRange(leg.stkMD, leg.tdMD);
-            if(rop2 === null || rop2 <= 0){
-                return { error: 'No ROP Average data found between MD ' + leg.stkMD.toFixed(0) + ' and ' + leg.tdMD.toFixed(0) + ' m for ' + leg.wellName + '.' };
-            }
-            var distance2 = leg.tdMD - leg.stkMD;
-            var hours2 = distance2 / rop2;
-            var days2 = hours2 / 24;
-            t += days2;
-            points.push([t, leg.tdMD]);
-            t += pauseDefault;
-            points.push([t, leg.tdMD]);
+        var lg = TM.legH();
+        for(var li = 1; li < L.length; li++){ var leg = L[li];
+            if(leg.stkMD === null) return { error: 'No STK tie-on point found for ' + leg.wellName + ' — cannot determine where this sidetrack ties in.' };
+            t += lg.h / 24; sum.leg += lg.h; pts.push([t, leg.stkMD]);
+            if(!latRate) return { error: 'No lateral ROP (main bore ' + latA.toFixed(0) + '–' + latB.toFixed(0) + ' m) for ' + leg.wellName + '.' };
+            var len2 = leg.tdMD - leg.stkMD, onb2 = latRate.onb * len2, oth2 = latRate.oth * len2;
+            t += (onb2 + oth2) / 24; sum.onb += onb2; sum.oth += oth2; pts.push([t, leg.tdMD]);
         }
-
-        return { points: points };
+        if(L.length > 1) notes.push('per new leg ' + lg.h.toFixed(1) + ' h (' + lg.src + ')' + (lg.missing ? ' ⚠' : ''));
+        if(latRate) notes.push('lateral rate (every leg) ' + (24 / (latRate.onb + latRate.oth)).toFixed(0) + ' m/day = on-bottom ' + (1 / latRate.onb).toFixed(1) + ' m/h + other ' + (latRate.oth * 100).toFixed(2) + ' h/100 m');
+        var info = 'Total <b>' + t.toFixed(2) + ' days</b> = on-bottom ' + (sum.onb / 24).toFixed(2) + ' d + other in-hole ' + (sum.oth / 24).toFixed(2) + ' d (' + TM.otherH(0, 1e9).src + ') + stops ' + ((sum.stop + sum.leg) / 24).toFixed(2) + ' d · ' + notes.join(' · ');
+        // 2026-11-22: say why the simulation / offset flat times are not used (job saved with an older Pason Plots export)
+        var miss = ['myc', 'rops', 'ropr', 'flatTimes'].filter(function(k){ return !_plots || !_plots[k]; });
+        if(miss.length) info = '⚠ This job\'s Drilling Mechanics data was saved from an older Pason Plots export (missing: ' + miss.map(function(k){ return { myc: 'MY Corrected', rops: 'ROP Slide', ropr: 'ROP Rotate', flatTimes: 'Flat times' }[k]; }).join(', ') + '), so the casing / leg flat times and the slide-rotate simulation are not used. Re-export from Pason Plots and upload here. · ' + info;
+        return { points: pts, info: info, sum: sum };
     }
 
+    // ── 2026-11-20 (John): KPIs per hole section ─────────────────────────────────────────────────────────
+    // Sections from the selected well's trajectory milestones (same comment keywords as the score cards / Time vs Depth):
+    // Surface 0→SC, Build SC→IC, Lateral IC→TD (missing milestones merge the sections). For each Pason plot the KPI is
+    // the MEAN of the chosen curve (Min / Avg / Max column of the export) over the points whose MD lies in the section.
+    // ROP also shows the time-consistent (harmonic) mean = section length / Σ(Δmd/ROP), used for drilling time.
+    const DMK_COL = { avg: 1, max: 2, min: 3 }, DMK_COLOR = { min: '#ff4d4d', avg: '#00e5ff', max: '#39ff14' };
+    const DMK_PLOTS = [['hl', 'HKLD', 'kDaN', 1], ['tq', 'Torque', 'kN·m', 1], ['wob', 'WOB', 'kDaN', 1], ['rop', 'ROP', 'm/h', 1], ['mse', 'MSE', 'ksi', 0], ['flow', 'Flow', 'm³/min', 2]];
+    function dmkSections(wellKey){
+        const groups = getTrajectoryWellGroups(), legs = groups.wells && groups.wells[wellKey]; if(!legs || !legs.length) return [];
+        const L = tdBuildLegInfo(legs[0]), out = [], pts = [['Surface', 0]];
+        if(L.scMD != null) pts.push(['Build', L.scMD]);
+        if(L.icpMD != null) pts.push(['Lateral', L.icpMD]);
+        for(let i = 0; i < pts.length; i++){ const to = i + 1 < pts.length ? pts[i + 1][1] : L.tdMD; if(to > pts[i][1]) out.push({ name: pts[i][0], from: pts[i][1], to }); }
+        return out;
+    }
+    function dmkPts(plotId, col, from, to){
+        const d = _plots && _plots[plotId]; if(!d || !d.rows) return [];
+        return d.rows.map(r => [Number(r[0]), r[col]]).filter(p => isFinite(p[0]) && p[1] !== '' && p[1] != null && isFinite(Number(p[1])) && p[0] >= from && p[0] <= to).map(p => [p[0], Number(p[1])]).sort((a, b) => a[0] - b[0]);
+    }
+    function dmkStat(plotId, col, from, to, curve){
+        const pts = dmkPts(plotId, col, from, to); if(!pts.length) return null;
+        const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+        const lw = plotId === 'rop' ? window.MTX_ROP.lw(_plots.rop.rows, from, to, curve) : null;
+        return { mean, lw, n: pts.length, pts };
+    }
+    // MSE flag (2026-11-20, MTX choice): points above factor x the section median; flagged length = sum of the MD steps
+    // starting at a flagged point; consecutive flagged points are merged into intervals.
+    function dmkMseFlag(pts, factor){
+        if(!pts || pts.length < 3) return null;
+        const v = pts.map(p => p[1]).sort((a, b) => a - b), med = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+        if(!(med > 0)) return null;
+        const lim = factor * med, iv = []; let len = 0, tot = 0, cur = null;
+        for(let i = 0; i < pts.length; i++){ const step = i + 1 < pts.length ? pts[i + 1][0] - pts[i][0] : 0; tot += step;
+            if(pts[i][1] > lim){ len += step; if(!cur){ cur = [pts[i][0], pts[i][0], pts[i][1]]; iv.push(cur); } cur[1] = i + 1 < pts.length ? pts[i + 1][0] : pts[i][0]; cur[2] = Math.max(cur[2], pts[i][1]); } else cur = null; }
+        return { med, lim, len, pct: tot > 0 ? 100 * len / tot : 0, iv: iv.sort((a, b) => b[2] - a[2]) };
+    }
+    let DMK_OFF = null;   // offsets from /notes/pasonOffsets
+    function dmkRopTxt(v){ if(v == null) return '—'; return (window.DMK_ROPU === 'mday') ? (v * 24).toFixed(0) : v.toFixed(1); }
+    function dmkRopU(){ return window.DMK_ROPU === 'mday' ? 'm/day' : 'm/h'; }
+    function dmkOffsetFor(secName, curve){
+        if(!DMK_OFF || !DMK_OFF.length) return null;
+        const vals = [];
+        DMK_OFF.forEach(o => { let a = null, b = null;
+            if(secName === 'Surface'){ a = 0; b = o.sc != null ? o.sc : (o.ic != null ? o.ic : o.td); }
+            else if(secName === 'Build'){ a = o.sc; b = o.ic; } else if(secName === 'Lateral'){ a = o.ic; b = o.td; }
+            if(a == null || b == null || !(b > a)) return;
+            const r = window.MTX_ROP.lw(o.rows, a, b, curve); if(r) vals.push({ r, o }); });
+        if(!vals.length) return null;
+        return { mean: vals.reduce((x, y) => x + y.r, 0) / vals.length, n: vals.length, list: vals };
+    }
+    function renderDmk(){
+        const grid = el('dmkGrid'), ws = el('dmkWell'), cs = el('dmkCurve'); if(!grid || !ws || !cs || !_plots) return;
+        const curve = cs.value || 'min', col = DMK_COL[curve], secs = ws.value ? dmkSections(ws.value) : [], fac = parseFloat(el('dmkMseFactor').value) || 2;
+        cs.style.color = DMK_COLOR[curve];
+        if(!secs.length){ grid.innerHTML = '<div style="font-size:12px;color:var(--an-text-dim,#5a7080);">No sections for this well (needs a trajectory with SurfaceCasing / IntermediateCasing comments).</div>'; return; }
+        el('dmkInfo').textContent = 'mean of the ' + { min: 'Min', avg: 'Average', max: 'Max' }[curve] + ' curve per section (ROP: length-weighted, the value used for drilling time; click it for m/h ↔ m/day)';
+        grid.innerHTML = secs.map(s => {
+            let ropLw = null, mseFlag = null;
+            const cards = DMK_PLOTS.map(p => { const st = dmkStat(p[0], col, s.from, s.to, curve);
+                if(p[0] === 'rop' && st) ropLw = st.lw; if(p[0] === 'mse' && st) mseFlag = dmkMseFlag(st.pts, fac);
+                if(p[0] === 'rop') return '<div class="dmk-c rop" data-act="ropu" title="Click: m/h ↔ m/day' + (st ? ' · ' + st.n + ' points · plain mean ' + st.mean.toFixed(1) + ' m/h' : '') + '"><div class="l">ROP</div><div class="v" style="color:' + DMK_COLOR[curve] + '">' + dmkRopTxt(st ? st.lw : null) + '</div><div class="u">' + dmkRopU() + ' · length-weighted</div></div>';
+                return '<div class="dmk-c" title="' + (st ? st.n + ' points' : 'no data in this section') + '"><div class="l">' + p[1] + '</div><div class="v" style="color:' + DMK_COLOR[curve] + '">' + (st ? st.mean.toFixed(p[3]) : '—') + '</div><div class="u">' + p[2] + '</div></div>'; }).join('');
+            const off = dmkOffsetFor(s.name, curve);
+            const offTxt = !DMK_OFF ? '' : !off ? '<div class="dmk-off">ROP vs offsets: no offset data for this section.</div>' :
+                '<div class="dmk-off" title="' + off.list.map(x => (x.o.mtxJobId || '') + ' ' + x.o.wellName + ': ' + dmkRopTxt(x.r) + ' ' + dmkRopU()).join('\n') + '">ROP vs offsets (' + off.n + ' job' + (off.n > 1 ? 's' : '') + ', same curve): <b>' + dmkRopTxt(off.mean) + ' ' + dmkRopU() + '</b>' +
+                (ropLw ? ' · this well <b style="color:' + (ropLw >= off.mean ? '#39ff14' : '#ff6b6b') + '">' + (ropLw >= off.mean ? '+' : '') + (100 * (ropLw / off.mean - 1)).toFixed(0) + ' %</b>' : '') + '</div>';
+            const fl = !mseFlag ? '' : mseFlag.len > 0 ? '<div class="dmk-flag bad" title="Section median MSE ' + mseFlag.med.toFixed(1) + ' ksi; limit ' + fac + '× = ' + mseFlag.lim.toFixed(1) + ' ksi (MTX choice)">⚠ MSE above ' + fac + '× section median (' + mseFlag.lim.toFixed(1) + ' ksi) over ' + mseFlag.len.toFixed(0) + ' m (' + mseFlag.pct.toFixed(0) + ' %): ' +
+                mseFlag.iv.slice(0, 3).map(x => x[0].toFixed(0) + '–' + x[1].toFixed(0) + ' m (max ' + x[2].toFixed(0) + ')').join(', ') + (mseFlag.iv.length > 3 ? ' …' : '') + ' — possible drilling inefficiency</div>'
+                : '<div class="dmk-flag ok">✔ MSE never above ' + fac + '× the section median (' + mseFlag.med.toFixed(1) + ' ksi)</div>';
+            return '<div class="dmk-sec"><h6>' + s.name + ' <span>' + s.from.toFixed(0) + '–' + s.to.toFixed(0) + ' m · ' + (s.to - s.from).toFixed(0) + ' m</span></h6><div class="dmk-cards">' + cards + '</div>' + offTxt + fl + '</div>';
+        }).join('');
+    }
+    async function dmkLoadOffsets(){
+        const btn = el('dmkOffsetBtn'); btn.disabled = true; btn.textContent = 'Loading…';
+        try{ const d = await (await fetch('/notes/pasonOffsets/' + PASON_NOTE_ID + '?ids=' + encodeURIComponent(el('dmkOffsetIds').value || ''))).json(); if(!d.ok) throw new Error(d.error);
+            DMK_OFF = d.offsets; el('dmkInfo').textContent = d.offsets.length ? 'Offsets: ' + d.offsets.map(o => o.mtxJobId || o.title).join(', ') + (d.mode === 'area' ? ' (same Area ' + d.area + ')' : '') : (d.note || 'No offset job with Pason ROP found.');
+            renderDmk(); if(d.offsets.length) el('dmkInfo').textContent = 'Offsets: ' + d.offsets.map(o => o.mtxJobId || o.title).join(', ') + (d.mode === 'area' ? ' (same Area ' + d.area + ')' : ''); }
+        catch(err){ el('dmkInfo').textContent = 'Offsets: ' + err.message; }
+        btn.disabled = false; btn.textContent = 'Compare';
+    }
+    // Excel: one sheet per Drilling Mechanics plot (x, Average, Max, Min), + KPIs per section, + calculated Time vs Depth
+    function dmkExcel(){
+        if(!_plots || !window.XLSX){ alert('No Drilling Mechanics data.'); return; }
+        const wb = XLSX.utils.book_new(), used = {};
+        PLOT_REGISTRY.forEach(p => { const d = _plots[p.id]; if(!d || !(d.rows || []).length) return;
+            const head = [p.id === 'td' ? 'Time (days)' : (d.xHeader || 'Measured Depth (m)'), 'Average', 'Max', 'Min'], rows = d.rows.map(r => [r[0], r[1], r[2], r[3]]);
+            let nm = p.name.replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31); while(used[nm]) nm = nm.slice(0, 29) + '_' + Object.keys(used).length; used[nm] = 1;
+            const sh = XLSX.utils.aoa_to_sheet([[p.name + ' — ' + p.yTitle]].concat([head], rows)); XLSX.utils.book_append_sheet(wb, sh, nm);
+            if(p.id === 'td' && d.calculatedByWell) Object.keys(d.calculatedByWell).forEach(k => { const c = d.calculatedByWell[k]; if(!c || !c.points) return;
+                let n2 = ('Calc TvD ' + k).replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31); if(used[n2]) return; used[n2] = 1;
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Calculated Time vs Depth — ' + k], ['Time (days)', 'Hole Depth (m)']].concat(c.points)), n2); }); });
+        const ws = el('dmkWell'), curve = el('dmkCurve').value, secs = ws && ws.value ? dmkSections(ws.value) : [];
+        if(secs.length){ const aoa = [['KPIs per section — well ' + ws.value + ' — curve ' + curve + ' (mean; ROP length-weighted)'], ['Section', 'From (m)', 'To (m)'].concat(DMK_PLOTS.map(p => p[1] + ' (' + p[2] + ')'))];
+            secs.forEach(s => aoa.push([s.name, s.from, s.to].concat(DMK_PLOTS.map(p => { const st = dmkStat(p[0], DMK_COL[curve], s.from, s.to, curve); return st ? +(p[0] === 'rop' ? st.lw : st.mean).toFixed(3) : ''; }))));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'KPIs per section'); }
+        XLSX.writeFile(wb, 'Drilling_Mechanics_' + (PASON_NOTE_ID || 'job') + '.xlsx');
+    }
+    function initDmk(){
+        const ws = el('dmkWell'), tw = el('pasonTDWellSelect'), cs = el('dmkCurve'); if(!ws || !cs) return;
+        if(tw){ ws.innerHTML = tw.innerHTML; ws.value = tw.value; }
+        cs.value = window.MTX_ROP.curve || 'avg'; if(!cs.value) cs.value = 'avg';
+        window.DMK_ROPU = window.MTXPrefs ? MTXPrefs.get('dmRopUnit', 'mh') : 'mh';
+        const mf = el('dmkMseFactor'); if(mf && window.MTXPrefs) mf.value = MTXPrefs.get('dmMseFactor', '2') || '2';
+        if(mf) mf.addEventListener('change', function(){ if(window.MTXPrefs) MTXPrefs.set('dmMseFactor', mf.value); renderDmk(); });
+        cs.addEventListener('change', function(){
+            window.MTX_ROP.curve = cs.value; if(window.MTXPrefs) MTXPrefs.set('dmKpiCurve', cs.value); renderDmk();
+            if(typeof window.wbtRerenderCards === 'function') window.wbtRerenderCards();   // score-card times follow the curve
+            const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td');   // preview Time vs Depth follows the curve
+        });
+        ws.addEventListener('change', function(){ if(tw && tw.value !== ws.value){ tw.value = ws.value; tw.dispatchEvent(new Event('change')); } renderDmk(); });
+        if(tw) tw.addEventListener('change', function(){ if(ws.value !== tw.value){ ws.value = tw.value; renderDmk(); } });
+        el('dmkGrid').addEventListener('click', function(e){ if(e.target.closest('[data-act="ropu"]')){ window.DMK_ROPU = window.DMK_ROPU === 'mday' ? 'mh' : 'mday'; if(window.MTXPrefs) MTXPrefs.set('dmRopUnit', window.DMK_ROPU); renderDmk(); } });
+        el('dmkOffsetBtn').addEventListener('click', dmkLoadOffsets);
+        el('dmkXlsBtn').addEventListener('click', dmkExcel);
+        renderDmk();
+    }
+
+    // ── 2026-11-20 (John): slide / rotate time model (see window.MTX_SRM at the top of the page) ──
+    const SRM_SECS = ['Surface', 'Build', 'Lateral'];
+    let SRM = window.MTX_SRM.model ? JSON.parse(JSON.stringify(window.MTX_SRM.model)) : { sources: [], active: false };
+    function srmSectionsOf(sc, ic, td){   // own milestones of a source; else the selected well's sections
+        if(td != null && (sc != null || ic != null)){ const out = [], pts = [['Surface', 0]]; if(sc != null) pts.push(['Build', sc]); if(ic != null) pts.push(['Lateral', ic]);
+            for(let i = 0; i < pts.length; i++){ const to = i + 1 < pts.length ? pts[i + 1][1] : td; if(to > pts[i][1]) out.push({ name: pts[i][0], from: pts[i][1], to }); } return { secs: out, own: true }; }
+        const tw = el('pasonTDWellSelect'); return { secs: tw && tw.value ? dmkSections(tw.value) : [], own: false };
+    }
+    function srmPerSection(intervals, secs){
+        const ps = {}; secs.forEach(s => { ps[s.name] = { Ls: 0, Ts: 0, Lr: 0, Tr: 0, from: s.from, to: s.to }; });
+        (intervals || []).forEach(iv => { const rop = +iv.rop; if(!(rop > 0) || !(iv.to > iv.from)) return;
+            secs.forEach(s => { const o = Math.min(iv.to, s.to) - Math.max(iv.from, s.from); if(o <= 0) return; const q = ps[s.name], t = o / rop;
+                if(iv.mode === 'slide'){ q.Ls += o; q.Ts += t; } else { q.Lr += o; q.Tr += t; } }); });
+        return ps;
+    }
+    function srmFmt(v, d){ return v == null || !isFinite(v) ? '—' : (+v).toFixed(d); }
+    function srmRender(){
+        window.MTX_SRM.model = SRM;   // live (unsaved changes included)
+        const act = el('srmActive'); if(act) act.value = SRM.active ? '1' : '0';
+        el('srmBadge').textContent = SRM.sources.length ? '· ' + SRM.sources.length + ' source(s)' + (SRM.active ? ' · ACTIVE for Time vs Depth and score cards' : ' · not active') + (SRM.savedAt ? ' · saved ' + new Date(SRM.savedAt).toLocaleDateString() : ' · unsaved') : '· no sources yet';
+        el('srmSources').innerHTML = SRM.sources.length ? '<div class="table-responsive"><table class="table table-sm table-dark" style="font-size:12px"><thead><tr><th>Use</th><th>Source</th>' +
+            SRM_SECS.map(n => '<th>' + n + '<br><span style="font-weight:400">slid / rot m · ROP s / r (m/h)</span></th>').join('') + '<th></th></tr></thead><tbody>' +
+            SRM.sources.map((src, i) => '<tr><td><input type="checkbox" data-srm-on="' + i + '"' + (src.on === false ? '' : ' checked') + '></td><td>' + src.type + ' · <b>' + (src.name || '').replace(/</g, '&lt;') + '</b>' + (src.ownSections ? '' : ' <span title="sections of the selected well">*</span>') + '</td>' +
+                SRM_SECS.map(n => { const q = src.perSection && src.perSection[n]; return '<td>' + (q && q.Ls + q.Lr > 0 ? srmFmt(q.Ls, 0) + ' / ' + srmFmt(q.Lr, 0) + ' · ' + srmFmt(q.Ts > 0 ? q.Ls / q.Ts : null, 1) + ' / ' + srmFmt(q.Tr > 0 ? q.Lr / q.Tr : null, 1) : '—') + '</td>'; }).join('') +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger" data-srm-del="' + i + '">✕</button></td></tr>').join('') + '</tbody></table></div><div style="font-size:10.5px;color:var(--an-text-dim,#5a7080)">* LAS file: sections taken from the well selected in Drilling Mechanics.</div>' : '<div style="color:var(--an-text-dim,#5a7080)">No sources yet — load saved Slide Sheets of offset jobs and / or upload LAS files.</div>';
+        const a = window.MTX_SRM.agg(), cu = { min: 'Min (slowest source)', avg: 'Avg (pooled)', max: 'Max (fastest source)' }[window.MTX_ROP.curve];
+        el('srmModelTbl').innerHTML = Object.keys(a).length ? '<div style="margin-top:6px"><b>Model per section</b> <span style="color:var(--an-text-dim,#5a7080)">— ' + cu + ' (curve selector)</span></div><div class="table-responsive"><table class="table table-sm table-dark" style="font-size:12.5px"><thead><tr><th>Section</th><th>Slide %</th><th>ROP slide (m/h)</th><th>ROP rotate (m/h)</th><th>Effective ROP (m/h)</th><th>Sources</th></tr></thead><tbody>' +
+            SRM_SECS.filter(n => a[n]).map(n => '<tr><td>' + n + '</td><td>' + srmFmt(100 * a[n].f, 1) + ' %</td><td>' + srmFmt(a[n].ropS, 1) + '</td><td>' + srmFmt(a[n].ropR, 1) + '</td><td><b>' + srmFmt(a[n].eff, 1) + '</b></td><td>' + a[n].n + '</td></tr>').join('') + '</tbody></table></div>' : '';
+    }
+    function srmChanged(){ srmRender(); if(typeof window.wbtRerenderCards === 'function') window.wbtRerenderCards(); const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }
+    async function srmLoadSaved(){
+        el('srmStatus').textContent = 'Loading saved Slide Sheets…';
+        try{ const d = await (await fetch('/notes/slideOffsets/' + PASON_NOTE_ID + '?ids=' + encodeURIComponent(el('srmIds').value || ''))).json(); if(!d.ok) throw new Error(d.error);
+            let n = 0; d.sources.forEach(src => { const key = 'SS:' + src.mtxJobId + ':' + src.name; if(SRM.sources.some(x => x.key === key)) return;
+                const sp = srmSectionsOf(src.sc, src.ic, src.td); if(!sp.secs.length) return;
+                SRM.sources.push({ key, type: 'Slide Sheet', name: src.name, ownSections: sp.own, perSection: srmPerSection(src.intervals, sp.secs), on: true }); n++; });
+            el('srmStatus').textContent = n ? n + ' Slide Sheet(s) added.' : (d.note || 'No new saved Slide Sheet found.'); srmChanged(); }
+        catch(err){ el('srmStatus').textContent = err.message; }
+    }
+    async function srmLoadLas(evt){
+        const files = Array.from(evt.target.files || []); evt.target.value = '';
+        const sp = srmSectionsOf(null, null, null); if(!sp.secs.length){ el('srmStatus').textContent = 'Select a well with SurfaceCasing / IntermediateCasing comments first (Drilling Mechanics well).'; return; }
+        for(const f of files){
+            try{ const p = new SlideSheetModel.LasParser(), dec = new TextDecoder(), CH = 8 << 20;
+                for(let off = 0; off < f.size; off += CH){ const buf = await f.slice(off, Math.min(off + CH, f.size)).arrayBuffer(); p.push(dec.decode(buf, { stream: off + CH < f.size }));
+                    el('srmStatus').textContent = 'Reading ' + f.name + ' ' + Math.min(100, Math.round(100 * (off + CH) / f.size)) + ' %…'; await new Promise(r => setTimeout(r, 0)); }
+                const las = p.finish(); el('srmStatus').textContent = 'Detecting slides in ' + f.name + '…'; await new Promise(r => setTimeout(r, 0));
+                const res = SlideSheetModel.detect(las, {});
+                SRM.sources.push({ key: 'LAS:' + f.name + ':' + f.size, type: 'LAS', name: (las.well && las.well.WELL ? las.well.WELL + ' — ' : '') + f.name, ownSections: false,
+                    perSection: srmPerSection((res.intervals || []).filter(i => !i.leg || i.leg === 'Main'), sp.secs), on: true });
+                el('srmStatus').textContent = f.name + ': ' + (res.slides || []).length + ' slides detected.'; srmChanged();
+            }catch(err){ el('srmStatus').textContent = f.name + ': ' + err.message; }
+        }
+    }
+    async function srmSave(){
+        try{ const r = await fetch('/notes/pasonSlideModel/' + PASON_NOTE_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: SRM }) }), d = await r.json();
+            if(!d.ok) throw new Error(d.error); SRM.savedAt = new Date().toISOString(); el('srmStatus').textContent = '✅ Model saved to this job.'; srmRender(); }
+        catch(err){ el('srmStatus').textContent = 'Save failed: ' + err.message; }
+    }
+    function initSrm(){
+        if(!el('srmPanel')) return;
+        el('srmActive').addEventListener('change', function(){ SRM.active = this.value === '1'; SRM.savedAt = null; srmChanged(); });
+        el('srmLoadBtn').addEventListener('click', srmLoadSaved);
+        el('srmLas').addEventListener('change', srmLoadLas);
+        if(el('srmSaveBtn')) el('srmSaveBtn').addEventListener('click', srmSave);
+        el('srmSources').addEventListener('change', function(e){ const i = e.target.getAttribute('data-srm-on'); if(i != null){ SRM.sources[+i].on = e.target.checked; SRM.savedAt = null; srmChanged(); } });
+        el('srmSources').addEventListener('click', function(e){ const i = e.target.getAttribute('data-srm-del'); if(i != null){ SRM.sources.splice(+i, 1); SRM.savedAt = null; srmChanged(); } });
+        const cs = el('dmkCurve'); if(cs) cs.addEventListener('change', srmRender);
+        srmRender();
+    }
+
+    { const ss = el('pasonSimStep'); if(ss) ss.addEventListener('change', () => { const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); if(typeof window.wbtRerenderCards === 'function') window.wbtRerenderCards(); }); }   // 2026-11-21
     // Populate the well dropdown once, and wire the Calculate button.
     populateTDWellDropdown();
+    initSrm();   // 2026-11-20 slide / rotate time model
+    initDmk();   // 2026-11-20 KPIs per section
     const tdWellSelectEl = el('pasonTDWellSelect');
     if(tdWellSelectEl){
         tdWellSelectEl.addEventListener('change', function(){
@@ -13369,30 +13817,18 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
             if(sel && sel.value === 'td') renderPasonChart('td');
         });
     }
-    ['pasonTDCompare','pasonTDStartDay','pasonTDStartMd'].forEach(function(id){ const e = el(id); if(e) e.addEventListener('change', function(){ const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); });
-    const tdCurveStyleEl = el('pasonTDCurveStyle');
-    if(tdCurveStyleEl && window.MTXPrefs){ tdCurveStyleEl.value = MTXPrefs.get('tdCurveStyle', 'sharp');
-        tdCurveStyleEl.addEventListener('change', function(){ MTXPrefs.set('tdCurveStyle', tdCurveStyleEl.value); const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); }
-    const tdTolEl = el('pasonTDSharpTol');
-    if(tdTolEl && window.MTXPrefs){ tdTolEl.value = MTXPrefs.get('tdSharpTol', '1');
-        tdTolEl.addEventListener('change', function(){ MTXPrefs.set('tdSharpTol', tdTolEl.value); const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); }); }
-    const tdShowActualEl = el('pasonTDShowActual');
-    if(tdShowActualEl) tdShowActualEl.addEventListener('change', function(){ const sel = el('pasonPlotSelect'); if(sel && sel.value === 'td') renderPasonChart('td'); });
-
     const tdCalcBtn = el('pasonTDCalcBtn');
     if(tdCalcBtn){
         tdCalcBtn.addEventListener('click', async function(){
             const wellSel = el('pasonTDWellSelect');
             const wellKey = wellSel && wellSel.value;
-            const pauseDefault = Number(el('pasonTDPauseDefault').value) || 0.15;
-            const pauseIC = Number(el('pasonTDPauseIC').value) || 1.0;
             const calcStatus = el('pasonTDCalcStatus');
             if(!wellKey){ if(calcStatus) calcStatus.textContent = '⚠ No well selected.'; return; }
 
             if(calcStatus) calcStatus.textContent = 'Calculating…';
             tdCalcBtn.disabled = true;
 
-            const result = calculateTimeVsDepth(wellKey, pauseDefault, pauseIC);
+            const result = calculateTimeVsDepth(wellKey);
             if(result.error){
                 if(calcStatus) calcStatus.textContent = '❌ ' + result.error;
                 tdCalcBtn.disabled = false;
@@ -13401,9 +13837,9 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 
             if(!_plots['td']) _plots['td'] = { xHeader:'Time_days', rows: [] };
             if(!_plots['td'].calculatedByWell) _plots['td'].calculatedByWell = {};
-            _plots['td'].calculatedByWell[wellKey] = { points: result.points, pauseDefault: pauseDefault, pauseIC: pauseIC };
+            _plots['td'].calculatedByWell[wellKey] = { points: result.points, savedAt: new Date().toISOString(), info: result.info, ropCurve: { min: 'Min', avg: 'Avg', max: 'Max' }[window.MTX_ROP.curve] + (window.MTX_SRM.active() ? ' slide/rotate model' : ' (length-weighted)') };   // 2026-11-20
 
-            const ok = await persistPlots('✅ Calculated Time vs Depth for ' + wellKey + ' and saved.');
+            const ok = await persistPlots('✅ Budget Time vs Depth for ' + wellKey + ' saved.');
             tdCalcBtn.disabled = false;
             if(ok){
                 if(calcStatus) calcStatus.textContent = '✅ Saved (' + result.points.length + ' points).';
@@ -14756,4 +15192,5 @@ var _wellsArr2 = Object.keys(_wellMap2).sort().map(function(wk) {
 </script>
 <!-- ================= END CASING DESIGN SCRIPT ================= -->
 
+<%- include('partials/mtxHelp.ejs') %><%# 2026-11-22: shared "?" help window (Drilling Mechanics, Anti-collision Plots) %>
 <%- include ('partials/footer.ejs') %>
