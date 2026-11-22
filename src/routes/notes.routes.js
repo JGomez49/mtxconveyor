@@ -128,7 +128,7 @@ const {
     deleteDesignCode,
     uploadDesignCodeImage,
     deleteDesignCodeImage,
-    getWellStructure, buildWellStructure, wsSaveWell, wsDeleteWell, wsSaveWellbore, wsDeleteWellbore, wsSaveRun, wsDeleteRun, wsAssignTraj, wsRunTD, wsWellboreTD, wsStations,   // 2026-11-15 well structure (Job -> Well -> Wellbore -> Run)
+    getWellStructure, buildWellStructure, wsSaveWell, wsDeleteWell, wsSaveWellbore, wsDeleteWellbore, wsSaveRun, wsDeleteRun, wsAssignTraj, wsRunTD, wsWellboreTD, wsStations, getPasonOffsets, getSlideOffsets, savePasonSlideModel,   // 2026-11-15 well structure (Job -> Well -> Wellbore -> Run)
 } = require('../controllers/notes.controller');
 
 const {isAuthenticated, canUseModelers} = require('../helpers/auth');
@@ -463,5 +463,11 @@ router.post('/notes/wellStructure/:noteId/assign', isAuthenticated, blockViewerF
 router.get('/notes/wellStructure/:noteId/runTD/:runId', isAuthenticated, wsRunTD);
 router.get('/notes/wellStructure/:noteId/wbTD', isAuthenticated, wsWellboreTD);
 router.get('/notes/wellStructure/:noteId/stations', isAuthenticated, wsStations);   // 2026-11-15 run survey table
+
+// 2026-11-20 (John): Drilling Mechanics — ROP of offset jobs (read-only)
+router.get('/notes/pasonOffsets/:noteId', isAuthenticated, getPasonOffsets);
+// 2026-11-20 (John): slide / rotate time model for planned wells
+router.get('/notes/slideOffsets/:noteId', isAuthenticated, getSlideOffsets);
+router.post('/notes/pasonSlideModel/:noteId', isAuthenticated, blockViewerFromSaving, savePasonSlideModel);
 
 module.exports = router;

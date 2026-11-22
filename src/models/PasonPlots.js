@@ -7,6 +7,9 @@ const PasonPlotsSchema = new Schema({
     noteId: { type: Schema.Types.ObjectId, ref: "NoteConveyor", required: true, unique: true },
     // plots: { hl: { xHeader, rows: [[x, avg, max, min], ...] }, tq: {...}, ... }
     plots:      { type: Schema.Types.Mixed, default: {} },
+    // 2026-11-20 (John): slide / rotate time model for PLANNED wells (Drilling Mechanics, job page): per offset source the
+    // slid / rotated length and on-bottom time per section (Surface / Build / Lateral), from saved Slide Sheets or LAS files.
+    slideRotModel: { type: Schema.Types.Mixed, default: null },
     user:       { type: Schema.Types.ObjectId, ref: "User" },
     uploadedAt: { type: Date, default: Date.now },
 }, { timestamps: true });

@@ -3876,3 +3876,74 @@ notesCrtl.wsStations = async (req, res) => {
         res.json({ ok: true, name: t.wellName, label: wsChainLabel(t, t.correctionChain), rows });
     }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
 };
+
+// ================= DRILLING MECHANICS — ROP vs OFFSETS (ADDED 2026-11-20, John) =================
+// GET /notes/pasonOffsets/:noteId?ids=2188,2214  -> for each offset job: its Pason ROP rows ([md, avg, max, min]) and the
+// SC / IC / TD milestones of its first subject well (same survey comment keywords as the job page score cards /
+// Time vs Depth: "SURFACECASING" (spaces ignored), "ICP" / "IntermediateCasing", last station = TD). Offsets = the MTX IDs
+// given, else up to 15 other jobs of the SAME AREA that have Pason plots. The client computes the section ROP with the
+// same curve (Min / Avg / Max) and length-weighted mean as for this job. Read-only.
+notesCrtl.getPasonOffsets = async (req, res) => {
+    try{
+        const me = await Note.findById(req.params.noteId).select('area mtxJobId').lean(); if(!me) return res.status(404).json({ ok: false, error: 'Job not found.' });
+        const ids = String(req.query.ids || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean).slice(0, 30);
+        let notes;
+        if(ids.length) notes = await Note.find({ mtxJobId: { $in: ids }, _id: { $ne: me._id } }).select('_id mtxJobId title area project').lean();
+        else{
+            if(!me.area) return res.json({ ok: true, mode: 'area', area: '', offsets: [], note: 'This job has no Area — enter offset MTX IDs.' });
+            const withPason = await PasonPlots.find({ 'plots.rop': { $exists: true } }).select('noteId').lean(), set = withPason.map(p => p.noteId);
+            notes = await Note.find({ _id: { $in: set, $ne: me._id }, area: me.area }).select('_id mtxJobId title area project').sort({ updatedAt: -1 }).limit(15).lean();
+        }
+        const out = [];
+        for(const n of notes){
+            const pp = await PasonPlots.findOne({ noteId: n._id }).select('plots.rop').lean();
+            const rop = pp && pp.plots && pp.plots.rop; if(!rop || !(rop.rows || []).length) continue;
+            const trajs = await WellboreTrajectory.find({ noteId: n._id, wellCategory: { $ne: 'offset' }, source: { $nin: CORR_SOURCES } }).select('wellName survey.md survey.comments').lean();
+            const t = trajs.filter(x => (x.survey || []).length).sort((a, b) => (/_L0?1$/i.test(b.wellName) - /_L0?1$/i.test(a.wellName)) || a.wellName.localeCompare(b.wellName))[0];
+            let sc = null, ic = null, td = null;
+            if(t){ t.survey.forEach(p => { const c = String(p.comments || '').trim(); if(sc == null && /^SURFACECASING/i.test(c.replace(/\s+/g, ''))) sc = +p.md; if(ic == null && /^(ICP|IntermediateCasing)/i.test(c)) ic = +p.md; }); td = +t.survey[t.survey.length - 1].md; }
+            out.push({ noteId: n._id, mtxJobId: n.mtxJobId || '', title: n.title || '', project: n.project || '', wellName: t ? t.wellName : '', sc, ic, td, rows: rop.rows });
+        }
+        res.json({ ok: true, mode: ids.length ? 'ids' : 'area', area: me.area || '', offsets: out });
+    }catch(err){ console.error('[pasonOffsets]', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+
+// ================= SLIDE / ROTATE TIME MODEL (ADDED 2026-11-20, John) — Time vs Depth for PLANNED wells =================
+// GET /notes/slideOffsets/:noteId?ids=  -> saved Slide Sheets (models/SlideSheet.js) of offset jobs: the MTX IDs given, else
+// up to 20 other jobs of the same Area. Main-leg intervals only (mode, from, to, len, rop) + the SC / IC / TD milestones of the
+// sheet's well (survey comments, same keywords as the score cards) so each source is split into its OWN sections.
+notesCrtl.getSlideOffsets = async (req, res) => {
+    try{
+        const me = await Note.findById(req.params.noteId).select('area').lean(); if(!me) return res.status(404).json({ ok: false, error: 'Job not found.' });
+        const ids = String(req.query.ids || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean).slice(0, 30);
+        let notes;
+        if(ids.length) notes = await Note.find({ mtxJobId: { $in: ids }, _id: { $ne: me._id } }).select('_id mtxJobId title').lean();
+        else{
+            if(!me.area) return res.json({ ok: true, sources: [], note: 'This job has no Area — enter offset MTX IDs.' });
+            const withSS = await SlideSheet.distinct('noteId');
+            notes = await Note.find({ _id: { $in: withSS, $ne: me._id }, area: me.area }).select('_id mtxJobId title').sort({ updatedAt: -1 }).limit(20).lean();
+        }
+        const out = [];
+        for(const n of notes){
+            const sheets = await SlideSheet.find({ noteId: n._id }).select('wellKey name intervals.mode intervals.leg intervals.from intervals.to intervals.len intervals.rop').lean();
+            for(const sh of sheets){
+                const t = await WellboreTrajectory.findOne({ noteId: n._id, wellName: sh.wellKey }).select('survey.md survey.comments').lean();
+                let sc = null, ic = null, td = null;
+                if(t && (t.survey || []).length){ t.survey.forEach(p => { const c = String(p.comments || '').trim(); if(sc == null && /^SURFACECASING/i.test(c.replace(/\s+/g, ''))) sc = +p.md; if(ic == null && /^(ICP|IntermediateCasing)/i.test(c)) ic = +p.md; }); td = +t.survey[t.survey.length - 1].md; }
+                out.push({ type: 'Slide Sheet', name: (n.mtxJobId ? n.mtxJobId + ' · ' : '') + sh.name, mtxJobId: n.mtxJobId || '', wellKey: sh.wellKey, sc, ic, td,
+                    intervals: (sh.intervals || []).filter(i => !i.leg || i.leg === 'Main').map(i => ({ mode: i.mode, from: i.from, to: i.to, len: i.len, rop: i.rop })) });
+            }
+        }
+        res.json({ ok: true, sources: out });
+    }catch(err){ console.error('[slideOffsets]', err); res.status(500).json({ ok: false, error: err.message }); }
+};
+// POST /notes/pasonSlideModel/:noteId { model } -> saved on this job's PasonPlots document (created if missing). Not viewer.
+notesCrtl.savePasonSlideModel = async (req, res) => {
+    try{
+        const m = req.body && req.body.model; if(m !== null && (typeof m !== 'object' || !Array.isArray(m.sources))) return res.status(400).json({ ok: false, error: 'Invalid model.' });
+        if(m && JSON.stringify(m).length > 2e6) return res.status(400).json({ ok: false, error: 'Model too large.' });
+        if(m){ m.savedAt = new Date(); m.savedBy = req.user ? (req.user.name || '') : ''; }
+        await PasonPlots.findOneAndUpdate({ noteId: req.params.noteId }, { $set: { slideRotModel: m }, $setOnInsert: { plots: {} } }, { upsert: true });
+        res.json({ ok: true });
+    }catch(err){ res.status(500).json({ ok: false, error: err.message }); }
+};
