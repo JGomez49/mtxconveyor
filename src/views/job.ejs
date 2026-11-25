@@ -2858,6 +2858,14 @@ window.MTX_TM = {
 
 
 
+                <%# 2026-11-25 (John): Primary Zone(s) from the New Schedule (updated on each schedule upload) %>
+                <% if (note.primaryZone) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Primary Zone</span>
+                        <input value="<%= note.primaryZone %>" readonly type="text" class="form-control bg-dark text-white">
+                    </div>
+                <% } %>
+
                 <% if (note.wells) { %>
                     <div class="input-group mb-2">
                         <span class="input-group-text bg-dark text-white">Wells</span>
@@ -2970,7 +2978,13 @@ window.MTX_TM = {
                     </div>
                 <!-- <% } %> -->
 
-
+                <%# 2026-11-25 (John): Exploration Mgr of the pad from the New Schedule (updated on each schedule upload) %>
+                <% if (note.explMgr) { %>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-white">Exploration Mgr</span>
+                        <input value="<%= note.explMgr %>" readonly type="text" class="form-control bg-dark text-white">
+                    </div>
+                <% } %>
 
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Status</span>

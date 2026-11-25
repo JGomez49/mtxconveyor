@@ -4219,6 +4219,7 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                         DE: (ganttNotesMap[siteObj.site.slice(0,14)] || {}).de || '',
                         surfaceLat: siteObj.surfaceLat, surfaceLon: siteObj.surfaceLon,
                         primaryZone: siteObj.primaryZone,
+                        explMgr: siteObj.explMgr,   // 2026-11-25 tooltip "Exp.Mgr"
                     }
                 });
 
@@ -4461,14 +4462,19 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                             callbacks: {
                                 label: (ctx) => {
                                     const d = ctx.raw.details;
+                                    // 2026-11-25 (John): order Site, Well, ETS, License, Type, Start, Exp.Mgr, Geo, D.E, DrillOK, GeoOK,
+                                    // DP Company, DP request, DP Received, DP Time, Approval Time, Duration, Version, Formation.
+                                    // Lat / Lon no longer shown (still used for the < 3 km proximity check).
                                     return [
                                         `Site: ${d.Site}`, `Well: ${d.Well}`, `ETS: ${d.ETS}`,
                                         `License: ${d.license || '—'}`, // 2026-10-28 (John): "License # / WA" column
-                                        `Start: ${d.Start}`, `Type: ${d.type}`,
+                                        `Type: ${d.type}`, `Start: ${d.Start}`,
+                                        `Exp.Mgr: ${d.explMgr || '—'}`,
+                                        `Geo: ${d.geo}`,
                                         `D.E: ${d.DE || '—'}`,
                                         `DrillOK: ${d.drillok}`, `GeoOK: ${d.geook}`,
                                         `DP Company: ${d.dpCompany}`,
-                                        `Dp Requested: ${d.dpReq}`,
+                                        `DP Request: ${d.dpReq}`,
                                         `DP Received: ${d.dpReceivedDate || '—'}`,
                                         (() => {
                                             if(!d.dpReq || !d.dpReceivedDate) return 'DP Time: —';
@@ -4484,13 +4490,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
                                             return 'Approval Time: ' + Math.round((new Date()-rec)/(1000*60*60*24)) + ' days since received';
                                         })(),
                                         `Duration: ${d.Duration} days`,
-                                        `Geo: ${d.geo}`, `Version: ${d.version}`,
-                                        `Lat: ${d.surfaceLat || '—'}`, `Lon: ${d.surfaceLon || '—'}`,
+                                        `Version: ${d.version}`,
+                                        `Formation: ${d.primaryZone || '—'}`, // 2026-10-28 (John): "Primary Zone" column
                                         ...((d.conflicts && d.conflicts.length) ? [
                                             `⚠️ Proximity conflict (${d.primaryZone}, same dates, <3km):`,
                                             ...d.conflicts.map(c => `   → ${c.site} (${c.distKm} km)`)
                                         ] : []),
-                                        `Formation: ${d.primaryZone || '—'}`, // 2026-10-28 (John): "Primary Zone" column, last line
                                     ];
                                 }
                             }
@@ -5538,7 +5543,23 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
         table.mtx-cards tr > td::before, table.mtx-cards tr > th::before { content:attr(data-label); flex:0 0 40%; text-align:left; font-weight:600; color:var(--an-text-dim,#8a93a3); font-size:13px; }
         table.mtx-cards tr > [data-label=""]::before { content:none; }
         table.mtx-cards tr > [data-empty="1"] { display:none; }
+        /* 2026-11-25 (John): COMPACT CARDS — a job card shows only its title line (select box, dot + ID) until its
+           ▾ button is tapped; tapping the card itself still opens the job. Was: every field always shown (long scrolls). */
+        /* 2026-11-25 (rev.): the card TITLE is one line — select box, dot + ID, ▾ — and every other field is below it, shown
+           only when the card is open. */
+        table.mtx-cards tr { display:flex !important; flex-wrap:wrap; align-items:center; column-gap:10px; padding:6px 8px 6px 10px; margin-bottom:6px; }
+        table.mtx-cards tr > td, table.mtx-cards tr > th { padding:2px 0 !important; font-size:14px; flex:0 0 100%; order:3; }
+        table.mtx-cards tr:not(.mtx-open) > td:not([data-k]):not(.mtx-xp-cell), table.mtx-cards tr:not(.mtx-open) > th:not([data-k]) { display:none; }
+        table.mtx-cards tr > [data-k="sel"] { flex:0 0 auto; order:0; }
+        table.mtx-cards tr > [data-k="id"] { flex:1 1 auto; order:1; justify-content:flex-start; gap:8px; font-weight:700; font-size:15px; }
+        table.mtx-cards tr > [data-k]::before { content:none; }
+        table.mtx-cards tr > td.mtx-xp-cell { flex:0 0 auto; order:2; padding:0 !important; display:block; }
+        table.mtx-cards tr > td.mtx-xp-cell::before { content:none; }
+        table.mtx-cards tr.mtx-open > td:not([data-k]):not(.mtx-xp-cell) { border-top:1px solid rgba(255,255,255,.04) !important; }
+        .mtx-xp{ width:32px; height:32px; border-radius:6px; border:1px solid var(--an-border,#2a3b4d); background:rgba(255,255,255,.05); color:#c8d8e8; font-size:16px; line-height:1; }
+        table.mtx-cards tr.mtx-open .mtx-xp{ transform:rotate(180deg); }
     }
+    @media (min-width:769px){ td.mtx-xp-cell { display:none; } }
 </style>
 <script>
 (function(){
@@ -5548,7 +5569,12 @@ body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
             var hr = t.tHead && t.tHead.rows[0]; if(!hr) return;
             var labs = Array.prototype.map.call(hr.cells, function(c){ return c.textContent.trim(); });
             Array.prototype.forEach.call(t.tBodies, function(tb){ Array.prototype.forEach.call(tb.rows, function(r){
-                Array.prototype.forEach.call(r.cells, function(c, i){ c.setAttribute('data-label', labs[i] || ''); if(!c.textContent.trim() && !c.querySelector('input,span,img,a,button')) c.setAttribute('data-empty', '1'); });
+                Array.prototype.forEach.call(r.cells, function(c, i){ c.setAttribute('data-label', labs[i] || ''); if(!c.textContent.trim() && !c.querySelector('input,span,img,a,button')) c.setAttribute('data-empty', '1');
+                    var lk = (labs[i] || '').toLowerCase(); if(lk === 'id') c.setAttribute('data-k', 'id'); else if(lk === '' && c.querySelector('input[type=checkbox]')) c.setAttribute('data-k', 'sel'); });
+                // 2026-11-25: expand / collapse button (phone only; hidden on PC). Does not open the job.
+                if(!r.querySelector('.mtx-xp-cell') && r.cells.length > 3){ var td = document.createElement('td'); td.className = 'mtx-xp-cell'; td.setAttribute('data-label', '');
+                    td.innerHTML = '<button type="button" class="mtx-xp" aria-label="Show all fields">▾</button>';
+                    td.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); r.classList.toggle('mtx-open'); }); r.appendChild(td); }
             }); });
             t.classList.add('mtx-cards');
         });
