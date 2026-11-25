@@ -1128,7 +1128,35 @@ const SYNC_HEADER_MAP = [
     [ 'Rig Duration', 'duration' ], // must be checked before 'Rig' below
     [ 'Rig', 'rig' ],
     [ 'Expl. Cust. Group', 'group' ],
+    [ 'Primary Zone', 'primaryZone' ],   // 2026-11-25
+    [ 'Exploration Mgr', 'explMgr' ],    // 2026-11-25
 ];
+// 2026-11-25 (John): Note.primaryZone from the New Schedule. Pads matched like syncDueDates (first 14 characters of
+// 'Site Name' = Note.project). A pad's wells can target different zones -> distinct zones, most frequent first, joined ', '.
+// Only notes whose value actually changes are written. Returns the number of notes updated.
+async function syncPrimaryZones(ns){
+    if(!ns || !Array.isArray(ns.headers) || !Array.isArray(ns.rows)) return 0;
+    const colMap = buildSyncColMap(ns.headers);
+    // 2026-11-25: also Note.explMgr ('Exploration Mgr'), same rule (distinct values per pad, most frequent first)
+    const FIELDS = ['primaryZone', 'explMgr'].filter(f => colMap[f] !== undefined);
+    if(colMap.site === undefined || !FIELDS.length) return 0;
+    const byPad = {};
+    ns.rows.forEach(row => {
+        const site = row[colMap.site]; if(!site) return;
+        const key = String(site).slice(0, 14), p = byPad[key] || (byPad[key] = {});
+        FIELDS.forEach(f => { const v = String(row[colMap[f]] ?? '').trim(); if(!v) return; const c = p[f] || (p[f] = {}); c[v] = (c[v] || 0) + 1; });
+    });
+    const notes = await Note.find({}, { project: 1, primaryZone: 1, explMgr: 1 }).lean();
+    let n = 0;
+    for(const note of notes){
+        const key = note.project ? String(note.project).slice(0, 14) : null, p = key && byPad[key];
+        if(!p) continue;
+        const set = {};
+        FIELDS.forEach(f => { const c = p[f]; if(!c) return; const v = Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).join(', '); if(v !== (note[f] || '')) set[f] = v; });
+        if(Object.keys(set).length){ await Note.updateOne({ _id: note._id }, { $set: set }); n++; }
+    }
+    return n;
+}
 function buildSyncColMap(headers) {
     const colMap = {};
     headers.forEach((h, i) => {
@@ -1219,7 +1247,8 @@ notesCrtl.syncDueDates = async (req, res) => {
       }
     }
 
-    res.json({ message: "Sync complete", updated: updatedCount });
+    let zonesUpdated = 0; try { zonesUpdated = await syncPrimaryZones(ns); } catch(e){ console.error('syncPrimaryZones:', e); }   // 2026-11-25
+    res.json({ message: "Sync complete", updated: updatedCount, zonesUpdated });
 
   } catch (err) {
     console.error("❌ Error in syncDueDates:", err);
@@ -2352,7 +2381,9 @@ notesCrtl.uploadNewSchedule = async (req, res) => {
         });
 
         console.log(`uploadNewSchedule: saved 1 document with ${rows.length} rows, ${headers.length} columns`);
-        res.json({ success: true, rows: rows.length, columns: headers.length });
+        // 2026-11-25 (John): refresh every job's Primary Zone from the new schedule (only changed values are written)
+        let zonesUpdated = 0; try { zonesUpdated = await syncPrimaryZones({ headers, rows }); } catch(e){ console.error('syncPrimaryZones:', e); }
+        res.json({ success: true, rows: rows.length, columns: headers.length, zonesUpdated });
     } catch (e) {
         console.error("uploadNewSchedule error:", e);
         res.status(500).json({ error: e.message });
