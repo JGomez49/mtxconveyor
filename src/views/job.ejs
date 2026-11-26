@@ -2978,13 +2978,14 @@ window.MTX_TM = {
                     </div>
                 <!-- <% } %> -->
 
-                <%# 2026-11-25 (John): Exploration Mgr of the pad from the New Schedule (updated on each schedule upload) %>
-                <% if (note.explMgr) { %>
+                <%# 2026-11-26 (John): pad's responsible people from the New Schedule ("Responsible - … - ETS" columns), refreshed on
+                     every schedule upload / sync (notes.controller.js syncPrimaryZones). Empty ones are not shown. %>
+                <% [['respDrillEng', 'Drilling Eng.'], ['respGeology', 'Geology'], ['explMgr', 'Exploration Mgr'], ['respDrillSup', 'Drilling Sup.'], ['respDrillTech', 'Drilling Tech.'], ['respExploit', 'Exploitation'], ['respGeoTech', 'Geo Tech.'], ['respGeophys', 'Geophysics'], ['respProd', 'Production']].forEach(function(pp){ if(note[pp[0]]){ %>
                     <div class="input-group mb-2">
-                        <span class="input-group-text bg-dark text-white">Exploration Mgr</span>
-                        <input value="<%= note.explMgr %>" readonly type="text" class="form-control bg-dark text-white">
+                        <span class="input-group-text bg-dark text-white"><%= pp[1] %></span>
+                        <input value="<%= note[pp[0]] %>" readonly type="text" class="form-control bg-dark text-white">
                     </div>
-                <% } %>
+                <% } }); %>
 
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-dark text-white">Status</span>
