@@ -1130,6 +1130,16 @@ const SYNC_HEADER_MAP = [
     [ 'Expl. Cust. Group', 'group' ],
     [ 'Primary Zone', 'primaryZone' ],   // 2026-11-25
     [ 'Exploration Mgr', 'explMgr' ],    // 2026-11-25
+    // 2026-11-26 (John): new schedule format — "Responsible - <role> - ETS" columns (old names kept above / below still work)
+    [ 'Exploration Manager', 'explMgr' ],
+    [ 'Drilling Engineer', 'respDrillEng' ],
+    [ 'Responsible - Geology', 'respGeology' ], [ 'Responsible Geology', 'respGeology' ],
+    [ 'Drilling Supervisor', 'respDrillSup' ],
+    [ 'Drilling Tech', 'respDrillTech' ],
+    [ 'Exploitation', 'respExploit' ],
+    [ 'Geo Tech', 'respGeoTech' ],
+    [ 'Geophysics', 'respGeophys' ],
+    [ 'Responsible - Production', 'respProd' ],
 ];
 // 2026-11-25 (John): Note.primaryZone from the New Schedule. Pads matched like syncDueDates (first 14 characters of
 // 'Site Name' = Note.project). A pad's wells can target different zones -> distinct zones, most frequent first, joined ', '.
@@ -1138,7 +1148,7 @@ async function syncPrimaryZones(ns){
     if(!ns || !Array.isArray(ns.headers) || !Array.isArray(ns.rows)) return 0;
     const colMap = buildSyncColMap(ns.headers);
     // 2026-11-25: also Note.explMgr ('Exploration Mgr'), same rule (distinct values per pad, most frequent first)
-    const FIELDS = ['primaryZone', 'explMgr'].filter(f => colMap[f] !== undefined);
+    const FIELDS = ['primaryZone', 'explMgr', 'respDrillEng', 'respGeology', 'respDrillSup', 'respDrillTech', 'respExploit', 'respGeoTech', 'respGeophys', 'respProd'].filter(f => colMap[f] !== undefined);   // 2026-11-26: + people
     if(colMap.site === undefined || !FIELDS.length) return 0;
     const byPad = {};
     ns.rows.forEach(row => {
@@ -1146,7 +1156,7 @@ async function syncPrimaryZones(ns){
         const key = String(site).slice(0, 14), p = byPad[key] || (byPad[key] = {});
         FIELDS.forEach(f => { const v = String(row[colMap[f]] ?? '').trim(); if(!v) return; const c = p[f] || (p[f] = {}); c[v] = (c[v] || 0) + 1; });
     });
-    const notes = await Note.find({}, { project: 1, primaryZone: 1, explMgr: 1 }).lean();
+    const notes = await Note.find({}, { project: 1, primaryZone: 1, explMgr: 1, respDrillEng: 1, respGeology: 1, respDrillSup: 1, respDrillTech: 1, respExploit: 1, respGeoTech: 1, respGeophys: 1, respProd: 1 }).lean();
     let n = 0;
     for(const note of notes){
         const key = note.project ? String(note.project).slice(0, 14) : null, p = key && byPad[key];

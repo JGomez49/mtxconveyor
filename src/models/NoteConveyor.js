@@ -26,6 +26,9 @@ const NoteConveyorSchema = new Schema({
     // upload (notes.controller.js syncPrimaryZones). Several zones on one pad -> comma-separated, most frequent first.
     primaryZone: {type: String},
     explMgr: {type: String},   // 2026-11-25: "Exploration Mgr" of the pad, same sync as primaryZone
+    // 2026-11-26 (John): pad's responsible people from the New Schedule ("Responsible - … - ETS" columns), same sync as primaryZone
+    respDrillEng: {type: String}, respGeology: {type: String}, respDrillSup: {type: String}, respDrillTech: {type: String},
+    respExploit: {type: String}, respGeoTech: {type: String}, respGeophys: {type: String}, respProd: {type: String},
     budget: {type: String},
     created: {type: String},
 
