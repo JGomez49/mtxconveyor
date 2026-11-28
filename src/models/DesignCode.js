@@ -42,4 +42,11 @@ const DesignCodeSchema = new Schema({
     log:         { type: [{ user: String, at: Date, what: String }], default: [] },
 },{ timestamps: true });
 
+// 2026-11-28 (John): tell the controller when Design Codes change, so its jobs-page cache is cleared (notes.controller.js sets
+// DesignCode.onChange). Covers doc.save() and the query-style updates / deletes used in the controller.
+const dcChanged = () => { try { const f = module.exports.onChange; if(typeof f === 'function') f(); } catch(e){} };
+DesignCodeSchema.post('save', dcChanged);
+DesignCodeSchema.post(['updateOne', 'updateMany', 'findOneAndUpdate', 'replaceOne', 'deleteOne', 'deleteMany', 'findOneAndDelete'], dcChanged);
+DesignCodeSchema.post('insertMany', dcChanged);
+
 module.exports = model('DesignCode', DesignCodeSchema);

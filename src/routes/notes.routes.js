@@ -124,6 +124,10 @@ const {
     handoverImage,
     handoverLogo,
     renderDesignCodes,
+    renderAccumapEdm,
+    dpStatsRows,
+    renderPlanitStats,
+    newScheduleData,
     saveDesignCode,
     deleteDesignCode,
     uploadDesignCodeImage,
@@ -195,6 +199,14 @@ router.get('/notes/handoverImage/:id', isAuthenticated, handoverImage);
 router.get('/notes/handoverLogo', isAuthenticated, handoverLogo); // 2026-10-29: CNRL logo for the Handover e-mail
 // 2026-10-28: Design Codes — all logged-in users read; admin check inside the edit handlers.
 router.get('/notes/designCodes', isAuthenticated, renderDesignCodes);
+// 2026-11-27 (John): AccuMap EDM Generator — admin only (role checked in the controller, like VP Areas). Conversion runs in the browser.
+router.get('/notes/accumapEdm', isAuthenticated, renderAccumapEdm);
+// 2026-11-28 (John): DP Stats table rows for the jobs page, loaded when its accordion is opened (server memory cache).
+router.get('/notes/dpStatsRows', isAuthenticated, dpStatsRows);
+// 2026-11-28 (John): PlanIT Stats page (DP Stats table + DP plots, moved off the jobs page)
+router.get('/notes/planitStats', isAuthenticated, renderPlanitStats);
+// 2026-11-28 (John): New Schedule data for the jobs-page Gantt / table (fetched, no longer embedded in the page)
+router.get('/notes/newScheduleData', isAuthenticated, newScheduleData);
 router.post('/notes/designCodes', isAuthenticated, saveDesignCode);
 router.delete('/notes/designCodes/:id', isAuthenticated, deleteDesignCode);
 router.post('/notes/designCodes/:id/image', isAuthenticated, uploadDesignCodeImage);

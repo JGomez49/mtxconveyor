@@ -1,0 +1,5 @@
+# 2026-11-28 (John): files Git must never upload
+node_modules/
+.env
+*.bak
+src/public/img/uploads/

@@ -1,0 +1,175 @@
+<%# 2026-11-27 (John): ADMIN-ONLY "AccuMap EDM Generator". Drop an AccuMap well export (.xlsx, metres, NAD27), name the Compass project,
+     pick the toolcode per wellbore, then download the Compass EDM import file (.edm.xml). Everything runs in the browser:
+     public/js/accumapEdm.js (conversion, validated against the Python test script and against a real Compass export),
+     public/data/edmTemplate.json (policy, OWSG toolcodes, AC rules from Compass), public/data/igrf13.json (magnetics). %>
+<%- include ('partials/header.ejs') %>
+<%- include ('partials/navigation_Admin.ejs') %>
+
+<style>
+  .ae-wrap{ max-width:1100px; margin:16px auto 40px; padding:0 12px; color:var(--an-text,#c8d8e8); }
+  .ae-card{ border:1px solid var(--an-border,#1e2d3d); border-radius:8px; background:var(--an-panel,#111820); padding:14px 16px; margin-bottom:12px; }
+  .ae-card h5{ margin:0 0 10px; font-size:15px; color:var(--an-text-bright,#e8f4ff); }
+  .ae-drop{ border:2px dashed #4fc3f7; border-radius:10px; padding:28px 12px; text-align:center; cursor:pointer; transition:background .15s; }
+  .ae-drop.over{ background:rgba(79,195,247,.12); }
+  .ae-drop b{ color:#4fc3f7; }
+  .ae-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:8px; }
+  .ae-row label{ margin:0; min-width:140px; font-size:13px; }
+  .ae-row input, .ae-row select{ max-width:320px; }
+  .ae-stats{ display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin:8px 0; }
+  .ae-stat{ border:1px solid var(--an-border,#1e2d3d); border-radius:6px; padding:6px 10px; }
+  .ae-stat div:first-child{ font-size:11px; opacity:.7; text-transform:uppercase; }
+  .ae-stat div:last-child{ font-size:18px; font-weight:700; }
+  .ae-table{ max-height:55vh; overflow:auto; }
+  .ae-table table{ font-size:12.5px; }
+  .ae-table select{ font-size:12.5px; padding:1px 6px; height:auto; }
+  .ae-msg{ font-size:13px; margin-top:6px; }
+  @media (max-width:576px){ .ae-row label{ min-width:100%; } .ae-row input, .ae-row select{ max-width:none; width:100%; } }
+</style>
+
+<div class="ae-wrap">
+  <div class="d-flex align-items-center gap-2 mb-2"><h4 class="mb-0">🛢 AccuMap EDM Generator</h4><button type="button" class="mtx-help-btn" title="How it works" aria-label="Help" onclick="mtxHelp('accumapEdm')">?</button></div>
+
+  <div class="ae-card">
+    <h5>1 · AccuMap file</h5>
+    <div class="ae-drop" id="aeDrop" tabindex="0">Drag and drop the AccuMap export (<b>.xlsx</b>) here, or <b>click to open</b>
+      <div style="font-size:12px;opacity:.75;margin-top:6px">Well list with survey points, metres, Datum NAD27 (read from the sheet title)</div></div>
+    <input type="file" id="aeFile" accept=".xlsx,.xls" hidden>
+    <div class="ae-msg" id="aeFileMsg"></div>
+  </div>
+
+  <div class="ae-card" id="aeSetup" style="display:none">
+    <h5>2 · Compass company and toolcodes</h5>
+    <%# 2026-11-28 (John): Company = new (name typed, default Accumap) or EXISTING (drop an .edm.xml exported from that company in Compass:
+         its id, toolcodes and projects are reused). Projects are no longer typed: one per township-range of the surface holes (e.g. 016-14W4),
+         sites are named 'Offset 01-03-016-14W4'. %>
+    <div class="ae-row"><label for="aeCompany">New company name</label><input id="aeCompany" class="form-control form-control-sm" value="Accumap"></div>
+    <div class="ae-row"><label>or existing company</label><div class="ae-drop" id="aeCoDrop" tabindex="0" style="padding:10px 12px;flex:1 1 260px;max-width:520px">Drop a Compass export of that company (<b>.edm.xml</b>) or <b>click</b></div>
+      <input type="file" id="aeCoFile" accept=".xml" hidden><button type="button" class="btn btn-sm btn-outline-secondary" id="aeCoClear" style="display:none">Use new company</button></div>
+    <div class="ae-msg" id="aeCoMsg"></div>
+    <div class="ae-msg" id="aeProjMsg"></div>
+    <div class="ae-row"><label for="aeToolAll">Surveyed wellbores</label><select id="aeToolAll" class="form-select form-select-sm"></select><button type="button" class="btn btn-sm btn-outline-info" id="aeApplyAll">Apply to all surveyed</button></div>
+    <div class="ae-row"><label for="aeToolVert">No-survey (vertical)</label><select id="aeToolVert" class="form-select form-select-sm"></select><button type="button" class="btn btn-sm btn-outline-info" id="aeApplyVert">Apply to all vertical</button></div>
+    <div class="ae-stats" id="aeStats"></div>
+    <div class="ae-table"><table class="table table-dark table-sm table-striped mb-0"><thead><tr><th>#</th><th>UWI (wellbore)</th><th>Well name</th><th>Survey</th><th>Toolcode</th></tr></thead><tbody id="aeRows"></tbody></table></div>
+    <div class="ae-msg" id="aeSkipMsg"></div>
+  </div>
+
+  <div class="ae-card" id="aeGo" style="display:none">
+    <h5>3 · Create the EDM</h5>
+    <button type="button" class="btn btn-success" id="aeBuild">⬇ Create and download .edm.xml</button>
+    <button type="button" class="btn btn-outline-light btn-sm ms-2" id="aeReport" disabled>Download check report (.csv)</button>
+    <div class="ae-msg" id="aeBuildMsg"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/js/accumapEdm.js"></script>
+<script>
+(function(){
+  const el = id => document.getElementById(id);
+  let ROWS = null, PLAN = null, TPL = null, CO = null, IGRF = null, FILE = '', REPORT = null;
+  const active = () => CO || TPL;   // company export if loaded, else the built-in template
+  const toolOf = {};   // uwi -> toolcode chosen by the user
+  Promise.all([fetch('/data/edmTemplate.json').then(r => r.json()), fetch('/data/igrf13.json').then(r => r.json())]).then(([t, g]) => {
+    TPL = t; IGRF = g; fillTools();
+  }).catch(e => { el('aeFileMsg').innerHTML = '<span class="text-danger">Could not load the Compass template: ' + e.message + '</span>'; });
+
+  function fillTools(){
+    const names = active().tools.map(x => x.TOOL_NAME), opts = names.map(n => '<option>' + n + '</option>').join('');
+    el('aeToolAll').innerHTML = opts; el('aeToolVert').innerHTML = opts;
+    el('aeToolAll').value = names.includes('MWD+IGRF') ? 'MWD+IGRF' : names[0];
+    el('aeToolVert').value = names.includes('UNKNOWN') ? 'UNKNOWN' : names[0];
+    if(PLAN){ PLAN.wellbores.forEach(w => { if(!names.includes(toolOf[w.uwi])) toolOf[w.uwi] = w.vertical ? el('aeToolVert').value : el('aeToolAll').value; }); renderTable(); }
+  }
+  // existing company export
+  const coDrop = el('aeCoDrop'), coInp = el('aeCoFile');
+  coDrop.addEventListener('click', () => coInp.click());
+  ['dragenter', 'dragover'].forEach(t => coDrop.addEventListener(t, e => { e.preventDefault(); coDrop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => coDrop.addEventListener(t, e => { e.preventDefault(); coDrop.classList.remove('over'); }));
+  coDrop.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) loadCo(f); });
+  coInp.addEventListener('change', () => { if(coInp.files[0]) loadCo(coInp.files[0]); });
+  function loadCo(f){
+    const rd = new FileReader();
+    rd.onload = ev => {
+      try {
+        CO = AccumapEdm.parseCompanyExport(ev.target.result);
+        el('aeCompany').value = CO.policy.CUSTOMER_NAME; el('aeCompany').disabled = true; el('aeCoClear').style.display = '';
+        el('aeCoMsg').innerHTML = '✅ Existing company <b>' + CO.policy.CUSTOMER_NAME + '</b> (from ' + f.name + ') — ' + CO.tools.length + ' toolcodes, ' + CO.projects.length + ' project(s) in the export: ' + CO.projects.map(p => p.PROJECT_NAME).join(', ');
+        fillTools(); showProjects();
+      } catch(e){ CO = null; el('aeCoMsg').innerHTML = '<span class="text-danger">❌ ' + e.message + '</span>'; }
+    };
+    rd.readAsText(f);
+  }
+  el('aeCoClear').addEventListener('click', () => { CO = null; el('aeCompany').disabled = false; el('aeCompany').value = 'Accumap'; el('aeCoClear').style.display = 'none'; el('aeCoMsg').textContent = ''; coInp.value = ''; fillTools(); showProjects(); });
+  function showProjects(){
+    if(!PLAN) return;
+    const pj = {}, zn = {}; PLAN.wellbores.forEach(w => { const n = AccumapEdm.lsdName(w.sh).slice(-8); pj[n] = (pj[n] || 0) + 1; (zn[n] = zn[n] || new Set()).add(w.zone); });
+    const ex = new Set((CO ? CO.projects : []).map(p => p.PROJECT_NAME));
+    el('aeProjMsg').innerHTML = 'Projects (township-range of the surface holes): ' + Object.keys(pj).sort().map(n => '<b>' + n + '</b> (' + pj[n] + ' wellbores, zone ' + [...zn[n]].map(z => z + 'N').join('/') + (ex.has(n) ? ', existing — reused' : ', new') + ')').join(', ');
+  }
+
+  const drop = el('aeDrop'), inp = el('aeFile');
+  drop.addEventListener('click', () => inp.click());
+  drop.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' ') inp.click(); });
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) load(f); });
+  inp.addEventListener('change', () => { if(inp.files[0]) load(inp.files[0]); });
+
+  function load(f){
+    FILE = f.name; el('aeFileMsg').textContent = 'Reading ' + f.name + '…';
+    const rd = new FileReader();
+    rd.onload = ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        ROWS = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: null });
+        const R = AccumapEdm.readAccumap(ROWS);
+        if(R.datum !== 'NAD27') throw new Error('Datum in the file is "' + R.datum + '" — only NAD27 is accepted.');
+        PLAN = AccumapEdm.plan(R.wells);
+        PLAN.wellbores.forEach(w => { toolOf[w.uwi] = w.vertical ? el('aeToolVert').value : el('aeToolAll').value; });
+        const zones = {}; PLAN.wellbores.forEach(w => zones[w.zone] = (zones[w.zone] || 0) + 1);
+        el('aeFileMsg').innerHTML = '✅ <b>' + f.name + '</b> — datum ' + R.datum + ', UTM zone(s) ' + Object.keys(zones).map(z => z + 'N (' + zones[z] + ')').join(', ');
+        renderTable(); showProjects(); el('aeSetup').style.display = ''; el('aeGo').style.display = ''; el('aeReport').disabled = true; el('aeBuildMsg').textContent = '';
+      } catch(e){ el('aeFileMsg').innerHTML = '<span class="text-danger">❌ ' + e.message + '</span>'; el('aeSetup').style.display = 'none'; el('aeGo').style.display = 'none'; }
+    };
+    rd.readAsArrayBuffer(f);
+  }
+  function renderTable(){
+    const W = PLAN.wellbores, nv = W.filter(w => w.vertical).length, opts = active().tools.map(x => x.TOOL_NAME);
+    const stat = (l, v) => '<div class="ae-stat"><div>' + l + '</div><div>' + v + '</div></div>';
+    el('aeStats').innerHTML = stat('Wellbores', W.length) + stat('Surveyed', W.length - nv) + stat('Vertical (no survey)', nv) + stat('Merged events', PLAN.merged.length) + stat('Skipped', PLAN.skipped.length);
+    el('aeRows').innerHTML = W.map((w, i) => '<tr><td>' + (i + 1) + '</td><td>' + w.uwi + (w.events.length ? '<div style="font-size:11px;opacity:.7">+ ' + w.events.join(', ') + '</div>' : '') + '</td><td>' + w.name + '</td><td>' + (w.vertical ? 'vertical to ' + w.td + ' m' : w.pts.length + ' pts') +
+      '</td><td><select class="form-select form-select-sm" data-uwi="' + w.uwi + '">' + opts.map(n => '<option' + (n === toolOf[w.uwi] ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></td></tr>').join('');
+    el('aeRows').querySelectorAll('select').forEach(s => s.addEventListener('change', () => { toolOf[s.dataset.uwi] = s.value; }));
+    el('aeSkipMsg').innerHTML = PLAN.skipped.length ? '⚠ Skipped (missing KB, TD / survey or coordinates): ' + PLAN.skipped.map(s => s.uwi).join(', ') : '';
+  }
+  el('aeApplyAll').addEventListener('click', () => { PLAN.wellbores.forEach(w => { if(!w.vertical) toolOf[w.uwi] = el('aeToolAll').value; }); renderTable(); });
+  el('aeApplyVert').addEventListener('click', () => { PLAN.wellbores.forEach(w => { if(w.vertical) toolOf[w.uwi] = el('aeToolVert').value; }); renderTable(); });
+
+  function download(name, text, type){ const b = new Blob([text], { type }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+  const safe = s => String(s).replace(/[\\\/:*?"<>|]+/g, '_').trim();
+  el('aeBuild').addEventListener('click', () => {
+    const company = (CO ? CO.policy.CUSTOMER_NAME : el('aeCompany').value.trim()) || 'Accumap', name = company + ' - ' + FILE.replace(/\.xlsx?$/i, '');
+    try {
+      const res = AccumapEdm.build(ROWS, { company, tpl: active(), igrf: IGRF, user: <%- JSON.stringify((user && user.name) || 'MTX') %>, toolFor: w => toolOf[w.uwi] });
+      REPORT = res.report; download(safe(name) + '.edm.xml', res.xml, 'application/xml');
+      const c = REPORT.check.map(x => x.max_3d_diff_m).sort((a, b) => a - b);
+      el('aeBuildMsg').innerHTML = '✅ <b>' + safe(name) + '.edm.xml</b> — ' + REPORT.sites + ' sites, ' + REPORT.wells + ' wells, ' + REPORT.wellbores + ' wellbores, ' + REPORT.stations + ' stations, project zone ' + REPORT.project_zone + ', company ' + REPORT.company + (REPORT.companyExisting ? ' (existing)' : ' (new)') + ', projects ' + REPORT.projects.map(p => p.name + ' [' + p.zone + ']' + (p.reused ? ' (existing)' : '')).join(', ') +
+        '.<br>Check vs AccuMap TVD / NS / EW (' + c.length + ' surveyed wellbores): median ' + (c.length ? c[c.length >> 1].toFixed(3) : '—') + ' m, max ' + (c.length ? c[c.length - 1].toFixed(3) : '—') + ' m.' +
+        (REPORT.surface_azimuth_assumed.length ? '<br>⚠ Surface azimuth blank, next station used: ' + REPORT.surface_azimuth_assumed.join(', ') : '');
+      el('aeReport').disabled = false;
+    } catch(e){ el('aeBuildMsg').innerHTML = '<span class="text-danger">❌ ' + e.message + '</span>'; }
+  });
+  el('aeReport').addEventListener('click', () => {
+    if(!REPORT) return;
+    const L = [['UWI', 'Survey points', 'TD (m)', 'TVD at TD (m)', 'Max 3D diff vs AccuMap (m)', 'At MD (m)', 'Toolcode', 'Note']];
+    const chk = {}; REPORT.check.forEach(c => chk[c.uwi] = c);
+    REPORT.wellboreList.forEach(w => { const c = chk[w.uwi] || {}; L.push([w.uwi, c.stations || 0, c.td_m != null ? c.td_m : '', c.tvd_m != null ? c.tvd_m : '', c.max_3d_diff_m != null ? c.max_3d_diff_m : '', c.at_md != null ? c.at_md : '', w.tool,
+      (w.vertical ? 'vertical (no survey)' : '') + (w.events.length ? ' merged: ' + w.events.join(' ') : '') + (REPORT.surface_azimuth_assumed.includes(w.uwi) ? ' surface azimuth from next station' : '')]); });
+    REPORT.skipped.forEach(s => L.push([s.uwi, '', '', '', '', '', '', 'SKIPPED: ' + s.why]));
+    download(safe((CO ? CO.policy.CUSTOMER_NAME : el('aeCompany').value) + ' - ' + FILE.replace(/\.xlsx?$/i, '')) + ' - check.csv', L.map(r => r.map(v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\r\n'), 'text/csv');
+  });
+})();
+</script>
+<%- include('partials/mtxHelp.ejs') %>
+<%- include ('partials/footer.ejs') %>

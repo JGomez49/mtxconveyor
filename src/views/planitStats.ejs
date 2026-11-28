@@ -1,0 +1,1271 @@
+<%# 2026-11-28 (John): "PlanIT Stats" page. The DP Stats table and the three DP plots (DP Timing Statistics, DP Wellbores
+     Requested vs Received by Month, DP Wellbore Backlog by Month) were MOVED here from the jobs page (all-notes.ejs) — same code,
+     same filters / saved filters — so the jobs page loads faster. Roles: admin, leader, user, viewer (notesCrtl.renderPlanitStats). %>
+
+
+
+<!--  -->
+
+<%- include ('partials/header.ejs') %>
+
+<!-- Techy CSS layer — overrides Bootstrap/Bootswatch visuals, keeps Bootstrap JS -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<style>
+/* ════════════════════════════════════════════════════════
+   CSS CUSTOM PROPERTIES — dark (default) & light themes
+   ════════════════════════════════════════════════════════ */
+:root {
+    --an-bg:           #0a0e14;
+    --an-panel:        #111820;
+    --an-panel2:       #161e28;
+    --an-border:       #1e2d3d;
+    --an-accent:       #00c8ff;
+    --an-accent2:      #ff6b35;
+    --an-text:         #c8d8e8;
+    --an-text-dim:     #5a7080;
+    --an-text-bright:  #e8f4ff;
+    --an-mono:         'Share Tech Mono', monospace;
+    --an-sans:         'Barlow', sans-serif;
+    --an-cond:         'Barlow Condensed', sans-serif;
+    /* status colours (same in both themes) */
+    --an-red:    #ff4060;
+    --an-yellow: #ffd060;
+    --an-green:  #39ff14;
+    --an-purple: #c084fc;
+}
+body.light-mode {
+    --an-bg:          #f0f4f8;
+    --an-panel:       #ffffff;
+    --an-panel2:      #e8edf2;
+    --an-border:      #c8d4de;
+    --an-accent:      #0077a8;
+    --an-accent2:     #c04010;
+    --an-text:        #2c3e50;
+    --an-text-dim:    #607080;
+    --an-text-bright: #111820;
+}
+
+/* ════════════════════════════════════════════════════════
+   GLOBAL RESET / BASE
+   ════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background: var(--an-bg) !important;
+    color: var(--an-text) !important;
+    font-family: var(--an-sans) !important;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background .25s, color .25s;
+}
+
+/* scanline grid — dark only */
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+        linear-gradient(rgba(0,200,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 1;
+    transition: opacity .25s;
+}
+body.light-mode::before { opacity: 0; }
+
+/* everything above the grid */
+body > *, #navbar, .container_, .row, .accordion { position: relative; z-index: 1; }
+/* CHANGED 2026-11-11 (John): navbar unpinned — scrolls with the page (was position: fixed). */
+#navbar {
+    position: relative !important;
+    z-index: 1050 !important;
+}
+.navbar { z-index: 1050 !important; }
+.navbar .dropdown-menu { z-index: 1060 !important; }
+/* 2026-11-11: the 72px top padding (room for the fixed navbar) removed with the unpinned navbar. */
+
+/* ════════════════════════════════════════════════════════
+   NAVBAR  (Bootstrap nav — keep structure, restyle)
+   ════════════════════════════════════════════════════════ */
+.navbar, .navbar.bg-dark, nav.navbar {
+    background: var(--an-panel) !important;
+    border-bottom: 1px solid var(--an-border) !important;
+    padding: 6px 16px !important;
+    font-family: var(--an-cond) !important;
+}
+.navbar-brand, .nav-link {
+    color: var(--an-text) !important;
+    font-family: var(--an-cond) !important;
+    font-size: 12px !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+.nav-link:hover, .nav-link:focus {
+    color: var(--an-accent) !important;
+}
+.navbar-toggler {
+    border-color: var(--an-border) !important;
+}
+.navbar-toggler-icon {
+    filter: invert(.7);
+}
+
+/* ════════════════════════════════════════════════════════
+   PAGE HEADING AREA
+   ════════════════════════════════════════════════════════ */
+#greeting {
+    font-family: var(--an-cond) !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: var(--an-text-bright) !important;
+    margin: 10px 0 2px !important;
+}
+#greeting ~ p {
+    font-family: var(--an-mono) !important;
+    font-size: 10px !important;
+    color: var(--an-accent) !important;
+    letter-spacing: 1px !important;
+    margin: 0 0 10px !important;
+}
+
+/* canvas override (header.ejs sets background-color:#1e1e1e) */
+canvas {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    border-radius: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   BUTTONS
+   ════════════════════════════════════════════════════════ */
+.btn {
+    font-family: var(--an-cond) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    border-radius: 3px !important;
+    padding: 6px 14px !important;
+    transition: all .15s !important;
+}
+.btn-warning {
+    background: transparent !important;
+    border: 1px solid var(--an-accent) !important;
+    color: var(--an-accent) !important;
+}
+.btn-warning:hover {
+    background: var(--an-accent) !important;
+    color: var(--an-bg) !important;
+}
+.btn-info {
+    background: transparent !important;
+    border: 1px solid var(--an-accent2) !important;
+    color: var(--an-accent2) !important;
+}
+.btn-info:hover {
+    background: var(--an-accent2) !important;
+    color: #fff !important;
+}
+.btn-primary {
+    background: transparent !important;
+    border: 1px solid #79c0ff !important;
+    color: #79c0ff !important;
+}
+.btn-primary:hover {
+    background: #79c0ff !important;
+    color: var(--an-bg) !important;
+}
+.btn-danger {
+    background: transparent !important;
+    border: 1px solid var(--an-red) !important;
+    color: var(--an-red) !important;
+}
+.btn-danger:hover {
+    background: var(--an-red) !important;
+    color: #fff !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   ACCORDION
+   ════════════════════════════════════════════════════════ */
+.accordion-item,
+.accordion-item.bg-dark {
+    background: var(--an-panel) !important;
+    border: 1px solid var(--an-border) !important;
+    border-radius: 4px !important;
+    margin-bottom: 6px !important;
+    overflow: hidden;
+}
+.accordion-header,
+.accordion-header.bg-dark {
+    background: transparent !important;
+}
+.accordion-button,
+.accordion-button.bg-dark,
+.accordion-button.bg-dark_ {
+    background: var(--an-panel) !important;
+    color: var(--an-text-bright) !important;
+    border: none !important;
+    font-family: var(--an-cond) !important;
+    font-size: 13px !important;
+    letter-spacing: 1px !important;
+    padding: 10px 14px !important;
+    transition: background .15s !important;
+    box-shadow: none !important;
+}
+/* override the inline black bg on Execution */
+#execAccordionBtn {
+    background: #0d0a1a !important;
+    border-left: 3px solid var(--an-red) !important;
+}
+.accordion-button:not(.collapsed),
+.accordion-button:not(.collapsed).bg-dark {
+    background: var(--an-panel2) !important;
+    color: var(--an-accent) !important;
+    box-shadow: none !important;
+}
+.accordion-button::after {
+    filter: invert(.5) sepia(1) saturate(3) hue-rotate(165deg);
+}
+.accordion-body,
+.accordion-body.bg-dark {
+    background: var(--an-bg) !important;
+    border-top: 1px solid var(--an-border) !important;
+    padding: 12px 14px !important;
+}
+/* section number badge on accordion buttons */
+.accordion-button .an-num {
+    font-family: var(--an-mono);
+    font-size: 8px;
+    color: var(--an-accent);
+    background: rgba(0,200,255,.1);
+    border: 1px solid rgba(0,200,255,.3);
+    padding: 2px 5px;
+    border-radius: 2px;
+    margin-right: 8px;
+}
+
+/* h4 titles inside accordion buttons */
+.accordion-button h4 {
+    font-family: var(--an-cond) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+}
+/* keep the existing inline h4 colors but make them glow subtly */
+.accordion-button h4[style*="color:aqua"],
+.accordion-button h4[style*="color: aqua"]  { text-shadow: 0 0 8px #00c8ff88; }
+.accordion-button h4[style*="color:chartreuse"],
+.accordion-button h4[style*="color: chartreuse"] { text-shadow: 0 0 8px #39ff1488; }
+.accordion-button h4[style*="color: orange"],
+.accordion-button h4[style*="color:orange"]  { text-shadow: 0 0 8px #ff6b3588; }
+.accordion-button h4[style*="color:red"],
+.accordion-button h4[style*="color: red"]    { text-shadow: 0 0 8px #ff406088; }
+.accordion-button h4[style*="color: white"],
+.accordion-button h4[style*="color:white"]   { text-shadow: 0 0 8px #ffffff44; }
+
+/* ════════════════════════════════════════════════════════
+   TABLES
+   ════════════════════════════════════════════════════════ */
+.table, .table-dark {
+    --bs-table-bg:          var(--an-panel) !important;
+    --bs-table-striped-bg:  var(--an-panel2) !important;
+    --bs-table-hover-bg:    rgba(0,200,255,.06) !important;
+    --bs-table-color:       var(--an-text) !important;
+    --bs-table-border-color:var(--an-border) !important;
+    color: var(--an-text) !important;
+    border-color: var(--an-border) !important;
+    font-family: var(--an-mono) !important;
+    font-size: 11px !important;
+}
+.table th {
+    font-family: var(--an-cond) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    color: var(--an-text-dim) !important;
+    border-color: var(--an-border) !important;
+    padding: 6px 8px !important;
+}
+/* Default panel background only for th WITHOUT an inline background-color */
+.table th:not([style*="background"]) {
+    background: var(--an-panel2) !important;
+}
+.table td {
+    border-color: var(--an-border) !important;
+    padding: 5px 8px !important;
+    vertical-align: middle !important;
+}
+/* Status header th: let inline background-color show, just fix font */
+.table th[style*="background-color"] {
+    font-family: var(--an-cond) !important;
+    font-size: 9px !important;
+    letter-spacing: 1px !important;
+    background-color: unset;   /* allow inline to win */
+}
+/* Force each status background-color through — inline styles need !important to beat Bootstrap */
+.table th[style*="background-color:#4caf50"] { background-color:#4caf50 !important; color:#020202 !important; }
+.table th[style*="background-color:#B11FDF"] { background-color:#B11FDF !important; color:#ffffff !important; }
+.table th[style*="background-color:#0084c7"] { background-color:#0084c7 !important; color:#020202 !important; }
+.table th[style*="background-color:#ffff00"] { background-color:#ffff00 !important; color:#020202 !important; }
+.table th[style*="background-color:#ff4c4c"] { background-color:#ff4c4c !important; color:#ffffff !important; }
+.table th[style*="background-color:#37474f"] { background-color:#37474f !important; color:#ffffff !important; }
+.table th[style*="background-color:#C0C0C0"],
+.table th[style*="background-color:#c0C0C0"] { background-color:#C0C0C0 !important; color:#020202 !important; }
+.table th[style*="background-color:#c0392b"] { background-color:#c0392b !important; color:#ffffff !important; }
+/* ADDED 2026-10-05: Vendor On It now cyan #00FFFF w/ black text; ERRORS header now white w/ black text (boss email). */
+.table th[style*="background-color:#00FFFF"] { background-color:#00FFFF !important; color:#020202 !important; }
+.table th[style*="background-color:#FFFFFF"] { background-color:#FFFFFF !important; color:#020202 !important; }
+/* Need Info - also handle old #000000 just in case */
+.table th[style*="background-color:#000000"],
+.table th[style*="background-color: #000000"] { background-color:#37474f !important; color:#ffffff !important; }
+/* table rows with inline white color */
+tr[style*="color: white"],
+tr[style*="color:white"] { color: var(--an-text) !important; }
+
+/* ════════════════════════════════════════════════════════
+   CHART DIV & GANTT AREA
+   ════════════════════════════════════════════════════════ */
+#chartDiv {
+    background: var(--an-bg) !important;
+    border: 1px solid var(--an-border);
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+/* ════════════════════════════════════════════════════════
+   PIE CHARTS
+   ════════════════════════════════════════════════════════ */
+.pie-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 16px;
+}
+.pie-chart {
+    max-width: 450px;
+    max-height: 450px;
+    background: var(--an-panel);
+    border-radius: 8px;
+    border: 1px solid var(--an-border);
+}
+/* ADDED 2026-09-14: dedicated class for the Snapshot section's 4-pies-per-
+   year charts so they can be sized independently of the This Year/Next Year
+   pies above (.pie-chart, capped at 450px) — user asked for the Snapshot
+   pies 2x bigger than they were. */
+.snapshot-pie-chart {
+    max-width: 900px;
+    max-height: 900px;
+    background: var(--an-panel);
+    border-radius: 8px;
+    border: 1px solid var(--an-border);
+}
+
+/* ════════════════════════════════════════════════════════
+   COMPILED SUMMARY — title
+   ════════════════════════════════════════════════════════ */
+#compiledSummaryDiv h4 {
+    font-family: var(--an-cond) !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: var(--an-accent) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   THEME TOGGLE SWITCH
+   ════════════════════════════════════════════════════════ */
+.an-theme-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 12px;
+    vertical-align: middle;
+    background: var(--an-panel);
+    border: 1px solid var(--an-border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    transition: background .25s, border-color .25s;
+}
+.an-theme-wrap .bi-moon-stars-fill { color: var(--an-accent); }
+.an-theme-wrap .bi-sun-fill        { color: var(--an-accent2); }
+/* Bootstrap switch colours */
+.form-check-input:checked {
+    background-color: var(--an-accent) !important;
+    border-color:     var(--an-accent) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   (anything Bootstrap hardcodes that can't use variables)
+   ════════════════════════════════════════════════════════ */
+body.light-mode canvas { background-color: transparent !important; }
+body.light-mode .accordion-button::after {
+    filter: invert(1) grayscale(1) brightness(0.3);
+}
+body.light-mode #execAccordionBtn {
+    background: #ffffff !important;
+    border-left: 3px solid #e74c3c !important;
+}
+body.light-mode .accordion-button h4[style*="color: white"],
+body.light-mode .accordion-button h4[style*="color:white"] { color: var(--an-text) !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color:aqua"],
+body.light-mode .accordion-button h4[style*="color: aqua"] { color: #0077a8 !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color:chartreuse"],
+body.light-mode .accordion-button h4[style*="color: chartreuse"] { color: #2e7d32 !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color: grey"],
+body.light-mode .accordion-button h4[style*="color:grey"]  { color: #546e7a !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color: orange"],
+body.light-mode .accordion-button h4[style*="color:orange"] { color: #e65100 !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color: blue"],
+body.light-mode .accordion-button h4[style*="color:blue"]  { color: #1565c0 !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color: black"],
+body.light-mode .accordion-button h4[style*="color:black"] { color: #212529 !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color: blueviolet"],
+body.light-mode .accordion-button h4[style*="color:blueviolet"] { color: #6a1b9a !important; text-shadow:none !important; }
+body.light-mode .accordion-button h4[style*="color:red"],
+body.light-mode .accordion-button h4[style*="color: red"] { color: #c62828 !important; text-shadow:none !important; }
+body.light-mode [style*="color:chartreuse"],
+body.light-mode [style*="color: chartreuse"] { color: #2e7d32 !important; }
+body.light-mode h4[style*="color: blue"],
+body.light-mode h4[style*="color:blue"]     { color: #1565c0 !important; }
+body.light-mode h4[style*="color: blueviolet"],
+body.light-mode h4[style*="color:blueviolet"] { color: #6a1b9a !important; }
+body.light-mode h4[style*="color:#58a6ff"]  { color: #0056b3 !important; }
+body.light-mode h4[style*="color: grey"],
+body.light-mode h4[style*="color:grey"]     { color: #546e7a !important; }
+body.light-mode tr[style*="color: white"],
+body.light-mode tr[style*="color:white"]    { color: var(--an-text) !important; }
+body.light-mode tr[style*="background-color: #1a1a1a"],
+body.light-mode tr[style*="background-color:#1a1a1a"] { background-color: #2c3e50 !important; }
+body.light-mode th[style*="background-color:#000000"],
+body.light-mode th[style*="background-color: #000000"] { background-color: #37474f !important; color:#fff !important; }
+body.light-mode th[style*="background:#1a1a2e"] { background: #2c3e50 !important; }
+body.light-mode th[style*="background-color:#transparent"],
+body.light-mode th[style*="background-color: #transparent"] { color: var(--an-text) !important; }
+body.light-mode .text-white,
+body.light-mode [style*="color: white"],
+body.light-mode [style*="color:white"] { color: var(--an-text) !important; }
+
+/* The accordion wrapper has a "small" class shrinking all its text to 87.5%.
+   ID/Due cells additionally wrap their value in <small>, compounding the
+   shrink further. Neutralize the inner <small> so ID/Due match the rest
+   of the columns at the accordion's base font size. */
+.accordion.small table small,
+.accordion.small table th small {
+    font-size: 1em !important;
+}
+</style>
+
+<div id="navbar" class="p-2">
+
+
+    <% if (user.name != 'Guest') { %>
+
+        <% if (user.role == 'admin') { %>
+            <%- include ('partials/navigation_Admin.ejs') %>
+        <% } %>
+
+        <% if (user.role == 'leader' || user.role == 'user') { %>
+            <%- include ('partials/navigation_Leader.ejs') %>
+        <% } %>
+
+        <% if (user.role == 'viewer') { %>
+            <%- include ('partials/navigation_Leader.ejs') %>
+        <% } %>
+
+    <% } %>
+</div>
+<div class="container_ p-4">
+    <h4 style="color:blueviolet;margin:0 0 12px;">📊 PlanIT Stats</h4>
+<div class="mx-3">
+            <!-- ── DP Timing Statistics: filter sidebar + plot ── -->
+            <style>
+                .dpts-outer{
+                    display:flex; gap:0; border:1px solid var(--an-border, #1e2d3d);
+                    border-radius:4px; overflow:hidden; margin-bottom:14px;
+                }
+                .dpts-sidebar{
+                    width:230px; min-width:230px; flex-shrink:0;
+                    background: var(--an-panel, #111820);
+                    border-right:1px solid var(--an-border, #1e2d3d);
+                    padding:10px;
+                    font-family: var(--an-mono, monospace); font-size:11px;
+                    color: var(--an-text, #c8d8e8);
+                }
+                .dpts-sidebar h6{
+                    margin:10px 0 5px; font-size:10px;
+                    color: var(--an-text-dim, #5a7080);
+                    text-transform:uppercase; letter-spacing:1px;
+                    font-family: var(--an-cond, sans-serif);
+                    border-bottom:1px solid var(--an-border, #1e2d3d);
+                    padding-bottom:4px;
+                }
+                .dpts-sidebar h6:first-child{ margin-top:0; }
+                .dpts-filter-group{ margin-bottom:4px; }
+                .dpts-filter-group label{
+                    display:flex; align-items:center; gap:6px;
+                    margin:3px 0; cursor:pointer; font-size:10.5px;
+                }
+                .dpts-filter-group input[type=checkbox]{ cursor:pointer; flex-shrink:0; }
+                .dpts-plot-wrap{ flex:1; min-width:0; padding:8px; }
+                .dpts-reset-btn{
+                    width:100%; margin-top:8px;
+                    font-family: var(--an-cond, sans-serif); font-size:10px;
+                    font-weight:700; letter-spacing:1px; text-transform:uppercase;
+                    padding:5px; border-radius:3px;
+                    border:1px solid var(--an-border, #1e2d3d);
+                    background:transparent; color: var(--an-text-dim, #5a7080);
+                    cursor:pointer;
+                }
+                .dpts-reset-btn:hover{ border-color:#00c8ff; color:#00c8ff; }
+            </style>
+            <div class="dpts-outer">
+                <div class="dpts-sidebar" id="dptsSidebar">
+                    <h6>AFE Timing Year</h6>
+                    <div class="dpts-filter-group" id="dptsAfeYear"></div>
+
+                    <h6>Play Type</h6>
+                    <div class="dpts-filter-group" id="dptsPlayType"></div>
+
+                    <h6>DP Received Year</h6>
+                    <div class="dpts-filter-group" id="dptsReceivedYear"></div>
+
+                    <h6>DP Requested Year</h6>
+                    <div class="dpts-filter-group" id="dptsRequestedYear"></div>
+
+                    <h6>DP Type</h6>
+                    <div class="dpts-filter-group" id="dptsDpType"></div>
+
+                    <h6>DP Company</h6>
+                    <div class="dpts-filter-group" id="dptsDpCompany"></div>
+
+                    <h6>DP Current Plan</h6>
+                    <div class="dpts-filter-group" id="dptsCurrentPlan"></div>
+
+                    <button type="button" class="dpts-reset-btn" id="dptsResetBtn">Reset Filters</button>
+                    <%# ADDED 2026-11-08 (John): same as the Gantt — save the filters for this user (this browser) %>
+                    <button type="button" class="dpts-reset-btn" id="dptsSaveFilters">&#128190; Save filters</button>
+                    <button type="button" class="dpts-reset-btn" id="dptsClearSaved" title="Forget the saved filters (back to defaults next time)">Clear saved</button>
+                    <div id="dptsSavedNote" style="font-size:10px;color:var(--an-text-dim,#5a7080);margin-top:4px;"></div>
+                </div>
+                <div class="dpts-plot-wrap">
+                    <div id="dpBoxPlot" style="width:100%;"></div>
+                    <div id="dpWellboresMonthlyPlot" style="width:100%;margin-top:18px;"></div>
+                    <%# ADDED 2026-11-04 (John): toggle for the "Open DP wellbores" trace (index 3) %>
+                    <label style="display:block;margin-top:18px;font-size:12px;cursor:pointer;"><input type="checkbox" id="dpOpenBacklogToggle"> Open DP wellbores (requested, not yet received)</label>
+                    <div id="dpWellboresBacklogPlot" style="width:100%;margin-top:4px;"></div>
+                </div>
+            </div>
+</div>
+    <div class="accordion mb-3" id="accordionExample">
+            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+                <div class="accordion-item">
+                    <h2 class="accordion-header bg-dark">
+                        <button class="accordion-button collapsed bg-dark" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#collapseDPStats" 
+                                aria-expanded="true"
+                                aria-controls="collapseDPStats">
+                            <h4 style="color: blueviolet;">DP Stats</h4>
+                        </button>
+                    </h2>
+                    <div id="collapseDPStats" class="accordion-collapse collapse show_" data-bs-parent="#accordionExample">
+                        <div class="accordion-body bg-dark">
+                            <div class="accordion mb-4" id="accordionExample">
+                                <div class="accordion-item bg-dark border-0">
+                                    <h2 class="accordion-header" id="headingOne">
+                                        <button class="accordion-button" 
+                                            type="button" 
+                                            data-bs-toggle="collapse" 
+                                            style="background-color: #1a1a1a; color: #ffffff;" 
+                                            data-bs-target="#collapseTable" 
+                                            aria-expanded="true"
+                                            aria-controls="collapseTable">
+                                            📋 Stats Table
+                                        </button>
+                                    </h2>
+                                    <div id="collapseTable" class="accordion-collapse collapse _show" aria-labelledby="headingOne">
+                                        <div class="accordion-body" style="overflow-x:auto;">
+                                            <% if (user.role == 'admin' || user.role == 'leader' || user.role == 'user' || user.role == 'viewer') { %>
+
+                                                <!-- <button class="btn btn-info my-2" onclick="renderDPStatsBoxPlot();">📊 Show Stats</button>
+
+                                                <div id="dpBoxPlot" style="width:100%;max-width:100%;"></div> -->
+
+                                            <% } %>
+                                            <table 
+                                                id="DPStatsTable" 
+                                                class="table table-dark table-striped table-bordered table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>DP Version</th>
+                                                        <th>DP Days</th>
+                                                        <th>ETS ID</th>
+                                                        <th>BH Location</th>
+                                                        <th>Prospect Name</th>
+                                                        <th>Explor Core Area</th>
+                                                        <th>Field Name</th>
+                                                        <th>Well Type</th>
+                                                        <th>Op / Non-Op</th>
+                                                        <th>AFE Timing Year</th>
+                                                        <th>Play Type</th>
+                                                        <th>Province</th>
+                                                        <th>DP Proposed # of Wellbores (All Plans)</th>
+                                                        <th>DP Proposed Total Drilled Meters (All Plans)</th>
+                                                        <th>DP Proposed Total Lateral Length (All Plans)</th>
+                                                        <th>DP Received Date (All Plans)</th>
+                                                        <th>DP Request Date (All Plans)</th>
+                                                        <th>DP Revised Survey No (All Plans)</th>
+                                                        <th>DP Type (All Plans)</th>
+                                                        <th>DP Company Name (All Plans)</th>
+                                                        <th>DP Current Plan (All Plans)</th>
+                                                        <th>DP Design/Plan No (All Plans)</th>
+                                                        <th>DP Drill Approved (All Plans)</th>
+                                                        <th>DP Geol Approved (All Plans)</th>
+                                                        <th>DP Justification (All Plans)</th>
+                                                        <th>DP Proposed # of Wellbores</th>
+                                                        <th>DP Proposed Total Drilled Meters</th>
+                                                        <th>DP Proposed Total Lateral Length</th>
+                                                        <th>Rig</th>
+                                                        <th>Rig Duration</th>
+                                                        <th>Scheduled</th>
+                                                        <th>Site Name</th>
+                                                        <th>Spud Date</th>
+                                                        <th>Rig Release Date</th>
+                                                        <th>Est. Start Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <%# 2026-11-28 (John): SPEED — the rows are no longer written by the server. Was: all ~9,600 DP Stats rows × 35 columns in the
+     jobs page on every load (most of its 33 MB). The table is now fetched (/notes/dpStatsRows, server memory cache) the first time
+     this accordion is opened; the charts / filters read their 14 fields from #dptsData below instead of from this table. %>
+                                                <tbody id="DPStatsBody"><tr><td colspan="35" style="color:#5a7080">Loading…</td></tr></tbody>
+                                            </table>
+                                            <script type="application/json" id="dptsData"><%- JSON.stringify((dpStats || []).map(function(d){
+                                                var dt = function(v){ return v ? new Date(v).toISOString().slice(0, 10) : ''; }, t = function(v){ return (v === undefined || v === null) ? '' : String(v).trim(); };
+                                                return [t(d.dpVersion), t(d.dpDays), t(d.afeTimingYear), t(d.playType), t(d.dpProposedWellboresAllPlans), dt(d.dpReceivedDateAllPlans), dt(d.dpRequestDateAllPlans),
+                                                        t(d.dpTypeAllPlans), t(d.dpCompanyNameAllPlans), t(d.dpCurrentPlanAllPlans), t(d.rig), dt(d.estStartDate)];
+                                            })).replace(/</g, '\\u003c') %></script>
+                                            <script>
+                                            (function(){
+                                                var done = false;
+                                                function fill(){
+                                                    if(done) return; done = true;
+                                                    var tb = document.getElementById('DPStatsBody');
+                                                    fetch('/notes/dpStatsRows', { credentials: 'same-origin' }).then(function(r){ return r.json(); }).then(function(d){
+                                                        var esc = function(v){ return (v === undefined || v === null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+                                                        tb.innerHTML = (d.rows || []).map(function(r){ return '<tr>' + r.map(function(v){ return '<td>' + esc(v) + '</td>'; }).join('') + '</tr>'; }).join('');
+                                                    }).catch(function(){ done = false; tb.innerHTML = '<tr><td colspan="35">Could not load DP Stats — reopen to retry.</td></tr>'; });
+                                                }
+                                                var c = document.getElementById('collapseDPStats');
+                                                if(c){ c.addEventListener('show.bs.collapse', fill); if(c.classList.contains('show')) setTimeout(fill, 0); }
+                                            })();
+                                            </script>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+    </div>
+</div>
+
+<script>
+    // Column indices in #DPStatsTable (0-based), matching the <thead> order
+    const DPTS_COL = {
+        version:      0,
+        days:         1,
+        afeYear:      9,
+        playType:     10,
+        wellbores:    12,
+        receivedDate: 15,
+        requestDate:  16,
+        dpType:       18,
+        dpCompany:    19,
+        currentPlan:  20,
+        rig:          28,
+        estStartDate: 34,
+    };
+
+    // Filters whose checked state defaults to a specific set of values
+    const DPTS_DEFAULT_CHECKED = {
+        dptsDpType:    ['PRELIM', 'EXEC'],
+        dptsDpCompany: ['CNRL'],
+    };
+
+    // Year filters default to checked for (current year - 2) and any future year;
+    // older years start unchecked. Returns true if `v` (a year string) should be checked.
+    function dptsYearDefaultChecked(v){
+        const year = parseInt(v, 10);
+        if(isNaN(year)) return true;
+        const cutoff = new Date().getFullYear() - 2;
+        return year >= cutoff;
+    }
+
+    let dptsAllRows = [];     // cached full row data, built once per table render
+    let dptsFiltersBuilt = false;
+
+    function dptsExtractYear(dateStr){
+        if(!dateStr) return '';
+        const m = String(dateStr).match(/^(\d{4})/);
+        return m ? m[1] : '';
+    }
+
+    // 2026-11-28 (John): reads the 14 fields from #dptsData (compact JSON written by the server) instead of the DP Stats table,
+    // which is now only built when its accordion is opened. Same fields and conversions as before (text trimmed, numbers || 0).
+    // JSON order: version, days, afeYear, playType, wellbores, received, requested, dpType, dpCompany, currentPlan, rig, estStart.
+    function dptsReadTableRows(){
+        let data = [];
+        try { data = JSON.parse(document.getElementById('dptsData').textContent) || []; } catch(e){ console.warn('dptsData parse error', e); }
+        return data.map(c => ({
+            version: c[0], days: Number(c[1]) || 0, afeYear: c[2], playType: c[3], wellbores: Number(c[4]) || 0,
+            receivedDateFull: c[5], requestDateFull: c[6], receivedYear: dptsExtractYear(c[5]), requestYear: dptsExtractYear(c[6]),
+            dpType: c[7], dpCompany: c[8], currentPlan: c[9], rig: c[10], estStartDateFull: c[11],
+        }));
+    }
+
+    // Build one filter group's checkboxes from unique values present in dptsAllRows
+    function dptsBuildFilterGroup(containerId, fieldKey, defaultChecked){
+        const container = document.getElementById(containerId);
+        if(!container) return;
+        container.innerHTML = '';
+
+        const values = [...new Set(dptsAllRows.map(r => r[fieldKey]).filter(v => v !== ''))];
+        values.sort();
+
+        if(values.length === 0){
+            container.innerHTML = '<div style="color:var(--an-text-dim,#5a7080);font-size:9.5px;">No data</div>';
+            return;
+        }
+
+        values.forEach(v => {
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = v;
+            cb.dataset.field = fieldKey;
+            if(typeof defaultChecked === 'function'){
+                cb.checked = defaultChecked(v);
+            } else {
+                cb.checked = defaultChecked ? defaultChecked.includes(v) : true;
+            }
+            cb.addEventListener('change', dptsApplyFiltersAndRender);
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(v));
+            container.appendChild(label);
+        });
+    }
+
+    function dptsBuildAllFilters(){
+        dptsBuildFilterGroup('dptsAfeYear',       'afeYear',      dptsYearDefaultChecked);
+        dptsBuildFilterGroup('dptsPlayType',      'playType',     null);
+        dptsBuildFilterGroup('dptsReceivedYear',  'receivedYear', dptsYearDefaultChecked);
+        dptsBuildFilterGroup('dptsRequestedYear', 'requestYear',  dptsYearDefaultChecked);
+        dptsBuildFilterGroup('dptsDpType',        'dpType',       DPTS_DEFAULT_CHECKED.dptsDpType);
+        dptsBuildFilterGroup('dptsDpCompany',     'dpCompany',    DPTS_DEFAULT_CHECKED.dptsDpCompany);
+        dptsBuildFilterGroup('dptsCurrentPlan',   'currentPlan',  null);
+
+        // ADDED 2026-11-08 (John): saved filters, same model as the Gantt (mtxGanttFilters): the UNticked values
+        // per field are stored, so values that appear later come in ticked. Applied once, on the first build only
+        // (Reset Filters still goes back to the defaults).
+        const DPTS_SAVE_KEY = 'mtxDptsFilters:' + (window.MTX_USER_ID || 'anon');
+        const dNote = document.getElementById('dptsSavedNote');
+        if(!window.dptsSavedApplied){
+            window.dptsSavedApplied = true;
+            let saved = null; try { saved = JSON.parse(localStorage.getItem(DPTS_SAVE_KEY) || 'null'); } catch(e){}
+            if(saved && saved.off){
+                Object.keys(saved.off).forEach(f => document.querySelectorAll(`#dptsSidebar input[type=checkbox][data-field="${f}"]`).forEach(cb => { cb.checked = !saved.off[f].includes(cb.value); }));
+                if(dNote) dNote.textContent = 'Saved filters applied (' + (saved.at || '') + ')';
+            }
+        }
+        const dSave = document.getElementById('dptsSaveFilters'), dClr = document.getElementById('dptsClearSaved');
+        if(dSave && !dSave.dataset.wired){
+            dSave.dataset.wired = '1';
+            dSave.addEventListener('click', () => {
+                const off = {}; document.querySelectorAll('#dptsSidebar input[type=checkbox][data-field]').forEach(cb => { if(!cb.checked) (off[cb.dataset.field] = off[cb.dataset.field] || []).push(cb.value); });
+                const at = new Date().toLocaleString();
+                try { localStorage.setItem(DPTS_SAVE_KEY, JSON.stringify({ off, at })); if(dNote) dNote.textContent = 'Filters saved (' + at + ')'; } catch(e){ if(dNote) dNote.textContent = 'Could not save in this browser.'; }
+            });
+            if(dClr) dClr.addEventListener('click', () => { try { localStorage.removeItem(DPTS_SAVE_KEY); } catch(e){} if(dNote) dNote.textContent = 'Saved filters cleared.'; });
+        }
+        dptsFiltersBuilt = true;
+
+        const resetBtn = document.getElementById('dptsResetBtn');
+        if(resetBtn && !resetBtn.dataset.wired){
+            resetBtn.dataset.wired = '1';
+            resetBtn.addEventListener('click', () => {
+                dptsBuildAllFilters();   // rebuild = restores defaults (PRELIM/CNRL checked, rest checked)
+                dptsApplyFiltersAndRender();
+            });
+        }
+    }
+
+    // Returns the set of checked values for a given field across the sidebar
+    function dptsGetCheckedValues(fieldKey){
+        const checked = [];
+        document.querySelectorAll(`#dptsSidebar input[type=checkbox][data-field="${fieldKey}"]:checked`).forEach(cb => {
+            checked.push(cb.value);
+        });
+        return checked;
+    }
+
+    function dptsApplyFiltersAndRender(){
+        const fAfeYear      = dptsGetCheckedValues('afeYear');
+        const fPlayType     = dptsGetCheckedValues('playType');
+        const fReceivedYear = dptsGetCheckedValues('receivedYear');
+        const fRequestYear  = dptsGetCheckedValues('requestYear');
+        const fDpType       = dptsGetCheckedValues('dpType');
+        const fDpCompany    = dptsGetCheckedValues('dpCompany');
+        const fCurrentPlan  = dptsGetCheckedValues('currentPlan');
+
+        const filtered = dptsAllRows.filter(r =>
+            fAfeYear.includes(r.afeYear) &&
+            fPlayType.includes(r.playType) &&
+            fReceivedYear.includes(r.receivedYear) &&
+            fRequestYear.includes(r.requestYear) &&
+            fDpType.includes(r.dpType) &&
+            fDpCompany.includes(r.dpCompany) &&
+            fCurrentPlan.includes(r.currentPlan)
+        );
+
+        dptsRenderPlot(filtered);
+        dptsRenderWellboresMonthlyPlot(filtered);
+        dptsRenderWellboresBacklogPlot(filtered);
+    }
+
+    function dptsRenderPlot(rows){
+        // Sort by numeric suffix of version label (P0 < P1 < P2 ...)
+        const sorted = [...rows].sort((a, b) => {
+            const na = parseInt(a.version.replace(/\D/g, ''), 10);
+            const nb = parseInt(b.version.replace(/\D/g, ''), 10);
+            return (isNaN(na) ? 999 : na) - (isNaN(nb) ? 999 : nb);
+        });
+        const sortedVersions = sorted.map(r => r.version);
+        const sortedDays     = sorted.map(r => r.days);
+
+        const isLight = document.body.classList.contains('light-mode');
+        const fontColor  = isLight ? '#1a2535' : '#c8d8e8';
+        const axisColor  = isLight ? '#2c3e50' : '#5a7080';
+        const gridColor  = isLight ? '#aabbcc' : '#1e2d3d';
+
+        Plotly.newPlot("dpBoxPlot", [{
+            y: sortedDays,
+            x: sortedVersions,
+            type: "box",
+            boxpoints: "outliers",
+            marker: { color: "#0084c7" }
+        }], {
+            title: { text: `DP Timing Statistics (${rows.length} records)`, font: { color: fontColor, size: 14 } },
+            yaxis: {
+                title: { text: "Days", font: { color: axisColor } },
+                range: [0, 60],
+                fixedrange: false,
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                zerolinecolor: gridColor,
+            },
+            xaxis: {
+                title: { text: "Version", font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                categoryorder: 'array',
+                categoryarray: sortedVersions,
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor:  'rgba(0,0,0,0)',
+            font: { color: fontColor },
+        });
+    }
+
+    // ── Monthly Requested vs Received counts ──────────────────────────────
+    const DPTS_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function dptsMonthKey(dateStr){
+        // dateStr format: YYYY-MM-DD -> returns {key:'2025-02', label:'Feb 2025', sortKey:202502}
+        if(!dateStr) return null;
+        const m = String(dateStr).match(/^(\d{4})-(\d{2})/);
+        if(!m) return null;
+        const year = parseInt(m[1], 10);
+        const month = parseInt(m[2], 10); // 1-12
+        return {
+            key: `${m[1]}-${m[2]}`,
+            label: `${DPTS_MONTH_NAMES[month-1]} ${year}`,
+            sortKey: year * 100 + month,
+        };
+    }
+
+    // ── Shared helper: bucket WELLBORE COUNTS (not row counts) by month ───
+    // For each row, its `wellbores` value (DP Proposed # of Wellbores (All
+    // Plans)) is added to both its request-month bucket and its
+    // received-month bucket, using the same column for both sides.
+    function dptsBucketWellboresByMonth(rows){
+        const requestedSums = {};
+        const receivedSums  = {};
+
+        rows.forEach(r => {
+            const wb = r.wellbores || 0;
+            const reqK = dptsMonthKey(r.requestDateFull);
+            if(reqK){
+                if(!requestedSums[reqK.key]) requestedSums[reqK.key] = { label: reqK.label, sortKey: reqK.sortKey, sum: 0 };
+                requestedSums[reqK.key].sum += wb;
+            }
+            const recK = dptsMonthKey(r.receivedDateFull);
+            if(recK){
+                if(!receivedSums[recK.key]) receivedSums[recK.key] = { label: recK.label, sortKey: recK.sortKey, sum: 0 };
+                receivedSums[recK.key].sum += wb;
+            }
+        });
+
+        const allKeys = [...new Set([...Object.keys(requestedSums), ...Object.keys(receivedSums)])];
+        allKeys.sort((a, b) => {
+            const sa = requestedSums[a]?.sortKey ?? receivedSums[a]?.sortKey;
+            const sb = requestedSums[b]?.sortKey ?? receivedSums[b]?.sortKey;
+            return sa - sb;
+        });
+
+        const labels  = allKeys.map(k => (requestedSums[k] || receivedSums[k]).label);
+        const reqVals = allKeys.map(k => requestedSums[k] ? requestedSums[k].sum : 0);
+        const recVals = allKeys.map(k => receivedSums[k]  ? receivedSums[k].sum  : 0);
+
+        return { labels, reqVals, recVals };
+    }
+
+    function dptsRenderWellboresMonthlyPlot(rows){
+        const { labels, reqVals, recVals } = dptsBucketWellboresByMonth(rows);
+
+        const totalWellbores = rows.reduce((s, r) => s + (r.wellbores || 0), 0);
+
+        const isLight = document.body.classList.contains('light-mode');
+        const fontColor = isLight ? '#1a2535' : '#c8d8e8';
+        const axisColor = isLight ? '#2c3e50' : '#5a7080';
+        const gridColor = isLight ? '#aabbcc' : '#1e2d3d';
+
+        const el = document.getElementById('dpWellboresMonthlyPlot');
+        if(!el) return;
+
+        Plotly.newPlot('dpWellboresMonthlyPlot', [
+            {
+                x: labels, y: reqVals, type: 'bar', name: 'Wellbores Requested',
+                marker: { color: '#ff6b35' },
+            },
+            {
+                x: labels, y: recVals, type: 'bar', name: 'Wellbores Received',
+                marker: { color: '#0084c7' },
+            },
+        ], {
+            title: { text: `DP Wellbores Requested vs Received by Month (${totalWellbores} total wellbores)`, font: { color: fontColor, size: 14 } },
+            barmode: 'group',
+            yaxis: {
+                title: { text: 'Wellbores', font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                zerolinecolor: gridColor,
+                rangemode: 'tozero',
+            },
+            xaxis: {
+                title: { text: 'Month', font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor, size: 10 },
+                gridcolor: gridColor,
+                categoryorder: 'array',
+                categoryarray: labels,
+                tickangle: -45,
+            },
+            legend: {
+                font: { color: fontColor },
+                orientation: 'h',
+                y: 1.12,
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor:  'rgba(0,0,0,0)',
+            font: { color: fontColor },
+            margin: { b: 90 },
+        });
+    }
+
+    // ── DP Wellbore Backlog per month (Wellbores Received − Wellbores Requested) ──
+    // 2026-11-04: Open DP wellbores toggle (trace 3 of the backlog plot), remembered in this browser
+    function dptsWireOpenBacklogToggle(){ const cb = document.getElementById('dpOpenBacklogToggle'); if(!cb || cb.dataset.wired) return; cb.dataset.wired = '1';   // wired on first render (the tick sits below this script)
+        // CHANGED 2026-11-08 (John): hidden by default; shown only when switched on (remembered in this browser)
+        try { cb.checked = localStorage.getItem('mtxOpenDpBacklog') === '1'; } catch(e){ cb.checked = false; }
+        cb.addEventListener('change', () => { try { localStorage.setItem('mtxOpenDpBacklog', cb.checked ? '1' : '0'); } catch(e){}
+            const el = document.getElementById('dpWellboresBacklogPlot'); if(el && el.data && el.data.length > 3) Plotly.restyle(el, { visible: cb.checked ? true : 'legendonly' }, [3]); });
+    }
+    function dptsRenderWellboresBacklogPlot(rows){
+        dptsWireOpenBacklogToggle();   // 2026-11-04
+        const { labels, reqVals, recVals } = dptsBucketWellboresByMonth(rows);
+
+        const monthlyDelta = labels.map((_, i) => recVals[i] - reqVals[i]);
+
+        let running = 0;
+        const cumulative = monthlyDelta.map(d => { running += d; return running; });
+
+        const posSeries = new Array(cumulative.length).fill(null);
+        const negSeries = new Array(cumulative.length).fill(null);
+
+        for(let i = 0; i < cumulative.length; i++){
+            const v = cumulative[i];
+            if(v >= 0){
+                posSeries[i] = v;
+                if(i > 0 && cumulative[i-1] < 0) negSeries[i] = 0;
+            } else {
+                negSeries[i] = v;
+                if(i > 0 && cumulative[i-1] >= 0) posSeries[i] = 0;
+            }
+        }
+
+        const isLight = document.body.classList.contains('light-mode');
+        const fontColor = isLight ? '#1a2535' : '#c8d8e8';
+        const axisColor = isLight ? '#2c3e50' : '#5a7080';
+        const gridColor = isLight ? '#aabbcc' : '#1e2d3d';
+
+        const el = document.getElementById('dpWellboresBacklogPlot');
+        if(!el) return;
+
+        Plotly.newPlot('dpWellboresBacklogPlot', [
+            {
+                x: labels, y: monthlyDelta, type: 'bar', name: 'Monthly Backlog (Received − Requested)',
+                marker: {
+                    color: monthlyDelta.map(d => d >= 0 ? 'rgba(57,255,20,0.75)' : 'rgba(255,64,96,0.75)')
+                },
+            },
+            {
+                x: labels, y: posSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Wellbore Backlog (+)',
+                line: { color: '#39ff14', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(57,255,20,0.25)',
+                connectgaps: false,
+                visible: 'legendonly',
+            },
+            {
+                x: labels, y: negSeries, type: 'scatter', mode: 'lines', name: 'Cumulative Wellbore Backlog (−)',
+                line: { color: '#ff4060', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(255,64,96,0.25)',
+                connectgaps: false,
+                visible: 'legendonly',
+            },
+            // ADDED 2026-11-04 (John): the real backlog = wellbores requested and not yet received at the end of each
+            // month = −(cumulative received − requested). Always ≥ 0 (a DP can't be received before it is requested),
+            // which is why the green "Cumulative (+)" trace never showed. Includes requested-only rows (no received date).
+            // On/off with the "Open DP wellbores" tick above the plot (remembered in this browser) or the legend.
+            {
+                x: labels, y: cumulative.map(v => Math.max(0, -v)), type: 'scatter', mode: 'lines', name: 'Open DP wellbores (requested, not yet received)',
+                line: { color: '#ffb300', width: 2.5 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(255,179,0,0.18)',
+                visible: (() => { try { return localStorage.getItem('mtxOpenDpBacklog') === '1' ? true : 'legendonly'; } catch(e){ return 'legendonly'; } })(),   // 2026-11-08: hidden by default
+            },
+        ], {
+            title: { text: `DP Wellbore Backlog by Month (Received − Requested)`, font: { color: fontColor, size: 14 } },
+            yaxis: {
+                title: { text: 'Backlog (wellbores)', font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor },
+                gridcolor: gridColor,
+                zerolinecolor: gridColor,
+                zerolinewidth: 2,
+            },
+            xaxis: {
+                title: { text: 'Month', font: { color: axisColor } },
+                color: fontColor,
+                tickfont: { color: fontColor, size: 10 },
+                gridcolor: gridColor,
+                categoryorder: 'array',
+                categoryarray: labels,
+                tickangle: -45,
+            },
+            legend: {
+                font: { color: fontColor },
+                orientation: 'h',
+                y: 1.12,
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor:  'rgba(0,0,0,0)',
+            font: { color: fontColor },
+            margin: { b: 90 },
+        });
+    }
+
+
+
+    function renderDPStatsBoxPlot() {
+        dptsAllRows = dptsReadTableRows();
+        if(!dptsFiltersBuilt){
+            dptsBuildAllFilters();
+        }
+        dptsApplyFiltersAndRender();
+    }
+</script>
+
+<script>
+(function(){
+    const LS_KEY = 'mtxThemePreference';
+    const sw     = document.getElementById('anThemeSwitch');
+
+    function applyTheme(light){
+        document.body.classList.toggle('light-mode', light);
+        sw.checked = light;
+    }
+
+    // Apply saved preference immediately (before paint to avoid flash)
+    applyTheme(localStorage.getItem(LS_KEY) === 'light');
+
+    sw.addEventListener('change', function(){
+        localStorage.setItem(LS_KEY, sw.checked ? 'light' : 'dark');
+        location.reload();
+    });
+})();
+</script>
+
+<%# ===================================================================
+    FLOATING FILTER WINDOWS (ADDED 2026-11-08, John)
+    The Gantt filter column (#ganttSidebar2) and the DP Stats filter column
+    (#dptsSidebar) are hidden; the chart gets the full width. A "☰ Filters (n)"
+    button at the top-left of each chart opens a floating window with the
+    filter groups side by side in columns. An active-filter summary line sits
+    under the button. The ORIGINAL sidebar element is MOVED into the window
+    (same checkboxes, ids, handlers, Reset / Save filters / Clear saved) —
+    only the layout changes. Phones: the window is full screen (replaces the
+    2026-11-04 slide-in drawer for the Gantt, whose toggle is hidden).
+    =================================================================== %>
+<style>
+    .mtxfp-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .mtxfp-btn { width:auto !important; padding:4px 12px !important; margin:0 !important; white-space:nowrap; }
+    .mtxfp-btn.active { border-color:#00c8ff !important; color:#00c8ff !important; }
+    .mtxfp-sum { font-family:var(--an-mono,monospace); font-size:11px; color:var(--an-text-dim,#5a7080); margin:4px 0 6px; }
+    .mtxfp-sum b { color:#ffb300; font-weight:600; }
+    .mtxfp-modal { position:fixed; inset:0; z-index:1070; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; padding:5vh 12px; }
+    .mtxfp-modal.open { display:flex; }
+    .mtxfp-win { width:min(1150px,96vw); max-height:88vh; display:flex; flex-direction:column; background:var(--an-panel,#111820);
+                 border:1px solid #00c8ff; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,.6); color:var(--an-text,#c8d8e8); }
+    .mtxfp-hdr { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--an-border,#1e2d3d); }
+    .mtxfp-hdr h5 { flex:1; margin:0; font-family:var(--an-cond,sans-serif); font-size:16px; letter-spacing:1px; text-transform:uppercase; }
+    .mtxfp-x { background:none; border:1px solid var(--an-border,#1e2d3d); color:inherit; width:32px; height:32px; border-radius:4px; font-size:18px; cursor:pointer; }
+    .mtxfp-body { overflow-y:auto; padding:12px 14px; }
+    /* the moved sidebar: no longer a narrow column */
+    .mtxfp-in { position:static !important; transform:none !important; width:auto !important; min-width:0 !important; height:auto !important;
+                max-height:none !important; border:none !important; box-shadow:none !important; padding:0 !important; overflow:visible !important; background:transparent !important; }
+    .mtxfp-cols { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px 18px; align-items:start; }
+    .mtxfp-col { border:1px solid var(--an-border,#1e2d3d); border-radius:4px; padding:8px 10px; min-width:0; }
+    .mtxfp-col h6 { margin-top:0 !important; }
+    .mtxfp-col .gantt-filter-group, .mtxfp-col .dpts-filter-group { max-height:260px; overflow-y:auto; }
+    .mtxfp-foot { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--an-border,#1e2d3d); }
+    .mtxfp-foot button { width:auto !important; margin-top:0 !important; padding:5px 14px !important; }
+    #ganttFilterToggle2, #ganttDrawerClose2, #ganttDrawerBackdrop2 { display:none !important; }
+    @media (max-width:768px){
+        .mtxfp-modal { padding:0; }
+        .mtxfp-win { width:100vw; max-height:100vh; height:100%; border-radius:0; }
+        .mtxfp-cols { grid-template-columns:1fr 1fr; }
+        .mtxfp-col .gantt-filter-group label, .mtxfp-col .dpts-filter-group label { font-size:13px; margin:6px 0; }
+    }
+</style>
+<script>
+(function(){
+    function setup(o){
+        const sb = document.getElementById(o.sidebar), host = document.getElementById(o.host) || (sb && sb.parentNode.querySelector(o.hostSel));
+        if(!sb || !host) return;
+        // 1) group each heading with its filter list -> one column each; buttons/notes -> footer
+        const cols = document.createElement('div'); cols.className = 'mtxfp-cols';
+        const foot = document.createElement('div'); foot.className = 'mtxfp-foot';
+        let col = null;
+        Array.from(sb.children).forEach(el => {
+            if(el.id === 'ganttDrawerClose2') return;                      // old phone drawer close
+            if(el.tagName === 'H6'){ col = document.createElement('div'); col.className = 'mtxfp-col'; cols.appendChild(col); col.appendChild(el); return; }
+            if(col && /filter-group/.test(el.className)){ col.appendChild(el); return; }
+            foot.appendChild(el);                                          // Reset / Save / Clear saved / note
+        });
+        sb.appendChild(cols); sb.appendChild(foot);
+        sb.classList.add('mtxfp-in'); sb.classList.remove('open');
+        // 2) floating window, the sidebar moves inside it
+        const modal = document.createElement('div'); modal.className = 'mtxfp-modal';
+        modal.innerHTML = '<div class="mtxfp-win" role="dialog" aria-modal="true"><div class="mtxfp-hdr"><h5></h5><button type="button" class="mtxfp-x" aria-label="Close">&times;</button></div><div class="mtxfp-body"></div></div>';
+        modal.querySelector('h5').textContent = o.title;
+        modal.querySelector('.mtxfp-body').appendChild(sb);
+        document.body.appendChild(modal);
+        // 3) button + summary at the top-left of the chart
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = o.btnClass + ' mtxfp-btn'; btn.textContent = '☰ Filters';
+        const sum = document.createElement('div'); sum.className = 'mtxfp-sum';
+        if(o.intoToolbar){ host.insertBefore(btn, host.firstChild); host.parentNode.insertBefore(sum, host.nextSibling); }
+        else { const bar = document.createElement('div'); bar.className = 'mtxfp-bar'; bar.appendChild(btn); host.insertBefore(sum, host.firstChild); host.insertBefore(bar, sum); }
+        const open = v => { modal.classList.toggle('open', v); if(!v) refresh(); };
+        btn.addEventListener('click', () => open(true));
+        modal.querySelector('.mtxfp-x').addEventListener('click', () => open(false));
+        modal.addEventListener('click', e => { if(e.target === modal) open(false); });
+        document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('open')) open(false); });
+        // 4) active-filter count + summary (a group is "active" when not every box is ticked)
+        let last = null;
+        function refresh(){
+            const parts = [];
+            cols.querySelectorAll('.mtxfp-col').forEach(c => {
+                const boxes = c.querySelectorAll('input[type=checkbox]'); if(!boxes.length) return;
+                const on = Array.from(boxes).filter(b => b.checked).length;
+                if(on < boxes.length){
+                    const h = c.querySelector('h6'), name = h ? (h.childNodes[0] && h.childNodes[0].nodeType === 3 ? h.childNodes[0].textContent : h.textContent).trim() : '?';
+                    parts.push('<b>' + name.replace(/</g, '&lt;') + '</b>: ' + (on ? on + ' of ' + boxes.length : 'none'));
+                }
+            });
+            const key = parts.join('|'); if(key === last) return; last = key;
+            btn.textContent = '☰ Filters' + (parts.length ? ' (' + parts.length + ')' : '');
+            btn.classList.toggle('active', parts.length > 0);
+            sum.innerHTML = parts.length ? 'Filtered — ' + parts.join(' · ') : 'No filters active — showing all';
+        }
+        sb.addEventListener('change', () => setTimeout(refresh, 0));
+        sb.addEventListener('click', () => setTimeout(refresh, 0));      // All / None links, Reset, saved filters
+        setInterval(refresh, 1000);                                       // lists are filled / restored asynchronously
+        refresh();
+        // the charts get the freed width (CHANGED 2026-11-08 round 10: the Gantt canvas width is measured when it
+        // is drawn and the DP Stats Plotly charts are not 'responsive', so redraw / resize them explicitly)
+        if(o.refit) setTimeout(o.refit, 60);
+    }
+    function refitGantt(){
+        if(window.ganttApplyAndRender2Ref && window.chartInstances2Ref && window.chartInstances2Ref.length){
+            try { window.ganttApplyAndRender2Ref(); } catch(e){ console.warn('[mtxfp] gantt refit', e); }
+        }
+    }
+    function refitDpts(){
+        if(typeof Plotly === 'undefined') return;
+        ['dpBoxPlot', 'dpWellboresMonthlyPlot', 'dpWellboresBacklogPlot'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el && el.data){ try { Plotly.Plots.resize(el); } catch(e){} }
+        });
+    }
+    let rT = null, lastW = window.innerWidth;
+    window.addEventListener('resize', () => {
+        if(window.innerWidth === lastW) return;   // height-only changes (phone address bar) don't need a redraw
+        lastW = window.innerWidth;
+        clearTimeout(rT); rT = setTimeout(() => { refitGantt(); refitDpts(); }, 300);
+    });
+    function init(){
+        setup({ sidebar: 'ganttSidebar2', hostSel: '.gantt-plot-wrap > .m-2', intoToolbar: true, title: 'Gantt filters', btnClass: 'gantt-reset-btn', refit: refitGantt });
+        setup({ sidebar: 'dptsSidebar', hostSel: '.dpts-plot-wrap', intoToolbar: false, title: 'DP Stats filters', btnClass: 'dpts-reset-btn', refit: refitDpts });
+    }
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+
+<script>
+    /* 2026-11-28: draw the three plots on load (was in the jobs page DOMContentLoaded handler) */
+    document.addEventListener('DOMContentLoaded', function(){ renderDPStatsBoxPlot(); });
+</script>
+
+<%- include ('partials/footer.ejs') %>

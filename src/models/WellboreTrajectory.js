@@ -125,4 +125,8 @@ const WellboreTrajectorySchema = new Schema(
   { timestamps: true }
 );
 
+// 2026-11-28 (John): SPEED — index on noteId. The job page reads this collection by job; without the index MongoDB scanned the
+// whole collection (every job's documents) on each page view. Built automatically by Mongoose (autoIndex) at server start.
+WellboreTrajectorySchema.index({ noteId: 1 });
+
 module.exports = model("WellboreTrajectory", WellboreTrajectorySchema);

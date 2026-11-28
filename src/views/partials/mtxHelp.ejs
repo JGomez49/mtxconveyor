@@ -74,6 +74,15 @@
       '<h4>Filters</h4><p>"Show only: C2C &lt; 15 AND SF &lt; 1.00" keeps the rows where both are true. The table can be downloaded as Excel (Summary tab).</p>' +
       '<h4>Keep in mind</h4><p>The thresholds and colours are screening levels for this page; follow your company\'s AC policy, and the error model, error surface and confidence level of the Compass report itself (see the report header). For how MTX calculates SF on its own, see the "?" in the job\'s Anti-collision Plots.</p>' }
   };
+  // 2026-11-27: AccuMap EDM Generator
+  H.accumapEdm = { title: 'AccuMap EDM Generator — what it does', body:
+      '<h4>Input</h4><p>An AccuMap well export (.xlsx) with the survey points: UWI, licence, surface hole UTM northing / easting and zone, KB and ground elevation, total depth, and MD / Inc / Azi. All in <b>metres</b>. The datum is read from the sheet title; only <b>NAD27</b> is accepted.</p>' +
+      '<h4>Output</h4><p>A Compass EDM import file (.edm.xml) with a new project: one site per surface hole location, one well per licence, one wellbore per distinct survey. Repeated events with the same survey (e.g. /00 and /02) become one wellbore. Wells without survey points are added as vertical from KB to TD. Wells missing KB, TD or coordinates are skipped and listed.</p>' +
+      '<h4>How it is calculated</h4><ul><li>Positions by minimum curvature from MD / Inc / Azi; AccuMap\'s own TVD / NS / EW are used only as a check (downloadable report).</li>' +
+      '<li>Coordinates: NAD27 Transverse Mercator (UTM, zone from the file; Snyder, USGS PP 1395). Compass stores feet and depths referred to sea level (MD − KB elevation); the conversion is done when writing the file.</li>' +
+      '<li>Magnetics: IGRF-13 (Compass "IGRF2020") at the surface location and today\'s date.</li>' +
+      '<li>Policy, OWSG Rev 5 toolcodes and AC rules are copied from a real Compass export; choose the toolcode per wellbore before creating the file. Compass recalculates the position uncertainty after import.</li></ul>' +
+      '<h4>Check after import</h4><p>Compare a few wells in Compass with AccuMap: surface location, TD and TVD at TD.</p>' };
   window.mtxHelp = function(key){ var h = H[key]; if(!h) return; document.getElementById('mtxHpTitle').textContent = h.title; document.getElementById('mtxHpBody').innerHTML = h.body; document.getElementById('mtxHpModal').classList.add('open'); };
   window.mtxHelpClose = function(){ document.getElementById('mtxHpModal').classList.remove('open'); };
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') window.mtxHelpClose(); });

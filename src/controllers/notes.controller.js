@@ -160,7 +160,66 @@ notesCrtl.createNewNote = async(req,res)=>{
 
 
 
+// 2026-11-28 (John): in-memory cache for the two big, rarely-changing datasets of the jobs page (DP Stats, New Schedule).
+// Cleared by their upload handlers (uploadDPStats / uploadNewSchedule) so a new upload shows at once; entries also expire
+// after 10 min as a safety net (e.g. data changed directly in the database). One server process -> one cache.
+// Revised 2026-11-28: an EXPIRED entry is still served while a fresh copy loads in the background (nobody waits the ~5 s
+// DP Stats read again); only a cleared or never-loaded entry is waited for. Both are pre-loaded 5 s after the server starts.
+const bigCache = {
+    ttl: 10 * 60 * 1000, store: {},
+    get(key, load){
+        const e = this.store[key];
+        if(e && e.ok && Date.now() - e.at >= this.ttl && !e.refreshing){
+            e.refreshing = true;
+            Promise.resolve().then(load).then(v => { if(this.store[key] === e) this.store[key] = { at: Date.now(), p: Promise.resolve(v), ok: true }; /* 2026-11-28: not if cleared meanwhile */ }).catch(err => { e.refreshing = false; console.error('[bigCache] refresh ' + key, err.message); });
+        }
+        if(e) return e.p;
+        const entry = { at: Date.now(), ok: false }; entry.p = Promise.resolve().then(load);
+        entry.p.then(() => { entry.ok = true; }, () => { if(this.store[key] === entry) delete this.store[key]; });
+        this.store[key] = entry; return entry.p;
+    },
+    clear(key){ if(key) delete this.store[key]; else this.store = {}; },
+};
+// 2026-11-28 (John): the jobs page only needs 4 DP Stats fields (Handover e-mail BH Location + Legs per ETS ID) since the table and
+// plots moved to PlanIT Stats — 'dpStatsLite' loads just those (was: all 9,572 full rows, ~5 s on a cold cache after a restart).
+const loadDpStatsLite = () => DPStats.find({}, { etsId: 1, bhLocation: 1, dpCurrentPlanAllPlans: 1, dpProposedWellbores: 1, _id: 0 }).lean();
+// 2026-11-28 (John): Design Codes for the jobs page (Handover e-mail) — cached; models/DesignCode.js calls DesignCode.onChange after
+// every save / update / delete, which clears this entry.
+const loadDesignCodesJobs = () => DesignCode.find({ code: { $ne: 'GENERAL' } }).select('code area formations updatedDate sections -_id').lean();
+DesignCode.onChange = () => bigCache.clear('designCodesJobs');
+const loadDpStats = () => DPStats.find().lean(), loadNewSchedule = () => NewSchedule.findOne().populate('user','name').lean();
+// CHANGED 2026-11-28 (John): warm-up right at start (Mongoose queues the queries until the database is connected) and only what the
+// jobs page needs. The FULL DP Stats (PlanIT Stats page only) waits 60 s. Was: everything at +5 s, so a login in the first seconds after a
+// restart waited ~2.4 s for the 4-field DP Stats while the full 9,572-row read competed with it.
+setTimeout(() => { bigCache.get('dpStatsLite', loadDpStatsLite).catch(() => {}); bigCache.get('newSchedule', loadNewSchedule).catch(() => {}); bigCache.get('designCodesJobs', () => loadDesignCodesJobs()).catch(() => {}); }, 0);
+setTimeout(() => { bigCache.get('dpStats', loadDpStats).catch(() => {}); }, 60000);
+// GET /notes/dpStatsRows — the DP Stats table rows (35 columns, same order / formatting as the jobs-page table), from the cache.
+// Loaded by all-notes.ejs when the DP Stats accordion is opened.
+// 2026-11-28 (John): GET /notes/newScheduleData — the New Schedule {headers, rows} for the jobs-page Gantt / table (was embedded in the
+// page). ?v=<upload time>-<rows> matching the current schedule -> the browser may keep it (private, 1 year); a new upload changes v.
+let newSchedJson = { key: null, body: null };
+notesCrtl.newScheduleData = async (req, res) => {
+    try{
+        const ns = await bigCache.get('newSchedule', loadNewSchedule);
+        const key = ns ? (new Date(ns.uploadedAt || 0).getTime() + '-' + (ns.rows || []).length) : 'none';
+        if(newSchedJson.key !== key) newSchedJson = { key, body: JSON.stringify({ headers: ns ? ns.headers || [] : [], rows: ns ? ns.rows || [] : [] }) };
+        res.set('Cache-Control', req.query.v === key ? 'private, max-age=31536000, immutable' : 'no-cache');
+        res.type('json').send(newSchedJson.body);
+    }catch(err){ console.error('[newScheduleData]', err); res.status(500).json({ error: err.message }); }
+};
+notesCrtl.dpStatsRows = async (req, res) => {
+    try{
+        const d = await bigCache.get('dpStats', loadDpStats);
+        const dt = v => v ? new Date(v).toISOString().slice(0, 10) : '', t = v => (v === undefined || v === null) ? '' : v;
+        res.json({ rows: (d || []).map(x => [t(x.dpVersion), t(x.dpDays), t(x.etsId), t(x.bhLocation), t(x.prospectName), t(x.explorCoreArea), t(x.fieldName), t(x.wellType), t(x.opNonOp),
+            t(x.afeTimingYear), t(x.playType), t(x.province), t(x.dpProposedWellboresAllPlans), t(x.dpProposedTotalDrilledMetersAllPlans), t(x.dpProposedTotalLateralLengthAllPlans),
+            dt(x.dpReceivedDateAllPlans), dt(x.dpRequestDateAllPlans), t(x.dpRevisedSurveyNoAllPlans), t(x.dpTypeAllPlans), t(x.dpCompanyNameAllPlans), t(x.dpCurrentPlanAllPlans),
+            t(x.dpDesignPlanNoAllPlans), dt(x.dpDrillApprovedAllPlans), dt(x.dpGeolApprovedAllPlans), t(x.dpJustificationAllPlans), t(x.dpProposedWellbores), t(x.dpProposedTotalDrilledMeters),
+            t(x.dpProposedTotalLateralLength), t(x.rig), t(x.rigDuration), t(x.scheduled), t(x.siteName), dt(x.spudDate), dt(x.rigReleaseDate), dt(x.estStartDate)]) });
+    }catch(err){ console.error('[dpStatsRows]', err); res.status(500).json({ error: err.message }); }
+};
 notesCrtl.renderNotes = async (req,res)=>{
+    const _t0 = Date.now();   // 2026-11-28 (John): SPEED diagnostics — see the [jobs page timing] log line below
     let user = {}
     user.id = req.params.guest
     if(user.id != null){
@@ -182,12 +241,23 @@ notesCrtl.renderNotes = async (req,res)=>{
     // ── Run all DB queries in parallel ───────────────────────────────────
     // Select only the fields rendered in all-notes.ejs — avoids transferring
     // large unused fields like description, imageID, wellbore data, etc.
-    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt trajWells trajAvgDDI trajAvgSteerIndex batchDays path designCode notesToVendor folderUrl handoverChecklist'; // 2026-10-28: + designCode notesToVendor (Handover e-mail); + path (job picture URL) so the Handover window knows which pads have a picture
+    // 2026-11-28 (John): removed trajWells trajAvgDDI trajAvgSteerIndex (not used by all-notes.ejs).
+    const NOTE_FIELDS = '_id mtxJobId title customerJobNumber project area wells poc geologist rig group dueDate status responsible customer budget created updatedAt batchDays path designCode notesToVendor folderUrl handoverChecklist'; // 2026-10-28: + designCode notesToVendor (Handover e-mail); + path (job picture URL) so the Handover window knows which pads have a picture
 
-    const [notes, dpStats, newSchedule] = await Promise.all([
-        Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean(),
-        DPStats.find().lean(),
-        NewSchedule.findOne().populate('user','name').lean(),
+    // 2026-11-28 (John): SPEED — DP Stats (~9,600 docs) and the New Schedule (~5,700 rows) come from a memory cache (bigCache below),
+    // and ALL the jobs-page queries run in parallel. Was: both big collections read in full on every visit (db 5.6 s of a 7.7 s page),
+    // then six small lookups one after another. Each query's time is logged ([jobs page timing]).
+    const _qt = {}, _timed = (name, p) => { const t = Date.now(); return Promise.resolve(p).then(v => { _qt[name] = Date.now() - t; return v; }); };
+    const [notes, dpStats, newSchedule, _vp, _pd, _vend, _bv, _og, _dc] = await Promise.all([
+        _timed('notes', Note.find().sort({ dueDate: 'asc' }).select(NOTE_FIELDS).lean()),
+        _timed('dpStats', bigCache.get('dpStatsLite', loadDpStatsLite)),   /* 2026-11-28: light 4-field version */
+        _timed('schedule', bigCache.get('newSchedule', loadNewSchedule)),
+        _timed('vpAreas', VPArea.find().select('vpName mainArea -_id').lean()),
+        _timed('padDist', PadDistList.find().select('pad padKey mtxJobId recipients outlookTo -_id').lean()),
+        _timed('vendors', VendorDistList.find().sort({ name: 1 }).select('name emails -_id').lean()),
+        _timed('bvRigs', BvRig.find().select('rig vendor -_id').lean()),
+        _timed('opsGeo', OpsGeoDistList.find().select('expManager opsGeos -_id').lean()),
+        _timed('designCodes', bigCache.get('designCodesJobs', loadDesignCodesJobs)),   /* 2026-11-28: cached; cleared on any Design Code change (DesignCode.onChange) */
     ]);
 
     // Embedded "Users" + "Activity Heatmap" section, shown under the DP
@@ -196,7 +266,9 @@ notesCrtl.renderNotes = async (req,res)=>{
     // with list === 'CNRL' — the full org-wide view stays behind the
     // Manage Users / Usage Dashboard admin pages, reachable from the navbar.
     const ACTIVITY_VISIBLE_RANKS = ['WP1', 'WP2', 'WP3', 'DM', 'GeoM'];
-    const canSeeActivity = (user.role === 'admin') || ACTIVITY_VISIBLE_RANKS.includes(user.rank);
+    // 2026-11-28 (John): Users / Activity Heatmap removed from the jobs page (speed) — the report is no longer built here.
+    // They remain on the Usage Dashboard (/users/activity, from Manage Users). Was: built on every load for admins and ranks above.
+    const canSeeActivity = false;
     let activityReport = null;
     if(canSeeActivity){
         try {
@@ -214,29 +286,40 @@ notesCrtl.renderNotes = async (req,res)=>{
     // this one fetch + pass-through was added to this function — nothing
     // else here was changed. See VPArea model + renderVPAreas/saveVPAreas
     // below for the admin-managed source of this mapping.
-    const vpAreaList = await VPArea.find().select('vpName mainArea -_id').lean();
+    const vpAreaList = _vp;
     // ADDED 2026-10-27: padKey -> [ETS User names] for the Gantt "Handover"
     // e-mail To: field (see models/PadDistList.js).
-    const padDistMap = (await PadDistList.find().select('pad padKey mtxJobId recipients outlookTo -_id').lean())
+    const padDistMap = _pd
         .reduce((m, p) => { m[p.padKey] = { pad: p.pad, mtx: p.mtxJobId || '', outlook: p.outlookTo || '' /* 2026-11-11 Outlook-pasted recipients */, names: (p.recipients || []).map(r => r.etsUser).filter(Boolean),
             people: (p.recipients || []).map(r => ({ role: r.role || '', name: r.etsUser || '' })) /* 2026-10-29: roles for the Handover checklist */ }; return m; }, {});
 
     // ADDED 2026-10-27: vendor lists for the Handover e-mail To: (VendorDistList).
-    const vendorList = await VendorDistList.find().sort({ name: 1 }).select('name emails -_id').lean();
+    const vendorList = _vend;
     // ADDED 2026-10-27 (John): rig -> Directional Vendor (BV Rigs) — the
     // Handover window preselects the pad's vendor from its rig first.
-    const bvRigVendorMap = (await BvRig.find().select('rig vendor -_id').lean())
+    const bvRigVendorMap = _bv
         .reduce((m, r) => { if(r.vendor) m[String(r.rig).trim().toUpperCase().replace(/\s+/g, ' ')] = r.vendor; return m; }, {});
 
     // ADDED 2026-10-28 (John): Exp. Manager -> Ops Geo (OpsGeoDistList) for Handover CC.
-    const opsGeoList = await OpsGeoDistList.find().select('expManager opsGeos -_id').lean();
+    const opsGeoList = _og;
     // ADDED 2026-10-28 (John): Design Code tables for the Handover e-mail body (text only, no pictures).
-    const designCodeMap = (await DesignCode.find({ code: { $ne: 'GENERAL' } }).select('code area formations updatedDate sections -_id').lean())
+    const designCodeMap = _dc
         .reduce((m, d) => { m[d.code] = d; return m; }, {});
 
+    // 2026-11-28 (John): SPEED diagnostics. Logs how long the database part and the page building (EJS) take, and the page size,
+    // e.g. "[jobs page timing] db 1200 ms | render 6300 ms | 9.8 MB, 893000 lines | notes 2100, dpStats 9000, schedule rows 2665".
+    // Diagnostic only; the page itself is unchanged.
+    const _t1 = Date.now();
     res.render('all-notes.ejs', {
         notes, user, dpStats, newSchedule, count_InProgress, count_NotStarted, count_NotStarted_setup,
         canSeeActivity, activityReport, vpAreaList, padDistMap, vendorList, bvRigVendorMap, opsGeoList, designCodeMap,
+    }, (err, html) => {
+        if(err){ console.error('[jobs page] render error', err); return res.status(500).send('Error rendering the jobs page'); }
+        try{
+            let lines = 1; for(let i = 0; i < html.length; i++) if(html.charCodeAt(i) === 10) lines++;
+            console.log('[jobs page timing] db ' + (_t1 - _t0) + ' ms | render ' + (Date.now() - _t1) + ' ms | ' + (Buffer.byteLength(html) / 1e6).toFixed(1) + ' MB, ' + lines + ' lines | queries ' + JSON.stringify(_qt) + ' | notes ' + notes.length + ', dpStats ' + (dpStats || []).length + ', schedule rows ' + ((newSchedule && newSchedule.rows) ? newSchedule.rows.length : 0));
+        }catch(e){}
+        res.send(html);
     });
 };
 
@@ -504,6 +587,25 @@ notesCrtl.deleteNotesBulk = async (req,res)=>{
 // VPArea collection. Same server-side admin check pattern as
 // deleteNote/deleteNotesBulk above (User.findById(req.session.passport.user),
 // requester.role !== 'admin').
+// 2026-11-27 (John): AccuMap EDM Generator page (admin only). The AccuMap -> Compass EDM conversion runs in the browser
+// (public/js/accumapEdm.js + public/data/edmTemplate.json + public/data/igrf13.json); nothing is stored on the server.
+// 2026-11-28 (John): "PlanIT Stats" page — the DP Stats table and the 3 DP plots, moved off the jobs page (speed). DP Stats from the
+// shared memory cache (bigCache, same as the jobs page). Roles: admin, leader, user, viewer (same as the jobs-page section was).
+notesCrtl.renderPlanitStats = async (req, res) => {
+    try{
+        const user = await User.findById(req.session.passport.user);
+        if(!user || !['admin','leader','user','viewer'].includes(user.role)){ req.flash('error_msg', 'Not allowed.'); return res.redirect('/notes'); }
+        const dpStats = await bigCache.get('dpStats', loadDpStats);
+        res.render('planitStats.ejs', { user, dpStats });
+    } catch(e){ console.error('[planitStats]', e); req.flash('error_msg', 'Could not load PlanIT Stats.'); res.redirect('/notes'); }
+};
+
+notesCrtl.renderAccumapEdm = async (req, res) => {
+    const user = await User.findById(req.session.passport.user);
+    if(!user || user.role !== 'admin'){ req.flash('error_msg', 'Only admin accounts can use the AccuMap EDM Generator.'); return res.redirect('/notes'); }
+    res.render('accumapEdm.ejs', { user });
+};
+
 notesCrtl.renderVPAreas = async (req,res)=>{
     const requester = await User.findById(req.session.passport.user);
     if(!requester || !['admin','leader','user'].includes(requester.role)){   // 2026-11-13 (John): VP Areas page open to admin/leader/user (was admin-only)
@@ -913,28 +1015,107 @@ notesCrtl.deletePadDistList = async (req,res)=>{
 
 
 
+// 2026-11-28 (John): SPEED — job page wellbore trajectories are read with .lean() (plain objects; was full Mongoose documents: 84
+// trajectories / 8,359 survey stations took ~1.1 s). leanDefaults() fills the schema defaults Mongoose would have added for fields
+// missing in older documents (e.g. survey position, wellCategory ''), so the page receives the same JSON. Checked against
+// Model.hydrate(...).toJSON() on a test document (Mongoose 8): identical apart from generated ids / timestamps.
+function getP(o, p){ return p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o); }
+function setP(o, p, v){ const ks = p.split('.'); let a = o; for(let i = 0; i < ks.length - 1; i++){ if(a[ks[i]] == null || typeof a[ks[i]] !== 'object') a[ks[i]] = {}; a = a[ks[i]]; } a[ks[ks.length - 1]] = v; }
+function leanDefaults(doc, schema){
+    if(!doc || typeof doc !== 'object') return doc;
+    schema.eachPath((p, st) => {
+        if(p === '_id' || p === '__v') return;
+        const cur = getP(doc, p);
+        if(st.schema && st.instance === 'Array'){ if(Array.isArray(cur)) cur.forEach(x => leanDefaults(x, st.schema)); else if(cur === undefined) setP(doc, p, []); return; }
+        if(st.instance === 'Array'){ if(cur === undefined) setP(doc, p, []); return; }
+        if(cur === undefined && st.defaultValue !== undefined){
+            let v = typeof st.defaultValue === 'function' ? st.defaultValue.call(doc) : st.defaultValue;
+            if(st.instance === 'Date' && v != null && !(v instanceof Date)) v = new Date(v);
+            if(st.instance === 'Mixed' && v && typeof v === 'object' && !Object.keys(v).length) return;   // Mongoose leaves empty objects out of toJSON (minimize)
+            setP(doc, p, v);
+        }
+    });
+    return doc;
+}
+// 2026-11-28 (John): SPEED — survey fields the job page never reads are not loaded / sent (84 trajectories, 8,359 stations ≈ 3.2 MB).
+// Checked by searching job.ejs, public/js/job/job-01..13.js and the shared scripts the page loads (wbtTree, iplanCore, iscwsaModel,
+// tdModel, motorYield, slideSheetModel, wmmModel, ipmImport): survey .well, .vertSec, .origMd/.origIncl/.origAzim and the
+// correctionChain are not used there. latitude / longitude are read ONLY from the shallowest station (well magnetics, gyro latitude),
+// so they are kept on that station only. Nothing is changed in the database; other pages / endpoints still get every field.
+// If a job-page feature needs one of these later, remove it from JOB_TRAJ_OMIT / jobTrajTrim.
+const JOB_TRAJ_OMIT = { 'survey.well': 0, 'survey.vertSec': 0, 'survey.origMd': 0, 'survey.origIncl': 0, 'survey.origAzim': 0, correctionChain: 0 };
+function jobTrajTrim(d){
+    if(!d) return d;
+    delete d.correctionChain;
+    const sv = Array.isArray(d.survey) ? d.survey : [];
+    let minMd = Infinity; sv.forEach(s => { const m = Number(s && s.md); if(isFinite(m) && m < minMd) minMd = m; });
+    sv.forEach(s => { if(!s) return; delete s.well; delete s.vertSec;
+        if(Number(s.md) !== minMd){ delete s.latitude; delete s.longitude; } });
+    return d;
+}
+// 2026-11-28 (John): SPEED — per-job memory cache of the (lean, trimmed) trajectories. Each view first reads only _id / updatedAt /
+// uploadedDate of the job's trajectories (small, uses the noteId index); if that list is unchanged the cached copy is used.
+// Any upload (bulkWrite sets uploadedDate), edit (Mongoose timestamps set updatedAt), new correction version (new _id) or delete
+// (list shrinks) changes the key -> full read. Was: the full ~2.4 MB read on every view (~650-750 ms on an 84-trajectory pad).
+// Up to 10 jobs kept. The cached arrays are shared between requests: treat them as read-only.
+const jobTrajCache = new Map();
+async function jobTrajectories(noteid){
+    const _m0 = Date.now();
+    const meta = await WellboreTrajectory.find({ noteId: noteid }).select('_id updatedAt uploadedDate').lean();
+    const _mMs = Date.now() - _m0;
+    const t = v => v ? new Date(v).getTime() : 0;
+    const key = meta.map(m => String(m._id) + ':' + t(m.updatedAt) + ':' + t(m.uploadedDate)).sort().join('|');
+    const hit = jobTrajCache.get(String(noteid));
+    if(hit && hit.key === key){ console.log('[job trajectories] cache HIT, check ' + _mMs + ' ms'); return hit.data; }
+    console.log('[job trajectories] cache MISS (' + (hit ? 'changed' : 'not cached') + '), check ' + _mMs + ' ms');
+    const data = (await WellboreTrajectory.find({ noteId: noteid }).select(JOB_TRAJ_OMIT).lean())
+        .map(d => { try { return jobTrajTrim(leanDefaults(d, WellboreTrajectory.schema)); } catch(e){ console.error('[leanDefaults]', e.message); return d; } });
+    jobTrajCache.delete(String(noteid)); jobTrajCache.set(String(noteid), { key, data });
+    while(jobTrajCache.size > 10) jobTrajCache.delete(jobTrajCache.keys().next().value);
+    return data;
+}
+// 2026-11-28 (John): SPEED — per-job memory cache of the Pason Plots document (Min/Avg/Max curves, can be large; ~250 ms per view).
+// Each view reads only _id / updatedAt / uploadedAt (unique noteId index); unchanged -> cached copy. Uploads (uploadedAt) and the
+// slide/rotate model save (findOneAndUpdate -> Mongoose timestamps set updatedAt) change the key. Up to 10 jobs. Read-only copy.
+const jobPasonCache = new Map();
+async function jobPason(noteid){
+    const meta = await PasonPlots.findOne({ noteId: noteid }).select('_id updatedAt uploadedAt').lean();
+    if(!meta){ jobPasonCache.delete(String(noteid)); return null; }
+    const t = v => v ? new Date(v).getTime() : 0;
+    const key = String(meta._id) + ':' + t(meta.updatedAt) + ':' + t(meta.uploadedAt);
+    const hit = jobPasonCache.get(String(noteid));
+    if(hit && hit.key === key) return hit.data;
+    const data = await PasonPlots.findOne({ noteId: noteid }).lean();
+    jobPasonCache.delete(String(noteid)); jobPasonCache.set(String(noteid), { key, data });
+    while(jobPasonCache.size > 10) jobPasonCache.delete(jobPasonCache.keys().next().value);
+    return data;
+}
 notesCrtl.renderJob = async (req,res)=>{
     let user = {}
     user.id = req.session.passport.user;
     // console.log('>>Render Job user:' + user.id)
-    let usuario = await User.findById(user.id);
+    // 2026-11-28 (John): SPEED — the queries below run IN PARALLEL (Promise.all). Was: nine awaits one after another, so the page
+    // waited for the sum of all of them. Results and error handling are unchanged.
+    let noteid = req.params.id;
+    // 2026-11-28 (John): SPEED diagnostics — "[job page timing]" log line (per-query ms, render ms, page size), like the jobs page.
+    const _t0 = Date.now(), _qt = {}, _timed = (name, p) => { const t = Date.now(); return Promise.resolve(p).then(v => { _qt[name] = Date.now() - t; return v; }); };
+    const [usuario, note] = await Promise.all([_timed('user', User.findById(user.id)), _timed('note', Note.findById(noteid))]);
     user.role = usuario.role;
     user.rank = usuario.rank;
     user.name = usuario.name;
-    let noteid = req.params.id;
-    let note = await Note.findById(noteid);
-    let log = await Log.find({noteid}).sort({createdAt: 'desc'});
-    let wellboreTrajectories = await WellboreTrajectory.find({noteId: noteid});
-    let pasonPlots = await PasonPlots.findOne({noteId: noteid}).lean();
-    let tdModel = await TDModel.findOne({noteId: noteid}).lean();
-    let hydraulicsModel = await HydraulicsModel.findOne({noteId: noteid}).lean();
-    let casingDesign = await CasingDesign.findOne({noteId: noteid}).lean();
     // 2026-11-11 (John): show the pad's Pad Distribution List (saved on the EDIT page) on the job page, read-only.
-    let padDist = null;
-    try{ const k = PadDistList.keyOf(String((note && note.project) || '').trim()); if(k) padDist = await PadDistList.findOne({ padKey: k }).lean(); }catch(err){ console.error('[PadDistList] job page', err); }
     // 2026-11-13 (John): Slide Sheet accordion (after Hydraulics) — only shown when the job has saved slide sheets.
-    let slideSheets = [];
-    try{ slideSheets = await SlideSheet.find({ noteId: noteid }).select('-segments -settings -roles').populate('user', 'name').sort({ wellKey: 1, updatedAt: -1 }).lean(); }catch(err){ console.error('[SlideSheet] job page', err); }
+    let padKey = null; try{ padKey = PadDistList.keyOf(String((note && note.project) || '').trim()); }catch(err){ console.error('[PadDistList] job page', err); }
+    let [log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist, slideSheets] = await Promise.all([
+        _timed('log', Log.find({noteid}).sort({createdAt: 'desc'})),
+        _timed('trajectories', jobTrajectories(noteid)),   /* 2026-11-28: lean + trimmed + per-job memory cache */
+        _timed('pason', jobPason(noteid)),   /* 2026-11-28: per-job memory cache */
+        _timed('td', TDModel.findOne({noteId: noteid}).lean()),
+        _timed('hydraulics', HydraulicsModel.findOne({noteId: noteid}).lean()),
+        _timed('casing', CasingDesign.findOne({noteId: noteid}).lean()),
+        padKey ? Promise.resolve().then(() => PadDistList.findOne({ padKey }).lean()).catch(err => { console.error('[PadDistList] job page', err); return null; }) : Promise.resolve(null),
+        Promise.resolve().then(() => SlideSheet.find({ noteId: noteid }).select('-segments -settings -roles').populate('user', 'name').sort({ wellKey: 1, updatedAt: -1 }).lean()).catch(err => { console.error('[SlideSheet] job page', err); return []; }),
+    ]);
     // 2026-11-14 (John): Motor Yield per slide (public/js/motorYield.js: MY = interval DLS x CL / slid, deg/30 m) from the
     // well's ORIGINAL uploaded survey (wellName === slide sheet wellKey, not a correction version). Stored on each
     // interval as i.my (null when the slide is not bracketed by two surveys). Display only; nothing is saved.
@@ -951,7 +1132,13 @@ notesCrtl.renderJob = async (req,res)=>{
             x.myRuns = Object.keys(r.runs).map(k => r.runs[k]).filter(q => q.myAvg != null);
         });
     }catch(err){ console.error('[SlideSheet] motor yield', err); }
-    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist, slideSheets})
+    const _t1 = Date.now();
+    res.render('job.ejs', {note, user, log, wellboreTrajectories, pasonPlots, tdModel, hydraulicsModel, casingDesign, padDist, slideSheets}, (err, html) => {
+        if(err){ console.error('[job page] render error', err); return res.status(500).send('Could not render the job page.'); }
+        try{ console.log('[job page timing] db ' + (_t1 - _t0) + ' ms | render ' + (Date.now() - _t1) + ' ms | ' + (Buffer.byteLength(html) / 1e6).toFixed(2) + ' MB | queries ' + JSON.stringify(_qt)
+            + ' | trajectories ' + (wellboreTrajectories || []).length + ', surveys ' + (wellboreTrajectories || []).reduce((s, w) => s + ((w.survey && w.survey.length) || 0), 0) + ', log ' + (log || []).length); }catch(e){}
+        res.send(html);
+    });
 }
 
 
@@ -1284,6 +1471,7 @@ notesCrtl.renderUploadDPStats = async(req,res)=>{
 notesCrtl.uploadDPStats = async (req, res) => {
   try {
     // Clear the entire collection before saving new data
+    bigCache.clear('dpStats'); bigCache.clear('dpStatsLite');   // 2026-11-28: jobs-page cache
     await DPStats.deleteMany({});   // safer than drop(), won't throw if collection doesn't exist
     console.log("Cleared existing DPStats data.");
 
@@ -1350,6 +1538,7 @@ notesCrtl.uploadDPStats = async (req, res) => {
 
     // Bulk insert
     await DPStats.insertMany(DPStatsDocs);
+    bigCache.clear('dpStats'); bigCache.clear('dpStatsLite');   // 2026-11-28: jobs-page cache (cleared again once the new data is in)
 
     console.log("<<<< DPStats uploaded >>>>");
     req.flash("success_msg", "DPStats uploaded successfully");
@@ -1571,6 +1760,7 @@ notesCrtl.savePadAC = async (req, res) => {
       { noteId, headers, rows, uploadedAt: new Date() },
       { upsert: true, new: true }
     );
+    padAcCache.delete(String(noteId));   // 2026-11-28: cache (see getPadAC)
     res.json({ success: true, count: rows.length });
   } catch(err) {
     console.error('savePadAC error:', err);
@@ -1578,10 +1768,23 @@ notesCrtl.savePadAC = async (req, res) => {
   }
 };
 
+// CHANGED 2026-11-28 (John): SPEED — the saved Pad AC table (can be thousands of rows) is kept in server memory per job, keyed by its
+// uploadedAt (savePadAC sets a new one on every save). Each request now reads only uploadedAt (~65 ms) and sends the cached copy
+// when unchanged. Was: the whole document read from the database on every job page view (~1 s for a large pad). Up to 30 jobs kept.
+const padAcCache = new Map();
 notesCrtl.getPadAC = async (req, res) => {
   try {
-    const doc = await PadAC.findOne({ noteId: req.params.noteId }).lean();
-    res.json(doc || null);
+    const noteId = req.params.noteId;
+    const meta = await PadAC.findOne({ noteId }).select('uploadedAt').lean();
+    if(!meta) return res.json(null);
+    const key = String(meta._id) + ':' + (meta.uploadedAt ? new Date(meta.uploadedAt).getTime() : 0);
+    const hit = padAcCache.get(noteId);
+    if(hit && hit.key === key) return res.type('json').send(hit.body);
+    const doc = await PadAC.findOne({ noteId }).lean();
+    const body = JSON.stringify(doc || null);
+    padAcCache.delete(noteId); padAcCache.set(noteId, { key, body });
+    while(padAcCache.size > 30) padAcCache.delete(padAcCache.keys().next().value);
+    res.type('json').send(body);
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
@@ -2382,6 +2585,7 @@ notesCrtl.uploadNewSchedule = async (req, res) => {
 
         // Single document — always replace whatever was there before.
         // No batch IDs, no per-row documents, nothing to go stale or drift.
+        bigCache.clear('newSchedule');   // 2026-11-28: jobs-page cache
         await NewSchedule.deleteMany({});
         await NewSchedule.create({
             headers,
@@ -2390,6 +2594,7 @@ notesCrtl.uploadNewSchedule = async (req, res) => {
             uploadedAt: new Date(),
         });
 
+        bigCache.clear('newSchedule');   // 2026-11-28: jobs-page cache (cleared again once the new data is in)
         console.log(`uploadNewSchedule: saved 1 document with ${rows.length} rows, ${headers.length} columns`);
         // 2026-11-25 (John): refresh every job's Primary Zone from the new schedule (only changed values are written)
         let zonesUpdated = 0; try { zonesUpdated = await syncPrimaryZones({ headers, rows }); } catch(e){ console.error('syncPrimaryZones:', e); }

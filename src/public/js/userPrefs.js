@@ -10,6 +10,9 @@
     var prefs = null;
     function load() {
         if (prefs) return prefs; prefs = {};
+        /* 2026-11-28 (John): use the copy written into the page by the server (job.ejs: window.MTX_USER_PREFS) when present.
+           Was: always a SYNCHRONOUS request here (froze the page ~0.25 s; Chrome flags it as deprecated). Other pages still use the request. */
+        if (root.MTX_USER_PREFS && typeof root.MTX_USER_PREFS === 'object') { prefs = root.MTX_USER_PREFS; return prefs; }
         try { var x = new XMLHttpRequest(); x.open('GET', '/notes/userPrefs', false); x.send(null);
             if (x.status === 200) { var d = JSON.parse(x.responseText); prefs = (d && d.prefs) || {}; } } catch (e) { prefs = {}; }
         return prefs;
